@@ -88,9 +88,13 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-image-preview',
-            contents: { parts: parts },
-            config: { imageConfig: { aspectRatio: params.aspectRatio, imageSize: params.size } },
+            model: 'imagen-3.0-generate-001',
+            contents: { parts: [{ text: params.prompt + " " + (params.artPrompt || "") }] },
+            config: {
+                // @ts-ignore - SDK types might trail behind availability
+                sampleCount: 1,
+                aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9'
+            },
         });
 
         const responseParts = response.candidates?.[0]?.content?.parts;
@@ -148,7 +152,7 @@ export const generateTweet = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: topic,
             config: { systemInstruction: systemInstruction }
         });
@@ -218,7 +222,7 @@ export const generateCampaignDrafts = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: `Generate the campaign draft now.`,
             config: { systemInstruction: systemInstruction }
         });
@@ -286,7 +290,7 @@ export const generateTrendReaction = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: "React to this trend now.",
             config: { systemInstruction: systemInstruction }
         });
@@ -301,7 +305,7 @@ export const generateIdeas = async (brandName: string): Promise<string[]> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: `Generate 4 distinct tweet topics/ideas for a ${brandName} marketing strategist. Return only the topics as a simple list.`,
         });
         return (response.text || '').split('\n').map(l => l.replace(/^[\d\-\.\*]+\s*/, '').trim()).filter(l => l.length > 5);
@@ -392,7 +396,7 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: `Research this brand: ${brandName} (${url})`,
             config: {
                 systemInstruction: systemInstruction,
@@ -488,7 +492,7 @@ export const generateGrowthReport = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: "Analyze the data and generate the report.",
             config: {
                 systemInstruction: systemInstruction,
@@ -581,7 +585,7 @@ export const generateStrategicAnalysis = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: "Perform the audit and generate tasks.",
             config: {
                 systemInstruction: systemInstruction,
