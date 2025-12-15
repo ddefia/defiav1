@@ -6,7 +6,7 @@ import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, Campai
  * Generates an image using the gemini-3-pro-image-preview model.
  */
 export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, apiVersion: 'v1' });
 
     const colorPalette = params.brandConfig.colors.map(c => `${c.name} (${c.hex})`).join(', ');
     const brandName = params.brandName || "Web3";
@@ -121,7 +121,7 @@ export const generateTweet = async (
     brandConfig: BrandConfig,
     tone: string = 'Professional'
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, apiVersion: 'v1' });
 
     const examples = brandConfig.tweetExamples.length > 0
         ? `STYLE EXAMPLES (MIMIC THIS STYLE):\n${brandConfig.tweetExamples.map(t => `- ${t}`).join('\n')}`
@@ -172,7 +172,7 @@ export const generateCampaignDrafts = async (
     brandConfig: BrandConfig,
     count: number
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, apiVersion: 'v1' });
 
     const examples = brandConfig.tweetExamples.length > 0
         ? `STYLE EXAMPLES:\n${brandConfig.tweetExamples.slice(0, 3).map(t => `- ${t}`).join('\n')}`
@@ -242,7 +242,7 @@ export const generateTrendReaction = async (
     brandConfig: BrandConfig,
     type: 'Tweet' | 'Meme'
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, apiVersion: 'v1' });
 
     const examples = brandConfig.tweetExamples.length > 0
         ? `STYLE EXAMPLES:\n${brandConfig.tweetExamples.slice(0, 2).map(t => `- ${t}`).join('\n')}`
@@ -302,7 +302,7 @@ export const generateTrendReaction = async (
 };
 
 export const generateIdeas = async (brandName: string): Promise<string[]> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, apiVersion: 'v1' });
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-1.5-flash',
@@ -361,7 +361,7 @@ const generateDeterministicProfile = (brandName: string, url: string): BrandConf
  * AI RESEARCH: Scrapes (Simulated) and infers brand identity from URL/Name.
  */
 export const researchBrandIdentity = async (brandName: string, url: string): Promise<BrandConfig> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, apiVersion: 'v1' });
 
     // Use Gemini if available for high-quality hallucination
     try {
@@ -427,7 +427,7 @@ export const generateGrowthReport = async (
     campaigns: CampaignLog[],
     socialMetrics?: SocialMetrics
 ): Promise<GrowthReport> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, apiVersion: 'v1' });
 
     let onChainSection = "ON-CHAIN DATA: Not connected / Unavailable. Focus analysis on social strategy.";
 
@@ -526,7 +526,7 @@ export const generateStrategicAnalysis = async (
     brandConfig: BrandConfig,
     growthReport?: GrowthReport | null
 ): Promise<StrategyTask[]> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY, apiVersion: 'v1' });
 
     // 1. Analyze Calendar
     const now = new Date();
