@@ -266,7 +266,9 @@ Corrects the imbalance where centralized platforms profit from user data. Enable
             { id: 'df_2', hex: '#4F46E5', name: 'Indigo 600' },
             { id: 'df_3', hex: '#FAFAFA', name: 'Zinc 50' },
         ],
-        referenceImages: [],
+        referenceImages: [
+            { id: 'defia_workflow', name: 'Defia Workflow', url: '/brands/defia/defia_workflow.png' }
+        ],
         tweetExamples: [
             "Design. Ship. Scale. 📐\n\nDefia Studio provides the infrastructure for decentralized brands to tell their story.",
             "Web3 marketing is broken. We fixed it.\n\nIntroducing the Growth Engine: Data-driven strategy for the on-chain era."
@@ -274,7 +276,39 @@ Corrects the imbalance where centralized platforms profit from user data. Enable
         knowledgeBase: [
             "Defia is a Web3-native creative studio and software suite.",
             "We build tools like the Defia Studio to help protocols manage their brand identity and growth.",
-            "Our mission is to professionalize Web3 marketing."
+            "Our mission is to professionalize Web3 marketing.",
+            `📘 Defia Growth Intelligence – Knowledge Base
+
+🔹 What it is
+A growth intelligence service for Web3 apps. It tells teams which marketing efforts actually bring real users and assets, and which to stop. It’s sold as a subscription with weekly briefs and monthly investor-grade reports.
+
+🔹 How it works
+1. Inputs: Contract addresses, team wallets (to exclude), campaign logs.
+2. Data Collection: Pulls on-chain transactions, normalizes into a single table (time, wallet, action, amount).
+3. Analytics: Classifies users (new vs returning, whales), computes weekly KPIs (retention, TVL change).
+4. Attribution: Measures "lift" vs baseline for each campaign. Outputs CPA, active wallets, and dollars moved.
+5. Brief Generation: Produces "Do/Don't" plans and investor summaries.
+
+🔹 Outputs
+- Weekly Brief: Snapshot of new users, campaign performance table, top 3 actions.
+- Monthly Investor Report: Trend charts, cohort retention, CPA analysis. Ready for DAO/VC updates.
+
+🔹 Key Differentiators
+- Decisions, not dashboards: outputs specific actions ("Kill A, Double B").
+- Attribution focus: Links on-chain behavior to specific budgets.
+- Investor-grade packaging: Ready-to-use reports.
+
+🔹 Why it's not a GPT wrapper
+- Unique plumbing: Builds wallet-level datasets from raw on-chain sources.
+- Deterministic metrics: Cohorts and CPA are computed by code, not LLM guesses.
+- LLM role: Only handles formatting and narrative, not calculation.
+
+🔹 Target Audience
+- Mid-size protocols needing clear ROI.
+- L2 ecosystems and GameFi for grant impact analysis.
+
+🔹 One-line promise
+"Pay for what works. Cut what doesn’t. Prove it to investors—every month."`
         ]
     }
 };
