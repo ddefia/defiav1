@@ -223,7 +223,7 @@ export const generateTweet = async (
     const systemInstruction = `
     You are the Social Media Lead for ${brandName}.
     
-    TASK: Write a single, engaging tweet (under 280 chars) about: "${topic}".
+    TASK: Write a single, engaging tweet (detailed and comprehensive, up to 280 chars) about: "${topic}".
     TONE: ${tone}
     
     ${examples}
@@ -231,9 +231,10 @@ export const generateTweet = async (
     ${kb}
     
     INSTRUCTIONS:
+    - STRUCTURE: Start with a compelling HOOK. End with a clear Call-To-Action (CTA).
     - If style examples are provided, strictly follow their formatting (spacing, emojis, capitalization).
     - If Knowledge Base info is relevant to the topic, ensure accuracy.
-    ${hashtagInstruction}
+    - STRICTLY NO HASHTAGS.
     `;
 
     try {
@@ -301,9 +302,10 @@ export const generateCampaignDrafts = async (
     FORMATTING:
     - Separate each tweet clearly with "---".
     - Do not number the tweets.
-    - Keep each tweet under 280 characters.
+    - Keep each tweet detailed (up to 280 characters).
+    - STRUCTURE: Start with a compelling HOOK. End with a clear Call-To-Action (CTA).
     - Mimic the style of the examples provided.
-    ${hashtagInstruction}
+    - STRICTLY NO HASHTAGS.
     `;
 
     try {
@@ -346,7 +348,8 @@ export const generateTrendReaction = async (
         outputGuidance = `
         Output: A single, punchy tweet (max 280 chars).
         Strategy: Explicitly mention ${brandName} or its products. Connect the news ("${trend.headline}") to our specific value proposition defined in the Knowledge Base.
-        ${hashtagInstruction}
+        Structure: Start with a HOOK. End with a CTA.
+        STRICTLY NO HASHTAGS.
         `;
     } else {
         outputGuidance = `
