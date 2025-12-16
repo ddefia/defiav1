@@ -129,7 +129,54 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
             "Netswap is the premier Decentralized Exchange (DEX) on the Metis network.",
             "Netswap features a launchpad, staking pools, and concentrated liquidity features.",
             "The governance token is $NET.",
-            "Referenced Document: /docs/netswap/netswap_overview.pdf"
+            "Referenced Document: /docs/netswap/netswap_overview.pdf",
+            `🔎 What is Netswap — High‑Level Overview
+● Netswap is a decentralized exchange (DEX) built to run on the Metis Andromeda Layer‑2 network.
+● It uses an automated market‑maker (AMM) model (Uniswap V2 style).
+● Goal: Provide fast, cheap, and scalable DeFi services (swaps, liquidity, farming, launchpad) on Metis L2.
+
+🧱 Architecture & Core Components
+- Underlying Network: Metis Andromeda (Layer 2).
+- AMM Model: No order book, trades against liquidity pools. 0.3% fee (0.25% to LPs, 0.05% to treasury).
+- Smart Contracts: Non-custodial, open-source.
+
+🔹 Key Modules
+- Liquidity Pools: Users deposit token pairs to earn fees.
+- Farming: Stake LP tokens for bonus rewards.
+- Staking (NETT): Stake NETT for incentives, launchpad access (wNETT).
+- Swap: Low friction token exchange.
+- Launchpad V2: Platform for new project launches.
+- Governance: NETT holders vote on proposals.
+
+💱 Economics & Tokenomics: NETT
+- Token: NETT (Governance + Utility).
+- Utility: Staking, Launchpad access, Governance.
+- Supply: Max 100M, circulating ~6M.
+- Distribution: Community-focused (airdrops, farming, ecosystem rewards).
+
+🌐 Use Cases
+1. Token Swapping (fast/cheap).
+2. Liquidity Provision (passive income).
+3. Farming (yield maximization).
+4. Staking NETT (governance/launchpad).
+5. Launch Participation (IDOs).
+
+🏗️ Why Netswap?
+- L2 Cost/Speed Advantage (Metis).
+- All-In-One DeFi Hub (Swap + Farm + Stake + Launch).
+- Support for Metis-native & bridged tokens.
+- Community Governance.
+
+⚠️ Risks
+- Liquidity depth on L2.
+- Dependence on Metis network adoption.
+- Smart contract risks (standard DeFi).
+- Token volatility.
+
+🔮 Vision
+- Become the primary DeFi hub for Metis.
+- Expand features: Limit Orders, Prediction Markets, NFT Marketplace, Leverage.
+- Deepen community ownership via governance.`
         ]
     },
     'Meme': {
