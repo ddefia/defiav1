@@ -42,7 +42,65 @@ export const DEFAULT_PROFILES: Record<string, BrandConfig> = {
             "The token ticker is $ENKI. It is used for governance and reward boosting.",
             // PASTE YOUR DOCUMENTS HERE AS STRINGS
             // "Full Whitepaper Section 1: ...",
-            "Referenced Document: /docs/enki/enki_knowledge.pdf"
+            "Referenced Document: /docs/enki/enki_knowledge.pdf",
+            `📘 ENKI Protocol – Full Knowledge Base
+
+🔹 Introduction
+ENKI Protocol is a liquid staking derivative/token (LST) platform built on Metis, the Layer 2 Ethereum rollup. It simplifies participation in Metis Sequencer Node staking, enabling any user—regardless of technical expertise or capital size—to earn yield on their METIS tokens. ENKI provides a non-custodial, DeFi-native solution that makes staking flexible, composable, and liquid, thus expanding accessibility and DeFi integration for the Metis ecosystem.
+
+🔹 The Problem ENKI Solves
+Running a Metis Sequencer Node requires technical expertise and high capital. ENKI removes these barriers by creating a liquid staking derivative model with a simplified process and composable assets.
+
+🔹 System Architecture
+1. eMetis (ENKI Metis): Pegged 1:1 to METIS, created upon deposit, used for DeFi composability.
+2. seMetis (Staked eMetis): Represents staked eMetis, accrues yield from sequencer rewards.
+3. ENKI Metis Minter: Converts METIS to eMetis and boosts sequencer nodes.
+
+🔹 How Rewards Work
+- 7-day epoch cycle aligned with Metis L1.
+- Rewards: 90% to seMetis Yield Vault, 10% to Protocol Treasury.
+- Redemption: 70% immediate, 30% vested (unlocks with ENKI staking).
+
+🔹 Tokenomics
+- ENKI Token: Governance + Utility (vesting unlock, redemption speed-up).
+- Max Supply: 10M (minting cap protected by timelock).
+- Allocation: 90% Community/Mining, 10% Marketing/Partners. Fair launch, no team alloc.
+
+🔹 Key Features
+- Liquid Staking (eMetis)
+- Yield Vault (seMetis)
+- Vesting & Reward Boosting (Stake ENKI to unlock full yield)
+- Redemption Queue (Optional speed-up with ENKI)
+- Governance (DAO)
+
+🔹 Vesting Mechanism: Deep Dive (Updated May 2024)
+- Immediate Access: 70% of value.
+- Vested Portion: 30% locked for 90 days.
+- Requirement: Stake 10 ENKI per 1 eMetis vested to unlock.
+- Partial Staking: Users can partially unlock if they lack full ENKI coverage.
+- Progressive Claiming: Rewards unlock linearly over time.
+
+🔹 Protocol Architecture Components
+- ENKI Metis Minter: Entry point (METIS -> eMetis).
+- eMetis: ERC-20, pegged 1:1, redeemable.
+- seMetis: ERC-20, value increases with yield.
+
+🔹 Staking Lifecycle
+1. Deposit METIS -> Receive eMetis.
+2. Stake eMetis -> Receive seMetis.
+3. Rewards accrue to seMetis value.
+4. Unstake seMetis -> Receive eMetis (70% instant, 30% vested).
+
+🔹 Redemption
+- Queue-based eMetis -> METIS redemption.
+- FIFO processing based on node availability.
+- Fast redemption possible by locking ENKI.
+
+🔹 Protocol Invariants
+- 1 eMetis = 1 METIS backed.
+- seMetis vault strictly solvent.
+- ENKI supply capped at 10M.
+- Yield split 90/10 fixed unless governed.`
         ]
     },
     'Netswap': {
