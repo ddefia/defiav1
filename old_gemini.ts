@@ -1,83 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage } from "../types";
-
-/**
- * HELPER: Analyze reference images to extract style directions.
- */
-const getBase64FromUrl = async (url: string): Promise<string> => {
-    try {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64 = reader.result as string;
-                // Remove header if present
-                resolve(base64.split(',')[1] || base64);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    } catch (e) {
-        console.warn("Failed to convert image URL to base64", url, e);
-        return "";
-    }
-};
-
-/**
- * HELPER: Analyze reference images to extract style directions.
- */
-const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<string> => {
-    if (!images || images.length === 0) return "";
-
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-    // Limits consistency to first 3 images to avoid token overload
-    // Prioritize images with data, then url
-    const targetImages = images.slice(0, 3);
-
-    try {
-        // Prepare image parts asynchronously
-        const imagePartsPromises = targetImages.map(async (img) => {
-            let base64 = "";
-
-            if (img.data) {
-                base64 = img.data.includes('base64,') ? img.data.split('base64,')[1] : img.data;
-            } else if (img.url) {
-                // Fetch from URL if local data missing
-                base64 = await getBase64FromUrl(img.url);
-            }
-
-            if (!base64) return null;
-
-            return {
-                inlineData: {
-                    mimeType: "image/png",
-                    data: base64
-                }
-            };
-        });
-
-        const resolvedParts = await Promise.all(imagePartsPromises);
-        const validParts = resolvedParts.filter(p => p !== null) as { inlineData: { mimeType: string, data: string } }[];
-
-        if (validParts.length === 0) return "";
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: [
-                ...validParts,
-                { text: "Analyze these reference images. Describe their visual style, color grading, lighting, and composition in 2 sentences. Focus on keywords that a 3D designer would use. Do not describe the subject matter, only the STYLE." }
-            ]
-        });
-
-        return response.text ? `VISUAL STYLE REFERENCE: ${response.text}` : "";
-    } catch (e) {
-        console.warn("Failed to analyze reference images", e);
-        return "";
-    }
-};
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask } from "../types";
 
 /**
  * Generates an image using the gemini-3-pro-image-preview model.
@@ -122,6 +45,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
     const parts: any[] = [{ text: systemPrompt }];
 
+
     // Conversion Helper
     const urlToBase64 = async (url: string): Promise<string | null> => {
         try {
@@ -139,61 +63,51 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     };
 
     // Process Images (Async)
-    try {
-        if (params.brandConfig && params.brandConfig.referenceImages) {
-            const imageParts = await Promise.all(params.brandConfig.referenceImages.map(async (img) => {
-                let finalData = img.data;
+    const imageParts = await Promise.all(params.brandConfig.referenceImages.map(async (img) => {
+        let finalData = img.data;
 
-                // If URL is provided and data is missing, fetch it
-                if (!finalData && img.url) {
-                    const fetched = await urlToBase64(img.url);
-                    if (fetched) finalData = fetched;
-                }
-
-                if (!finalData) return null;
-
-                const base64Data = finalData.split(',')[1] || finalData;
-                const mimeTypeMatch = finalData.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-                const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/png';
-
-                return { inlineData: { mimeType: mimeType, data: base64Data } };
-            }));
-
-            imageParts.forEach(part => {
-                if (part) parts.push(part);
-            });
+        // If URL is provided and data is missing, fetch it
+        if (!finalData && img.url) {
+            const fetched = await urlToBase64(img.url);
+            if (fetched) finalData = fetched;
         }
-    } catch (err) {
-        console.warn("Error processing reference images, proceeding with text only.", err);
-    }
+
+        if (!finalData) return null;
+
+        const base64Data = finalData.split(',')[1] || finalData;
+        const mimeTypeMatch = finalData.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
+        const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/png';
+
+        return { inlineData: { mimeType: mimeType, data: base64Data } };
+    }));
+
+    imageParts.forEach(part => {
+        if (part) parts.push(part);
+    });
+
 
     try {
-        console.log("Generating with gemini-3-pro-image-preview...");
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-image-preview',
-            contents: { parts: parts },
+            model: 'imagen-3.0-generate-001',
+            contents: { parts: [{ text: params.prompt + " " + (params.artPrompt || "") }] },
             config: {
-                // @ts-ignore - Experimental/Legacy schema
-                imageConfig: {
-                    aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9',
-                    imageSize: params.size || '1024x1024'
-                }
+                // @ts-ignore - SDK types might trail behind availability
+                sampleCount: 1,
+                aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9'
             },
         });
 
         const responseParts = response.candidates?.[0]?.content?.parts;
-        const imagePart = responseParts?.[0];
+        if (!responseParts) throw new Error("No content generated.");
 
-        // @ts-ignore
-        if (imagePart && imagePart.inlineData) {
-            // @ts-ignore
-            return `data:${imagePart.inlineData.mimeType || 'image/png'};base64,${imagePart.inlineData.data}`;
+        for (const part of responseParts) {
+            if (part.inlineData && part.inlineData.data) {
+                return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+            }
         }
-
-        throw new Error("No image data returned from Gemini.");
-
-    } catch (error: any) {
-        console.error("Gemini generation error:", error.message);
+        throw new Error("No image data found.");
+    } catch (error) {
+        console.error("Gemini generation error:", error);
         throw error;
     }
 };
@@ -238,7 +152,7 @@ export const generateTweet = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash',
             contents: topic,
             config: { systemInstruction: systemInstruction }
         });
@@ -308,7 +222,7 @@ export const generateCampaignDrafts = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash',
             contents: `Generate the campaign draft now.`,
             config: { systemInstruction: systemInstruction }
         });
@@ -376,7 +290,7 @@ export const generateTrendReaction = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash',
             contents: "React to this trend now.",
             config: { systemInstruction: systemInstruction }
         });
@@ -391,7 +305,7 @@ export const generateIdeas = async (brandName: string): Promise<string[]> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-1.5-flash',
             contents: `Generate 4 distinct tweet topics/ideas for a ${brandName} marketing strategist. Return only the topics as a simple list.`,
         });
         return (response.text || '').split('\n').map(l => l.replace(/^[\d\-\.\*]+\s*/, '').trim()).filter(l => l.length > 5);
@@ -482,7 +396,7 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
         `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash',
             contents: `Research this brand: ${brandName} (${url})`,
             config: {
                 systemInstruction: systemInstruction,
@@ -578,7 +492,7 @@ export const generateGrowthReport = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash',
             contents: "Analyze the data and generate the report.",
             config: {
                 systemInstruction: systemInstruction,
@@ -671,7 +585,7 @@ export const generateStrategicAnalysis = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash',
             contents: "Perform the audit and generate tasks.",
             config: {
                 systemInstruction: systemInstruction,

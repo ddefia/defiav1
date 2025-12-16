@@ -15,7 +15,7 @@ const fetchFromCloud = async (key: string): Promise<any | null> => {
             .from('app_storage')
             .select('value')
             .eq('key', key)
-            .single();
+            .maybeSingle();
 
         if (error) {
             if (error.code !== 'PGRST116') { // Ignore "Row not found"
