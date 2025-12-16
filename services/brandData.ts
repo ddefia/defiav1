@@ -196,9 +196,11 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
     },
     'LazAI': {
         colors: [
-            { id: 'lz_1', hex: '#000000', name: 'Void Black' },
-            { id: 'lz_2', hex: '#3B82F6', name: 'Electric Blue' },
-            { id: 'lz_3', hex: '#10B981', name: 'AI Green' },
+            { id: 'lz_black', hex: '#000000', name: 'Void Black' },
+            { id: 'lz_primary', hex: '#002682', name: 'LazAI' },
+            { id: 'lz_sec', hex: '#405fe9', name: 'LazAI1' },
+            { id: 'lz_white', hex: '#ffffff', name: 'LazAI2' },
+            { id: 'lz_accent', hex: '#3b99fe', name: 'LazAI3' },
         ],
         referenceImages: [
             { id: 'lazai_ref_1', name: 'LazAI Reference 1', url: '/brands/lazai/lazai_ref_1.png' },
