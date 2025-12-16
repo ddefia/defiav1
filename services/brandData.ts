@@ -214,7 +214,48 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
         knowledgeBase: [
             "LazAI is an AI-powered automation suite for content creators and marketers.",
             "Core features include automated blog writing, social media scheduling, and image generation.",
-            "Target audience: Agencies, Freelancers, and Growth Hackers."
+            "Target audience: Agencies, Freelancers, and Growth Hackers.",
+            `📘 LazAI Network – Full Knowledge Base
+
+🔹 Mission & Vision
+LazAI is a Web3-native AI infrastructure protocol focused on verifiable AI + data ownership.
+Mission: Build transparent, decentralized infrastructure where data, models, and agents are owned and verifiable.
+Vision: A future where AI is human-aligned, trust-minimized, and community-governed.
+
+🔹 Core Value Proposition
+- Ownable AI assets via Data Anchoring Tokens (DATs).
+- Verifiable AI behavior on-chain.
+- Incentivized participation for data, compute, and governance.
+- Composable AI agents built with Alith SDK.
+
+🔹 Brand Pillars
+1. Ownership: "AI should belong to those who build and train it."
+2. Transparency: "AI must be auditable, verifiable, and trust-minimized."
+3. Incentives: "Value creation should be rewarded at the protocol level."
+4. Infrastructure First: "Applications change. Infrastructure lasts."
+
+🔹 Core Primitives
+1. DAT (Data Anchoring Token): The "AI asset" primitive. Represents ownership, usage rights, and value share of datasets/models.
+2. Verified Computing (VC): The "trust layer". Ensures AI data and inference are authentic via TEE/ZK/Optimistic proofs.
+3. Quorum-Based BFT (QBFT): AI-centric consensus validated by the iDAO.
+4. Alith: Developer gateway and agent framework (Rust/Python/Node SDKs).
+
+🔹 Architecture
+- Execution: TEE (Verified Storage/Compute) -> Proof (ZK/Op) -> On-chain Verification -> Settlement.
+- Privacy: Contributors mint DATs for private data, enabling privacy-preserving inference.
+
+🔹 Network & Token
+- Testnet Chain ID: 133718
+- Currency: LAZAI
+- Explorer: https://testnet-explorer.lazai.network
+
+🔹 Target Audience
+- Web3 Developers: Building on-chain agents.
+- AI Builders: Seeking ownership and provenance.
+- Crypto-Native Adopters: Interested in AI x Tokenomics.
+
+🔹 Why LazAI?
+Corrects the imbalance where centralized platforms profit from user data. Enables a new AI-native economy with on-chain incentives.`
         ]
     },
     'Defia': {
