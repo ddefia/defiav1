@@ -42,7 +42,6 @@ export const DEFAULT_PROFILES: Record<string, BrandConfig> = {
             "The token ticker is $ENKI. It is used for governance and reward boosting.",
             // PASTE YOUR DOCUMENTS HERE AS STRINGS
             // "Full Whitepaper Section 1: ...",
-            "Referenced Document: /docs/enki/enki_knowledge.pdf",
             `📘 ENKI Protocol – Full Knowledge Base
 
 🔹 Introduction
@@ -129,7 +128,6 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
             "Netswap is the premier Decentralized Exchange (DEX) on the Metis network.",
             "Netswap features a launchpad, staking pools, and concentrated liquidity features.",
             "The governance token is $NET.",
-            "Referenced Document: /docs/netswap/netswap_overview.pdf",
             `🔎 What is Netswap — High‑Level Overview
 ● Netswap is a decentralized exchange (DEX) built to run on the Metis Andromeda Layer‑2 network.
 ● It uses an automated market‑maker (AMM) model (Uniswap V2 style).
