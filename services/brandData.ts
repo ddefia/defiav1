@@ -95,7 +95,13 @@ export const DEFAULT_PROFILES: Record<string, BrandConfig> = {
             { id: 'lz_2', hex: '#3B82F6', name: 'Electric Blue' },
             { id: 'lz_3', hex: '#10B981', name: 'AI Green' },
         ],
-        referenceImages: [],
+        referenceImages: [
+            { id: 'lazai_ref_1', name: 'LazAI Reference 1', url: '/brands/lazai/lazai_ref_1.png' },
+            { id: 'lazai_ref_2', name: 'LazAI Reference 2', url: '/brands/lazai/lazai_ref_2.png' },
+            { id: 'lazai_ref_3', name: 'LazAI Reference 3', url: '/brands/lazai/lazai_ref_3.png' },
+            { id: 'lazai_ref_4', name: 'LazAI Reference 4', url: '/brands/lazai/lazai_ref_4.png' },
+            { id: 'lazai_ref_5', name: 'LazAI Reference 5', url: '/brands/lazai/lazai_ref_5.png' }
+        ],
         tweetExamples: [
             "Stop writing boilerplate. Start creating. 🧠\n\nLazAI v2.0 is live.\n\n- 10x faster generation\n- Context-aware workflows\n- Enterprise grade security\n\nThe future of work is automated.",
             "Your competitors are already using AI. Are you?\n\nDon't get left behind. #LazAI"
