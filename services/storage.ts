@@ -6,14 +6,31 @@ const STORAGE_KEY = 'ethergraph_brand_profiles_v16';
 const PULSE_STORAGE_PREFIX = 'defia_pulse_cache_v1_';
 const CALENDAR_STORAGE_KEY = 'defia_calendar_events_v1';
 const KEYS_STORAGE_KEY = 'defia_integrations_v1';
+const META_STORAGE_KEY = 'defia_storage_meta_v1';
+
+// --- HELPER: Timestamp Management ---
+const getLocalTimestamp = (key: string): number => {
+    try {
+        const meta = JSON.parse(localStorage.getItem(META_STORAGE_KEY) || '{}');
+        return meta[key] || 0;
+    } catch { return 0; }
+};
+
+const setLocalTimestamp = (key: string, ts: number) => {
+    try {
+        const meta = JSON.parse(localStorage.getItem(META_STORAGE_KEY) || '{}');
+        meta[key] = ts;
+        localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
+    } catch { }
+};
 
 // --- HELPER: App Storage Table Interaction ---
 
-const fetchFromCloud = async (key: string): Promise<any | null> => {
+const fetchFromCloud = async (key: string): Promise<{ value: any, updated_at: string } | null> => {
     try {
         const { data, error } = await supabase
             .from('app_storage')
-            .select('value')
+            .select('value, updated_at')
             .eq('key', key)
             .maybeSingle();
 
@@ -23,7 +40,7 @@ const fetchFromCloud = async (key: string): Promise<any | null> => {
             }
             return null;
         }
-        return data?.value || null;
+        return data ? { value: data.value, updated_at: data.updated_at } : null;
     } catch (e) {
         console.error("Cloud fetch failed:", e);
         return null;
@@ -44,30 +61,27 @@ const saveToCloud = async (key: string, value: any) => {
 
 // --- BRAND PROFILES ---
 
-// NOTE: We keep the synchronous signature for initial render compatibility, 
-// but we quietly sync with cloud in the background and update localStorage.
-// A full refactor to async hooks would be better, but this bridges the gap.
-
 export const loadBrandProfiles = (): Record<string, BrandConfig> => {
     try {
         const stored = localStorage.getItem(STORAGE_KEY);
         const localData = stored ? JSON.parse(stored) : DEFAULT_PROFILES;
+        const localTs = getLocalTimestamp(STORAGE_KEY);
 
         // Background Cloud Sync
-        fetchFromCloud(STORAGE_KEY).then((cloudData) => {
-            if (cloudData) {
-                // If cloud data is different/newer, we should technically assume it's truth
-                // But for now let's just save it to local storage for next reload
-                const currentStr = JSON.stringify(localData);
-                const cloudStr = JSON.stringify(cloudData);
-                if (currentStr !== cloudStr) {
-                    console.log("Cloud data found. Updating local cache for next session.");
-                    localStorage.setItem(STORAGE_KEY, cloudStr);
-                    // In a real app we'd trigger a React context update here
+        fetchFromCloud(STORAGE_KEY).then((result) => {
+            if (result) {
+                const cloudTs = new Date(result.updated_at).getTime();
+                // Only overwrite if cloud is newer than local last-write
+                if (cloudTs > localTs) {
+                    console.log("Cloud data found (Newer). Updating local cache for next session.");
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(result.value));
+                    setLocalTimestamp(STORAGE_KEY, cloudTs);
+                    // Force reload if needed, but for now relies on next refresh
+                } else {
+                    console.log("Cloud data found but stale/older. Ignoring.");
                 }
             } else {
                 // If cloud is empty but we have local, push to cloud
-                // (Only if local is not just defaults)
                 if (stored) {
                     saveToCloud(STORAGE_KEY, localData);
                 }
@@ -112,6 +126,7 @@ const mergeWithDefaults = (storedData: any): Record<string, BrandConfig> => {
 export const saveBrandProfiles = (profiles: Record<string, BrandConfig>): void => {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
+        setLocalTimestamp(STORAGE_KEY, Date.now());
         saveToCloud(STORAGE_KEY, profiles);
     } catch (e) {
         console.error("Failed to save brand profiles", e);
@@ -129,10 +144,10 @@ export const loadPulseCache = (brandName: string): PulseCache => {
         const key = `${PULSE_STORAGE_PREFIX}${brandName.toLowerCase()}`;
         const stored = localStorage.getItem(key);
 
-        // Background Sync
-        fetchFromCloud(key).then(cloudCache => {
-            if (cloudCache) {
-                localStorage.setItem(key, JSON.stringify(cloudCache));
+        // Background Sync (Simple fallback for cache)
+        fetchFromCloud(key).then(result => {
+            if (result && result.value) {
+                localStorage.setItem(key, JSON.stringify(result.value));
             }
         });
 
@@ -169,11 +184,22 @@ export const loadCalendarEvents = (brandName: string): CalendarEvent[] => {
     try {
         const key = `${CALENDAR_STORAGE_KEY}_${brandName.toLowerCase()}`;
         const stored = localStorage.getItem(key);
+        const localTs = getLocalTimestamp(key);
 
         // Background Sync
-        fetchFromCloud(key).then(cloudEvents => {
-            if (cloudEvents) {
-                localStorage.setItem(key, JSON.stringify(cloudEvents));
+        fetchFromCloud(key).then(result => {
+            if (result) {
+                const cloudTs = new Date(result.updated_at).getTime();
+                if (cloudTs > localTs) {
+                    console.log(`[Calendar] Cloud newer for ${brandName}. Updating local.`);
+                    localStorage.setItem(key, JSON.stringify(result.value));
+                    setLocalTimestamp(key, cloudTs);
+                } else {
+                    console.log(`[Calendar] Cloud stale for ${brandName}. Ignoring.`);
+                }
+            } else if (stored) {
+                // Cloud empty, push local
+                saveToCloud(key, JSON.parse(stored));
             }
         });
 
@@ -187,6 +213,7 @@ export const saveCalendarEvents = (brandName: string, events: CalendarEvent[]): 
     try {
         const key = `${CALENDAR_STORAGE_KEY}_${brandName.toLowerCase()}`;
         localStorage.setItem(key, JSON.stringify(events));
+        setLocalTimestamp(key, Date.now());
         saveToCloud(key, events);
     } catch (e) {
         console.error("Failed to save calendar events", e);
