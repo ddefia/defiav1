@@ -3,7 +3,7 @@ import { DEFAULT_PROFILES } from './brandData';
 import { supabase } from './supabaseClient';
 
 const STORAGE_KEY = 'ethergraph_brand_profiles_v16';
-const PULSE_STORAGE_PREFIX = 'defia_pulse_cache_v1_';
+const PULSE_STORAGE_PREFIX = 'defia_pulse_cache_v2_';
 const CALENDAR_STORAGE_KEY = 'defia_calendar_events_v1';
 const KEYS_STORAGE_KEY = 'defia_integrations_v1';
 const META_STORAGE_KEY = 'defia_storage_meta_v1';
@@ -53,9 +53,24 @@ const saveToCloud = async (key: string, value: any) => {
             .from('app_storage')
             .upsert({ key, value, updated_at: new Date().toISOString() });
 
-        if (error) console.error(`Supabase save error for ${key}:`, error.message);
+        if (error) {
+            console.error(`Supabase save error for ${key}:`, error.message);
+            // Optionally notify user of save failure via a toast (not implemented here yet)
+        }
     } catch (e) {
         console.error("Cloud save failed:", e);
+    }
+};
+
+// --- EVENTS ---
+export const STORAGE_EVENTS = {
+    CALENDAR_UPDATE: 'defia_calendar_update',
+    BRAND_UPDATE: 'defia_brand_update',
+};
+
+const dispatchStorageEvent = (eventName: string, detail: any) => {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(eventName, { detail }));
     }
 };
 
@@ -190,10 +205,13 @@ export const loadCalendarEvents = (brandName: string): CalendarEvent[] => {
         fetchFromCloud(key).then(result => {
             if (result) {
                 const cloudTs = new Date(result.updated_at).getTime();
-                if (cloudTs > localTs) {
-                    console.log(`[Calendar] Cloud newer for ${brandName}. Updating local.`);
+                // Check if cloud is newer OR if we have no local timestamp yet (first load)
+                if (cloudTs > localTs || localTs === 0) {
+                    console.log(`[Calendar] Cloud newer for ${brandName}. Updating local & UI.`);
                     localStorage.setItem(key, JSON.stringify(result.value));
                     setLocalTimestamp(key, cloudTs);
+                    // Trigger UI Refresh
+                    dispatchStorageEvent(STORAGE_EVENTS.CALENDAR_UPDATE, { brandName });
                 } else {
                     console.log(`[Calendar] Cloud stale for ${brandName}. Ignoring.`);
                 }
@@ -214,6 +232,7 @@ export const saveCalendarEvents = (brandName: string, events: CalendarEvent[]): 
         const key = `${CALENDAR_STORAGE_KEY}_${brandName.toLowerCase()}`;
         localStorage.setItem(key, JSON.stringify(events));
         setLocalTimestamp(key, Date.now());
+        dispatchStorageEvent(STORAGE_EVENTS.CALENDAR_UPDATE, { brandName }); // Local update trigger
         saveToCloud(key, events);
     } catch (e) {
         console.error("Failed to save calendar events", e);
@@ -224,15 +243,33 @@ export const saveCalendarEvents = (brandName: string, events: CalendarEvent[]): 
 
 export interface IntegrationKeys {
     dune?: string;
+    duneQueryIds?: {
+        volume?: string;
+        users?: string;
+        retention?: string;
+    };
     apify?: string;
+    lunarCrush?: string;
 }
 
-export const loadIntegrationKeys = (): IntegrationKeys => {
-    const stored = localStorage.getItem(KEYS_STORAGE_KEY);
+export const loadIntegrationKeys = (brandName?: string): IntegrationKeys => {
+    // If brandName is provided, try to load specific keys, otherwise fallback to global
+    // or migration strategy: checks specific first, then global
+    const key = brandName ? `${KEYS_STORAGE_KEY}_${brandName.toLowerCase()}` : KEYS_STORAGE_KEY;
+    const stored = localStorage.getItem(key);
+
+    // Fallback: If no specific key found for this brand, try the global one (legacy support)
+    if (!stored && brandName) {
+        const globalParams = localStorage.getItem(KEYS_STORAGE_KEY);
+        return globalParams ? JSON.parse(globalParams) : {};
+    }
+
     return stored ? JSON.parse(stored) : {};
 };
 
-export const saveIntegrationKeys = (keys: IntegrationKeys): void => {
-    localStorage.setItem(KEYS_STORAGE_KEY, JSON.stringify(keys));
+export const saveIntegrationKeys = (keys: IntegrationKeys, brandName?: string): void => {
+    // Save to brand-specific slot if provided, otherwise global (not recommended for new flow)
+    const key = brandName ? `${KEYS_STORAGE_KEY}_${brandName.toLowerCase()}` : KEYS_STORAGE_KEY;
+    localStorage.setItem(key, JSON.stringify(keys));
     // NOTE: Not syncing keys to cloud for security reasons in this basic implementation
 };

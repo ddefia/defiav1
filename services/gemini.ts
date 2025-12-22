@@ -3,6 +3,28 @@ import { GoogleGenAI } from "@google/genai";
 import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage } from "../types";
 
 /**
+ * Helper to generate embeddings for RAG.
+ */
+export const generateEmbedding = async (text: string): Promise<number[]> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    try {
+        const result = await ai.models.embedContent({
+            model: "text-embedding-004",
+            contents: { parts: [{ text }] }
+        });
+
+        if (result.embeddings && result.embeddings.length > 0 && result.embeddings[0].values) {
+            return result.embeddings[0].values;
+        }
+
+        return [];
+    } catch (e) {
+        console.error("Embedding generation failed", e);
+        return [];
+    }
+};
+
+/**
  * HELPER: Analyze reference images to extract style directions.
  */
 const getBase64FromUrl = async (url: string): Promise<string> => {
@@ -390,6 +412,60 @@ export const generateTrendReaction = async (
     }
 };
 
+/**
+ * CONNECT: Generates business connection ideas from trends.
+ */
+export const generateBusinessConnections = async (
+    trends: TrendItem[],
+    brandName: string,
+    brandConfig: BrandConfig
+): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    // Filter top 10 trends for prompt
+    const topTrends = trends.slice(0, 10).map(t => `- ${t.headline}: ${t.summary}`).join('\n');
+    const kb = brandConfig.knowledgeBase.join('\n');
+
+    const systemInstruction = `
+    You are the Chief Strategy Officer for ${brandName}.
+    
+    YOUR OBJECTIVE:
+    Identify high-value strategic opportunities by connecting real-time market trends to ${brandName}'s unique value propositions.
+    
+    BRAND KNOWLEDGE BASE:
+    ${kb}
+
+    CURRENT MARKET TRENDS:
+    ${topTrends}
+
+    YOUR TASK:
+    For the top 3 most relevant trends provided above, generate specific, actionable business opportunities.
+    
+    CRITICAL INSTRUCTIONS:
+    1. **Direct Correlation**: explicitly explain HOW this trend affects ${brandName}.
+    2. **Actionable Strategy**: Suggest a concrete marketing angle, partnership idea, or product feature emphasis.
+    3. **Tone**: Executive, insightful, and growth-oriented.
+    
+    OUTPUT FORMAT (Markdown):
+    ### [Trend Name]
+    **Relevance:** [Why this matters to ${brandName}]
+    **Strategy:** [Specific action we should take]
+    **Content Angle:** [What we should post/write about]
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "Generate business connections.",
+            config: { systemInstruction: systemInstruction }
+        });
+        return response.text || "Unable to generate ideas.";
+    } catch (e) {
+        console.error("Business connection generation failed", e);
+        return "Error generating business connection ideas.";
+    }
+};
+
 export const generateIdeas = async (brandName: string): Promise<string[]> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
@@ -608,47 +684,79 @@ export const generateGrowthReport = async (
 /**
  * STRATEGY BRAIN: "The Employee"
  */
+// Update imports to include Mention from analytics (we need to export it from types or analytics, assuming analytics for now based on previous step)
+// Note: Since Mention is defined in analytics in previous step, we might need to move it to types.ts or just use 'any' if import is tricky without seeings exports. 
+// Ideally Mention should be in types.ts. I will assume it is passed as 'any[]' for now or 'Mentions[]' if I can fix types.
+// For safety, I will define a local interface or use existing types.
+
 export const generateStrategicAnalysis = async (
     brandName: string,
     calendarEvents: CalendarEvent[],
     trends: TrendItem[],
     brandConfig: BrandConfig,
-    growthReport?: GrowthReport | null
+    growthReport?: GrowthReport | null,
+    mentions: any[] = [], // New: Incoming mentions for Community Manager
+    ragContext: string = "" // New: RAG Memory Context
 ): Promise<StrategyTask[]> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // 1. Analyze Calendar
+    // 1. Analyze Calendar (Content Machine)
     const now = new Date();
     const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const eventsNextWeek = calendarEvents.filter(e => {
         const d = new Date(e.date);
         return d >= now && d <= next7Days;
     });
+    const isScheduleEmpty = eventsNextWeek.length < 3;
 
     // 2. Prepare Context
     const kb = brandConfig.knowledgeBase.slice(0, 3).join('\n'); // Brief context
-    const trendSummaries = trends.slice(0, 2).map(t => `- ${t.headline} (${t.relevanceReason})`).join('\n');
+    const trendSummaries = trends.slice(0, 3).map(t => `- ${t.headline} (${t.relevanceReason})`).join('\n');
     const existingSchedule = eventsNextWeek.map(e => `${e.date}: ${e.content.substring(0, 30)}...`).join('\n');
+    const mentionSummaries = mentions.slice(0, 3).map(m => `- ${m.author}: "${m.text}"`).join('\n');
 
     let reportContext = "No quantitative performance data available.";
     if (growthReport) {
         reportContext = `
         PERFORMANCE DATA (Use this to optimize tasks):
-        - Executive Summary: ${growthScore(growthReport)}
+        - Executive Summary: ${growthReport.executiveSummary}
         - Strategic Directives: ${growthReport.strategicPlan.map(p => `${p.action}: ${p.subject}`).join(' | ')}
         `;
     }
 
     const systemInstruction = `
-    You are 'Gaia', the Chief Marketing Officer for ${brandName}.
-    Your goal is to audit the current schedule, identify opportunities, and assign tasks to the human team.
+    You are 'Gaia', the AI Marketing Employee for ${brandName}.
+    You assume three specific roles to audit the current state and assign tasks:
+
+    ${ragContext ? `
+    IMPORTANT - LONG TERM MEMORY (RAG):
+    The following is retrieved context from our historical database and on-chain analysis. Use this to inform your decisions, especially for EVERGREEN content or TREND JACKING.
+    ${ragContext}
+    ` : ''}
+
+    ROLE 1: THE NEWSROOM (Trend Jacking)
+    - Monitor 'Market Trends' for any news specifically matching our brand keywords or high-impact sector news.
+    - If a match is found, create a 'REACTION' task.
+
+    ROLE 2: THE COMMUNITY MANAGER (Auto-Reply)
+    - Review 'Incoming Mentions'.
+    - If a mention requires a response (question, praise, FUD), create a 'REPLY' task.
+    - Ignore spam.
+
+    ROLE 3: THE CONTENT MACHINE (Evergreen)
+    - Review 'Upcoming Schedule'.
+    - If there are fewer than 3 items scheduled for the next 7 days, create 'EVERGREEN' tasks to fill the gaps.
+    - Topics: Educational, Brand Values, Feature Highlights (from Knowledge Base).
 
     CONTEXT:
-    - Upcoming Schedule (Next 7 Days):
-    ${existingSchedule || "NO CONTENT SCHEDULED."}
+    - Upcoming Schedule:
+    ${existingSchedule || "NO CONTENT SCHEDULED (Active Content Machine needed)."}
 
-    - Market Trends (Pulse):
+    - Market Trends:
     ${trendSummaries || "No major trends detected."}
+
+    - Incoming Mentions:
+    ${mentionSummaries || "No new mentions."}
 
     - Brand Context:
     ${kb}
@@ -656,18 +764,18 @@ export const generateStrategicAnalysis = async (
     ${reportContext}
 
     TASK:
-    Propose exactly 3 high-impact tasks.
+    Propose exactly 3-5 high-impact tasks based on the roles above.
     
     OUTPUT JSON:
     [
         {
             "id": "unique_string",
-            "type": "GAP_FILL" | "TREND_JACK" | "CAMPAIGN_IDEA" | "COMMUNITY",
-            "title": "Short Task Title",
+            "type": "GAP_FILL" | "TREND_JACK" | "CAMPAIGN_IDEA" | "COMMUNITY" | "REACTION" | "REPLY" | "EVERGREEN",
+            "title": "Short Task Title (e.g. 'Reply to @User', 'News: ETF Approval')",
             "description": "One sentence explanation.",
-            "reasoning": "Why this is important now (cite Performance Data if relevant).",
+            "reasoning": "Why this is important now.",
             "impactScore": number (1-10),
-            "executionPrompt": "The exact instruction to give the writer AI to generate this tweet. Be specific."
+            "executionPrompt": "The specific instruction to generate the content. For REPLIES, include the user's original text."
         }
     ]
     `;
@@ -686,17 +794,29 @@ export const generateStrategicAnalysis = async (
     } catch (error) {
         console.error("Strategy generation error", error);
         // Fallback
-        return [
-            {
-                id: 'fallback-1',
-                type: 'GAP_FILL',
-                title: 'Fill Schedule Gap',
-                description: 'The calendar is looking empty for the next few days.',
-                reasoning: 'Consistent posting is key to maintaining algorithmic reach.',
-                impactScore: 8,
-                executionPrompt: `Write a tweet for ${brandName} that engages the community about current market conditions.`
-            }
-        ];
+        const fallbackTasks: StrategyTask[] = [];
+
+        if (isScheduleEmpty) {
+            fallbackTasks.push({
+                id: 'fallback-evg',
+                type: 'EVERGREEN',
+                title: 'Schedule Gaps Detected',
+                description: 'The calendar is light. Generating educational content.',
+                reasoning: 'Consistent presence is key.',
+                impactScore: 7,
+                executionPrompt: `Write an educational tweet about ${brandName}'s core value proposition.`
+            });
+        }
+
+        return fallbackTasks.length > 0 ? fallbackTasks : [{
+            id: 'fallback-1',
+            type: 'GAP_FILL',
+            title: 'Fill Schedule Gap',
+            description: 'The calendar is looking empty for the next few days.',
+            reasoning: 'Consistent posting is key to maintaining algorithmic reach.',
+            impactScore: 8,
+            executionPrompt: `Write a tweet for ${brandName} that engages the community about current market conditions.`
+        }];
     }
 };
 

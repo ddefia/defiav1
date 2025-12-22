@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity } from './services/gemini';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, STORAGE_EVENTS } from './services/storage';
 import { Button } from './components/Button';
 import { Select } from './components/Select';
 import { BrandKit } from './components/BrandKit';
@@ -75,6 +75,18 @@ const App: React.FC = () => {
 
     useEffect(() => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
+
+        // Listen for background sync updates
+        const handleSyncUpdate = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail?.brandName === selectedBrand) {
+                console.log("Live Sync: Reloading calendar events for", selectedBrand);
+                setCalendarEvents(loadCalendarEvents(selectedBrand));
+            }
+        };
+
+        window.addEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
+        return () => window.removeEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
     }, [selectedBrand]);
 
     // Set default campaign start date to tomorrow

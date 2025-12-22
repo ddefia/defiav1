@@ -1,16 +1,18 @@
 
+import 'dotenv/config'; // Load .env file
 import express from 'express';
 import cors from 'cors';
 import { GoogleAuth } from 'google-auth-library';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { startAgent } from './server/agent/scheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Enable CORS for the frontend (Vite runs on 3000 usually)
 app.use(cors());
@@ -100,8 +102,102 @@ app.post('/api/generate-image', async (req, res) => {
     }
 });
 
+// --- LunarCrush Proxy Endpoints ---
+
+const getLunarKey = () => process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
+
+app.get('/api/lunarcrush/creator/:screen_name', async (req, res) => {
+    const { screen_name } = req.params;
+    const apiKey = getLunarKey();
+
+    if (!apiKey) return res.status(500).json({ error: "Server missing LunarCrush API Key" });
+
+    try {
+        console.log(`[Proxy] Fetching LunarCrush Creator: ${screen_name}`);
+        const response = await fetch(`https://lunarcrush.com/api4/public/creator/twitter/${screen_name}/v1`, {
+            headers: { "Authorization": `Bearer ${apiKey}` }
+        });
+
+        if (!response.ok) {
+            const txt = await response.text();
+            console.warn(`[Proxy] LC Error: ${response.status} - ${txt}`);
+            return res.status(response.status).json({ error: txt });
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (e) {
+        console.error("[Proxy] LC Exception:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/lunarcrush/time-series/:screen_name', async (req, res) => {
+    const { screen_name } = req.params;
+    const { interval = '1d' } = req.query;
+    const apiKey = getLunarKey();
+
+    if (!apiKey) return res.status(500).json({ error: "Server missing LunarCrush API Key" });
+
+    try {
+        console.log(`[Proxy] Fetching LC Time Series: ${screen_name}`);
+        const response = await fetch(`https://lunarcrush.com/api4/public/creator/twitter/${screen_name}/time-series/v1?interval=${interval}`, {
+            headers: { "Authorization": `Bearer ${apiKey}` }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/lunarcrush/posts/:screen_name', async (req, res) => {
+    const { screen_name } = req.params;
+    const apiKey = getLunarKey();
+    if (!apiKey) return res.status(500).json({ error: "Server missing LunarCrush API Key" });
+
+    try {
+        const response = await fetch(`https://lunarcrush.com/api4/public/creator/twitter/${screen_name}/posts/v1`, {
+            headers: { "Authorization": `Bearer ${apiKey}` }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Internal Cache Endpoints ---
+
+const CACHE_FILE = path.join(__dirname, 'server/cache/social_metrics.json');
+
+app.get('/api/social-metrics/:brand', (req, res) => {
+    const { brand } = req.params;
+
+    if (!fs.existsSync(CACHE_FILE)) {
+        return res.json({ error: "Cache not built yet" });
+    }
+
+    try {
+        const cache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+        const key = brand.toLowerCase();
+        const data = cache[key];
+
+        if (!data) {
+            return res.json({ error: "Brand not tracked" });
+        }
+
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: "Cache read failed" });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`\n🚀 Backend Proxy running at http://localhost:${PORT}`);
     console.log(`   - Endpoint: POST /api/generate-image`);
     console.log(`   - Auth: Parsing service-account.json...`);
+
+    // Start Autonomous Agent
+    startAgent();
 });

@@ -61,7 +61,7 @@ export interface CalendarEvent {
 
 export interface StrategyTask {
   id: string;
-  type: 'GAP_FILL' | 'TREND_JACK' | 'CAMPAIGN_IDEA' | 'COMMUNITY';
+  type: 'GAP_FILL' | 'TREND_JACK' | 'CAMPAIGN_IDEA' | 'COMMUNITY' | 'REACTION' | 'REPLY' | 'EVERGREEN';
   title: string;
   description: string;
   reasoning: string;
@@ -74,7 +74,7 @@ export interface StrategyTask {
 
 export interface TrendItem {
   id: string;
-  source: 'Twitter' | 'News' | 'OnChain';
+  source: 'Twitter' | 'News' | 'OnChain' | 'LunarCrush';
   headline: string;
   summary: string;
   relevanceScore: number; // 1-100
@@ -83,6 +83,7 @@ export interface TrendItem {
   url?: string;
   timestamp: string; // Display string (e.g. "10m ago")
   createdAt: number; // Machine timestamp for 48h expiry logic
+  rawData?: any; // Full original payload for backend processing/debugging
 }
 
 export interface PulseCache {
@@ -121,6 +122,37 @@ export interface SocialMetrics {
   error?: string;
 }
 
+export interface LunarCrushCreator {
+  id: string;
+  name: string;
+  screen_name: string;
+  profile_image: string;
+  followers: number;
+  verified: boolean;
+  url: string;
+  interactions_24h: number;
+  posts_24h: number;
+  average_sentiment: number; // 0-100
+  social_score: number;
+}
+
+export interface LunarCrushTimeSeriesItem {
+  time: number; // Unix timestamp
+  followers: number;
+  interactions: number;
+  posts: number;
+  social_score: number;
+}
+
+export interface LunarCrushPost {
+  id: string;
+  body: string;
+  post_link: string;
+  sentiment: number;
+  interactions: number; // likes + reposts + replies
+  posted: number; // timestamp
+}
+
 export interface GrowthInput {
   contracts: {
     label: string;
@@ -128,6 +160,11 @@ export interface GrowthInput {
     type: 'token' | 'staking' | 'pool' | 'nft';
   }[];
   duneApiKey?: string; // Integration point
+  duneQueryIds?: {
+    volume?: string;
+    users?: string;
+    retention?: string;
+  };
   excludedWallets: string[];
   campaigns: CampaignLog[];
 }
