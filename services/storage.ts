@@ -273,3 +273,35 @@ export const saveIntegrationKeys = (keys: IntegrationKeys, brandName?: string): 
     localStorage.setItem(key, JSON.stringify(keys));
     // NOTE: Not syncing keys to cloud for security reasons in this basic implementation
 };
+
+// --- STRATEGY TASKS PERSISTENCE ---
+
+const STRATEGY_STORAGE_KEY = 'defia_strategy_tasks_v1';
+
+export const loadStrategyTasks = (brandName: string): any[] => {
+    try {
+        const key = `${STRATEGY_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+
+        // Background Sync (Simple fallback)
+        fetchFromCloud(key).then(result => {
+            if (result && result.value) {
+                localStorage.setItem(key, JSON.stringify(result.value));
+            }
+        });
+
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        return [];
+    }
+};
+
+export const saveStrategyTasks = (brandName: string, tasks: any[]): void => {
+    try {
+        const key = `${STRATEGY_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(tasks));
+        saveToCloud(key, tasks);
+    } catch (e) {
+        console.error("Failed to save strategy tasks", e);
+    }
+};

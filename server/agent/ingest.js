@@ -150,7 +150,7 @@ export const updateAllBrands = async (apiKey) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     "searchTerms": [`from:${handle}`],
-                    "maxItems": 1,
+                    "maxItems": 5,
                     "sort": "Latest",
                     "tweetLanguage": "en"
                 })
@@ -174,7 +174,15 @@ export const updateAllBrands = async (apiKey) => {
                         results[key] = {
                             totalFollowers: followers,
                             lastUpdated: new Date().toISOString(),
-                            handle: handle
+                            handle: handle,
+                            recentPosts: items.map(item => ({
+                                id: item.id_str || item.id,
+                                content: item.full_text || item.text || "",
+                                date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "Recent",
+                                likes: item.favorite_count || item.likes || 0,
+                                comments: item.reply_count || item.replies || 0,
+                                retweets: item.retweet_count || item.retweets || 0
+                            }))
                         };
                         console.log(`   > Success: ${followers} followers found for ${key}.`);
                     } else {

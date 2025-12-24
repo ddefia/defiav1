@@ -11,16 +11,26 @@ import { Button } from './Button';
 interface StrategyBrainProps {
     brandName: string;
     brandConfig: BrandConfig;
+    tasks: StrategyTask[];
+    onUpdateTasks: (tasks: StrategyTask[]) => void;
     events: CalendarEvent[];
     onSchedule: (content: string, image?: string) => void;
-    growthReport?: GrowthReport | null;
+    growthReport?: GrowthReport | null; // Keep optional
 }
 
-export const StrategyBrain: React.FC<StrategyBrainProps> = ({ brandName, brandConfig, events, onSchedule, growthReport }) => {
-    const [tasks, setTasks] = useState<StrategyTask[]>([]);
+export const StrategyBrain: React.FC<StrategyBrainProps> = ({
+    brandName,
+    brandConfig,
+    tasks,
+    onUpdateTasks,
+    events,
+    onSchedule,
+    growthReport
+}) => {
+    // const [tasks, setTasks] = useState<StrategyTask[]>([]); // LIFTED UP
     const [isLoading, setIsLoading] = useState(false);
     const [isExecuting, setIsExecuting] = useState<string | null>(null); // ID of task being executed
-    const [hasAnalyzed, setHasAnalyzed] = useState(false);
+    // const [hasAnalyzed, setHasAnalyzed] = useState(false); // Controlled by parent or effect
     const [ragEvents, setRagEvents] = useState<any[]>([]); // New: Store retrieved context for UI
 
     const performAudit = async () => {
@@ -53,8 +63,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({ brandName, brandCo
                 mentions,
                 ragContext
             );
-            setTasks(generatedTasks);
-            setHasAnalyzed(true);
+            onUpdateTasks(generatedTasks);
+            // setHasAnalyzed(true);
         } catch (e) {
             console.error(e);
         } finally {
@@ -62,12 +72,17 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({ brandName, brandCo
         }
     };
 
+    // Auto-run logic moved to parent or kept here for first load check?
+    // For now, let's keep it manual or triggered by parent if needed.
+    // If we want auto-run on mount if empty:
+    // Auto-run logic: Ensure strategy is always "live"
     useEffect(() => {
-        // Auto-run audit on first load if not done
-        if (!hasAnalyzed) {
+        if (tasks.length === 0 && !isLoading) {
+            console.log("Auto-Strategy: Initializing live scan...");
             performAudit();
         }
-    }, [brandName]);
+    }, [brandName]); // Only run on brand switch if empty.
+
 
     const handleExecuteTask = async (task: StrategyTask) => {
         setIsExecuting(task.id);
@@ -92,7 +107,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({ brandName, brandCo
             onSchedule(copy, image);
 
             // 4. Remove task from list (optional, or mark done)
-            setTasks(prev => prev.filter(t => t.id !== task.id));
+            const remaining = tasks.filter(t => t.id !== task.id);
+            onUpdateTasks(remaining);
 
         } catch (e) {
             console.error("Execution failed", e);
@@ -103,7 +119,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({ brandName, brandCo
     };
 
     const handleDismiss = (id: string) => {
-        setTasks(prev => prev.filter(t => t.id !== id));
+        const remaining = tasks.filter(t => t.id !== id);
+        onUpdateTasks(remaining);
     }
 
     return (
@@ -147,9 +164,15 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({ brandName, brandCo
 
             {/* Task Agenda */}
             <div>
+                {/* HEADER */}
                 <div className="flex items-center justify-between mb-4 px-1">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Recommended Actions</h3>
-                    <span className="text-xs text-gray-400">{tasks.length} Pending</span>
+                    <div>
+                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            Live Strategy Monitoring
+                        </h3>
+                        <span className="text-xs text-gray-400">{tasks.length} Actionable Items</span>
+                    </div>
                 </div>
 
                 <div className="space-y-4">

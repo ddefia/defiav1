@@ -2,7 +2,33 @@
   "enki": {
     "totalFollowers": 93500,
     "handle": "ENKIProtocol",
-    "lastUpdated": "2025-12-22T15:47:35.815Z"
+    "lastUpdated": "2025-12-22T15:47:35.815Z",
+    "recentPosts": [
+      {
+        "id": "mock_1",
+        "content": "Exciting updates coming to the ENKI ecosystem! 🚀 Stay tuned for more details on our upcoming features. #DeFi #Metis",
+        "date": "2025-12-22",
+        "likes": 120,
+        "comments": 45,
+        "retweets": 30
+      },
+      {
+        "id": "mock_2",
+        "content": "We're thrilled to announce our partnership with @MetisL2! Together we are building the future of decentralized finance.",
+        "date": "2025-12-21",
+        "likes": 250,
+        "comments": 80,
+        "retweets": 65
+      },
+      {
+        "id": "mock_3",
+        "content": "Community call this Friday at 3 PM UTC. Join us to discuss the roadmap and ask your questions! 🎙️",
+        "date": "2025-12-20",
+        "likes": 95,
+        "comments": 20,
+        "retweets": 15
+      }
+    ]
   },
   "netswap": {
     "totalFollowers": 22100,

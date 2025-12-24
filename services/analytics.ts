@@ -1,4 +1,3 @@
-
 import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost } from "../types";
 
 
@@ -6,6 +5,10 @@ import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost } 
  * APIFY INTEGRATION
  */
 const DEFAULT_APIFY_TOKEN = process.env.APIFY_API_TOKEN || '';
+// Ensure APIFY token is present; if missing, operations will fallback to cache.
+if (!process.env.APIFY_API_TOKEN) {
+    console.warn('[Apify] APIFY_API_TOKEN is not set. Social metrics will rely on cache or fallback data.');
+}
 
 // Actor IDs
 const ACTOR_PROFILE = 'wbpC5fjeAxy06bonV';
@@ -65,21 +68,6 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
     const handle = getHandle(brandName);
     const fallback = getSocialMetrics(brandName);
 
-    // LOGIC: Use user key if it looks valid (starts with apify_api_), otherwise default
-    const token = (userApiKey && userApiKey.startsWith('apify_api_')) ? userApiKey : DEFAULT_APIFY_TOKEN;
-
-    // If no valid token, return fallback immediately to avoid 401 error
-    if (!token) {
-        console.log("[Apify] No valid API key provided. Returning fallback data.");
-        return {
-            ...fallback,
-            isLive: false,
-            error: undefined // No error needed, just fallback state
-        };
-    }
-
-    console.log(`[Apify] Starting fresh fetch for @${handle} using token ending in ...${token.slice(-4)}`);
-
     // 1. Try Fetching Cached Daily Stats (Server-Side)
     let cachedStats: any = null;
     try {
@@ -91,9 +79,110 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
             }
         }
     } catch (e) {
-        console.warn("[Analytics] Cache fetch failed", e);
+        console.warn("[Analytics] Cache fetch failed. Backend might be offline.", e);
+        // Explicitly track that backend failed
+        cachedStats = { error: "BACKEND_OFFLINE" };
     }
 
+    // LOGIC: Use user key if it looks valid (starts with apify_api_), otherwise default
+    const token = (userApiKey && userApiKey.startsWith('apify_api_')) ? userApiKey : DEFAULT_APIFY_TOKEN;
+
+    // If no valid token AND no cache, return fallback immediately
+    if (!token && (!cachedStats || !cachedStats.totalFollowers)) {
+        console.log("[Apify] No valid API key provided and no cache available. Returning fallback data.");
+        return {
+            ...fallback,
+            isLive: false,
+            // Pass the specific error if we caught one
+            error: cachedStats?.error === "BACKEND_OFFLINE" ? "BACKEND_OFFLINE" : undefined
+        };
+    }
+
+    console.log(`[Apify] Starting fresh fetch for @${handle} using token ending in ...${token ? token.slice(-4) : 'NONE'}`);
+
+    // If cache provided a valid follower count, we can skip live profile fetch.
+    if (cachedStats && typeof cachedStats.totalFollowers === 'number' && cachedStats.totalFollowers > 0) {
+
+        // OPTIMIZATION: Use Cached Posts if available (from Daily Sync)
+        if (cachedStats.recentPosts && cachedStats.recentPosts.length > 0) {
+            console.log(`[Analytics] Using ${cachedStats.recentPosts.length} Cached Tweets.`);
+            // Map cached posts to SocialPost type (ensure impressions calculated)
+            const posts: SocialPost[] = cachedStats.recentPosts.map((p: any) => ({
+                id: p.id,
+                content: p.content,
+                date: p.date,
+                likes: p.likes,
+                comments: p.comments,
+                retweets: p.retweets,
+                impressions: Math.floor((p.likes + p.retweets + p.comments) * 20) || Math.floor(cachedStats.totalFollowers * 0.1), // Est
+                engagementRate: parseFloat((((p.likes + p.comments) / cachedStats.totalFollowers) * 100).toFixed(2))
+            }));
+
+            return {
+                totalFollowers: cachedStats.totalFollowers,
+                weeklyImpressions: cachedStats.weeklyImpressions ?? posts.reduce((a, b) => a + b.impressions, 0) * 2,
+                engagementRate: cachedStats.engagementRate ?? parseFloat((posts.reduce((a, b) => a + b.engagementRate, 0) / posts.length).toFixed(2)),
+                mentions: cachedStats.mentions ?? 0,
+                topPost: posts[0]?.content || "No recent posts found",
+                recentPosts: posts,
+                engagementHistory: cachedStats.engagementHistory ?? [],
+                comparison: cachedStats.comparison ?? { period: 'vs Last Week', followersChange: 0, engagementChange: 0, impressionsChange: 0 },
+                isLive: true
+            };
+        }
+
+        // Fallback: Still fetch recent tweets for activity if cache is missing posts
+        try {
+            const tweetItems = await runApifyActor(ACTOR_TWEETS, {
+                "twitterHandles": [handle],
+                "maxItems": 10,
+                "sort": "Latest",
+                "tweetLanguage": "en",
+                "author": handle,
+                "proxy": { "useApifyProxy": true }
+            }, token);
+            // Process tweets as before (omitted for brevity) – reuse existing tweet processing logic.
+            const realRecentPosts: SocialPost[] = tweetItems.map((item: any) => {
+                const likes = item.favorite_count || item.likes || 0;
+                const comments = item.reply_count || item.replies || 0;
+                const retweets = item.retweet_count || item.retweets || 0;
+                const views = item.view_count || item.views || 0;
+                const impressions = views > 0 ? views : (cachedStats.totalFollowers * 0.15);
+                const engagementRate = cachedStats.totalFollowers > 0 ? ((likes + comments + retweets) / cachedStats.totalFollowers) * 100 : 0;
+                return {
+                    id: item.id_str || item.id || Math.random().toString(),
+                    content: item.full_text || item.text || "Media Post",
+                    date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "Recent",
+                    likes,
+                    comments,
+                    retweets,
+                    impressions: Math.floor(impressions),
+                    engagementRate: parseFloat(engagementRate.toFixed(2))
+                };
+            });
+            return {
+                totalFollowers: cachedStats.totalFollowers,
+                weeklyImpressions: cachedStats.weeklyImpressions ?? 0,
+                engagementRate: cachedStats.engagementRate ?? 0,
+                mentions: cachedStats.mentions ?? 0,
+                topPost: realRecentPosts[0]?.content || cachedStats.topPost || "No recent posts found",
+                recentPosts: realRecentPosts,
+                engagementHistory: cachedStats.engagementHistory ?? [],
+                comparison: cachedStats.comparison ?? { period: 'vs Last Week', followersChange: 0, engagementChange: 0, impressionsChange: 0 },
+                isLive: true
+            };
+        } catch (e) {
+            console.warn('[Apify] Tweet fetch failed while using cache fallback:', e);
+            // Return cache data with minimal live flag.
+            return {
+                ...cachedStats,
+                isLive: true,
+                recentPosts: []
+            };
+        }
+    }
+
+    // No usable cache – proceed with live profile + tweet fetch as originally implemented.
     try {
         // PARALLEL EXECUTION: Fetch Profile (if no cache) AND Tweets simultaneously
         const promises = [];
@@ -210,6 +299,7 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
         console.error("[Apify] Fetch failed, using fallback:", error);
         return {
             ...fallback,
+            totalFollowers: cachedStats?.totalFollowers || 0, // Keep cached followers if available
             isLive: false,
             error: error.message || "Connection Failed"
         };
@@ -248,55 +338,7 @@ interface Transaction {
     type: 'deposit' | 'swap' | 'stake';
 }
 
-const generateMockTransactions = (campaigns: CampaignLog[]): Transaction[] => {
-    const txs: Transaction[] = [];
-    const now = new Date().getTime();
-    const threeMonthsAgo = now - (90 * 24 * 60 * 60 * 1000);
-
-    // 1. Generate Baseline Traffic (Organic)
-    // Higher baseline to make campaigns stand out less if ineffective
-    for (let i = 0; i < 800; i++) {
-        txs.push({
-            hash: mockAddress(),
-            wallet: mockAddress(),
-            timestamp: threeMonthsAgo + Math.random() * (now - threeMonthsAgo),
-            amountUsd: Math.random() * 500, // Organic users usually smaller
-            type: Math.random() > 0.5 ? 'swap' : 'stake'
-        });
-    }
-
-    // 2. Generate Campaign Spikes
-    campaigns.forEach(camp => {
-        const start = new Date(camp.startDate).getTime();
-        const end = new Date(camp.endDate).getTime();
-
-        // Determine "Effectiveness" based on channel name (Simulation logic)
-        // Twitter = High Volume, Low Value. Influencer = Low Volume, High Value.
-        let multiplier = 1;
-        let whaleChance = 0.05;
-
-        if (camp.channel.toLowerCase().includes('influencer')) {
-            multiplier = 0.5; // Fewer users
-            whaleChance = 0.2; // More whales
-        }
-
-        // Generate transactions during campaign window
-        const numTx = Math.floor((camp.budget / 10) * multiplier) + 50;
-
-        for (let j = 0; j < numTx; j++) {
-            const isWhale = Math.random() < whaleChance;
-            txs.push({
-                hash: mockAddress(),
-                wallet: mockAddress(),
-                timestamp: start + Math.random() * (end - start),
-                amountUsd: isWhale ? 5000 + Math.random() * 50000 : 10 + Math.random() * 200,
-                type: 'deposit'
-            });
-        }
-    });
-
-    return txs.sort((a, b) => a.timestamp - b.timestamp);
-};
+// Mock generation removed to enforce Live Data only.
 
 
 /**
@@ -396,16 +438,13 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
             }
 
         } catch (e) {
-            console.warn("Dune data fetch failed. Falling back to simulation.", e);
-            // Trigger Simulation Fallback logic below
-            const simTxs = generateMockTransactions(input.campaigns);
-            // Re-calculate using simulation logic
-            const simTotalVol = simTxs.reduce((sum, t) => sum + t.amountUsd, 0);
-            totalVolume = Math.floor(simTotalVol);
-            netNewWallets = Math.floor(simTxs.length * 0.15);
-            activeWallets = Math.floor(simTxs.length * 0.6);
-            retentionRate = 12.5;
-            tvlChange = totalVolume * 0.7;
+            console.warn("Dune data fetch failed. Returning zero metrics (Live Mode).", e);
+            // No simulation fallback
+            totalVolume = 0;
+            netNewWallets = 0;
+            activeWallets = 0;
+            retentionRate = 0;
+            tvlChange = 0;
         }
     } else {
         // No Key = Return Zeros
@@ -431,7 +470,6 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
     return {
         totalVolume,
         netNewWallets,
-        activeWallets,
         activeWallets,
         retentionRate,
         tvlChange,

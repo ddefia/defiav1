@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { CampaignLog, GrowthInput, ComputedMetrics, GrowthReport, SocialMetrics, CalendarEvent, TrendItem, BrandConfig, LunarCrushCreator, LunarCrushTimeSeriesItem, LunarCrushPost } from '../types';
+import { CampaignLog, GrowthInput, ComputedMetrics, GrowthReport, SocialMetrics, CalendarEvent, TrendItem, BrandConfig, LunarCrushCreator, LunarCrushTimeSeriesItem, LunarCrushPost, StrategyTask } from '../types';
 import { computeGrowthMetrics, getSocialMetrics, fetchSocialMetrics, getHandle } from '../services/analytics';
 import { generateGrowthReport } from '../services/gemini';
 import { getCreator, getCreatorTimeSeries, getCreatorPosts } from '../services/pulse';
 import { Button } from './Button';
 import { StrategyBrain } from './StrategyBrain';
+import { SocialActivityFeed } from './SocialActivityFeed';
 import { loadIntegrationKeys, saveIntegrationKeys } from '../services/storage';
 
 interface GrowthEngineProps {
@@ -12,6 +13,10 @@ interface GrowthEngineProps {
     calendarEvents: CalendarEvent[];
     brandConfig: BrandConfig;
     onSchedule: (content: string, image?: string, date?: string) => void;
+    metrics: SocialMetrics | null;
+    onUpdateMetrics: (metrics: SocialMetrics | null) => void;
+    tasks: StrategyTask[];
+    onUpdateTasks: (tasks: StrategyTask[]) => void;
 }
 
 interface ContractInput {
@@ -43,20 +48,22 @@ const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoadin
     </div>
 );
 
-export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule }) => {
+export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks }) => {
     // --- TABS ---
     const [activeTab, setActiveTab] = useState<'analytics' | 'strategy'>('analytics');
 
     // --- ANALYTICS STATE ---
-    const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null);
+    // const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null); // LIFTED
+    const socialMetrics = metrics; // Alias for easier refactor
+
     const [lunarMetrics, setLunarMetrics] = useState<LunarCrushCreator | null>(null);
     const [lunarTimeSeries, setLunarTimeSeries] = useState<LunarCrushTimeSeriesItem[]>([]);
     const [lunarPosts, setLunarPosts] = useState<LunarCrushPost[]>([]);
     const [isSocialLoading, setIsSocialLoading] = useState(false);
     const [isOnChainConnected, setIsOnChainConnected] = useState(false);
     const [isSettingUp, setIsSettingUp] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [processingStatus, setProcessingStatus] = useState('');
+    const [isProcessing, setIsProcessing] = useState(true); // Default to processing for "Live" feel
+    const [processingStatus, setProcessingStatus] = useState('Initializing Live Activity & Performance Scan...');
     const [contracts, setContracts] = useState<ContractInput[]>([]);
 
     // Keys persisted state
@@ -96,7 +103,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             }
 
             const realMetrics = await fetchSocialMetrics(brandName, apifyApiKeyToUse || apifyKey);
-            setSocialMetrics(realMetrics);
+            onUpdateMetrics(realMetrics);
         } catch (e) {
             console.warn("Failed to load real social metrics", e);
         } finally {
@@ -180,7 +187,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
 
     // Defaults & Init
     useEffect(() => {
-        setSocialMetrics(getSocialMetrics(brandName));
+        onUpdateMetrics(getSocialMetrics(brandName));
         loadRealSocialData();
         // Do not reset keys here, they are loaded separately
         setChainMetrics(null);
@@ -199,6 +206,14 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             setContracts(initialContracts);
             setCampaigns(initialCampaigns);
         }
+
+        // Auto-Run Analysis (Live Mode)
+        // trigger after a brief delay to allow keys to hydrate
+        const t = setTimeout(() => {
+            performAnalysis({ socialOnly: true });
+        }, 500);
+
+        return () => clearTimeout(t);
     }, [brandName]);
 
     // Auto-Pilot: Constant Scan
@@ -294,11 +309,30 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             {/* TAB CONTENT: ANALYTICS */}
             {activeTab === 'analytics' && (
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fadeIn flex-1">
+                    {/* ERROR BANNER */}
+                    {socialMetrics?.error === "BACKEND_OFFLINE" && (
+                        <div className="lg:col-span-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between text-red-800">
+                            <div className="flex items-center gap-3">
+                                <span className="text-xl">⚠️</span>
+                                <div>
+                                    <p className="font-bold text-sm">Backend Connection Failed</p>
+                                    <p className="text-xs">Live data cache is unreachable. Run <code className="bg-red-100 px-1 rounded">npm run server</code> to restore services.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Main Chart/Report Area */}
                     <div className="lg:col-span-3 space-y-6">
                         <div className="bg-white rounded-xl border border-brand-border shadow-sm p-8 relative min-h-[500px]">
                             <div className="flex justify-between items-start mb-6 pb-4 border-b border-gray-100">
-                                <h3 className="text-lg font-bold text-brand-text">Performance Audit</h3>
+                                <h3 className="text-lg font-bold text-brand-text flex items-center gap-2">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                    </span>
+                                    Live Performance Intelligence
+                                </h3>
                                 {!isOnChainConnected ? (
                                     <Button onClick={() => setIsSettingUp(true)} className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700">Connect Data Sources</Button>
                                 ) : (
@@ -337,48 +371,20 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                                 </div>
                             ) : (
                                 <div className="bg-gray-50 border border-brand-border rounded-lg p-12 text-center h-64 flex flex-col items-center justify-center">
-                                    <p className="text-brand-muted text-sm mb-4">Connect data to generate a performance audit.</p>
-                                    <div className="flex gap-2">
-                                        <Button onClick={handleSocialOnlyAnalysis} variant="secondary" className="text-xs h-8">Run Social-Only Audit</Button>
-                                        <Button onClick={handleSkipToSimulation} variant="outline" className="text-xs h-8">Run Full Simulation</Button>
+                                    <div className="w-10 h-10 border-4 border-brand-muted border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-brand-muted text-sm mb-4">Live Analysis System Active...</p>
+                                    <p className="text-[10px] text-gray-400">Waiting for data streams to stabilize.</p>
+                                    <div className="flex gap-2 mt-4 opacity-50 hover:opacity-100 transition-opacity">
+                                        <Button onClick={handleSocialOnlyAnalysis} variant="secondary" className="text-xs h-8">Force Refresh</Button>
                                     </div>
-
-                                    {/* Recent Activity Section (New) */}
-                                    {lunarPosts.length > 0 && (
-                                        <div className="mt-8 pt-6 border-t border-gray-100">
-                                            <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                                <span className="text-orange-500">●</span> Recent Live Activity
-                                            </h4>
-                                            <div className="space-y-4">
-                                                {lunarPosts.slice(0, 3).map((post) => (
-                                                    <div key={post.id} className="bg-gray-50 p-4 rounded-lg border border-gray-100/50 hover:border-gray-200 transition-colors">
-                                                        <p className="text-sm text-gray-700 leading-relaxed mb-3">
-                                                            {post.body || "Media Content"}
-                                                        </p>
-                                                        <div className="flex justify-between items-center text-xs text-brand-muted">
-                                                            <span>{new Date(post.posted * 1000).toLocaleDateString()}</span>
-                                                            <div className="flex gap-3">
-                                                                <span className="font-medium text-gray-600 flex items-center gap-1">
-                                                                    ❤️ {post.interactions}
-                                                                </span>
-                                                                <a
-                                                                    href={post.post_link}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-indigo-600 hover:text-indigo-800"
-                                                                >
-                                                                    View on X ↗
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>
+                    </div>
+
+                    {/* Sidebar: Social Feed */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <SocialActivityFeed lunarPosts={lunarPosts} socialMetrics={socialMetrics} />
                     </div>
                 </div>
             )}
@@ -394,6 +400,8 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                             events={calendarEvents}
                             growthReport={report}
                             onSchedule={(content, image) => onSchedule?.(content, image)}
+                            tasks={tasks}
+                            onUpdateTasks={onUpdateTasks}
                         />
                     </div>
                 )

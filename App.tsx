@@ -1,14 +1,14 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity } from './services/gemini';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, STORAGE_EVENTS } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS } from './services/storage';
 import { Button } from './components/Button';
 import { Select } from './components/Select';
 import { BrandKit } from './components/BrandKit';
 import { GrowthEngine } from './components/GrowthEngine';
 import { PulseEngine } from './components/PulseEngine'; // Import Pulse
 import { ContentCalendar } from './components/ContentCalendar';
-import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent } from './types';
+import { Dashboard } from './components/Dashboard'; // Import Dashboard
+import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask } from './types';
 
 const App: React.FC = () => {
     // Check environment variable first (injected by Vite define)
@@ -17,7 +17,7 @@ const App: React.FC = () => {
     const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
     // App Navigation State
-    const [appSection, setAppSection] = useState<'studio' | 'growth' | 'pulse' | 'calendar'>('studio');
+    const [appSection, setAppSection] = useState<'studio' | 'growth' | 'pulse' | 'calendar' | 'dashboard'>('dashboard'); // Default to dashboard
 
     // App State - Profiles
     const [profiles, setProfiles] = useState<Record<string, BrandConfig>>(loadBrandProfiles());
@@ -36,6 +36,10 @@ const App: React.FC = () => {
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [itemToSchedule, setItemToSchedule] = useState<{ content: string, image?: string, campaignName?: string } | null>(null);
     const [scheduleDate, setScheduleDate] = useState('');
+
+    // Strategy & Metrics State (Lifted for Dashboard)
+    const [strategyTasks, setStrategyTasks] = useState<StrategyTask[]>([]);
+    const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null);
 
     // Single Generation State
     const [tweetText, setTweetText] = useState<string>('');
@@ -75,6 +79,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
+        setStrategyTasks(loadStrategyTasks(selectedBrand)); // Load Tasks
 
         // Listen for background sync updates
         const handleSyncUpdate = (e: Event) => {
@@ -88,6 +93,11 @@ const App: React.FC = () => {
         window.addEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
         return () => window.removeEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
     }, [selectedBrand]);
+
+    // Persist Tasks
+    useEffect(() => {
+        saveStrategyTasks(selectedBrand, strategyTasks);
+    }, [strategyTasks, selectedBrand]);
 
     // Set default campaign start date to tomorrow
     useEffect(() => {
@@ -548,6 +558,12 @@ const App: React.FC = () => {
                     {/* Top Level Navigation */}
                     <nav className="flex items-center gap-1 bg-gray-100/70 p-1 rounded-lg border border-gray-200">
                         <button
+                            onClick={() => { console.log('Navigating to Dashboard'); setAppSection('dashboard'); }}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${appSection === 'dashboard' ? 'bg-white text-brand-text shadow-sm border border-brand-border' : 'text-brand-muted hover:text-brand-text'}`}
+                        >
+                            🏠 Dashboard
+                        </button>
+                        <button
                             onClick={() => setAppSection('studio')}
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${appSection === 'studio' ? 'bg-white text-brand-text shadow-sm border border-brand-border' : 'text-brand-muted hover:text-brand-text'}`}
                         >
@@ -598,7 +614,19 @@ const App: React.FC = () => {
                 </div>
             </header>
 
-            <main className="flex-1 w-full h-full p-6 flex flex-col relative">
+            <main className="flex-1 w-full h-full p-6 flex flex-col relative overflow-auto">
+
+                {/* SECTION: DASHBOARD */}
+                {appSection === 'dashboard' && (
+                    <Dashboard
+                        brandName={selectedBrand}
+                        calendarEvents={calendarEvents}
+                        socialMetrics={socialMetrics}
+                        strategyTasks={strategyTasks}
+                        onNavigate={setAppSection}
+                        onQuickAction={() => { }} // Placeholder
+                    />
+                )}
 
                 {/* SECTION: PULSE */}
                 {appSection === 'pulse' && (
@@ -620,6 +648,10 @@ const App: React.FC = () => {
                             calendarEvents={calendarEvents}
                             brandConfig={profiles[selectedBrand]}
                             onSchedule={handleOpenScheduleModal}
+                            metrics={socialMetrics}
+                            onUpdateMetrics={setSocialMetrics}
+                            tasks={strategyTasks}
+                            onUpdateTasks={setStrategyTasks}
                         />
                     </div>
                 )}
