@@ -35,8 +35,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const rawEngagement = socialMetrics?.engagementRate ? socialMetrics.engagementRate.toFixed(2) : '0.00';
 
-    // 3. Daily Brief Item (Top Priority Task)
+    // 3. Daily Brief Item (Top Priority Task or Fallback)
     const dailyFeature = useMemo(() => {
+        // Try high impact first, then any task
         return strategyTasks.find(t => t.impactScore >= 8) || strategyTasks[0] || null;
     }, [strategyTasks]);
 
@@ -135,41 +136,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         Daily Marketing Brief
                     </h2>
 
-                    <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-                        <div className="text-xs font-bold text-gray-400 uppercase mb-4 tracking-widest">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+                    <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm h-full flex flex-col justify-between relative overflow-hidden">
+                        {/* Decorative Background Element */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-50 to-transparent rounded-bl-full opacity-50 -z-10"></div>
 
-                        {dailyFeature ? (
-                            <div className="space-y-4">
-                                <h3 className="text-2xl font-display font-medium leading-tight text-gray-900">
-                                    {dailyFeature.title}
-                                </h3>
-                                <p className="text-gray-600 leading-relaxed text-sm md:text-base">
-                                    {dailyFeature.description}
-                                </p>
-                                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 flex gap-4 items-start">
-                                    <div className="text-indigo-600 mt-1">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <div>
+                            <div className="text-xs font-bold text-gray-400 uppercase mb-6 tracking-widest flex items-center gap-2">
+                                <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+                                <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                <span className="text-green-600">● Live Monitoring Active</span>
+                            </div>
+
+                            {dailyFeature ? (
+                                <div className="space-y-6 animate-fadeIn">
+                                    <h3 className="text-2xl font-display font-medium leading-tight text-gray-900">
+                                        {dailyFeature.title}
+                                    </h3>
+                                    <p className="text-gray-600 leading-relaxed text-sm md:text-base">
+                                        {dailyFeature.description}
+                                    </p>
+                                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 flex gap-4 items-start">
+                                        <div className="text-indigo-600 mt-1">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-indigo-900">Why this matters</h4>
+                                            <p className="text-xs text-indigo-700 mt-1">{dailyFeature.reasoning}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 className="text-sm font-bold text-indigo-900">Why this matters</h4>
-                                        <p className="text-xs text-indigo-700 mt-1">{dailyFeature.reasoning}</p>
+                                    <div className="pt-4">
+                                        <button
+                                            onClick={() => onNavigate('growth')}
+                                            className="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg shadow-gray-200 cursor-pointer flex items-center gap-2"
+                                        >
+                                            Execute Action Plan <span className="text-gray-400">→</span>
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="pt-4">
-                                    <button
-                                        onClick={() => onNavigate('growth')}
-                                        className="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg shadow-gray-200 cursor-pointer"
-                                    >
-                                        Execute Action Plan
-                                    </button>
+                            ) : (
+                                <div className="py-8 animate-fadeIn">
+                                    <h3 className="text-xl font-display font-medium text-gray-900 mb-2">Analyzing market conditions...</h3>
+                                    <p className="text-gray-500 mb-6">Our engines are scanning social signals, on-chain data, and competitors to generate your daily brief.</p>
+
+                                    <div className="space-y-3">
+                                        <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-100 rounded w-1/2 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-100 rounded w-5/6 animate-pulse"></div>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-10">
-                                <p className="text-gray-400 mb-4">No critical/high-priority items for today.</p>
-                                <button onClick={() => onNavigate('growth')} className="text-indigo-600 font-bold text-sm hover:underline">Run New Strategy Scan</button>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -180,14 +196,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="space-y-4">
                         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Next Scheduled</h2>
                         {nextEvent ? (
-                            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded uppercase">
                                         {nextEvent.platform}
                                     </div>
                                     <span className="text-xs text-gray-400 font-medium">{nextEvent.date}</span>
                                 </div>
-                                <p className="text-sm font-medium text-gray-900 line-clamp-3 mb-4">"{nextEvent.content}"</p>
+
+                                {/* IMAGE PREVIEW */}
+                                {nextEvent.image && (
+                                    <div className="mb-4 rounded-lg overflow-hidden border border-gray-100 relative h-32 w-full">
+                                        <img src={nextEvent.image} alt="Scheduled Post" className="w-full h-full object-cover" />
+                                    </div>
+                                )}
+
+                                <p className="text-sm font-medium text-gray-900 line-clamp-3 mb-4 italic">"{nextEvent.content}"</p>
                                 <button onClick={() => onNavigate('calendar')} className="w-full py-2 bg-gray-50 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-100 uppercase tracking-wider">
                                     Manage Calendar
                                 </button>
