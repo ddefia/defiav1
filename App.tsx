@@ -84,7 +84,11 @@ const App: React.FC = () => {
     const campaignFileInputRef = useRef<HTMLInputElement>(null);
     const [activeUploadId, setActiveUploadId] = useState<string | null>(null);
 
-    useEffect(() => { saveBrandProfiles(profiles); }, [profiles]);
+    useEffect(() => {
+        if (Object.keys(profiles).length > 0) {
+            saveBrandProfiles(profiles);
+        }
+    }, [profiles]);
 
     useEffect(() => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));

@@ -79,7 +79,14 @@ const dispatchStorageEvent = (eventName: string, detail: any) => {
 export const loadBrandProfiles = (): Record<string, BrandConfig> => {
     try {
         const stored = localStorage.getItem(STORAGE_KEY);
-        const localData = stored ? JSON.parse(stored) : DEFAULT_PROFILES;
+        let localData = stored ? JSON.parse(stored) : DEFAULT_PROFILES;
+
+        // Fix: If parsed data is empty object (data loss), force defaults
+        if (Object.keys(localData).length === 0) {
+            console.warn("Storage empty or corrupted. Restoring defaults.");
+            localData = DEFAULT_PROFILES;
+        }
+
         const localTs = getLocalTimestamp(STORAGE_KEY);
 
         // Background Cloud Sync
