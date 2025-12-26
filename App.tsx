@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity } from './services/gemini';
+import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis } from './services/gemini';
+import { fetchMarketPulse } from './services/pulse';
+import { fetchMentions } from './services/analytics';
+import { runMarketScan } from './services/ingestion';
+import { searchContext, buildContextBlock } from './services/rag';
 import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS } from './services/storage';
 import { Button } from './components/Button';
 import { Select } from './components/Select';
@@ -106,23 +110,50 @@ const App: React.FC = () => {
     // Persistent background scanning regardless of active tab
     useEffect(() => {
         const runBackgroundScan = async () => {
-            // Only run if we don't have fresh data
-            if (strategyTasks.length > 0) return;
+            // Only run if we don't have fresh data and we have a valid brand
+            if (strategyTasks.length > 0 || !selectedBrand || !profiles[selectedBrand]) return;
 
             setSystemLogs(prev => ["Initializing Auto-Pilot Sentinel...", ...prev]);
-            await new Promise(r => setTimeout(r, 1000));
-            setSystemLogs(prev => ["Scanning Social Graph (Twitter/Farcaster)...", ...prev]);
-            await new Promise(r => setTimeout(r, 1500));
-            setSystemLogs(prev => ["Analyzing On-Chain Volume & TVL...", ...prev]);
-            await new Promise(r => setTimeout(r, 1500));
-            setSystemLogs(prev => ["Synthesizing Strategy Opportunities...", ...prev]);
 
-            // In a real implementation this would call `performAnalysis` logic.
-            // For now, we rely on GrowthEngine to trigger the heavy lifting if mounted, 
-            // OR we need to move `performAnalysis` completely here.
-            // For this fix, we will just simulate the logs to satisfy the user's "Where are the logs" request
-            // and ensure the Dashboard shows *something*.
-            setSystemLogs(prev => ["Waiting for Growth Engine to execute...", ...prev]);
+            try {
+                // 1. Ingest Market Data
+                setSystemLogs(prev => ["Scanning Social Graph (Twitter/Farcaster) & On-Chain...", ...prev]);
+                await runMarketScan(selectedBrand);
+                await new Promise(r => setTimeout(r, 800));
+
+                // 2. Fetch Trends & Mentions
+                setSystemLogs(prev => ["Analysis: Fetching Trends & Mentions...", ...prev]);
+                const [trends, mentions] = await Promise.all([
+                    fetchMarketPulse(selectedBrand),
+                    fetchMentions(selectedBrand)
+                ]);
+
+                // 3. RAG Memory Retrieval
+                setSystemLogs(prev => ["Memory: Querying Vector Database...", ...prev]);
+                const ragHits = await searchContext(`Market trends, strategy context, and past decisions for ${selectedBrand}`, 5);
+                const ragContext = buildContextBlock(ragHits);
+                await new Promise(r => setTimeout(r, 800));
+
+                // 4. AI Synthesis
+                setSystemLogs(prev => ["Synthesizing Strategy Opportunities...", ...prev]);
+
+                const generatedTasks = await generateStrategicAnalysis(
+                    selectedBrand,
+                    calendarEvents,
+                    trends,
+                    profiles[selectedBrand],
+                    null, // Growth Report optional
+                    mentions,
+                    ragContext
+                );
+
+                setStrategyTasks(generatedTasks);
+                setSystemLogs(prev => ["Sentinel: Strategy Updated.", ...prev]);
+
+            } catch (e) {
+                console.error("Auto-pilot analysis failed", e);
+                setSystemLogs(prev => ["Sentinel Error: Analysis check failed.", ...prev]);
+            }
         };
 
         const interval = setInterval(() => {
