@@ -775,9 +775,9 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {/* SECTION: GROWTH & STRATEGY */}
-                {appSection === 'growth' && selectedBrand && profiles[selectedBrand] && (
-                    <div className="w-full h-full animate-fadeIn">
+                {/* SECTION: GROWTH & STRATEGY (Always Mounted for Background Ops) */}
+                {selectedBrand && profiles[selectedBrand] && (
+                    <div className={`w-full h-full animate-fadeIn ${appSection === 'growth' ? 'block' : 'hidden'}`}>
                         <GrowthEngine
                             brandName={selectedBrand}
                             calendarEvents={calendarEvents}
@@ -791,6 +791,7 @@ const App: React.FC = () => {
                             onUpdateTasks={setStrategyTasks}
                             growthReport={growthReport}
                             onUpdateGrowthReport={setGrowthReport}
+                            onLog={(msg) => setSystemLogs(prev => [msg, ...prev].slice(0, 50))} // Pipe logs
                         />
                     </div>
                 )}

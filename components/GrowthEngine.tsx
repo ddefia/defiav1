@@ -21,6 +21,7 @@ interface GrowthEngineProps {
     onUpdateChainMetrics: (metrics: ComputedMetrics | null) => void;
     growthReport: GrowthReport | null; // Lifted
     onUpdateGrowthReport: (report: GrowthReport | null) => void; // Lifted
+    onLog?: (message: string) => void; // Optional logger
 }
 
 interface ContractInput {
@@ -52,7 +53,7 @@ const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoadin
     </div>
 );
 
-export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics, growthReport, onUpdateGrowthReport }) => {
+export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics, growthReport, onUpdateGrowthReport, onLog }) => {
     // --- TABS ---
     const [activeTab, setActiveTab] = useState<'analytics' | 'strategy'>('analytics');
 
@@ -151,10 +152,12 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
         setIsProcessing(true);
 
         try {
+            onLog?.(`Starting analysis for ${brandName}...`);
             let computed = chainMetrics; // Default to existing data
 
             if (overrideParams?.socialOnly) {
                 setProcessingStatus('Fetching social data...');
+                onLog?.(`Fetching live social metrics...`);
                 await loadRealSocialData();
             } else {
                 setProcessingStatus('Aggregating on-chain data...');
@@ -170,11 +173,13 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             }
 
             setProcessingStatus('Generating Strategy Brief via Gemini...');
+            onLog?.(`Generating strategic brief via Gemini AI (Model: Experimental)...`);
             const metricsForReport = (overrideParams?.socialOnly) ? await fetchSocialMetrics(brandName, apifyKey) : (socialMetrics || getSocialMetrics(brandName));
             // Use 'computed' which is either fresh or existing
             const aiReport = await generateGrowthReport(computed, campaigns, metricsForReport);
 
             onUpdateGrowthReport(aiReport);
+            onLog?.(`Analysis complete. Brief generated.`);
         } catch (e) {
             console.error(e);
             setProcessingStatus('Analysis interrupted.');
