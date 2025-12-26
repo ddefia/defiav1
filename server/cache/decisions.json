@@ -1,0 +1,122 @@
+[
+  {
+    "id": "1766782810131",
+    "timestamp": "2025-12-26T21:00:10.131Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "meme",
+    "status": "pending"
+  },
+  {
+    "id": "1766782808518",
+    "timestamp": "2025-12-26T21:00:08.518Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "defia",
+    "status": "pending"
+  },
+  {
+    "id": "1766782807150",
+    "timestamp": "2025-12-26T21:00:07.150Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "lazai",
+    "status": "pending"
+  },
+  {
+    "id": "1766782805754",
+    "timestamp": "2025-12-26T21:00:05.754Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "netswap",
+    "status": "pending"
+  },
+  {
+    "id": "1766782804295",
+    "timestamp": "2025-12-26T21:00:04.295Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "enki",
+    "status": "pending"
+  },
+  {
+    "id": "1766759411637",
+    "timestamp": "2025-12-26T14:30:11.637Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "meme",
+    "status": "pending"
+  },
+  {
+    "id": "1766759409990",
+    "timestamp": "2025-12-26T14:30:09.990Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "defia",
+    "status": "pending"
+  },
+  {
+    "id": "1766759408669",
+    "timestamp": "2025-12-26T14:30:08.669Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "lazai",
+    "status": "pending"
+  },
+  {
+    "id": "1766759407068",
+    "timestamp": "2025-12-26T14:30:07.068Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "netswap",
+    "status": "pending"
+  },
+  {
+    "id": "1766759405023",
+    "timestamp": "2025-12-26T14:30:05.023Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "enki",
+    "status": "pending"
+  },
+  {
+    "id": "1766719809357",
+    "timestamp": "2025-12-26T03:30:09.357Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "meme",
+    "status": "pending"
+  },
+  {
+    "id": "1766719807941",
+    "timestamp": "2025-12-26T03:30:07.941Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "defia",
+    "status": "pending"
+  },
+  {
+    "id": "1766719806735",
+    "timestamp": "2025-12-26T03:30:06.735Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "lazai",
+    "status": "pending"
+  },
+  {
+    "id": "1766719805283",
+    "timestamp": "2025-12-26T03:30:05.283Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "netswap",
+    "status": "pending"
+  },
+  {
+    "id": "1766719803955",
+    "timestamp": "2025-12-26T03:30:03.955Z",
+    "action": "ERROR",
+    "reason": "response.text is not a function",
+    "brandId": "enki",
+    "status": "pending"
+  }
+]

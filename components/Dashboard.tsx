@@ -25,14 +25,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     isServerOnline = false,
     onNavigate
 }) => {
-    // --- Data Processing ---
+    // --- Pulse Data Loading ---
+    const [pulseTrends, setPulseTrends] = React.useState<any[]>([]);
+    React.useEffect(() => {
+        const cache = loadPulseCache(brandName);
+        setPulseTrends(cache.items.slice(0, 3)); // Top 3
+    }, [brandName]);
 
-    // 1. Defia Index Calculation (Real Weighted Algo)
+    // --- Data Processing (Restored) ---
+
+    // 1. Defia Index Calculation
     const { total: indexScore, grade: indexGrade, breakdown, insights: scoreInsights } = useMemo(() => {
         return calculateDefiaScore(socialMetrics, chainMetrics, strategyTasks);
     }, [socialMetrics, chainMetrics, strategyTasks]);
 
-    // Format for display (0-10 scale)
     const displayScore = (indexScore / 10).toFixed(1);
 
     // 2. Audience & Growth
@@ -42,13 +48,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const rawEngagement = socialMetrics?.engagementRate ? socialMetrics.engagementRate.toFixed(2) : '0.00';
 
-    // 3. Daily Brief Item (Top Priority Task or Fallback)
+    // 3. Daily Brief Item
     const dailyFeature = useMemo(() => {
-        // Try high impact first, then any task
         return strategyTasks.find(t => t.impactScore >= 8) || strategyTasks[0] || null;
     }, [strategyTasks]);
 
-    // 4. Upcoming One (Next Event)
+    // 4. Upcoming One
     const nextEvent = useMemo(() => {
         const todayStr = new Date().toISOString().split('T')[0];
         const upcoming = calendarEvents
@@ -57,9 +62,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return upcoming[0] || null;
     }, [calendarEvents]);
 
-
     // --- UI Sub-Components ---
-
     const StatCard = ({ label, value, subtext, trend, trendUp }: { label: string, value: string, subtext: string, trend?: string, trendUp?: boolean }) => (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
             <div className="flex justify-between items-start mb-2">
@@ -76,7 +79,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     );
 
     return (
-        <div className="max-w-7xl mx-auto p-6 lg:p-10 space-y-10 animate-fadeIn font-sans text-gray-900">
+        <div className="max-w-7xl mx-auto p-6 lg:p-10 space-y-8 animate-fadeIn font-sans text-gray-900 pb-20">
 
             {/* HEADER */}
             <div className="flex flex-col md:flex-row justify-between items-end border-b border-gray-100 pb-6 gap-4">
@@ -85,206 +88,204 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-lg font-display">
                             {brandName.charAt(0)}
                         </div>
-                        <h1 className="text-3xl font-display font-bold tracking-tight">{brandName} Dashboard</h1>
+                        <h1 className="text-3xl font-display font-bold tracking-tight">{brandName} Command Center</h1>
                     </div>
-                    <p className="text-gray-400 text-sm pl-[52px]">AI-powered analytics and growth intelligence platform</p>
+                    <div className="flex items-center gap-4 text-sm text-gray-500 pl-[52px]">
+                        <span className={`flex items-center gap-2 ${isServerOnline ? 'text-green-600' : 'text-gray-400'}`}>
+                            <span className={`w-2 h-2 rounded-full ${isServerOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                            {isServerOnline ? "Neural Engine Online" : "Engine Offline"}
+                        </span>
+                        <span>•</span>
+                        <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+                    </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="p-2 text-gray-400 hover:text-gray-900 transition-colors">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                    </button>
-                    <button onClick={() => onNavigate('pulse')} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors">
-                        View Pulse Signals
+                    <button onClick={() => onNavigate('studio')} className="bg-gray-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-lg shadow-gray-200">
+                        + New Campaign
                     </button>
                 </div>
             </div>
 
             {/* KEY METRICS GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     label="Defia Index"
                     value={`${displayScore}/10`}
-                    subtext={`${indexGrade} Tier • ${scoreInsights[0] || 'Optimized'}`}
+                    subtext={`${indexGrade} • ${scoreInsights[0] || 'Optimized'}`}
                     trend={socialMetrics?.isLive ? "Verified" : "Simulated"}
                     trendUp={!!socialMetrics?.isLive}
                 />
                 <StatCard
                     label="Total Audience"
                     value={totalAudience}
-                    subtext="Combined social reach"
+                    subtext="Combined Reach"
                     trend="+12.4%"
                     trendUp={true}
                 />
                 <StatCard
                     label="Engagement Rate"
                     value={`${rawEngagement}%`}
-                    subtext="Active community interaction"
+                    subtext="Avg interaction/post"
                     trend="-2.1%"
                     trendUp={false}
                 />
                 <StatCard
                     label="Weekly Growth"
                     value="+5.7%"
-                    subtext="Total value locked relative growth"
+                    subtext="TVL & user growth"
                     trend="+1.2%"
                     trendUp={true}
                 />
             </div>
 
-            {/* DAILY BRIEF & ACTIONS */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* MAIN COMMAND GRID */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
 
-                {/* DAILY MARKETING BRIEF (Featured) */}
-                <div className="lg:col-span-2 space-y-6">
-                    <h2 className="text-lg font-bold flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                        </span>
-                        Daily Marketing Brief
-                    </h2>
+                {/* COL 1: INTELLIGENCE & ACTIONS (Width: 5) */}
+                <div className="lg:col-span-5 space-y-6">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Intelligence & Actions</h3>
 
-                    <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm h-full flex flex-col justify-between relative overflow-hidden">
-                        {/* Decorative Background Element */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-50 to-transparent rounded-bl-full opacity-50 -z-10"></div>
-
-                        <div>
-                            <div className="text-xs font-bold text-gray-400 uppercase mb-6 tracking-widest flex items-center gap-2">
-                                <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
-                                <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                <span className={`flex items-center gap-2 ${isServerOnline ? 'text-green-600' : 'text-gray-400'}`}>
-                                    <span className={`w-2 h-2 rounded-full ${isServerOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-                                    {isServerOnline ? "Live Monitoring Active" : "Offline"}
-                                </span>
-                            </div>
-
-                            {/* --- AGENT PROPOSAL CARD --- */}
-                            {systemLogs.some(l => l.includes('ACTION REQUIRED')) && (
-                                <div className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-100 shadow-sm animate-fadeIn">
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex gap-3">
-                                            <div className="bg-white p-2 rounded-lg text-xl shadow-sm">⚡</div>
-                                            <div>
-                                                <h4 className="font-bold text-gray-900">Agent Proposal</h4>
-                                                <p className="text-xs text-gray-500">The autonomous agent suggests a response.</p>
-                                            </div>
-                                        </div>
-                                        <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded">PENDING APPROVAL</span>
-                                    </div>
-
-                                    <div className="mt-3 bg-white p-3 rounded-lg border border-indigo-100 text-sm italic text-gray-600">
-                                        "Exciting times ahead! We are definitely tracking the volume spike correctly..."
-                                    </div>
-
-                                    <div className="flex justify-end gap-2 mt-3">
-                                        <button className="text-xs text-gray-400 font-bold hover:text-gray-600 px-3 py-1.5">Dismiss</button>
-                                        <button className="text-xs bg-indigo-600 text-white font-bold px-4 py-1.5 rounded-md hover:bg-indigo-700 shadow-sm">Approve & Post</button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {dailyFeature ? (
-                                <div className="space-y-6 animate-fadeIn">
-                                    <h3 className="text-2xl font-display font-medium leading-tight text-gray-900">
-                                        {dailyFeature.title}
-                                    </h3>
-                                    <p className="text-gray-600 leading-relaxed text-sm md:text-base">
-                                        {dailyFeature.description}
-                                    </p>
-                                    <div className="p-5 bg-indigo-50/50 rounded-xl border border-indigo-100 flex gap-4 items-start">
-                                        <div className="bg-white p-2 rounded-lg shadow-sm text-indigo-600 mt-1 shrink-0">
-                                            {dailyFeature.type === 'TREND_JACK' ? '📉' :
-                                                dailyFeature.type === 'REPLY' ? '💬' :
-                                                    dailyFeature.type === 'GAP_FILL' ? '🗓️' : '🧠'}
-                                        </div>
+                    {/* AGENT PROPOSAL (High Priority) */}
+                    {systemLogs.some(l => l.includes('ACTION REQUIRED')) && (
+                        <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-1 rounded-2xl shadow-lg animate-fadeIn text-white">
+                            <div className="bg-gray-900/40 backdrop-blur-sm p-5 rounded-xl">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="flex gap-3 items-center">
+                                        <span className="text-2xl">⚡</span>
                                         <div>
-                                            <h4 className="text-sm font-bold text-indigo-900 uppercase tracking-wide text-[10px] mb-1">
-                                                Based on {dailyFeature.type === 'TREND_JACK' ? 'Real-Time Market News' :
-                                                    dailyFeature.type === 'REPLY' ? 'Community Sentiment' :
-                                                        dailyFeature.type === 'GAP_FILL' ? 'Schedule Analysis' : 'Strategic Growth Data'}
-                                            </h4>
-                                            <p className="text-sm text-indigo-800 leading-relaxed font-medium">"{dailyFeature.reasoning}"</p>
+                                            <h4 className="font-bold text-lg">Agent Proposal</h4>
+                                            <p className="text-xs text-indigo-200">Autonomous reaction suggestion</p>
                                         </div>
                                     </div>
-                                    <div className="pt-2">
-                                        <button
-                                            onClick={() => onNavigate('growth')}
-                                            className="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg shadow-gray-200 cursor-pointer flex items-center gap-2"
-                                        >
-                                            Execute Action Plan <span className="text-gray-400">→</span>
-                                        </button>
+                                    <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">PENDING</span>
+                                </div>
+
+                                <div className="mt-2 bg-black/20 p-3 rounded-lg border border-white/10 text-sm italic text-gray-300">
+                                    "Volume spike detected on BN. Recommend slight trend-jack referencing previous ATH..."
+                                </div>
+
+                                <div className="flex gap-2 mt-4">
+                                    <button className="flex-1 bg-white text-indigo-900 py-2 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors">Approve & Post</button>
+                                    <button className="px-4 py-2 bg-white/10 text-white rounded-lg text-xs font-bold hover:bg-white/20">Dismiss</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* DAILY BRIEF */}
+                    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col h-auto min-h-[300px]">
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                </span>
+                                <h2 className="font-bold text-gray-900">Daily Strategy</h2>
+                            </div>
+                            <button onClick={() => onNavigate('growth')} className="text-xs text-indigo-600 font-bold hover:underline">View Hub &rarr;</button>
+                        </div>
+
+                        {dailyFeature ? (
+                            <div className="space-y-4">
+                                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1">Top Recommendation</span>
+                                    <h3 className="font-display font-bold text-gray-900 leading-tight mb-2">{dailyFeature.title}</h3>
+                                    <p className="text-sm text-gray-600 leading-relaxed">"{dailyFeature.reasoning}"</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                        <div className="text-xs text-gray-400">Impact</div>
+                                        <div className="font-bold text-green-600">High</div>
+                                    </div>
+                                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                        <div className="text-xs text-gray-400">Effort</div>
+                                        <div className="font-bold text-gray-900">Medium</div>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="py-2 animate-fadeIn">
-                                    {/* TERMINAL UI FOR LOGS */}
-                                    <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-green-400 h-48 overflow-y-auto border border-gray-800 shadow-inner">
-                                        <div className="flex items-center justify-between border-b border-gray-800 pb-2 mb-2">
-                                            <span className="text-gray-500">System Logs</span>
-                                            <span className="flex gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div><div className="w-2 h-2 rounded-full bg-yellow-500"></div><div className="w-2 h-2 rounded-full bg-green-500"></div></span>
+                                <button onClick={() => onNavigate('growth')} className="w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-colors">
+                                    Execute Strategy
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+                                <div className="text-3xl mb-2">🤔</div>
+                                <p className="text-sm text-gray-500 mb-4">Analyzing market conditions...</p>
+                                <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1"><div className="bg-indigo-500 h-1.5 rounded-full w-2/3 animate-pulse"></div></div>
+                                <div className="font-mono text-xs text-gray-400 mt-2">Running Growth Engine...</div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* COL 2: PULSE & TRENDS (Width: 4) */}
+                <div className="lg:col-span-4 space-y-6">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Pulse Signals</h3>
+                    <div className="bg-white border border-gray-200 rounded-2xl p-0 shadow-sm overflow-hidden flex flex-col h-full">
+                        {pulseTrends.length > 0 ? (
+                            <div className="divide-y divide-gray-100">
+                                {pulseTrends.map((trend, i) => (
+                                    <div key={i} className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => onNavigate('pulse')}>
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded uppercase">{trend.source}</span>
+                                            <span className="text-[10px] text-gray-400">{trend.timestamp}</span>
                                         </div>
-                                        <div className="space-y-1">
-                                            {systemLogs.length > 0 ? systemLogs.map((log, i) => (
-                                                <div key={i} className="opacity-80">{'>'} {log}</div>
-                                            )) : (
-                                                <>
-                                                    <div className="opacity-50">{'>'} Initializing Sentinel...</div>
-                                                    <div className="opacity-50">{'>'} Checking for recent tasks...</div>
-                                                    <div className="opacity-50">{'>'} Status: SCANNING</div>
-                                                </>
-                                            )}
-                                            <div className="animate-pulse">{'>'} _</div>
-                                        </div>
+                                        <h4 className="font-bold text-sm text-gray-900 leading-snug mb-1 group-hover:text-indigo-600 transition-colors">{trend.headline}</h4>
+                                        <p className="text-xs text-gray-500 line-clamp-2">{trend.summary}</p>
                                     </div>
-                                    <div className="mt-4 text-center">
-                                        <p className="text-gray-500 text-sm mb-2">Analyzing market conditions...</p>
-                                        <button
-                                            onClick={() => onNavigate('growth')}
-                                            className="text-indigo-600 text-xs font-bold hover:underline"
-                                        >
-                                            Generating Recommendations in Strategy Hub &rarr;
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="p-8 text-center">
+                                <div className="inline-block p-3 rounded-full bg-gray-50 mb-3 text-2xl">📡</div>
+                                <p className="text-sm text-gray-500">Scanning frequency bands...</p>
+                            </div>
+                        )}
+                        <div className="p-3 bg-gray-50 border-t border-gray-100 mt-auto text-center">
+                            <button onClick={() => onNavigate('pulse')} className="text-xs font-bold text-gray-500 hover:text-gray-900">View All Signals &rarr;</button>
                         </div>
                     </div>
                 </div>
 
-                {/* SIDEBAR: UPCOMING & TRENDS */}
-                <div className="space-y-8">
-
-                    {/* Next Up */}
-                    <div className="space-y-4">
-                        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Next Scheduled</h2>
-                        {nextEvent ? (
-                            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded uppercase">
-                                        {nextEvent.platform}
+                {/* COL 3: CONTENT QUEUE (Width: 3) */}
+                <div className="lg:col-span-3 space-y-6">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Content Queue</h3>
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm h-full">
+                        {calendarEvents.length > 0 ? (
+                            <div className="space-y-4">
+                                {calendarEvents.slice(0, 3).map((event, i) => (
+                                    <div key={i} className="flex gap-3 items-start border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                                        <div className="w-12 h-12 bg-gray-100 rounded-lg shrink-0 overflow-hidden flex items-center justify-center text-xs text-gray-400">
+                                            {event.image ? <img src={event.image} className="w-full h-full object-cover" /> : '📝'}
+                                        </div>
+                                        <div>
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">{event.date} • {event.platform}</div>
+                                            <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-relaxed">"{event.content}"</p>
+                                        </div>
                                     </div>
-                                    <span className="text-xs text-gray-400 font-medium">{nextEvent.date}</span>
-                                </div>
-
-                                {/* IMAGE PREVIEW */}
-                                {nextEvent.image && (
-                                    <div className="mb-4 rounded-lg overflow-hidden border border-gray-100 relative h-32 w-full">
-                                        <img src={nextEvent.image} alt="Scheduled Post" className="w-full h-full object-cover" />
-                                    </div>
-                                )}
-
-                                <p className="text-sm font-medium text-gray-900 line-clamp-3 mb-4 italic">"{nextEvent.content}"</p>
-                                <button onClick={() => onNavigate('calendar')} className="w-full py-2 bg-gray-50 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-100 uppercase tracking-wider">
-                                    Manage Calendar
+                                ))}
+                                <button onClick={() => onNavigate('calendar')} className="w-full mt-2 py-2 border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-400 hover:text-gray-600 hover:border-gray-400">
+                                    + Schedule More
                                 </button>
                             </div>
                         ) : (
-                            <div className="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-6 text-center">
-                                <span className="text-gray-400 text-xs block mb-2">Queue Empty</span>
+                            <div className="text-center py-10">
+                                <p className="text-xs text-gray-400 mb-2">Queue is empty</p>
                                 <button onClick={() => onNavigate('studio')} className="text-indigo-600 text-xs font-bold">Draft Content</button>
                             </div>
                         )}
                     </div>
+                </div>
+            </div>
 
+            {/* SYSTEM LOGS FOOTER */}
+            <div className="mt-8 pt-6 border-t border-gray-100">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Live System Logs</h3>
+                <div className="bg-gray-900 rounded-lg p-4 font-mono text-[10px] text-green-400 h-32 overflow-y-auto border border-gray-800 shadow-inner custom-scrollbar">
+                    {systemLogs.length > 0 ? systemLogs.map((log, i) => (
+                        <div key={i} className="opacity-80 py-0.5 border-b border-white/5">{'>'} {log}</div>
+                    )) : (
+                        <div className="opacity-50">{'>'} Monitoring active...</div>
+                    )}
+                    <div className="animate-pulse mt-2">{'>'} _</div>
                 </div>
             </div>
         </div>
