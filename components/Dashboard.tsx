@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics } from '../types';
+import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport } from '../types';
 import { loadPulseCache } from '../services/storage';
 import { calculateDefiaScore } from '../services/scoring';
 
@@ -11,6 +11,7 @@ interface DashboardProps {
     chainMetrics: ComputedMetrics | null;
     systemLogs?: string[];
     isServerOnline?: boolean;
+    growthReport?: GrowthReport | null;
     onNavigate: (section: 'studio' | 'growth' | 'pulse' | 'calendar' | 'dashboard') => void;
     onQuickAction: (action: string) => void;
 }
@@ -23,6 +24,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     chainMetrics,
     systemLogs = [],
     isServerOnline = false,
+    growthReport,
     onNavigate
 }) => {
     // --- Pulse Data Loading ---
@@ -216,78 +218,126 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* COL 2: PULSE & TRENDS (Width: 4) */}
-                <div className="lg:col-span-4 space-y-6">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Pulse Signals</h3>
-                    <div className="bg-white border border-gray-200 rounded-2xl p-0 shadow-sm overflow-hidden flex flex-col h-full">
-                        {pulseTrends.length > 0 ? (
-                            <div className="divide-y divide-gray-100">
-                                {pulseTrends.map((trend, i) => (
-                                    <div key={i} className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => onNavigate('pulse')}>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded uppercase">{trend.source}</span>
-                                            <span className="text-[10px] text-gray-400">{trend.timestamp}</span>
-                                        </div>
-                                        <h4 className="font-bold text-sm text-gray-900 leading-snug mb-1 group-hover:text-indigo-600 transition-colors">{trend.headline}</h4>
-                                        <p className="text-xs text-gray-500 line-clamp-2">{trend.summary}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="p-8 text-center">
-                                <div className="inline-block p-3 rounded-full bg-gray-50 mb-3 text-2xl">📡</div>
-                                <p className="text-sm text-gray-500">Scanning frequency bands...</p>
-                            </div>
-                        )}
-                        <div className="p-3 bg-gray-50 border-t border-gray-100 mt-auto text-center">
-                            <button onClick={() => onNavigate('pulse')} className="text-xs font-bold text-gray-500 hover:text-gray-900">View All Signals &rarr;</button>
-                        </div>
+                {/* MARKETING BRIEF (Moved from Growth Engine) */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col min-h-[200px]">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                            <span>📄</span> Marketing Brief
+                        </h2>
+                        <span className="text-[10px] uppercase font-bold text-gray-400">Daily Executive Summary</span>
                     </div>
-                </div>
 
-                {/* COL 3: CONTENT QUEUE (Width: 3) */}
-                <div className="lg:col-span-3 space-y-6">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Content Queue</h3>
-                    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm h-full">
-                        {calendarEvents.length > 0 ? (
-                            <div className="space-y-4">
-                                {calendarEvents.slice(0, 3).map((event, i) => (
-                                    <div key={i} className="flex gap-3 items-start border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                                        <div className="w-12 h-12 bg-gray-100 rounded-lg shrink-0 overflow-hidden flex items-center justify-center text-xs text-gray-400">
-                                            {event.image ? <img src={event.image} className="w-full h-full object-cover" /> : '📝'}
-                                        </div>
-                                        <div>
-                                            <div className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">{event.date} • {event.platform}</div>
-                                            <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-relaxed">"{event.content}"</p>
-                                        </div>
+                    {growthReport ? (
+                        <div className="text-sm text-gray-600 leading-relaxed font-serif">
+                            {growthReport.executiveSummary}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-gray-400 italic">
+                            Run a Strategy Scan in the Growth Hub to generate today's brief.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* COL 2: PULSE & TRENDS (Width: 4) */}
+            <div className="lg:col-span-4 space-y-6">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Pulse Signals</h3>
+                <div className="bg-white border border-gray-200 rounded-2xl p-0 shadow-sm overflow-hidden flex flex-col h-full">
+                    {pulseTrends.length > 0 ? (
+                        <div className="divide-y divide-gray-100">
+                            {pulseTrends.map((trend, i) => (
+                                <div key={i} className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => onNavigate('pulse')}>
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded uppercase">{trend.source}</span>
+                                        <span className="text-[10px] text-gray-400">
+                                            {/* Timestamp Logic: if raw timestamp exists, calc relative time, else use static string */}
+                                            {trend.createdAt ? (() => {
+                                                const diff = Date.now() - trend.createdAt;
+                                                const mins = Math.floor(diff / 60000);
+                                                if (mins < 60) return `${mins}m ago`;
+                                                const hours = Math.floor(mins / 60);
+                                                if (hours < 24) return `${hours}h ago`;
+                                                return `${Math.floor(hours / 24)}d ago`;
+                                            })() : trend.timestamp}
+                                        </span>
                                     </div>
-                                ))}
-                                <button onClick={() => onNavigate('calendar')} className="w-full mt-2 py-2 border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-400 hover:text-gray-600 hover:border-gray-400">
-                                    + Schedule More
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="text-center py-10">
-                                <p className="text-xs text-gray-400 mb-2">Queue is empty</p>
-                                <button onClick={() => onNavigate('studio')} className="text-indigo-600 text-xs font-bold">Draft Content</button>
-                            </div>
-                        )}
+                                    <h4 className="font-bold text-sm text-gray-900 leading-snug mb-1 group-hover:text-indigo-600 transition-colors">{trend.headline}</h4>
+                                    <p className="text-xs text-gray-500 line-clamp-2">{trend.summary}</p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-8 text-center">
+                            <div className="inline-block p-3 rounded-full bg-gray-50 mb-3 text-2xl">📡</div>
+                            <p className="text-sm text-gray-500">Scanning frequency bands...</p>
+                        </div>
+                    )}
+                    <div className="p-3 bg-gray-50 border-t border-gray-100 mt-auto text-center">
+                        <button onClick={() => onNavigate('pulse')} className="text-xs font-bold text-gray-500 hover:text-gray-900">View All Signals &rarr;</button>
                     </div>
                 </div>
             </div>
 
-            {/* SYSTEM LOGS FOOTER */}
-            <div className="mt-8 pt-6 border-t border-gray-100">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Live System Logs</h3>
-                <div className="bg-gray-900 rounded-lg p-4 font-mono text-[10px] text-green-400 h-32 overflow-y-auto border border-gray-800 shadow-inner custom-scrollbar">
-                    {systemLogs.length > 0 ? systemLogs.map((log, i) => (
-                        <div key={i} className="opacity-80 py-0.5 border-b border-white/5">{'>'} {log}</div>
-                    )) : (
-                        <div className="opacity-50">{'>'} Monitoring active...</div>
+            {/* COL 3: CONTENT QUEUE (Width: 3) */}
+            <div className="lg:col-span-3 space-y-6">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Content Queue</h3>
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm h-full">
+                    {calendarEvents.length > 0 ? (
+                        <div className="space-y-4">
+                            {calendarEvents.slice(0, 3).map((event, i) => (
+                                <div key={i} className="flex gap-3 items-start border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                                    <div
+                                        className="w-12 h-12 rounded-lg shrink-0 overflow-hidden flex items-center justify-center text-xs text-gray-400 relative"
+                                        style={event.color ? { backgroundColor: event.color + '20', border: `1px solid ${event.color}` } : { backgroundColor: '#f3f4f6' }}
+                                    >
+                                        {event.image ? <img src={event.image} className="w-full h-full object-cover" /> : '📝'}
+                                        {event.color && <div className="absolute inset-0 bg-current opacity-10" style={{ color: event.color }}></div>}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase">{event.date} • {event.platform}</span>
+                                            {event.campaignName && (
+                                                <span
+                                                    className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider"
+                                                    style={event.color
+                                                        ? { backgroundColor: event.color + '20', color: event.color }
+                                                        : { backgroundColor: '#EEF2FF', color: '#4F46E5' }
+                                                    }
+                                                >
+                                                    {event.campaignName}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-relaxed">"{event.content}"</p>
+                                    </div>
+                                </div>
+                            ))}
+                            <button onClick={() => onNavigate('calendar')} className="w-full mt-2 py-2 border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-400 hover:text-gray-600 hover:border-gray-400">
+                                + Schedule More
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="text-center py-10">
+                            <p className="text-xs text-gray-400 mb-2">Queue is empty</p>
+                            <button onClick={() => onNavigate('studio')} className="text-indigo-600 text-xs font-bold">Draft Content</button>
+                        </div>
                     )}
-                    <div className="animate-pulse mt-2">{'>'} _</div>
                 </div>
             </div>
         </div>
+
+            {/* SYSTEM LOGS FOOTER */ }
+    <div className="mt-8 pt-6 border-t border-gray-100">
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Live System Logs</h3>
+        <div className="bg-gray-900 rounded-lg p-4 font-mono text-[10px] text-green-400 h-32 overflow-y-auto border border-gray-800 shadow-inner custom-scrollbar">
+            {systemLogs.length > 0 ? systemLogs.map((log, i) => (
+                <div key={i} className="opacity-80 py-0.5 border-b border-white/5">{'>'} {log}</div>
+            )) : (
+                <div className="opacity-50">{'>'} Monitoring active...</div>
+            )}
+            <div className="animate-pulse mt-2">{'>'} _</div>
+        </div>
+    </div>
+        </div >
     );
 };

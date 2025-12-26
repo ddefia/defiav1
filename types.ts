@@ -45,6 +45,7 @@ export interface CampaignItem {
   status: 'draft' | 'pending' | 'generating' | 'completed' | 'error';
   images: string[];
   selectedImageIndex?: number; // Index of the chosen image for scheduling
+  campaignColor?: string; // Color code for the campaign
 }
 
 export interface CalendarEvent {
@@ -55,6 +56,7 @@ export interface CalendarEvent {
   platform: 'Twitter';
   status: 'scheduled' | 'published';
   campaignName?: string;
+  color?: string; // Hex code or Tailwind class
 }
 
 // --- STRATEGY BRAIN TYPES ---

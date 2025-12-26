@@ -16,7 +16,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [dragOverDate, setDragOverDate] = useState<string | null>(null);
-    
+
     // Edit Mode State
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
@@ -65,7 +65,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
     const handleCalendarImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0 || !selectedEvent) return;
-        
+
         const file = files[0];
         try {
             const base64 = await new Promise<string>((resolve) => {
@@ -73,7 +73,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                 reader.onloadend = () => resolve(reader.result as string);
                 reader.readAsDataURL(file);
             });
-            
+
             const updated = { ...selectedEvent, image: base64 };
             setSelectedEvent(updated);
             onUpdateEvent(selectedEvent.id, { image: base64 });
@@ -81,9 +81,20 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
     };
 
     // Generate a consistent color theme based on the campaign name string
-    const getEventStyle = (campaignName?: string) => {
-        if (!campaignName) return { bg: 'bg-gray-100', border: 'border-gray-200', text: 'text-gray-600', accent: 'bg-gray-400' };
-        
+    const getEventStyle = (campaignName?: string, explicitColor?: string) => {
+        if (explicitColor) {
+            return {
+                bg: '', // handled via inline style
+                border: '', // handled via inline style
+                text: 'text-white', // Assume dark color for contrast, or calc luminosity (simplified for now)
+                accent: '', // handled inline
+                isExplicit: true,
+                hex: explicitColor
+            };
+        }
+
+        if (!campaignName) return { bg: 'bg-gray-100', border: 'border-gray-200', text: 'text-gray-600', accent: 'bg-gray-400', isExplicit: false };
+
         const variants = [
             { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800', accent: 'bg-blue-400' },
             { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', accent: 'bg-green-400' },
@@ -94,12 +105,12 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
             { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-800', accent: 'bg-indigo-400' },
             { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-800', accent: 'bg-cyan-400' },
         ];
-        
+
         let hash = 0;
         for (let i = 0; i < campaignName.length; i++) {
             hash = campaignName.charCodeAt(i) + ((hash << 5) - hash);
         }
-        return variants[Math.abs(hash) % variants.length];
+        return { ...variants[Math.abs(hash) % variants.length], isExplicit: false };
     };
 
     // --- Drag & Drop Logic ---
@@ -146,8 +157,8 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
             const isDragOver = dragOverDate === dateStr;
 
             days.push(
-                <div 
-                    key={day} 
+                <div
+                    key={day}
                     onClick={() => onAddEvent(dateStr)}
                     onDragOver={(e) => handleDragOver(e, dateStr)}
                     onDrop={(e) => handleDrop(e, dateStr)}
@@ -162,18 +173,19 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                             <button className="text-[10px] bg-brand-accent text-white px-1.5 py-0.5 rounded hover:bg-indigo-700 font-bold">+</button>
                         </div>
                     </div>
-                    
+
                     <div className="space-y-1 overflow-y-auto max-h-[100px] custom-scrollbar pb-1">
                         {dayEvents.map(ev => {
-                            const style = getEventStyle(ev.campaignName);
+                            const style = getEventStyle(ev.campaignName, ev.color);
                             return (
-                                <div 
-                                    key={ev.id} 
+                                <div
+                                    key={ev.id}
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, ev.id)}
                                     onDragEnd={handleDragEnd}
                                     onClick={(e) => { e.stopPropagation(); handleEventClick(ev); }}
-                                    className={`${style.bg} ${style.border} border rounded p-1.5 text-[10px] ${style.text} relative group/event cursor-grab active:cursor-grabbing hover:shadow-md transition-all z-20`}
+                                    className={`${!style.isExplicit ? style.bg : ''} ${!style.isExplicit ? style.border : ''} border rounded p-1.5 text-[10px] ${style.text} relative group/event cursor-grab active:cursor-grabbing hover:shadow-md transition-all z-20`}
+                                    style={style.isExplicit ? { backgroundColor: style.hex, borderColor: style.hex, color: '#fff' } : {}}
                                 >
                                     <div className="flex flex-col gap-1">
                                         <div className="flex justify-between items-start">
@@ -181,13 +193,13 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                                 {ev.campaignName || 'No Campaign'}
                                             </span>
                                         </div>
-                                        
+
                                         <div className="flex gap-2 items-start">
                                             {ev.image && (
-                                                <img 
-                                                    src={ev.image} 
-                                                    alt="Preview" 
-                                                    className="w-8 h-8 rounded object-cover border border-black/5 shrink-0 bg-white" 
+                                                <img
+                                                    src={ev.image}
+                                                    alt="Preview"
+                                                    className="w-8 h-8 rounded object-cover border border-black/5 shrink-0 bg-white"
                                                     draggable={false}
                                                 />
                                             )}
@@ -248,7 +260,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                     <h4 className="font-bold text-sm text-brand-text uppercase mb-2">Scheduled Posts</h4>
                     <div className="text-3xl font-display font-bold text-indigo-600">{events.filter(e => e.status === 'scheduled').length}</div>
                 </div>
-                 <div className="bg-white p-6 rounded-xl border border-brand-border">
+                <div className="bg-white p-6 rounded-xl border border-brand-border">
                     <h4 className="font-bold text-sm text-brand-text uppercase mb-2">Campaigns Active</h4>
                     <div className="text-3xl font-display font-bold text-green-600">{new Set(events.filter(e => e.campaignName).map(e => e.campaignName)).size}</div>
                 </div>
@@ -258,7 +270,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
             {selectedEvent && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setSelectedEvent(null)}>
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                        
+
                         {/* Left Column: Media */}
                         <div className="w-full md:w-1/2 bg-gray-100 flex items-center justify-center p-6 border-b md:border-b-0 md:border-r border-brand-border relative group">
                             {selectedEvent.image ? (
@@ -266,14 +278,14 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                     <img src={selectedEvent.image} alt="Planned Content" className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-sm" />
                                     {/* Hover controls for image */}
                                     <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                                        <button 
+                                        <button
                                             onClick={(e) => { e.stopPropagation(); calendarFileInputRef.current?.click(); }}
                                             className="bg-white text-brand-text px-3 py-1.5 rounded-lg shadow-sm text-xs font-bold hover:bg-gray-50 border border-brand-border"
                                         >
                                             Change
                                         </button>
-                                        <button 
-                                            onClick={(e) => { 
+                                        <button
+                                            onClick={(e) => {
                                                 e.stopPropagation();
                                                 const updated = { ...selectedEvent, image: undefined };
                                                 setSelectedEvent(updated);
@@ -286,7 +298,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                     </div>
                                 </>
                             ) : (
-                                <div 
+                                <div
                                     className="text-brand-muted text-sm italic flex flex-col items-center gap-3 cursor-pointer hover:text-brand-accent transition-colors p-10 border-2 border-dashed border-transparent hover:border-brand-accent/30 rounded-xl"
                                     onClick={() => calendarFileInputRef.current?.click()}
                                 >
@@ -296,12 +308,12 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                     <span className="font-bold underline decoration-dotted">Click to upload media</span>
                                 </div>
                             )}
-                            <input 
-                                type="file" 
-                                ref={calendarFileInputRef} 
-                                onChange={handleCalendarImageUpload} 
-                                accept="image/*" 
-                                className="hidden" 
+                            <input
+                                type="file"
+                                ref={calendarFileInputRef}
+                                onChange={handleCalendarImageUpload}
+                                accept="image/*"
+                                className="hidden"
                             />
                         </div>
 
@@ -325,8 +337,8 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                             Scheduled for <span className="font-bold text-brand-text">{new Date(selectedEvent.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
                                         </p>
                                     ) : (
-                                        <input 
-                                            type="date" 
+                                        <input
+                                            type="date"
                                             value={editDate}
                                             onChange={(e) => setEditDate(e.target.value)}
                                             className="mt-1 border border-brand-border rounded px-2 py-1 text-sm text-brand-text focus:outline-none focus:border-brand-accent"
@@ -350,7 +362,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                         {selectedEvent.content}
                                     </div>
                                 ) : (
-                                    <textarea 
+                                    <textarea
                                         value={editContent}
                                         onChange={(e) => setEditContent(e.target.value)}
                                         className="w-full h-40 border border-brand-border rounded-lg p-2 text-sm text-brand-text focus:outline-none focus:border-brand-accent resize-none"
@@ -360,7 +372,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
 
                             <div className="p-6 border-t border-brand-border bg-gray-50 flex gap-3">
                                 {isEditing ? (
-                                    <Button 
+                                    <Button
                                         className="flex-1"
                                         onClick={handleSaveChanges}
                                     >
@@ -368,20 +380,20 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                     </Button>
                                 ) : (
                                     <>
-                                        <Button 
+                                        <Button
                                             className="flex-1"
                                             onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(selectedEvent.content)}`, '_blank')}
                                         >
                                             Post Now
                                         </Button>
-                                        <Button 
-                                            variant="danger" 
+                                        <Button
+                                            variant="danger"
                                             onClick={() => { onDeleteEvent(selectedEvent.id); setSelectedEvent(null); }}
                                         >
                                             Delete
                                         </Button>
                                         {selectedEvent.image && (
-                                             <Button 
+                                            <Button
                                                 variant="secondary"
                                                 className="px-3"
                                                 onClick={() => {

@@ -12,7 +12,7 @@ import { GrowthEngine } from './components/GrowthEngine';
 import { PulseEngine } from './components/PulseEngine'; // Import Pulse
 import { ContentCalendar } from './components/ContentCalendar';
 import { Dashboard } from './components/Dashboard'; // Import Dashboard
-import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics } from './types';
+import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport } from './types';
 
 const App: React.FC = () => {
     // Check environment variable first (injected by Vite define)
@@ -46,6 +46,7 @@ const App: React.FC = () => {
     const [strategyTasks, setStrategyTasks] = useState<StrategyTask[]>([]);
     const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null);
     const [chainMetrics, setChainMetrics] = useState<ComputedMetrics | null>(null); // Lifted for Defia Index
+    const [growthReport, setGrowthReport] = useState<GrowthReport | null>(null); // Lifted for Dashboard
     const [systemLogs, setSystemLogs] = useState<string[]>([]); // New: Activity Logs for Dashboard
 
     // Single Generation State
@@ -69,6 +70,7 @@ const App: React.FC = () => {
     const [campaignStep, setCampaignStep] = useState<1 | 2 | 3>(1); // 1: Draft, 2: Approve, 3: Results
     const [campaignType, setCampaignType] = useState<'theme' | 'diverse'>('theme');
     const [campaignTheme, setCampaignTheme] = useState<string>('');
+    const [campaignColor, setCampaignColor] = useState<string>('#4F46E5'); // Default Indigo
     const [campaignCount, setCampaignCount] = useState<string>('3');
     const [campaignStartDate, setCampaignStartDate] = useState<string>('');
     const [isDraftingCampaign, setIsDraftingCampaign] = useState<boolean>(false);
@@ -444,7 +446,8 @@ const App: React.FC = () => {
                 image: selectedImage,
                 platform: 'Twitter',
                 status: 'scheduled',
-                campaignName: campaignTheme || 'Campaign'
+                campaignName: campaignTheme || 'Campaign',
+                color: campaignColor // Pass color
             };
         });
 
@@ -480,14 +483,25 @@ const App: React.FC = () => {
             );
 
             // Parse output
-            const splitDrafts = draftsText.split(/---/).map(t => t.trim()).filter(t => t.length > 0);
+            // Check for color line
+            let textToParse = draftsText;
+            const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
+
+            if (colorMatch) {
+                setCampaignColor(colorMatch[1]);
+                // Remove the color line from the text to be split
+                textToParse = textToParse.replace(colorMatch[0], '').trim();
+            }
+
+            const splitDrafts = textToParse.split(/---/).map(t => t.trim()).filter(t => t.length > 0);
 
             const items: CampaignItem[] = splitDrafts.map((txt, i) => ({
                 id: `draft-${Date.now()}-${i}`,
                 tweet: txt,
                 isApproved: true, // Auto-approve initially
                 status: 'draft',
-                images: []
+                images: [],
+                campaignColor: colorMatch ? colorMatch[1] : campaignColor
             }));
 
             setCampaignItems(items);
@@ -745,6 +759,7 @@ const App: React.FC = () => {
                         isServerOnline={isServerOnline}
                         onNavigate={setAppSection}
                         onQuickAction={() => { }} // Placeholder
+                        growthReport={growthReport} // Pass recent report
                     />
                 )}
 
@@ -774,6 +789,8 @@ const App: React.FC = () => {
                             onUpdateChainMetrics={setChainMetrics}
                             tasks={strategyTasks}
                             onUpdateTasks={setStrategyTasks}
+                            growthReport={growthReport}
+                            onUpdateGrowthReport={setGrowthReport}
                         />
                     </div>
                 )}
@@ -1028,7 +1045,19 @@ const App: React.FC = () => {
                                 {/* VIEW: CAMPAIGN REVIEW (STEP 2) */}
                                 {activeTab === 'calendar' && campaignStep === 2 && (
                                     <div className="space-y-4 animate-fadeIn">
-                                        <h2 className="text-xl font-display font-bold text-brand-text mb-6">Review Drafts</h2>
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h2 className="text-xl font-display font-bold text-brand-text">Review Drafts</h2>
+                                            {/* Color Picker */}
+                                            <div className="flex items-center gap-2 bg-white/50 px-2 py-1 rounded-lg border border-brand-border/50">
+                                                <label className="text-[10px] font-bold text-brand-muted uppercase">Campaign Color</label>
+                                                <input
+                                                    type="color"
+                                                    value={campaignColor}
+                                                    onChange={(e) => setCampaignColor(e.target.value)}
+                                                    className="w-5 h-5 rounded cursor-pointer border-none bg-transparent"
+                                                />
+                                            </div>
+                                        </div>
                                         {campaignItems.map((item, idx) => (
                                             <div key={item.id} className={`p-4 rounded-xl border transition-all shadow-sm ${item.isApproved ? 'bg-white border-brand-border opacity-100' : 'bg-gray-100 border-transparent opacity-60'}`}>
                                                 <div className="flex justify-between items-start mb-3">

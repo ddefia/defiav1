@@ -111,7 +111,14 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const CACHE_FILE = path.join(__dirname, '../../cache/social_metrics.json');
+// Fix: Cache is in ../cache relative to this file (server/agent -> server/cache)
+const CACHE_DIR = path.join(__dirname, '../cache');
+const CACHE_FILE = path.join(CACHE_DIR, 'social_metrics.json');
+
+// Ensure cache directory exists
+if (!fs.existsSync(CACHE_DIR)) {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
 
 export const TRACKED_BRANDS = {
     'enki': 'ENKIProtocol',

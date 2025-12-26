@@ -322,7 +322,8 @@ export const generateCampaignDrafts = async (
     ${kb}
     
     FORMATTING:
-    - Separate each tweet clearly with "---".
+    - First line MUST be "THEME_COLOR: [Hex Code]" (e.g. THEME_COLOR: #FF5733). Choose a color that matches the vibe of the campaign theme.
+    - Then separate each tweet clearly with "---".
     - Do not number the tweets.
     - Keep each tweet detailed (up to 280 characters).
     - STRUCTURE: Start with a compelling HOOK. End with a clear Call-To-Action (CTA).
@@ -673,7 +674,7 @@ export const generateStrategicAnalysis = async (
     // 2. Prepare Context
     const kb = brandConfig.knowledgeBase.slice(0, 3).join('\n'); // Brief context
     const trendSummaries = trends.slice(0, 3).map(t => `- ${t.headline} (${t.relevanceReason})`).join('\n');
-    const existingSchedule = eventsNextWeek.map(e => `${e.date}: ${e.content.substring(0, 30)}...`).join('\n');
+    const existingSchedule = eventsNextWeek.map(e => `${e.date}: ${e.content.substring(0, 30)}... ${e.campaignName ? `[Campaign: ${e.campaignName}]` : ''}`).join('\n');
     const mentionSummaries = mentions.slice(0, 3).map(m => `- ${m.author}: "${m.text}"`).join('\n');
 
     let reportContext = "No quantitative performance data available.";

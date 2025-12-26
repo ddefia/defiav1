@@ -19,6 +19,8 @@ interface GrowthEngineProps {
     onUpdateTasks: (tasks: StrategyTask[]) => void;
     chainMetrics: ComputedMetrics | null;
     onUpdateChainMetrics: (metrics: ComputedMetrics | null) => void;
+    growthReport: GrowthReport | null; // Lifted
+    onUpdateGrowthReport: (report: GrowthReport | null) => void; // Lifted
 }
 
 interface ContractInput {
@@ -50,7 +52,7 @@ const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoadin
     </div>
 );
 
-export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics }) => {
+export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics, growthReport, onUpdateGrowthReport }) => {
     // --- TABS ---
     const [activeTab, setActiveTab] = useState<'analytics' | 'strategy'>('analytics');
 
@@ -76,7 +78,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
 
     const [campaigns, setCampaigns] = useState<CampaignLog[]>([]);
     // Const [chainMetrics] removed (lifted)
-    const [report, setReport] = useState<GrowthReport | null>(null);
+    // const [report, setReport] = useState<GrowthReport | null>(null); // REMOVED (LIFTED)
 
     // Load Real Data Helper
     const loadRealSocialData = useCallback(async (apifyApiKeyToUse?: string) => {
@@ -164,7 +166,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                     excludedWallets: [],
                     campaigns: campaigns
                 });
-                setChainMetrics(computed); // Update Parent
+                onUpdateChainMetrics(computed); // Update Parent
             }
 
             setProcessingStatus('Generating Strategy Brief via Gemini...');
@@ -172,7 +174,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             // Use 'computed' which is either fresh or existing
             const aiReport = await generateGrowthReport(computed, campaigns, metricsForReport);
 
-            setReport(aiReport);
+            onUpdateGrowthReport(aiReport);
         } catch (e) {
             console.error(e);
             setProcessingStatus('Analysis interrupted.');
@@ -193,7 +195,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
         loadRealSocialData();
         // Do not reset keys here, they are loaded separately
         onUpdateChainMetrics(null); // Reset Parent State
-        setReport(null);
+        onUpdateGrowthReport(null);
 
         // Default Inputs
         let initialCampaigns: CampaignLog[] = [];
@@ -341,10 +343,10 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                                     <div className="w-12 h-12 border-4 border-brand-accent border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
                                     <p className="text-sm text-brand-muted animate-pulse font-medium">{processingStatus}</p>
                                 </div>
-                            ) : report ? (
+                            ) : growthReport ? (
                                 <div className="prose prose-sm max-w-none text-brand-text">
                                     <div className="bg-gray-50 p-6 rounded-xl border border-brand-border mb-8">
-                                        <p className="whitespace-pre-line text-base leading-relaxed">{report.executiveSummary}</p>
+                                        <p className="whitespace-pre-line text-base leading-relaxed">{growthReport.executiveSummary}</p>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
@@ -394,7 +396,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                             brandName={brandName}
                             brandConfig={brandConfig}
                             events={calendarEvents}
-                            growthReport={report}
+                            growthReport={growthReport}
                             onSchedule={(content, image) => onSchedule?.(content, image)}
                             tasks={tasks}
                             onUpdateTasks={onUpdateTasks}
