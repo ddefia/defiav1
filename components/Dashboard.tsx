@@ -1,12 +1,16 @@
 import React, { useMemo } from 'react';
-import { SocialMetrics, StrategyTask, CalendarEvent } from '../types';
+import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics } from '../types';
 import { loadPulseCache } from '../services/storage';
+import { calculateDefiaScore } from '../services/scoring';
 
 interface DashboardProps {
     brandName: string;
     calendarEvents: CalendarEvent[];
     socialMetrics: SocialMetrics | null;
     strategyTasks: StrategyTask[];
+    chainMetrics: ComputedMetrics | null;
+    systemLogs?: string[];
+    isServerOnline?: boolean;
     onNavigate: (section: 'studio' | 'growth' | 'pulse' | 'calendar' | 'dashboard') => void;
     onQuickAction: (action: string) => void;
 }
@@ -16,21 +20,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
     calendarEvents,
     socialMetrics,
     strategyTasks,
+    chainMetrics,
+    systemLogs = [],
+    isServerOnline = false,
     onNavigate
 }) => {
     // --- Data Processing ---
 
-    // 1. Defia Index Calculation (Mock Algo: Engagement + Task Impact)
-    const defiaIndex = useMemo(() => {
-        const base = 7.0;
-        const engagementBoost = socialMetrics?.engagementRate ? Math.min(socialMetrics.engagementRate, 3) : 0;
-        const taskBoost = strategyTasks.length > 0 ? 0.5 : 0;
-        return (base + engagementBoost + taskBoost).toFixed(1);
-    }, [socialMetrics, strategyTasks]);
+    // 1. Defia Index Calculation (Real Weighted Algo)
+    const { total: indexScore, grade: indexGrade, breakdown, insights: scoreInsights } = useMemo(() => {
+        return calculateDefiaScore(socialMetrics, chainMetrics, strategyTasks);
+    }, [socialMetrics, chainMetrics, strategyTasks]);
+
+    // Format for display (0-10 scale)
+    const displayScore = (indexScore / 10).toFixed(1);
 
     // 2. Audience & Growth
     const totalAudience = socialMetrics?.totalFollowers
-        ? (socialMetrics.totalFollowers > 1000 ? `${(socialMetrics.totalFollowers / 1000).toFixed(1)}K` : socialMetrics.totalFollowers)
+        ? (socialMetrics.totalFollowers > 1000 ? `${(socialMetrics.totalFollowers / 1000).toFixed(1)}K` : socialMetrics.totalFollowers.toString())
         : '0';
 
     const rawEngagement = socialMetrics?.engagementRate ? socialMetrics.engagementRate.toFixed(2) : '0.00';
@@ -96,10 +103,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     label="Defia Index"
-                    value={`${defiaIndex}/10`}
-                    subtext="Overall growth health score"
-                    trend="+0.3"
-                    trendUp={true}
+                    value={`${displayScore}/10`}
+                    subtext={`${indexGrade} Tier • ${scoreInsights[0] || 'Optimized'}`}
+                    trend={socialMetrics?.isLive ? "Verified" : "Simulated"}
+                    trendUp={!!socialMetrics?.isLive}
                 />
                 <StatCard
                     label="Total Audience"
@@ -144,8 +151,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="text-xs font-bold text-gray-400 uppercase mb-6 tracking-widest flex items-center gap-2">
                                 <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
                                 <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                <span className="text-green-600">● Live Monitoring Active</span>
+                                <span className={`flex items-center gap-2 ${isServerOnline ? 'text-green-600' : 'text-gray-400'}`}>
+                                    <span className={`w-2 h-2 rounded-full ${isServerOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                                    {isServerOnline ? "Live Monitoring Active" : "Offline"}
+                                </span>
                             </div>
+
+                            {/* --- AGENT PROPOSAL CARD --- */}
+                            {systemLogs.some(l => l.includes('ACTION REQUIRED')) && (
+                                <div className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-100 shadow-sm animate-fadeIn">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex gap-3">
+                                            <div className="bg-white p-2 rounded-lg text-xl shadow-sm">⚡</div>
+                                            <div>
+                                                <h4 className="font-bold text-gray-900">Agent Proposal</h4>
+                                                <p className="text-xs text-gray-500">The autonomous agent suggests a response.</p>
+                                            </div>
+                                        </div>
+                                        <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded">PENDING APPROVAL</span>
+                                    </div>
+
+                                    <div className="mt-3 bg-white p-3 rounded-lg border border-indigo-100 text-sm italic text-gray-600">
+                                        "Exciting times ahead! We are definitely tracking the volume spike correctly..."
+                                    </div>
+
+                                    <div className="flex justify-end gap-2 mt-3">
+                                        <button className="text-xs text-gray-400 font-bold hover:text-gray-600 px-3 py-1.5">Dismiss</button>
+                                        <button className="text-xs bg-indigo-600 text-white font-bold px-4 py-1.5 rounded-md hover:bg-indigo-700 shadow-sm">Approve & Post</button>
+                                    </div>
+                                </div>
+                            )}
 
                             {dailyFeature ? (
                                 <div className="space-y-6 animate-fadeIn">
@@ -155,16 +190,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <p className="text-gray-600 leading-relaxed text-sm md:text-base">
                                         {dailyFeature.description}
                                     </p>
-                                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 flex gap-4 items-start">
-                                        <div className="text-indigo-600 mt-1">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    <div className="p-5 bg-indigo-50/50 rounded-xl border border-indigo-100 flex gap-4 items-start">
+                                        <div className="bg-white p-2 rounded-lg shadow-sm text-indigo-600 mt-1 shrink-0">
+                                            {dailyFeature.type === 'TREND_JACK' ? '📉' :
+                                                dailyFeature.type === 'REPLY' ? '💬' :
+                                                    dailyFeature.type === 'GAP_FILL' ? '🗓️' : '🧠'}
                                         </div>
                                         <div>
-                                            <h4 className="text-sm font-bold text-indigo-900">Why this matters</h4>
-                                            <p className="text-xs text-indigo-700 mt-1">{dailyFeature.reasoning}</p>
+                                            <h4 className="text-sm font-bold text-indigo-900 uppercase tracking-wide text-[10px] mb-1">
+                                                Based on {dailyFeature.type === 'TREND_JACK' ? 'Real-Time Market News' :
+                                                    dailyFeature.type === 'REPLY' ? 'Community Sentiment' :
+                                                        dailyFeature.type === 'GAP_FILL' ? 'Schedule Analysis' : 'Strategic Growth Data'}
+                                            </h4>
+                                            <p className="text-sm text-indigo-800 leading-relaxed font-medium">"{dailyFeature.reasoning}"</p>
                                         </div>
                                     </div>
-                                    <div className="pt-4">
+                                    <div className="pt-2">
                                         <button
                                             onClick={() => onNavigate('growth')}
                                             className="bg-gray-900 text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg shadow-gray-200 cursor-pointer flex items-center gap-2"
@@ -174,14 +215,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="py-8 animate-fadeIn">
-                                    <h3 className="text-xl font-display font-medium text-gray-900 mb-2">Analyzing market conditions...</h3>
-                                    <p className="text-gray-500 mb-6">Our engines are scanning social signals, on-chain data, and competitors to generate your daily brief.</p>
-
-                                    <div className="space-y-3">
-                                        <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse"></div>
-                                        <div className="h-4 bg-gray-100 rounded w-1/2 animate-pulse"></div>
-                                        <div className="h-4 bg-gray-100 rounded w-5/6 animate-pulse"></div>
+                                <div className="py-2 animate-fadeIn">
+                                    {/* TERMINAL UI FOR LOGS */}
+                                    <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-green-400 h-48 overflow-y-auto border border-gray-800 shadow-inner">
+                                        <div className="flex items-center justify-between border-b border-gray-800 pb-2 mb-2">
+                                            <span className="text-gray-500">System Logs</span>
+                                            <span className="flex gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div><div className="w-2 h-2 rounded-full bg-yellow-500"></div><div className="w-2 h-2 rounded-full bg-green-500"></div></span>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {systemLogs.length > 0 ? systemLogs.map((log, i) => (
+                                                <div key={i} className="opacity-80">{'>'} {log}</div>
+                                            )) : (
+                                                <>
+                                                    <div className="opacity-50">{'>'} Initializing Sentinel...</div>
+                                                    <div className="opacity-50">{'>'} Checking for recent tasks...</div>
+                                                    <div className="opacity-50">{'>'} Status: SCANNING</div>
+                                                </>
+                                            )}
+                                            <div className="animate-pulse">{'>'} _</div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 text-center">
+                                        <p className="text-gray-500 text-sm mb-2">Analyzing market conditions...</p>
+                                        <button
+                                            onClick={() => onNavigate('growth')}
+                                            className="text-indigo-600 text-xs font-bold hover:underline"
+                                        >
+                                            Generating Recommendations in Strategy Hub &rarr;
+                                        </button>
                                     </div>
                                 </div>
                             )}

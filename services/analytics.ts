@@ -327,18 +327,7 @@ export const getSocialMetrics = (brandName: string): SocialMetrics => {
  * Note: In a production environment, this would call the Dune API or a specialized Indexer.
  */
 
-// Helper to generate a random "Wallet" address
-const mockAddress = () => `0x${Math.random().toString(16).substr(2, 40)}`;
 
-interface Transaction {
-    hash: string;
-    wallet: string;
-    timestamp: number;
-    amountUsd: number;
-    type: 'deposit' | 'swap' | 'stake';
-}
-
-// Mock generation removed to enforce Live Data only.
 
 
 /**
@@ -456,15 +445,9 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
         tvlChange = 0;
     }
 
-    // --- 2. CAMPAIGN ATTRIBUTION (Stubbed for now) ---
-    // Without granular wallet data, we cannot attribute safely. Return empty for now.
-    const campaignPerformance = input.campaigns.map(camp => ({
-        campaignId: camp.id,
-        lift: 0,
-        cpa: 0,
-        whalesAcquired: 0,
-        roi: 0
-    }));
+    // --- 2. CAMPAIGN ATTRIBUTION ---
+    // Return empty attribution until granular wallet data is fully implemented.
+    const campaignPerformance: any[] = [];
 
 
     return {

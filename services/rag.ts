@@ -56,6 +56,14 @@ export const ingestContext = async (content: string, source: string, metadata: a
     }
 };
 
+/**
+ * Log a strategic decision into long-term memory.
+ */
+export const logDecision = async (action: string, reasoning: string) => {
+    const content = `DECISION TAKEN: ${action}. REASONING: ${reasoning}`;
+    await ingestContext(content, 'AI_DECISION_LOG', { type: 'decision', timestamp: Date.now() });
+};
+
 export const searchContext = async (query: string, limit: number = 3): Promise<RAGContext[]> => {
     // 1. Embed Query
     const embedding = await generateEmbedding(query);

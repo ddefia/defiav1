@@ -18,6 +18,26 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// --- Health Check ---
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime(), agent: 'active' });
+});
+
+// --- Agent Decisions Bridge ---
+app.get('/api/decisions', (req, res) => {
+    const DECISIONS_FILE = path.join(__dirname, 'server/cache/decisions.json');
+    try {
+        if (fs.existsSync(DECISIONS_FILE)) {
+            const data = fs.readFileSync(DECISIONS_FILE, 'utf-8');
+            res.json(JSON.parse(data));
+        } else {
+            res.json([]);
+        }
+    } catch (e) {
+        res.status(500).json({ error: "Failed to read decisions" });
+    }
+});
+
 const KEY_FILE_PATH = path.join(__dirname, 'service-account.json');
 
 // Check if key exists

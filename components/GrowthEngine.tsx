@@ -17,6 +17,8 @@ interface GrowthEngineProps {
     onUpdateMetrics: (metrics: SocialMetrics | null) => void;
     tasks: StrategyTask[];
     onUpdateTasks: (tasks: StrategyTask[]) => void;
+    chainMetrics: ComputedMetrics | null;
+    onUpdateChainMetrics: (metrics: ComputedMetrics | null) => void;
 }
 
 interface ContractInput {
@@ -48,7 +50,7 @@ const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoadin
     </div>
 );
 
-export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks }) => {
+export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics }) => {
     // --- TABS ---
     const [activeTab, setActiveTab] = useState<'analytics' | 'strategy'>('analytics');
 
@@ -73,7 +75,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
     const [isAutoPilot, setIsAutoPilot] = useState(true); // Default to true based on "constant scan" request
 
     const [campaigns, setCampaigns] = useState<CampaignLog[]>([]);
-    const [chainMetrics, setChainMetrics] = useState<ComputedMetrics | null>(null);
+    // Const [chainMetrics] removed (lifted)
     const [report, setReport] = useState<GrowthReport | null>(null);
 
     // Load Real Data Helper
@@ -162,7 +164,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                     excludedWallets: [],
                     campaigns: campaigns
                 });
-                setChainMetrics(computed);
+                setChainMetrics(computed); // Update Parent
             }
 
             setProcessingStatus('Generating Strategy Brief via Gemini...');
@@ -190,22 +192,16 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
         onUpdateMetrics(getSocialMetrics(brandName));
         loadRealSocialData();
         // Do not reset keys here, they are loaded separately
-        setChainMetrics(null);
+        onUpdateChainMetrics(null); // Reset Parent State
         setReport(null);
 
         // Default Inputs
         let initialCampaigns: CampaignLog[] = [];
         let initialContracts: ContractInput[] = [];
 
-        if (brandName === 'ENKI') {
-            initialContracts = [{ id: 'c1', label: '$ENKI Token', address: '0xENKI...Token', type: 'token' }];
-            initialCampaigns = [{ id: '1', name: 'Sequencer Launch', startDate: '2024-02-01', endDate: '2024-02-14', budget: 15000, channel: 'Twitter' }];
-            // Only set default if user hasn't provided one
-            if (!duneKey) setDuneKey('dune_live_showcase_key_enki_v3');
-            if (!apifyKey) setApifyKey('apify_live_twitter_scraper_v2');
-            setContracts(initialContracts);
-            setCampaigns(initialCampaigns);
-        }
+        // Demo logic removed.
+        // User must manually configure data sources.
+
 
         // Auto-Run Analysis (Live Mode)
         // trigger after a brief delay to allow keys to hydrate

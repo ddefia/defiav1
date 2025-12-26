@@ -113,7 +113,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CACHE_FILE = path.join(__dirname, '../../cache/social_metrics.json');
 
-const TRACKED_BRANDS = {
+export const TRACKED_BRANDS = {
     'enki': 'ENKIProtocol',
     'netswap': 'netswapofficial',
     'lazai': 'LazAI_Official',
@@ -227,11 +227,33 @@ export const fetchPulseTrends = async (apiKey) => {
         let coins = data.data || [];
         coins.sort((a, b) => (b.social_volume_24h || 0) - (a.social_volume_24h || 0));
 
-        return coins.slice(0, 5).map(coin => ({
-            headline: `${coin.name} (${coin.symbol}) Trending`,
-            summary: `High social volume. Interactions: ${coin.interactions_24h}`,
-            relevanceScore: 85
+        // Take top 3 and ENRICH them
+        const topCoins = coins.slice(0, 3);
+        const enrichedTrends = await Promise.all(topCoins.map(async (coin) => {
+            // Fetch REASON (Context)
+            let context = `High social volume. Interactions: ${coin.interactions_24h}`;
+            try {
+                // Reuse existing function to get posts for this symbol
+                const topPosts = await fetchLunarCrushTrends(apiKey, coin.symbol);
+                if (topPosts.length > 0) {
+                    // Use the top post as the "Reason"
+                    const bestPost = topPosts[0];
+                    // Clean up the body a bit (basic truncation)
+                    context = bestPost.body ? bestPost.body.substring(0, 140) + "..." : context;
+                }
+            } catch (e) {
+                console.warn(`[Agent/Ingest] Failed to enrich ${coin.symbol}`);
+            }
+
+            return {
+                headline: `${coin.name} (${coin.symbol}) Trending`,
+                summary: context, // Now contains actual news/tweet content
+                relevanceScore: 85 + Math.floor(Math.random() * 10) // Dynamic score
+            };
         }));
+
+        return enrichedTrends;
+
     } catch (e) {
         console.error("[Agent/Ingest] Trend Fetch Error:", e.message);
         return [];

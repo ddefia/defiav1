@@ -1,8 +1,8 @@
 
 import { TrendItem } from "../types";
 
-// In a real app, this would call a backend scraping service (Apify/Twitter API)
-// For this demo, we simulate "Live" data fetching based on the Brand's niche.
+// Real-time market data fetching
+
 
 
 // Helper for Apify (Simulated import if we refactored, but defining here for safety)
@@ -44,23 +44,45 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
         let coins = data.data || [];
         const now = Date.now();
 
-        // Client-side sort by social volume to ensure we get trends, not just top market cap
+        // Client-side sort by social volume
         coins.sort((a: any, b: any) => (b.social_volume_24h || 0) - (a.social_volume_24h || 0));
-        coins = coins.slice(0, 50);
 
-        return coins.map((coin: any) => ({
-            id: `lc-${coin.id}`,
-            source: 'LunarCrush',
-            headline: `${coin.name} (${coin.symbol}) Trending`,
-            summary: `High social volume for ${coin.name}. 24h Interactions: ${coin.interactions_24h || 0}. 24h Volume: ${coin.social_volume_24h || 0}`,
-            relevanceScore: Math.min(99, Math.floor((coin.social_score_24h || 50) + 20)), // Normalize score
-            relevanceReason: "High social activity detected.",
-            sentiment: (coin.sentiment || 0) > 50 ? 'Positive' : 'Neutral',
-            timestamp: 'Live',
-            createdAt: now,
-            url: `https://lunarcrush.com/coins/${coin.symbol.toLowerCase()}`,
-            rawData: coin // Store full object for backend readiness
+        // Take top 10 for "Deep Dive" (Expanded coverage)
+        const topCoins = coins.slice(0, 10);
+
+        const enrichedTrends = await Promise.all(topCoins.map(async (coin: any) => {
+            let context = `High social volume for ${coin.name}. 24h Interactions: ${coin.interactions_24h || 0}.`;
+
+            try {
+                // Fetch context tweets
+                const postsRes = await fetch(`https://lunarcrush.com/api4/public/creator/twitter/${coin.symbol}/posts/v1`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (postsRes.ok) {
+                    const postsData = await postsRes.json();
+                    const topPost = (postsData.data || [])[0];
+                    if (topPost && topPost.body) {
+                        context = topPost.body.substring(0, 140) + "...";
+                    }
+                }
+            } catch (e) { console.warn("Context fetch failed", e); }
+
+            return {
+                id: `lc-${coin.id}`,
+                source: 'LunarCrush',
+                headline: `${coin.name} (${coin.symbol}) Trending`,
+                summary: context,
+                relevanceScore: Math.min(99, Math.floor((coin.social_score_24h || 50) + 20)),
+                relevanceReason: "High News Activity",
+                sentiment: (coin.sentiment || 0) > 50 ? 'Positive' : 'Neutral',
+                timestamp: 'Live',
+                createdAt: now,
+                url: `https://lunarcrush.com/coins/${coin.symbol.toLowerCase()}`,
+                rawData: coin
+            };
         }));
+
+        return enrichedTrends;
 
     } catch (e) {
         console.warn("LunarCrush fetch failed", e);

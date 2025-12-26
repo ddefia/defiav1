@@ -213,3 +213,14 @@ declare global {
     aistudio?: AIStudio;
   }
 }
+
+export interface DefiaScore {
+  total: number;
+  grade: string;
+  breakdown: {
+    socialScore: number;
+    chainScore: number;
+    strategyScore: number;
+  };
+  insights: string[];
+}

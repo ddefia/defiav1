@@ -475,52 +475,12 @@ export const generateIdeas = async (brandName: string): Promise<string[]> => {
         });
         return (response.text || '').split('\n').map(l => l.replace(/^[\d\-\.\*]+\s*/, '').trim()).filter(l => l.length > 5);
     } catch (e) {
-        return ["Community Update", "Tech Deep Dive", "Market Commentary", "Feature Teaser"];
+        console.warn("Idea generation failed", e);
+        return [];
     }
 }
 
-/**
- * HELPER: Deterministic Profile Generator
- * Creates a believable brand profile purely from the name string without external API calls.
- */
-const generateDeterministicProfile = (brandName: string, url: string): BrandConfig => {
-    // Simple hash function to generate consistent numbers from string
-    const hash = brandName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
-    // Theme Generator
-    const themes = [
-        { name: 'DeFi Blue', c1: '#3B82F6', c2: '#1E40AF', c3: '#93C5FD' },
-        { name: 'Dark Mode Tech', c1: '#111827', c2: '#374151', c3: '#10B981' },
-        { name: 'Meme Vibrant', c1: '#F59E0B', c2: '#EF4444', c3: '#FFFFFF' },
-        { name: 'Corporate Clean', c1: '#0F172A', c2: '#64748B', c3: '#E2E8F0' },
-        { name: 'Purple Haze', c1: '#5B21B6', c2: '#8B5CF6', c3: '#DDD6FE' }
-    ];
-
-    const theme = themes[hash % themes.length];
-    const isDeFi = brandName.toLowerCase().includes('swap') || brandName.toLowerCase().includes('finance') || brandName.toLowerCase().includes('defi');
-    const isMeme = brandName.toLowerCase().includes('dog') || brandName.toLowerCase().includes('pepe') || brandName.toLowerCase().includes('meme');
-
-    return {
-        colors: [
-            { id: 'c1', name: 'Primary', hex: theme.c1 },
-            { id: 'c2', name: 'Secondary', hex: theme.c2 },
-            { id: 'c3', name: 'Accent', hex: theme.c3 },
-        ],
-        knowledgeBase: [
-            `${brandName} is a Web3 project located at ${url}.`,
-            isDeFi ? `${brandName} focuses on decentralized finance solutions, offering yield and swapping capabilities.` :
-                isMeme ? `${brandName} is a community-driven project focused on viral growth and engagement.` :
-                    `${brandName} provides infrastructure and tools for the decentralized economy.`,
-            `The project aims to simplify user experience and increase adoption in the blockchain space.`
-        ],
-        tweetExamples: [
-            `Big updates coming to ${brandName} next week! Stay tuned. 🚀`,
-            `Community is everything. Thank you for supporting ${brandName}. #Web3 #Growth`,
-            `Building the future, one block at a time.`
-        ],
-        referenceImages: []
-    };
-};
 
 /**
  * AI RESEARCH: Scrapes (Simulated) and infers brand identity from URL/Name.
@@ -579,8 +539,9 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
         };
 
     } catch (e) {
-        console.warn("Research API failed or offline, using deterministic simulation.", e);
-        return generateDeterministicProfile(brandName, url);
+        console.warn("Research API failed or offline.", e);
+        // Fail gracefully without fallback
+        throw new Error("Brand research failed. Please check API Key.");
     }
 }
 
@@ -729,8 +690,10 @@ export const generateStrategicAnalysis = async (
     You assume three specific roles to audit the current state and assign tasks:
 
     ${ragContext ? `
-    IMPORTANT - LONG TERM MEMORY (RAG):
-    The following is retrieved context from our historical database and on-chain analysis. Use this to inform your decisions, especially for EVERGREEN content or TREND JACKING.
+    IMPORTANT - LONG TERM MEMORY (HISTORY & CONTEXT):
+    The following is retrieved context from our historical database and on-chain analysis. 
+    Use this to inform your decisions. Pay special attention to 'DECISION TAKEN' logs to avoid repeating recent actions or to follow up on them.
+    
     ${ragContext}
     ` : ''}
 

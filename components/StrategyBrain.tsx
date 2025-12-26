@@ -5,7 +5,7 @@ import { generateStrategicAnalysis, generateTweet, generateWeb3Graphic } from '.
 import { fetchMarketPulse } from '../services/pulse';
 import { fetchMentions } from '../services/analytics';
 import { runMarketScan } from '../services/ingestion';
-import { searchContext, buildContextBlock } from '../services/rag';
+import { searchContext, buildContextBlock, logDecision } from '../services/rag';
 import { Button } from './Button';
 
 interface StrategyBrainProps {
@@ -47,7 +47,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             ]);
 
             // 3. RAG Retrieval
-            const ragHits = await searchContext(`Market state and trends for ${brandName}`, 5);
+            const ragHits = await searchContext(`Market trends, strategy context, and past decisions for ${brandName}`, 5);
             setRagEvents(ragHits); // Update UI
             const ragContext = buildContextBlock(ragHits);
 
@@ -106,7 +106,10 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             // 3. Open Schedule Modal with results
             onSchedule(copy, image);
 
-            // 4. Remove task from list (optional, or mark done)
+            // 4. Log Decision to Long-Term Memory
+            await logDecision(`Executed Task: ${task.title} (${task.type})`, task.reasoning);
+
+            // 5. Remove task from list (optional, or mark done)
             const remaining = tasks.filter(t => t.id !== task.id);
             onUpdateTasks(remaining);
 
@@ -223,8 +226,20 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                 <h3 className="text-lg font-bold text-gray-900 mb-1 font-serif">{task.title}</h3>
                                 <p className="text-sm text-gray-600 mb-3">{task.description}</p>
 
-                                <div className="flex gap-2 text-xs text-gray-400 bg-gray-50 p-2 rounded inline-block border border-gray-100">
-                                    <span className="font-bold">Rationale:</span> {task.reasoning}
+                                <div className="flex gap-2 text-xs bg-gray-50 p-3 rounded-lg border border-gray-100 items-start mt-2">
+                                    <div className="mt-0.5" title="Trigger Source">
+                                        {task.type === 'TREND_JACK' ? '📉' :
+                                            task.type === 'REPLY' ? '💬' :
+                                                task.type === 'GAP_FILL' ? '🗓️' : '🧠'}
+                                    </div>
+                                    <div>
+                                        <span className="font-bold text-gray-700 block mb-0.5 text-[10px] uppercase tracking-wide">
+                                            Triggered by {task.type === 'TREND_JACK' ? 'Market News' :
+                                                task.type === 'REPLY' ? 'Community' :
+                                                    task.type === 'GAP_FILL' ? 'Schedule Gap' : 'Growth Data'}
+                                        </span>
+                                        <span className="text-gray-500 leading-snug">{task.reasoning}</span>
+                                    </div>
                                 </div>
                             </div>
 
