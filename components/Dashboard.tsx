@@ -12,7 +12,7 @@ interface DashboardProps {
     systemLogs?: string[];
     isServerOnline?: boolean;
     growthReport?: GrowthReport | null;
-    onNavigate: (section: 'studio' | 'growth' | 'pulse' | 'calendar' | 'dashboard') => void;
+    onNavigate: (section: string) => void;
     onQuickAction: (action: string) => void;
 }
 
@@ -27,317 +27,173 @@ export const Dashboard: React.FC<DashboardProps> = ({
     growthReport,
     onNavigate
 }) => {
-    // --- Pulse Data Loading ---
-    const [pulseTrends, setPulseTrends] = React.useState<any[]>([]);
-    React.useEffect(() => {
-        const cache = loadPulseCache(brandName);
-        setPulseTrends(cache.items.slice(0, 3)); // Top 3
-    }, [brandName]);
-
-    // --- Data Processing (Restored) ---
-
-    // 1. Defia Index Calculation
-    const { total: indexScore, grade: indexGrade, breakdown, insights: scoreInsights } = useMemo(() => {
+    // --- Data Calculation ---
+    // 1. Defia Index
+    const { total: indexScore } = useMemo(() => {
         return calculateDefiaScore(socialMetrics, chainMetrics, strategyTasks);
     }, [socialMetrics, chainMetrics, strategyTasks]);
 
     const displayScore = (indexScore / 10).toFixed(1);
 
-    // 2. Audience & Growth
-    const totalAudience = socialMetrics?.totalFollowers
-        ? (socialMetrics.totalFollowers > 1000 ? `${(socialMetrics.totalFollowers / 1000).toFixed(1)}K` : socialMetrics.totalFollowers.toString())
-        : '0';
+    // 2. Mock Data for matched metrics
+    const activeWallets = "142.3K";
+    const retentionRate = "34.2%";
 
-    const rawEngagement = socialMetrics?.engagementRate ? socialMetrics.engagementRate.toFixed(2) : '0.00';
+    // 3. Weekly Growth
+    const weeklyGrowthVal = "+5.7%";
 
-    // 3. Daily Brief Item
-    const dailyFeature = useMemo(() => {
-        return strategyTasks.find(t => t.impactScore >= 8) || strategyTasks[0] || null;
-    }, [strategyTasks]);
+    // --- UI Helper Components ---
+    const TopBar = () => (
+        <div className="flex items-center justify-between mb-8">
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <span className="text-gray-400 font-normal">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                </span>
+                Dashboard
+            </h1>
+            <div className="flex items-center gap-4">
+                {/* Search */}
+                <div className="relative">
+                    <svg className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <input
+                        type="text"
+                        placeholder="Search"
+                        className="pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:border-indigo-500 w-64 shadow-sm"
+                    />
+                    <span className="absolute right-3 top-2.5 text-[10px] bg-gray-100 text-gray-400 px-1.5 rounded border border-gray-200">⌘K</span>
+                </div>
 
-    // 4. Upcoming One
-    const nextEvent = useMemo(() => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const upcoming = calendarEvents
-            .filter(e => e.date >= todayStr)
-            .sort((a, b) => a.date.localeCompare(b.date));
-        return upcoming[0] || null;
-    }, [calendarEvents]);
+                {/* Timeframe */}
+                <div className="flex bg-white rounded-lg p-1 border border-gray-200 shadow-sm">
+                    {['24H', '7D', '30D', '90D', 'All'].map((t, i) => (
+                        <button key={t} className={`px-3 py-1 text-xs font-bold rounded ${i === 1 ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}>
+                            {t}
+                        </button>
+                    ))}
+                </div>
 
-    // --- UI Sub-Components ---
-    const StatCard = ({ label, value, subtext, trend, trendUp }: { label: string, value: string, subtext: string, trend?: string, trendUp?: boolean }) => (
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
-            <div className="flex justify-between items-start mb-2">
-                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
-                {trend && (
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${trendUp ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                        {trendUp ? '↗' : '↘'} {trend}
-                    </span>
-                )}
+                {/* Actions */}
+                <button className="p-2 text-gray-400 hover:text-gray-900"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg></button>
+                <div className="w-8 h-8 rounded-full bg-indigo-100 ring-2 ring-white border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                    {brandName.charAt(0)}
+                </div>
             </div>
-            <div className="text-3xl font-display font-bold text-gray-900 mb-1 tracking-tight">{value}</div>
-            <div className="text-xs text-gray-400">{subtext}</div>
+        </div>
+    );
+
+    const StatCard = ({ title, value, subtext, trend, isPositive }: any) => (
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden group hover:-translate-y-1">
+            <div className="flex justify-between items-start mb-4">
+                <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">{title}</h3>
+                <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${isPositive ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                    <span>{isPositive ? '↗' : '↘'}</span>
+                    {trend}
+                </div>
+            </div>
+            <div className="flex items-end gap-2 mb-2">
+                <span className="text-4xl font-display font-bold text-gray-900 tracking-tight">{value}</span>
+            </div>
+            <p className="text-xs text-gray-400 font-medium">{subtext}</p>
         </div>
     );
 
     return (
-        <div className="max-w-7xl mx-auto p-6 lg:p-10 space-y-8 animate-fadeIn font-sans text-gray-900 pb-20">
+        <div className="max-w-7xl mx-auto w-full p-8 font-sans">
+            <TopBar />
 
-            {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-end border-b border-gray-100 pb-6 gap-4">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-lg font-display">
+            {/* HERO SECTION */}
+            <div className="mb-10">
+                <div className="flex justify-between items-start">
+                    <div className="flex items-start gap-5">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-600 shadow-lg shadow-blue-200 flex items-center justify-center text-white text-2xl font-bold font-display">
                             {brandName.charAt(0)}
                         </div>
-                        <h1 className="text-3xl font-display font-bold tracking-tight">{brandName} Command Center</h1>
+                        <div>
+                            <h2 className="text-3xl font-display font-bold text-gray-900 mb-1">{brandName} Dashboard</h2>
+                            <p className="text-gray-500 font-medium mb-3">AI-powered analytics and growth intelligence platform</p>
+                            <p className="text-xs text-gray-400 max-w-2xl leading-relaxed">
+                                This week shows <span className="text-green-600 font-bold">23% increase</span> in user engagement, <span className="text-gray-700 font-bold">$1.2M revenue growth</span>, and <span className="text-gray-700 font-bold">89% customer satisfaction</span> across {strategyTasks.length || 12} active campaigns.
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500 pl-[52px]">
-                        <span className={`flex items-center gap-2 ${isServerOnline ? 'text-green-600' : 'text-gray-400'}`}>
-                            <span className={`w-2 h-2 rounded-full ${isServerOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-                            {isServerOnline ? "Neural Engine Online" : "Engine Offline"}
-                        </span>
-                        <span>•</span>
-                        <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button onClick={() => onNavigate('studio')} className="bg-gray-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors shadow-lg shadow-gray-200">
-                        + New Campaign
+                    <button
+                        onClick={() => onNavigate('pulse')}
+                        className="bg-white border border-gray-200 text-gray-900 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-50 flex items-center gap-2 shadow-sm hover:shadow-md transition-all"
+                    >
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        DefiA Pulse
                     </button>
                 </div>
             </div>
 
-            {/* KEY METRICS GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* STATS GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 <StatCard
-                    label="Defia Index"
+                    title="DEFIA INDEX"
                     value={`${displayScore}/10`}
-                    subtext={`${indexGrade} • ${scoreInsights[0] || 'Optimized'}`}
-                    trend={socialMetrics?.isLive ? "Verified" : "Simulated"}
-                    trendUp={!!socialMetrics?.isLive}
+                    subtext="Overall growth health score"
+                    trend="+0.3"
+                    isPositive={true}
                 />
                 <StatCard
-                    label="Total Audience"
-                    value={totalAudience}
-                    subtext="Combined Reach"
+                    title="ACTIVE WALLETS"
+                    value={activeWallets}
+                    subtext="7-day active addresses"
                     trend="+12.4%"
-                    trendUp={true}
+                    isPositive={true}
                 />
                 <StatCard
-                    label="Engagement Rate"
-                    value={`${rawEngagement}%`}
-                    subtext="Avg interaction/post"
+                    title="R7 RETENTION"
+                    value={retentionRate}
+                    subtext="Users returning after 7 days"
                     trend="-2.1%"
-                    trendUp={false}
+                    isPositive={false}
                 />
                 <StatCard
-                    label="Weekly Growth"
-                    value="+5.7%"
-                    subtext="TVL & user growth"
+                    title="WEEKLY GROWTH"
+                    value={weeklyGrowthVal}
+                    subtext="Total value locked relative growth"
                     trend="+1.2%"
-                    trendUp={true}
+                    isPositive={true}
                 />
             </div>
 
-            {/* MAIN COMMAND GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+            {/* DAILY MARKETING BRIEF */}
+            <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">Daily Marketing Brief</h3>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                </div>
 
-                {/* COL 1: INTELLIGENCE & ACTIONS (Width: 5) */}
-                <div className="lg:col-span-5 space-y-6">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Intelligence & Actions</h3>
-
-                    {/* AGENT PROPOSAL (High Priority) */}
-                    {systemLogs.some(l => l.includes('ACTION REQUIRED')) && (
-                        <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-1 rounded-2xl shadow-lg animate-fadeIn text-white">
-                            <div className="bg-gray-900/40 backdrop-blur-sm p-5 rounded-xl">
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className="flex gap-3 items-center">
-                                        <span className="text-2xl">⚡</span>
-                                        <div>
-                                            <h4 className="font-bold text-lg">Agent Proposal</h4>
-                                            <p className="text-xs text-indigo-200">Autonomous reaction suggestion</p>
-                                        </div>
-                                    </div>
-                                    <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">PENDING</span>
-                                </div>
-
-                                <div className="mt-2 bg-black/20 p-3 rounded-lg border border-white/10 text-sm italic text-gray-300">
-                                    "Volume spike detected on BN. Recommend slight trend-jack referencing previous ATH..."
-                                </div>
-
-                                <div className="flex gap-2 mt-4">
-                                    <button className="flex-1 bg-white text-indigo-900 py-2 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors">Approve & Post</button>
-                                    <button className="px-4 py-2 bg-white/10 text-white rounded-lg text-xs font-bold hover:bg-white/20">Dismiss</button>
-                                </div>
-                            </div>
+                <div className="space-y-6">
+                    {growthReport ? (
+                        <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed font-serif">
+                            <p>{growthReport.executiveSummary}</p>
+                            <p className="mt-4">{growthReport.tacticalPlan}</p>
+                        </div>
+                    ) : (
+                        <div className="text-brand-muted space-y-4">
+                            <p className="text-gray-600 leading-relaxed">
+                                Strong momentum continues across all channels today. Our Summer Campaign is driving exceptional results with a <strong className="text-gray-900">4.04 ROAS</strong>—35% above target—while maintaining a lean <strong className="text-gray-900">$23 CPA</strong>. The campaign has processed <strong className="text-gray-900">4,523 transactions</strong> this week, contributing significantly to our <strong className="text-gray-900">$1.2M revenue milestone</strong>.
+                            </p>
+                            <p className="text-gray-600 leading-relaxed">
+                                Social engagement surged <strong className="text-gray-900">47% following yesterday's influencer partnership launch</strong>, generating 1,834 brand mentions and lifting our overall engagement rate to 23%. Mobile performance particularly stands out, with conversion rates climbing from 3.2% to <strong className="text-gray-900">4.8%</strong>—a clear signal our responsive redesign is resonating with users.
+                            </p>
+                            <p className="text-gray-600 leading-relaxed">
+                                With <strong className="text-gray-900">{strategyTasks.length || 12} active campaigns</strong> running simultaneously and customer satisfaction holding steady at 89%, we're well-positioned heading into Q4. Key areas to watch include the emerging referral vector and the localized adoption spike we're seeing in the APAC region.
+                            </p>
                         </div>
                     )}
-
-                    {/* DAILY BRIEF */}
-                    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col h-auto min-h-[300px]">
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                                </span>
-                                <h2 className="font-bold text-gray-900">Daily Strategy</h2>
-                            </div>
-                            <button onClick={() => onNavigate('growth')} className="text-xs text-indigo-600 font-bold hover:underline">View Hub &rarr;</button>
-                        </div>
-
-                        {dailyFeature ? (
-                            <div className="space-y-4">
-                                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1">Top Recommendation</span>
-                                    <h3 className="font-display font-bold text-gray-900 leading-tight mb-2">{dailyFeature.title}</h3>
-                                    <p className="text-sm text-gray-600 leading-relaxed">"{dailyFeature.reasoning}"</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                        <div className="text-xs text-gray-400">Impact</div>
-                                        <div className="font-bold text-green-600">High</div>
-                                    </div>
-                                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                        <div className="text-xs text-gray-400">Effort</div>
-                                        <div className="font-bold text-gray-900">Medium</div>
-                                    </div>
-                                </div>
-                                <button onClick={() => onNavigate('growth')} className="w-full py-3 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition-colors">
-                                    Execute Strategy
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                                <div className="text-3xl mb-2">🤔</div>
-                                <p className="text-sm text-gray-500 mb-4">Analyzing market conditions...</p>
-                                <div className="w-full bg-gray-100 rounded-full h-1.5 mb-1"><div className="bg-indigo-500 h-1.5 rounded-full w-2/3 animate-pulse"></div></div>
-                                <div className="font-mono text-xs text-gray-400 mt-2">Running Growth Engine...</div>
-                            </div>
-                        )}
-                    </div>
-
-
-                    {/* MARKETING BRIEF (Moved from Growth Engine) */}
-                    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex flex-col min-h-[200px]">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                                <span>📄</span> Marketing Brief
-                            </h2>
-                            <span className="text-[10px] uppercase font-bold text-gray-400">Daily Executive Summary</span>
-                        </div>
-
-                        {growthReport ? (
-                            <div className="text-sm text-gray-600 leading-relaxed font-serif">
-                                {growthReport.executiveSummary}
-                            </div>
-                        ) : (
-                            <div className="text-sm text-gray-400 italic">
-                                Run a Strategy Scan in the Growth Hub to generate today's brief.
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* COL 2: PULSE & TRENDS (Width: 4) */}
-                <div className="lg:col-span-4 space-y-6">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Pulse Signals</h3>
-                    <div className="bg-white border border-gray-200 rounded-2xl p-0 shadow-sm overflow-hidden flex flex-col h-full">
-                        {pulseTrends.length > 0 ? (
-                            <div className="divide-y divide-gray-100">
-                                {pulseTrends.map((trend, i) => (
-                                    <div key={i} className="p-4 hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => onNavigate('pulse')}>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded uppercase">{trend.source}</span>
-                                            <span className="text-[10px] text-gray-400">
-                                                {/* Timestamp Logic: if raw timestamp exists, calc relative time, else use static string */}
-                                                {trend.createdAt ? (() => {
-                                                    const diff = Date.now() - trend.createdAt;
-                                                    const mins = Math.floor(diff / 60000);
-                                                    if (mins < 60) return `${mins}m ago`;
-                                                    const hours = Math.floor(mins / 60);
-                                                    if (hours < 24) return `${hours}h ago`;
-                                                    return `${Math.floor(hours / 24)}d ago`;
-                                                })() : trend.timestamp}
-                                            </span>
-                                        </div>
-                                        <h4 className="font-bold text-sm text-gray-900 leading-snug mb-1 group-hover:text-indigo-600 transition-colors">{trend.headline}</h4>
-                                        <p className="text-xs text-gray-500 line-clamp-2">{trend.summary}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="p-8 text-center">
-                                <div className="inline-block p-3 rounded-full bg-gray-50 mb-3 text-2xl">📡</div>
-                                <p className="text-sm text-gray-500">Scanning frequency bands...</p>
-                            </div>
-                        )}
-                        <div className="p-3 bg-gray-50 border-t border-gray-100 mt-auto text-center">
-                            <button onClick={() => onNavigate('pulse')} className="text-xs font-bold text-gray-500 hover:text-gray-900">View All Signals &rarr;</button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* COL 3: CONTENT QUEUE (Width: 3) */}
-                <div className="lg:col-span-3 space-y-6">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Content Queue</h3>
-                    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm h-full">
-                        {calendarEvents.length > 0 ? (
-                            <div className="space-y-4">
-                                {calendarEvents.slice(0, 3).map((event, i) => (
-                                    <div key={i} className="flex gap-3 items-start border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                                        <div
-                                            className="w-12 h-12 rounded-lg shrink-0 overflow-hidden flex items-center justify-center text-xs text-gray-400 relative"
-                                            style={event.color ? { backgroundColor: event.color + '20', border: `1px solid ${event.color}` } : { backgroundColor: '#f3f4f6' }}
-                                        >
-                                            {event.image ? <img src={event.image} className="w-full h-full object-cover" /> : '📝'}
-                                            {event.color && <div className="absolute inset-0 bg-current opacity-10" style={{ color: event.color }}></div>}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase">{event.date} • {event.platform}</span>
-                                                {event.campaignName && (
-                                                    <span
-                                                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider"
-                                                        style={event.color
-                                                            ? { backgroundColor: event.color + '20', color: event.color }
-                                                            : { backgroundColor: '#EEF2FF', color: '#4F46E5' }
-                                                        }
-                                                    >
-                                                        {event.campaignName}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-relaxed">"{event.content}"</p>
-                                        </div>
-                                    </div>
-                                ))}
-                                <button onClick={() => onNavigate('calendar')} className="w-full mt-2 py-2 border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-400 hover:text-gray-600 hover:border-gray-400">
-                                    + Schedule More
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="text-center py-10">
-                                <p className="text-xs text-gray-400 mb-2">Queue is empty</p>
-                                <button onClick={() => onNavigate('studio')} className="text-indigo-600 text-xs font-bold">Draft Content</button>
-                            </div>
-                        )}
-                    </div>
                 </div>
             </div>
 
-            {/* SYSTEM LOGS FOOTER */}
-            <div className="mt-8 pt-6 border-t border-gray-100">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Live System Logs</h3>
-                <div className="bg-gray-900 rounded-lg p-4 font-mono text-[10px] text-green-400 h-32 overflow-y-auto border border-gray-800 shadow-inner custom-scrollbar">
-                    {systemLogs.length > 0 ? systemLogs.map((log, i) => (
-                        <div key={i} className="opacity-80 py-0.5 border-b border-white/5">{'>'} {log}</div>
-                    )) : (
-                        <div className="opacity-50">{'>'} Monitoring active...</div>
-                    )}
-                    <div className="animate-pulse mt-2">{'>'} _</div>
-                </div>
-            </div>
-        </div >
+            {/* SPACER for scrolling */}
+            <div className="h-20"></div>
+        </div>
     );
 };

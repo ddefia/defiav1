@@ -12,6 +12,7 @@ import { GrowthEngine } from './components/GrowthEngine';
 import { PulseEngine } from './components/PulseEngine'; // Import Pulse
 import { ContentCalendar } from './components/ContentCalendar';
 import { Dashboard } from './components/Dashboard'; // Import Dashboard
+import { Sidebar } from './components/Sidebar';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport } from './types';
 
 const App: React.FC = () => {
@@ -21,7 +22,7 @@ const App: React.FC = () => {
     const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
     // App Navigation State
-    const [appSection, setAppSection] = useState<'studio' | 'growth' | 'pulse' | 'calendar' | 'dashboard'>('dashboard'); // Default to dashboard
+    const [appSection, setAppSection] = useState<string>('dashboard'); // Default to dashboard
 
     // App State - Profiles
     const [profiles, setProfiles] = useState<Record<string, BrandConfig>>(loadBrandProfiles());
@@ -670,76 +671,17 @@ const App: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-brand-bg text-brand-text font-sans flex flex-col">
-            {/* HEADER */}
-            <header className="border-b border-brand-border bg-white/80 backdrop-blur sticky top-0 z-40 h-16 flex items-center px-6 justify-between shadow-sm">
-                <div className="flex items-center gap-6">
-                    {/* Logo */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-brand-text flex items-center justify-center text-white font-bold text-xl font-display">D</div>
-                        <span className="font-display font-bold text-xl text-brand-text tracking-tight hidden sm:inline">Defia <span className="text-brand-muted text-sm font-normal">Studio</span></span>
-                    </div>
+        <div className="min-h-screen bg-brand-bg text-brand-text font-sans flex flex-row h-screen overflow-hidden">
+            {/* SIDEBAR */}
+            {selectedBrand && profiles[selectedBrand] && (
+                <Sidebar
+                    currentSection={appSection}
+                    onNavigate={(s) => setAppSection(s)}
+                    brandName={selectedBrand}
+                />
+            )}
 
-                    {/* Top Level Navigation */}
-                    <nav className="flex items-center gap-1 bg-gray-100/70 p-1 rounded-lg border border-gray-200">
-                        <button
-                            onClick={() => { console.log('Navigating to Dashboard'); setAppSection('dashboard'); }}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${appSection === 'dashboard' ? 'bg-white text-brand-text shadow-sm border border-brand-border' : 'text-brand-muted hover:text-brand-text'}`}
-                        >
-                            🏠 Dashboard
-                        </button>
-                        <button
-                            onClick={() => setAppSection('studio')}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${appSection === 'studio' ? 'bg-white text-brand-text shadow-sm border border-brand-border' : 'text-brand-muted hover:text-brand-text'}`}
-                        >
-                            Studio
-                        </button>
-                        <button
-                            onClick={() => setAppSection('pulse')}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${appSection === 'pulse' ? 'bg-white text-brand-accent shadow-sm border border-brand-border' : 'text-brand-muted hover:text-brand-text'}`}
-                        >
-                            <span className={`w-2 h-2 rounded-full ${appSection === 'pulse' ? 'bg-brand-accent animate-pulse' : 'bg-gray-400'}`}></span>
-                            Pulse
-                        </button>
-                        <button
-                            onClick={() => setAppSection('growth')}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${appSection === 'growth' ? 'bg-white text-indigo-700 shadow-sm border border-indigo-100' : 'text-brand-muted hover:text-brand-text'}`}
-                        >
-                            Growth & Strategy
-                        </button>
-                        <button
-                            onClick={() => setAppSection('calendar')}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${appSection === 'calendar' ? 'bg-white text-green-700 shadow-sm border border-green-100' : 'text-brand-muted hover:text-brand-text'}`}
-                        >
-                            Calendar
-                        </button>
-                    </nav>
-                </div>
-
-                <div className="flex items-center gap-4">
-                    {/* Brand Selector (Global) */}
-                    <div className="flex bg-gray-100 rounded-lg p-1 border border-brand-border overflow-x-auto max-w-[400px] scrollbar-hide">
-                        {Object.keys(profiles).map(b => (
-                            <button
-                                key={b}
-                                onClick={() => setSelectedBrand(b)}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap ${selectedBrand === b ? 'bg-white text-brand-text shadow-sm' : 'text-brand-muted hover:text-brand-text'}`}
-                            >
-                                {b}
-                            </button>
-                        ))}
-                        <button
-                            onClick={() => setShowOnboarding(true)}
-                            className="px-3 py-1.5 text-xs font-bold rounded-md text-brand-accent hover:bg-indigo-100 transition-colors whitespace-nowrap"
-                        >
-                            + Connect
-                        </button>
-                    </div>
-                    <button onClick={handleConnectKey} className="text-xs text-brand-muted hover:text-brand-text transition-colors">API Connected</button>
-                </div>
-            </header>
-
-            <main className="flex-1 w-full h-full p-6 flex flex-col relative overflow-auto">
+            <main className="flex-1 w-full h-full flex flex-col relative overflow-auto">
 
                 {/* EMPTY STATE */}
                 {(!selectedBrand || !profiles[selectedBrand]) && !showOnboarding && (
