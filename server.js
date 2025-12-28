@@ -69,7 +69,7 @@ app.post('/api/generate-image', async (req, res) => {
         // 2. Prepare Request for Imagen 3
         // Endpoint: https://us-central1-aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/us-central1/publishers/google/models/imagen-3.0-generate-001:predict
         const location = 'us-central1';
-        const modelId = 'imagen-3.0-generate-001';
+        const modelId = 'imagen-4.0-generate-001';
         const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${modelId}:predict`;
 
         const requestBody = {

@@ -126,22 +126,24 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
 /**
  * Generates an image using the gemini-3-pro-image-preview model (Restored to Imagen 3).
  */
+/**
+ * Generates an image using the Backend Proxy (connecting to Vertex AI/Imagen 3).
+ * This bypasses the client-side SDK limitation for Imagen 3.
+ */
 export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
+    // 1. Construct the Prompt
     const colorPalette = params.brandConfig.colors.map(c => `${c.name} (${c.hex})`).join(', ');
     const brandName = params.brandName || "Web3";
     const isMeme = brandName === 'Meme';
 
-    // Include the user's explicit art prompt override if present
     const visualOverride = params.artPrompt
         ? `VISUAL DIRECTION OVERRIDE: ${params.artPrompt}`
         : "Visualize momentum, connections, or security based on keywords.";
 
-    let systemPrompt = '';
+    let fullPrompt = "";
 
     if (isMeme) {
-        systemPrompt = `
+        fullPrompt = `
       You are a legendary crypto twitter meme creator.
       TASK: Create a viral, humorous, high-impact meme image for: "${params.prompt}"
       ${params.artPrompt ? `SPECIFIC INSTRUCTION: ${params.artPrompt}` : ''}
@@ -150,7 +152,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
       INSTRUCTIONS: Make it funny, relatable, and use reference images as templates.
       `;
     } else {
-        systemPrompt = `
+        fullPrompt = `
         You are an expert 3D graphic designer for ${brandName}, a leading Web3 company.
         TASK: Create a professional social media graphic for: "${params.prompt}"
         BRANDING:
@@ -164,70 +166,52 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
       `;
     }
 
-    const parts: any[] = [{ text: systemPrompt }];
-
-    // Conversion Helper
-    const urlToBase64 = async (url: string): Promise<string | null> => {
-        try {
-            const res = await fetch(url);
-            const blob = await res.blob();
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(blob);
-            });
-        } catch (e) {
-            console.warn("Failed to fetch reference image from URL:", url, e);
-            return null;
-        }
-    };
-
-    // Process Images (Async) - Kept for potential future use or if proxy supports it, 
-    // but complying with old structure which ignored them in the final call mostly.
-    const imageParts = await Promise.all(params.brandConfig.referenceImages.map(async (img) => {
-        let finalData = img.data;
-
-        // If URL is provided and data is missing, fetch it
-        if (!finalData && img.url) {
-            const fetched = await urlToBase64(img.url);
-            if (fetched) finalData = fetched;
-        }
-
-        if (!finalData) return null;
-
-        const base64Data = finalData.split(',')[1] || finalData;
-        const mimeTypeMatch = finalData.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-        const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/png';
-
-        return { inlineData: { mimeType: mimeType, data: base64Data } };
-    }));
-
-    imageParts.forEach(part => {
-        if (part) parts.push(part);
-    });
-
+    // 2. Call Imagen 4.0 via REST API (Standard Google AI Studio Endpoint)
+    // Note: We use fetch directly because the SDK method mapping can be inconsistent for predict-only models
     try {
-        const response = await ai.models.generateContent({
-            model: 'imagen-3.0-generate-001',
-            contents: { parts: [{ text: params.prompt + " " + (params.artPrompt || "") }] },
-            config: {
-                // @ts-ignore - SDK types might trail behind availability
-                sampleCount: 1,
-                aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9'
+        const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+        if (!apiKey) throw new Error("Missing API Key");
+
+        const MODEL_NAME = 'imagen-4.0-generate-001';
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:predict?key=${apiKey}`;
+
+        console.log(`[GenAI] Generating image with ${MODEL_NAME}...`);
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             },
+            body: JSON.stringify({
+                instances: [
+                    { prompt: fullPrompt }
+                ],
+                parameters: {
+                    sampleCount: 1,
+                    aspectRatio: params.aspectRatio || '16:9'
+                }
+            })
         });
 
-        const responseParts = response.candidates?.[0]?.content?.parts;
-        if (!responseParts) throw new Error("No content generated.");
-
-        for (const part of responseParts) {
-            if (part.inlineData && part.inlineData.data) {
-                return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-            }
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[GenAI] Image Generation Failed: ${response.status}`, errorText);
+            throw new Error(`Imagen API Error: ${response.status} - ${errorText}`);
         }
-        throw new Error("No image data found.");
+
+        const data = await response.json();
+
+        // Extract Image
+        if (data.predictions && data.predictions.length > 0 && data.predictions[0].bytesBase64Encoded) {
+            const base64 = data.predictions[0].bytesBase64Encoded;
+            const mimeType = data.predictions[0].mimeType || 'image/png';
+            return `data:${mimeType};base64,${base64}`;
+        }
+
+        throw new Error("No image data found in response.");
+
     } catch (error: any) {
-        console.error("Gemini generation error:", error);
+        console.error("Gemini/Imagen generation error:", error);
         throw error;
     }
 };
