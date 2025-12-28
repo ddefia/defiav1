@@ -678,6 +678,9 @@ const App: React.FC = () => {
                     currentSection={appSection}
                     onNavigate={(s) => setAppSection(s)}
                     brandName={selectedBrand}
+                    profiles={profiles}
+                    onSelectBrand={setSelectedBrand}
+                    onConnect={() => setShowOnboarding(true)}
                 />
             )}
 
