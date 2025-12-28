@@ -53,7 +53,8 @@ const getBase64FromUrl = async (url: string): Promise<string> => {
 const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<string> => {
     if (!images || images.length === 0) return "";
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const ai = new GoogleGenAI({ apiKey: apiKey });
 
     // Limits consistency to first 3 images to avoid token overload
     // Prioritize images with data, then url
@@ -164,6 +165,22 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         - ${visualOverride}
         - STRICTLY follow the visual style of the reference images provided.
       `;
+    }
+
+    // 1.5 Analyze Reference Images for Style (If present)
+    // Since Imagen via 'predict' doesn't easily accept multimodal inputs in standard JSON, 
+    // we use Gemini Vision to extract style descriptors and inject them into the text prompt.
+    if (params.brandConfig.referenceImages && params.brandConfig.referenceImages.length > 0) {
+        try {
+            console.log("Analyzing reference images for style extraction...");
+            const styleDescriptors = await analyzeStyleFromReferences(params.brandConfig.referenceImages);
+            if (styleDescriptors) {
+                console.log("Style extracted:", styleDescriptors);
+                fullPrompt += `\n\n${styleDescriptors}`;
+            }
+        } catch (e) {
+            console.warn("Style analysis failed, proceeding with base prompt.", e);
+        }
     }
 
     // 2. Call Imagen 4.0 via REST API (Standard Google AI Studio Endpoint)
