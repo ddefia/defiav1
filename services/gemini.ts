@@ -63,19 +63,38 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
         // Prepare image parts asynchronously
         const imagePartsPromises = targetImages.map(async (img) => {
             let base64 = "";
+            let mimeType = "image/png";
 
             if (img.data) {
-                base64 = img.data.includes('base64,') ? img.data.split('base64,')[1] : img.data;
+                const match = img.data.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.*)/);
+                if (match) {
+                    mimeType = match[1];
+                    base64 = match[2];
+                } else {
+                    base64 = img.data.includes('base64,') ? img.data.split('base64,')[1] : img.data;
+                }
             } else if (img.url) {
-                // Fetch from URL if local data missing
-                base64 = await getBase64FromUrl(img.url);
+                try {
+                    const res = await fetch(img.url);
+                    const blob = await res.blob();
+                    mimeType = blob.type || "image/png";
+                    const readerRes = await new Promise<string>((resolve) => {
+                        const r = new FileReader();
+                        r.onloadend = () => resolve(r.result as string);
+                        r.readAsDataURL(blob);
+                    });
+                    base64 = readerRes.split(',')[1];
+                } catch (e) {
+                    console.warn("Failed to fetch image for analysis", e);
+                    return null;
+                }
             }
 
             if (!base64) return null;
 
             return {
                 inlineData: {
-                    mimeType: "image/png",
+                    mimeType: mimeType,
                     data: base64
                 }
             };
