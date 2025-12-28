@@ -221,10 +221,9 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash-exp', // Updated to a reliable multimodal generator if 3-pro is failing style
             contents: { parts: parts },
-            config: {
-                // @ts-ignore
-                responseMimeType: "image/jpeg"
-            },
+            // config: {
+            //    responseMimeType: "image/jpeg"
+            // },
         });
 
         // If the model returns text (failed to gen image), we might need to handle it.
