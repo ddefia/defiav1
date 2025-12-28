@@ -123,6 +123,9 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
 /**
  * Generates an image using the gemini-3-pro-image-preview model.
  */
+/**
+ * Generates an image using the gemini-3-pro-image-preview model (Restored to Imagen 3).
+ */
 export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -130,29 +133,9 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     const brandName = params.brandName || "Web3";
     const isMeme = brandName === 'Meme';
 
-    // 1. Analyze Reference Style (Textual Description)
-    // This allows the model to "understand" the style even if it ignores the raw image tokens
-    let styleGuide = "";
-    if (params.brandConfig && params.brandConfig.referenceImages && params.brandConfig.referenceImages.length > 0) {
-        try {
-            console.log("Analyzing reference images for style extraction...");
-            const analysis = await analyzeStyleFromReferences(params.brandConfig.referenceImages);
-            if (analysis) {
-                styleGuide = `
-                MANDATORY VISUAL STYLE (Derived from Brand Kit):
-                ${analysis}
-                
-                You must STRICTLY adhere to this visual style description.
-                `;
-            }
-        } catch (e) {
-            console.warn("Style analysis failed, proceeding with raw images.", e);
-        }
-    }
-
     // Include the user's explicit art prompt override if present
     const visualOverride = params.artPrompt
-        ? `USER VISUAL DIRECTION: ${params.artPrompt}`
+        ? `VISUAL DIRECTION OVERRIDE: ${params.artPrompt}`
         : "Visualize momentum, connections, or security based on keywords.";
 
     let systemPrompt = '';
@@ -170,18 +153,14 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         systemPrompt = `
         You are an expert 3D graphic designer for ${brandName}, a leading Web3 company.
         TASK: Create a professional social media graphic for: "${params.prompt}"
-        
-        BRANDING GUIDELINES:
-        - Colors: ${colorPalette}
-        - Typography: Minimal, Sans-Serif
-        
-        ${styleGuide}
-
+        BRANDING:
+        - Colors: ${colorPalette}.
+        - Style: Glassmorphism, Ethereal, Geometric, Futuristic.
+        - Typography: Minimal.
         INSTRUCTIONS:
         - Analyze tweet sentiment.
         - ${visualOverride}
-        - If 'MANDATORY VISUAL STYLE' is provided above, it overrides default styles.
-        - High fidelity, 8k resolution, Unreal Engine 5 render style.
+        - STRICTLY follow the visual style of the reference images provided.
       `;
     }
 
@@ -203,73 +182,52 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         }
     };
 
-    // Process Images (Async) - Still attach them for reference
-    try {
-        if (params.brandConfig && params.brandConfig.referenceImages) {
-            const imageParts = await Promise.all(params.brandConfig.referenceImages.map(async (img) => {
-                let finalData = img.data;
+    // Process Images (Async) - Kept for potential future use or if proxy supports it, 
+    // but complying with old structure which ignored them in the final call mostly.
+    const imageParts = await Promise.all(params.brandConfig.referenceImages.map(async (img) => {
+        let finalData = img.data;
 
-                // If URL is provided and data is missing, fetch it
-                if (!finalData && img.url) {
-                    const fetched = await urlToBase64(img.url);
-                    if (fetched) finalData = fetched;
-                }
-
-                if (!finalData) return null;
-
-                const base64Data = finalData.split(',')[1] || finalData;
-                const mimeTypeMatch = finalData.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-                const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/png';
-
-                return { inlineData: { mimeType: mimeType, data: base64Data } };
-            }));
-
-            // Add images to parts (after text)
-            imageParts.forEach(part => {
-                if (part) parts.push(part);
-            });
+        // If URL is provided and data is missing, fetch it
+        if (!finalData && img.url) {
+            const fetched = await urlToBase64(img.url);
+            if (fetched) finalData = fetched;
         }
-    } catch (err) {
-        console.warn("Error processing reference images, proceeding with text only.", err);
-    }
+
+        if (!finalData) return null;
+
+        const base64Data = finalData.split(',')[1] || finalData;
+        const mimeTypeMatch = finalData.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
+        const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/png';
+
+        return { inlineData: { mimeType: mimeType, data: base64Data } };
+    }));
+
+    imageParts.forEach(part => {
+        if (part) parts.push(part);
+    });
 
     try {
-        console.log("Generating with gemini-2.0-flash-exp (or available image model)...");
-        // Note: Using a model that supports generation. If 'gemini-3-pro-image-preview' is experimental/internal, 
-        // fallback to standard params or ensure key is authorized.
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash-exp', // Updated to a reliable multimodal generator if 3-pro is failing style
-            contents: { parts: parts },
-            // config: {
-            //    responseMimeType: "image/jpeg"
-            // },
+            model: 'imagen-3.0-generate-001',
+            contents: { parts: [{ text: params.prompt + " " + (params.artPrompt || "") }] },
+            config: {
+                // @ts-ignore - SDK types might trail behind availability
+                sampleCount: 1,
+                aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9'
+            },
         });
 
-        // If the model returns text (failed to gen image), we might need to handle it.
-        // But assuming the model is capable or we are using the Imagen proxy:
-
-        // Check for image data in response
-        // Note: The specific response format for Image Generation depends on the model.
-        // If this is Gemini 2.0 Flash Exp acting as a multimodal generator:
-
         const responseParts = response.candidates?.[0]?.content?.parts;
-        const imagePart = responseParts?.[0];
+        if (!responseParts) throw new Error("No content generated.");
 
-        // @ts-ignore
-        if (imagePart && imagePart.inlineData) {
-            // @ts-ignore
-            return `data:${imagePart.inlineData.mimeType || 'image/png'};base64,${imagePart.inlineData.data}`;
+        for (const part of responseParts) {
+            if (part.inlineData && part.inlineData.data) {
+                return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+            }
         }
-
-        // Fallback check for base64 in text (some experimental models do this)
-        if (imagePart && imagePart.text && imagePart.text.includes('base64')) {
-            return imagePart.text; // Or parse it
-        }
-
-        throw new Error("No image data returned. Ensure Model supports Image Generation.");
-
+        throw new Error("No image data found.");
     } catch (error: any) {
-        console.error("Gemini generation error:", error.message);
+        console.error("Gemini generation error:", error);
         throw error;
     }
 };

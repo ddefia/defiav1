@@ -16,15 +16,13 @@ export const DEFAULT_PROFILES: Record<string, BrandConfig> = {
     'ENKI Protocol': {
         colors: [
             { id: 'enki_1', hex: '#FFFFFF', name: 'Standard White' },
-            { id: 'enki_2', hex: '#000000', name: 'Midnight Black' },
-            { id: 'enki_3', hex: '#8B5CF6', name: 'Metis Violet' },
         ],
         referenceImages: [
-            { id: 'enki_logo_1', name: 'ENKI Logo Light', url: '/brands/enki/enki_logo_light.png' },
-            { id: 'enki_logo_2', name: 'ENKI Logo Dark', url: '/brands/enki/enki_logo_dark.png' },
-            { id: 'metis_ref', name: 'Metis Ecosystem', url: '/brands/enki/metis_ecosystem.jpeg' },
-            { id: 'enki_banner', name: 'Announcement Banner', url: '/brands/enki/enki_banner.png' },
-            { id: 'enki_staking_ui', name: 'Staking Interface', url: '/brands/enki/staking_ui.png' }
+            { id: 'enki_ref_0', name: 'Enki Reference 1', url: '/brands/enki/ref_0.png' },
+            { id: 'enki_ref_1', name: 'Enki Reference 2', url: '/brands/enki/ref_1.png' },
+            { id: 'enki_ref_2', name: 'Enki Reference 3', url: '/brands/enki/ref_2.png' },
+            { id: 'enki_ref_3', name: 'Enki Reference 4', url: '/brands/enki/ref_3.jpg' },
+            { id: 'enki_ref_4', name: 'Enki Reference 5', url: '/brands/enki/ref_4.png' }
         ],
         tweetExamples: [
             "We are simplifying the Metis Sequencer Node participation. 🌿\n\nNo technical headaches. Just pure yield.\n\n$ENKI is the key to unlocking the full potential of @MetisL2.\n\nStake your $METIS now: [Link]",

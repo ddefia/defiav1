@@ -125,11 +125,29 @@ const mergeWithDefaults = (storedData: any): Record<string, BrandConfig> => {
             const stored = storedData[key];
 
             const preferStoredArray = (field: keyof BrandConfig) => {
-                const sArr = stored[field];
-                const dArr = def[field];
-                if (Array.isArray(sArr) && sArr.length > 0) return sArr;
-                if (Array.isArray(dArr) && dArr.length > 0) return dArr;
-                return sArr || [];
+                let sArr = Array.isArray(stored[field]) ? stored[field] : [];
+                const dArr = Array.isArray(def[field]) ? def[field] : [];
+
+                // FORCE OVERRIDE: For Enki, always return default images (hardcoded) to reset broken state
+                if (key === 'ENKI Protocol' && field === 'referenceImages') {
+                    return dArr;
+                }
+
+                if (sArr.length === 0) return dArr;
+                if (dArr.length === 0) return sArr;
+
+                // Merge: Start with Stored, Add Defaults if missing (deduplicate by ID or value)
+                const merged = [...sArr];
+                dArr.forEach(dItem => {
+                    const exists = merged.some(sItem => {
+                        if (typeof sItem === 'object' && sItem !== null && 'id' in sItem && 'id' in dItem) {
+                            return sItem.id === dItem.id;
+                        }
+                        return sItem === dItem;
+                    });
+                    if (!exists) merged.push(dItem);
+                });
+                return merged;
             };
 
             merged[key] = {
