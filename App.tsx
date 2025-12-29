@@ -13,6 +13,7 @@ import { PulseEngine } from './components/PulseEngine'; // Import Pulse
 import { ContentCalendar } from './components/ContentCalendar';
 import { Dashboard } from './components/Dashboard'; // Import Dashboard
 import { Campaigns } from './components/Campaigns'; // Import Campaigns
+import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
 import { Sidebar } from './components/Sidebar';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport } from './types';
 
@@ -541,6 +542,15 @@ const App: React.FC = () => {
                             onUpdateEvent={handleUpdateEvent}
                         />
                     </div>
+                )}
+
+                {/* SECTION: SOCIAL MEDIA */}
+                {appSection === 'social' && selectedBrand && (
+                    <SocialMedia
+                        brandName={selectedBrand}
+                        lunarPosts={[]} // Pass actual posts if available in App state, else empty or fetch internally
+                        socialMetrics={socialMetrics}
+                    />
                 )}
 
                 {/* SECTION: STUDIO TOOLS */}
