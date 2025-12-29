@@ -998,7 +998,21 @@ export const generateStrategicAnalysis = async (
             timestamp: Date.now(),
             type: 'STRATEGY',
             brandId: brandName,
-            context: `Sentinel Audit. Schedule Size: ${eventsNextWeek.length}, Trends: ${trends.length}, Mentions: ${mentions.length}`,
+            context: `
+📊 ANALYZED DATA SOURCES:
+
+📅 CALENDAR STATUS (${eventsNextWeek.length} Found):
+${existingSchedule || "No upcoming posts found."}
+
+📈 ACTIVE TRENDS (${trends.length} Scanned):
+${trendSummaries || "No major trends detected."}
+
+💬 INCOMING MENTIONS (${mentions.length}):
+${mentionSummaries || "No urgent mentions."}
+
+🧠 RECENT MEMORY:
+${recentLogs.length > 0 ? "Recalled last " + recentLogs.length + " decisions." : "No recent memory."}
+`.trim(),
             systemPrompt: systemInstruction,
             userPrompt: "Perform the audit and generate tasks.",
             rawOutput: response.text || "",
