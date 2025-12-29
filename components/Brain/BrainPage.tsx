@@ -110,11 +110,21 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
 
             {/* LEFT: STREAM */}
             <div className="w-1/3 min-w-[350px] border-r border-brand-border flex flex-col h-full bg-white">
-                <div className="p-4 border-b border-brand-border bg-white sticky top-0 z-10">
+                <div className="p-4 border-b border-brand-border bg-white sticky top-0 z-10 flex justify-between items-center">
                     <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                         Neural Stream
                     </h2>
+                    <button
+                        onClick={() => {
+                            localStorage.removeItem('defia_brain_logs');
+                            setLogs([]);
+                            setSelectedLog(null);
+                        }}
+                        className="text-[10px] text-gray-400 hover:text-red-500 font-mono hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                    >
+                        CLEAR MEMORY
+                    </button>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {logs.map(log => (
