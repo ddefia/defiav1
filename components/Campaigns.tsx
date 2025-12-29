@@ -41,6 +41,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [campaignItems, setCampaignItems] = useState<CampaignItem[]>([]);
     const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
 
+    // Helpers for Strategy Editing
+    const updateStrategyField = (field: keyof CampaignStrategy, value: any) => {
+        if (!campaignStrategy) return;
+        setCampaignStrategy({ ...campaignStrategy, [field]: value });
+    };
+
+    const updateChannelStrategy = (index: number, field: string, value: string) => {
+        if (!campaignStrategy) return;
+        const newChannels = [...campaignStrategy.channelStrategy];
+        newChannels[index] = { ...newChannels[index], [field]: value };
+        setCampaignStrategy({ ...campaignStrategy, channelStrategy: newChannels });
+    };
+
     // UI State
     const [error, setError] = useState<string | null>(null);
     const [activeUploadId, setActiveUploadId] = useState<string | null>(null);
@@ -582,51 +595,124 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                             {/* RIGHT PANEL - STRATEGY PREVIEW (Only for step 2) */}
                             {campaignStep === 2 && campaignStrategy && (
-                                <div className="p-6 space-y-6 animate-fadeIn">
+                                <div className="p-6 space-y-8 animate-fadeIn">
                                     <div className="flex justify-between items-center pb-4 border-b border-brand-border">
-                                        <h2 className="text-xl font-display font-bold text-brand-text">Strategic Research Brief</h2>
-                                        <span className="bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full uppercase">AI Generated</span>
+                                        <div>
+                                            <h2 className="text-xl font-display font-bold text-brand-text">Strategic Research Brief</h2>
+                                            <p className="text-xs text-brand-muted">Review and edit the AI-generated strategy before drafting.</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Editable Mode</span>
+                                        </div>
                                     </div>
 
                                     {/* Estimates */}
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="bg-gray-50 p-4 rounded-xl text-center">
-                                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Reach</div>
-                                            <div className="text-lg font-bold text-brand-text">{campaignStrategy.estimatedResults.impressions}</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-gray-50 p-4 rounded-xl text-center border border-gray-100">
+                                            <div className="text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-wider">Reach Estimate</div>
+                                            <input
+                                                className="text-lg font-bold text-brand-text bg-transparent text-center w-full focus:outline-none focus:border-b focus:border-brand-accent placeholder-gray-300"
+                                                value={campaignStrategy.estimatedResults.impressions}
+                                                onChange={(e) => updateStrategyField('estimatedResults', { ...campaignStrategy.estimatedResults, impressions: e.target.value })}
+                                            />
                                         </div>
-                                        <div className="bg-gray-50 p-4 rounded-xl text-center">
-                                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Engagement</div>
-                                            <div className="text-lg font-bold text-brand-text">{campaignStrategy.estimatedResults.engagement}</div>
+                                        <div className="bg-gray-50 p-4 rounded-xl text-center border border-gray-100">
+                                            <div className="text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-wider">Engagement Goal</div>
+                                            <input
+                                                className="text-lg font-bold text-brand-text bg-transparent text-center w-full focus:outline-none focus:border-b focus:border-brand-accent placeholder-gray-300"
+                                                value={campaignStrategy.estimatedResults.engagement}
+                                                onChange={(e) => updateStrategyField('estimatedResults', { ...campaignStrategy.estimatedResults, engagement: e.target.value })}
+                                            />
                                         </div>
-                                        <div className="bg-gray-50 p-4 rounded-xl text-center">
-                                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Impact</div>
-                                            <div className="text-lg font-bold text-brand-text">{campaignStrategy.estimatedResults.conversions}</div>
+                                        <div className="bg-gray-50 p-4 rounded-xl text-center border border-gray-100">
+                                            <div className="text-[10px] text-gray-500 uppercase font-bold mb-2 tracking-wider">Impact Target</div>
+                                            <input
+                                                className="text-lg font-bold text-brand-text bg-transparent text-center w-full focus:outline-none focus:border-b focus:border-brand-accent placeholder-gray-300"
+                                                value={campaignStrategy.estimatedResults.conversions}
+                                                onChange={(e) => updateStrategyField('estimatedResults', { ...campaignStrategy.estimatedResults, conversions: e.target.value })}
+                                            />
                                         </div>
+                                    </div>
+
+                                    {/* Target Audience */}
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-brand-muted uppercase block">Target Audience Analysis</label>
+                                        <textarea
+                                            value={campaignStrategy.targetAudience}
+                                            onChange={(e) => updateStrategyField('targetAudience', e.target.value)}
+                                            className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm resize-none min-h-[80px]"
+                                        />
                                     </div>
 
                                     {/* Strategy Cards */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {campaignStrategy.channelStrategy.map((s, i) => (
-                                            <div key={i} className="border border-brand-border p-4 rounded-xl bg-white shadow-sm">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <h4 className="font-bold text-sm text-brand-text">{s.channel}</h4>
-                                                    <span className="text-[10px] bg-brand-accent/10 text-brand-accent px-2 py-1 rounded-full">{s.focus}</span>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-brand-muted uppercase block">Platform Strategy</label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {campaignStrategy.channelStrategy.map((s, i) => (
+                                                <div key={i} className="border border-brand-border p-4 rounded-xl bg-white shadow-sm flex flex-col gap-2 relative group">
+                                                    <div className="flex justify-between items-center">
+                                                        <h4 className="font-bold text-sm text-brand-text">{s.channel}</h4>
+                                                        <input
+                                                            value={s.focus}
+                                                            onChange={(e) => updateChannelStrategy(i, 'focus', e.target.value)}
+                                                            className="text-[10px] bg-brand-accent/5 text-brand-accent px-2 py-1 rounded-full text-right border-none focus:bg-white focus:ring-1 ring-brand-accent outline-none w-24"
+                                                        />
+                                                    </div>
+                                                    <textarea
+                                                        value={s.rationale}
+                                                        onChange={(e) => updateChannelStrategy(i, 'rationale', e.target.value)}
+                                                        className="text-xs text-brand-muted leading-relaxed w-full bg-transparent border-none p-0 focus:ring-0 resize-none min-h-[60px]"
+                                                    />
                                                 </div>
-                                                <p className="text-xs text-brand-muted leading-relaxed">{s.rationale}</p>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
 
                                     {/* Messaging */}
-                                    <div className="bg-yellow-50/50 border border-yellow-100 p-4 rounded-xl">
-                                        <h4 className="text-sm font-bold text-yellow-800 mb-2">Key Messaging Pillars</h4>
+                                    <div className="bg-yellow-50/30 border border-yellow-100 p-5 rounded-xl space-y-3">
+                                        <h4 className="text-sm font-bold text-yellow-800 flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+                                            Key Messaging Pillars
+                                        </h4>
                                         <div className="space-y-2">
                                             {campaignStrategy.keyMessaging.map((msg, i) => (
-                                                <div key={i} className="flex gap-2">
-                                                    <span className="text-yellow-500 font-bold">•</span>
-                                                    <p className="text-xs text-yellow-900">{msg}</p>
+                                                <div key={i} className="flex gap-2 items-start group">
+                                                    <span className="text-yellow-500 font-bold mt-2">•</span>
+                                                    <div className="flex-1">
+                                                        <textarea
+                                                            value={msg}
+                                                            onChange={(e) => {
+                                                                const newMsgs = [...campaignStrategy.keyMessaging];
+                                                                newMsgs[i] = e.target.value;
+                                                                updateStrategyField('keyMessaging', newMsgs);
+                                                            }}
+                                                            className="w-full bg-yellow-50/50 border-b border-transparent hover:border-yellow-200 focus:border-yellow-500 text-xs text-yellow-900 p-2 rounded focus:bg-white outline-none resize-none overflow-hidden"
+                                                            rows={2}
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newMsgs = campaignStrategy.keyMessaging.filter((_, idx) => idx !== i);
+                                                            updateStrategyField('keyMessaging', newMsgs);
+                                                        }}
+                                                        className="text-yellow-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        ✕
+                                                    </button>
                                                 </div>
                                             ))}
+                                            <button
+                                                onClick={() => updateStrategyField('keyMessaging', [...campaignStrategy.keyMessaging, "New messaging pillar..."])}
+                                                className="text-[10px] uppercase font-bold text-yellow-600 hover:text-yellow-800 flex items-center gap-1 pl-4"
+                                            >
+                                                + Add Pillar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end pt-4">
+                                        <div className="text-xs text-gray-400 italic">
+                                            Changes here will guide the content generation in the next step.
                                         </div>
                                     </div>
 
