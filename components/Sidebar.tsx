@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 onClick={() => { onConnect(); setIsBrandMenuOpen(false); }}
                                 className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-brand-accent hover:bg-indigo-50 transition-colors flex items-center gap-2"
                             >
-                                <plus className="w-4 h-4">+</plus> Connect New
+                                <span className="w-4 h-4">+</span> Connect New
                             </button>
                         </div>
                     </>
