@@ -27,11 +27,12 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
 
     const getTypeStyles = (type: BrainLog['type']) => {
         switch (type) {
-            case 'STRATEGY': return 'bg-purple-100 text-purple-700 border-purple-200';
-            case 'REPLY': return 'bg-blue-100 text-blue-700 border-blue-200';
-            case 'REACTION': return 'bg-orange-100 text-orange-700 border-orange-200';
-            case 'GROWTH_REPORT': return 'bg-green-100 text-green-700 border-green-200';
-            default: return 'bg-gray-100 text-gray-700 border-gray-200';
+            case 'STRATEGY': return 'border-gray-800 text-gray-900 bg-transparent';
+            case 'REPLY': return 'border-blue-800 text-blue-900 bg-transparent';
+            case 'REACTION': return 'border-orange-800 text-orange-900 bg-transparent';
+            case 'GROWTH_REPORT': return 'border-green-800 text-green-900 bg-transparent';
+            case 'CAMPAIGN': return 'border-purple-800 text-purple-900 bg-transparent';
+            default: return 'border-gray-400 text-gray-500 bg-transparent';
         }
     };
 
@@ -40,9 +41,9 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
         if (!log.structuredOutput) {
             // Text output (REPLY, REACTION sometimes)
             return (
-                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Generated Content</h4>
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap font-medium">{log.rawOutput}</p>
+                <div className="bg-white p-6 border border-gray-200">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Generated Content</h4>
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap font-serif leading-relaxed">{log.rawOutput}</p>
                 </div>
             );
         }
@@ -51,16 +52,16 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
             case 'STRATEGY':
                 const tasks = log.structuredOutput as StrategyTask[];
                 return (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         {tasks.map((task, i) => (
-                            <div key={i} className="bg-white p-4 rounded-lg border border-purple-100 shadow-sm flex flex-col gap-1">
+                            <div key={i} className="bg-white p-5 border border-gray-200 shadow-sm flex flex-col gap-2">
                                 <div className="flex justify-between items-start">
                                     <h4 className="text-sm font-bold text-gray-900">{task.title}</h4>
-                                    <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-100">{task.type}</span>
+                                    <span className="text-[10px] font-mono bg-gray-100 text-gray-600 px-2 py-0.5 border border-gray-200 uppercase">{task.type}</span>
                                 </div>
-                                <p className="text-sm text-gray-600">{task.description}</p>
-                                <div className="mt-2 text-xs bg-gray-50 p-2 rounded text-gray-500 italic">
-                                    "Reasoning: {task.reasoning}"
+                                <p className="text-sm text-gray-700">{task.description}</p>
+                                <div className="mt-2 text-xs text-gray-500 font-mono border-t border-gray-100 pt-2">
+                                    REASONING: {task.reasoning}
                                 </div>
                             </div>
                         ))}
@@ -69,14 +70,14 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
             case 'CAMPAIGN':
                 const camp = log.structuredOutput as CampaignStrategy;
                 return (
-                    <div className="bg-white p-4 rounded-lg border border-pink-100 shadow-sm space-y-4">
+                    <div className="bg-white p-6 border border-gray-200 space-y-6">
                         <div>
-                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Target Audience</h4>
+                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Target Audience</h4>
                             <p className="text-sm text-gray-800">{camp.targetAudience}</p>
                         </div>
                         <div>
-                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Key Messaging</h4>
-                            <ul className="text-sm text-gray-800 list-disc list-inside">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Key Messaging</h4>
+                            <ul className="text-sm text-gray-800 list-disc list-inside space-y-1">
                                 {camp.keyMessaging.map((m, i) => <li key={i}>{m}</li>)}
                             </ul>
                         </div>
@@ -85,23 +86,23 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
             case 'GROWTH_REPORT':
                 const report = log.structuredOutput as GrowthReport;
                 return (
-                    <div className="bg-white p-4 rounded-lg border border-green-100 shadow-sm space-y-4">
+                    <div className="bg-white p-6 border border-gray-200 space-y-6">
                         <div>
-                            <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Executive Summary</h4>
-                            <p className="text-sm text-gray-800">{report.executiveSummary}</p>
+                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Executive Summary</h4>
+                            <p className="text-sm text-gray-800 leading-relaxed">{report.executiveSummary}</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {report.strategicPlan.map((plan, i) => (
-                                <div key={i} className="bg-green-50 p-3 rounded border border-green-100">
-                                    <div className="font-bold text-green-800 text-xs mb-1">{plan.action}: {plan.subject}</div>
-                                    <div className="text-xs text-green-700">{plan.reasoning}</div>
+                                <div key={i} className="p-4 border border-gray-200 bg-gray-50">
+                                    <div className="font-bold text-gray-900 text-xs mb-2 uppercase">{plan.action}: {plan.subject}</div>
+                                    <div className="text-xs text-gray-600 font-mono">{plan.reasoning}</div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 );
             default:
-                return <pre className="text-xs bg-gray-50 p-4 rounded">{JSON.stringify(log.structuredOutput, null, 2)}</pre>;
+                return <pre className="text-xs bg-gray-50 p-4 border border-gray-200">{JSON.stringify(log.structuredOutput, null, 2)}</pre>;
         }
     };
 
