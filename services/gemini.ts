@@ -999,19 +999,20 @@ export const generateStrategicAnalysis = async (
             type: 'STRATEGY',
             brandId: brandName,
             context: `
-📊 ANALYZED DATA SOURCES:
+[SOURCE: CALENDAR_AUDIT]
+Scan Depth: ${eventsNextWeek.length} items found.
+${existingSchedule || "No records found."}
 
-📅 CALENDAR STATUS (${eventsNextWeek.length} Found):
-${existingSchedule || "No upcoming posts found."}
+[SOURCE: LIVE_MARKET_TRENDS]
+Scan Depth: ${trends.length} active signals.
+${trendSummaries || "No signals detected."}
 
-📈 ACTIVE TRENDS (${trends.length} Scanned):
-${trendSummaries || "No major trends detected."}
+[SOURCE: COMMUNITY_MENTIONS]
+Scan Depth: ${mentions.length} interactions.
+${mentionSummaries || "No recent activity."}
 
-💬 INCOMING MENTIONS (${mentions.length}):
-${mentionSummaries || "No urgent mentions."}
-
-🧠 RECENT MEMORY:
-${recentLogs.length > 0 ? "Recalled last " + recentLogs.length + " decisions." : "No recent memory."}
+[SOURCE: SYSTEM_MEMORY]
+${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." : "Memory initialized."}
 `.trim(),
             systemPrompt: systemInstruction,
             userPrompt: "Perform the audit and generate tasks.",
