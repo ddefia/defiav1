@@ -242,3 +242,20 @@ export interface DefiaScore {
   };
   insights: string[];
 }
+
+// --- BRAIN / LOGGING TYPES ---
+
+export interface BrainLog {
+  id: string;
+  timestamp: number;
+  type: 'STRATEGY' | 'REPLY' | 'CAMPAIGN' | 'RESEARCH' | 'ANALYSIS' | 'GROWTH_REPORT' | 'REACTION';
+  brandId: string;
+  context: string; // Brief summary of input context
+  systemPrompt: string; // The "Brain" instructions
+  userPrompt: string; // The specific trigger
+  rawOutput: string; // Full LLM response
+  structuredOutput?: any; // Parsed JSON if applicable
+  model: string;
+  cost?: string; // Estimated token cost (optional placeholder)
+}
+

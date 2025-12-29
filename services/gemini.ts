@@ -1,6 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog } from "../types";
+import { saveBrainLog } from "./storage";
 
 /**
  * Helper to generate embeddings for RAG.
@@ -439,6 +440,22 @@ export const generateCampaignStrategy = async (
 
         const text = response.text;
         if (!text) throw new Error("No strategy generated");
+
+        // BRAIN LOG
+        const log: BrainLog = {
+            id: `brain-${Date.now()}`,
+            timestamp: Date.now(),
+            type: 'CAMPAIGN',
+            brandId: brandName,
+            context: `Goal: ${goal}, Theme: ${theme}, Platforms: ${platforms.join(', ')}`,
+            systemPrompt: systemInstruction,
+            userPrompt: "Generate strategy brief.",
+            rawOutput: text,
+            structuredOutput: JSON.parse(text),
+            model: "gemini-2.0-flash"
+        };
+        saveBrainLog(log);
+
         return JSON.parse(text) as CampaignStrategy;
     } catch (e) {
         console.error("Strategy generation failed", e);
@@ -508,6 +525,20 @@ export const generateTrendReaction = async (
             contents: "React to this trend now.",
             config: { systemInstruction: systemInstruction }
         });
+        // BRAIN LOG
+        const log: BrainLog = {
+            id: `brain-${Date.now()}`,
+            timestamp: Date.now(),
+            type: 'REACTION',
+            brandId: brandName,
+            context: `Reacting to Trend: ${trend.headline} (Relevance: ${trend.relevanceScore})`,
+            systemPrompt: systemInstruction,
+            userPrompt: "React to this trend now.",
+            rawOutput: response.text || "",
+            model: "gemini-2.0-flash"
+        };
+        saveBrainLog(log);
+
         return response.text || "";
     } catch (error) {
         console.error("Trend reaction error", error);
@@ -690,6 +721,20 @@ export const generateSmartReply = async (
             contents: "Draft reply.",
             config: { systemInstruction }
         });
+        // BRAIN LOG
+        const log: BrainLog = {
+            id: `brain-${Date.now()}`,
+            timestamp: Date.now(),
+            type: 'REPLY',
+            brandId: brandName,
+            context: `Replying to @${postAuthor}: "${postText}" (Sentiment: ${sentimentScore})`,
+            systemPrompt: systemInstruction,
+            userPrompt: "Draft reply.",
+            rawOutput: response.text || "",
+            model: "gemini-2.0-flash"
+        };
+        saveBrainLog(log);
+
         return response.text || "";
     } catch (e) {
         console.error("Smart Reply generation failed", e);
@@ -781,6 +826,21 @@ export const generateGrowthReport = async (
 
         const text = response.text;
         if (!text) throw new Error("No report generated");
+
+        // BRAIN LOG
+        const log: BrainLog = {
+            id: `brain-${Date.now()}`,
+            timestamp: Date.now(),
+            type: 'GROWTH_REPORT',
+            brandId: 'GrowthEngine', // Generic or specific
+            context: `Analyzing metrics for Growth Report. TVL Change: ${metrics?.tvlChange}, Social Engagement: ${socialMetrics?.engagementRate}%`,
+            systemPrompt: systemInstruction,
+            userPrompt: "Analyze the data and generate the report.",
+            rawOutput: text,
+            structuredOutput: JSON.parse(text),
+            model: "gemini-2.0-flash"
+        };
+        saveBrainLog(log);
 
         return JSON.parse(text) as GrowthReport;
     } catch (error) {
@@ -917,7 +977,24 @@ export const generateStrategicAnalysis = async (
             }
         });
 
-        return JSON.parse(response.text || "[]") as StrategyTask[];
+        const tasks = JSON.parse(response.text || "[]") as StrategyTask[];
+
+        // BRAIN LOG
+        const log: BrainLog = {
+            id: `brain-${Date.now()}`,
+            timestamp: Date.now(),
+            type: 'STRATEGY',
+            brandId: brandName,
+            context: `Sentinel Audit. Schedule Size: ${eventsNextWeek.length}, Trends: ${trends.length}, Mentions: ${mentions.length}`,
+            systemPrompt: systemInstruction,
+            userPrompt: "Perform the audit and generate tasks.",
+            rawOutput: response.text || "",
+            structuredOutput: tasks,
+            model: "gemini-2.0-flash"
+        };
+        saveBrainLog(log);
+
+        return tasks;
     } catch (error) {
         console.error("Strategy generation error", error);
         // Fallback

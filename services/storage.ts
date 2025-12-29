@@ -330,3 +330,40 @@ export const saveStrategyTasks = (brandName: string, tasks: any[]): void => {
         console.error("Failed to save strategy tasks", e);
     }
 };
+
+
+// --- BRAIN LOGS PERSISTENCE ---
+
+const BRAIN_LOGS_KEY = 'defia_brain_logs_v1';
+const MAX_LOGS = 50; // Keep storage light
+
+export const loadBrainLogs = (brandName: string): any[] => {
+    try {
+        const key = `${BRAIN_LOGS_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+        // We could sync this to cloud too, similar to above pattern
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        return [];
+    }
+};
+
+export const saveBrainLog = (log: any): void => {
+    try {
+        if (!log.brandId) return;
+        const key = `${BRAIN_LOGS_KEY}_${log.brandId.toLowerCase()}`;
+
+        // Load existing
+        const existing = loadBrainLogs(log.brandId);
+
+        // Prepend new log
+        const updated = [log, ...existing].slice(0, MAX_LOGS);
+
+        localStorage.setItem(key, JSON.stringify(updated));
+
+        // Optional: Fire event for real-time UI update if needed
+        // dispatchStorageEvent('BRAIN_UPDATE', { brandName: log.brandId });
+    } catch (e) {
+        console.error("Failed to save brain log", e);
+    }
+};

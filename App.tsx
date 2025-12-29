@@ -14,6 +14,7 @@ import { ContentCalendar } from './components/ContentCalendar';
 import { Dashboard } from './components/Dashboard'; // Import Dashboard
 import { Campaigns } from './components/Campaigns'; // Import Campaigns
 import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
+import { BrainPage } from './components/Brain/BrainPage'; // Import BrainPage
 import { Sidebar } from './components/Sidebar';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals } from './types';
 
@@ -491,6 +492,11 @@ const App: React.FC = () => {
                         onQuickAction={() => { }} // Placeholder
                         growthReport={growthReport} // Pass recent report
                     />
+                )}
+
+                {/* SECTION: BRAIN (NEW) */}
+                {appSection === 'brain' && selectedBrand && (
+                    <BrainPage brandName={selectedBrand} />
                 )}
 
                 {/* SECTION: PULSE */}
