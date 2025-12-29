@@ -54,9 +54,6 @@ const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoadin
 );
 
 export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics, growthReport, onUpdateGrowthReport, onLog }) => {
-    // --- TABS ---
-    const [activeTab, setActiveTab] = useState<'analytics' | 'strategy'>('analytics');
-
     // --- ANALYTICS STATE ---
     // const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null); // LIFTED
     const socialMetrics = metrics; // Alias for easier refactor
@@ -259,20 +256,6 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                         {lunarMetrics && <span className="flex items-center text-[10px] bg-orange-50 text-orange-700 px-2 py-0.5 rounded border border-orange-200 font-bold">● LunarCrush</span>}
                     </div>
                 </div>
-                <div className="flex bg-gray-100 p-1 rounded-lg mt-4 md:mt-0">
-                    <button
-                        onClick={() => setActiveTab('analytics')}
-                        className={`px-6 py-2 text-xs font-bold rounded-md transition-all ${activeTab === 'analytics' ? 'bg-white text-brand-text shadow-sm' : 'text-brand-muted hover:text-brand-text'}`}
-                    >
-                        Performance Data
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('strategy')}
-                        className={`px-6 py-2 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${activeTab === 'strategy' ? 'bg-white text-purple-700 shadow-sm' : 'text-brand-muted hover:text-brand-text'}`}
-                    >
-                        <span className="text-[10px]">⚡</span> Strategy
-                    </button>
-                </div>
             </div>
 
             {/* STATS ROW (Always Visible) */}
@@ -309,9 +292,10 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                 />
             </div>
 
-            {/* TAB CONTENT: ANALYTICS */}
-            {activeTab === 'analytics' && (
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fadeIn flex-1">
+            {/* SECTIONS: ANALYTICS + STRATEGY STACKED */}
+            <div className="space-y-12 w-full">
+                {/* SECTION 1: PERFORMANCE ANALYTICS */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fadeIn w-full">
                     {/* ERROR BANNER */}
                     {socialMetrics?.error === "BACKEND_OFFLINE" && (
                         <div className="lg:col-span-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between text-red-800">
@@ -390,13 +374,14 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                         <SocialActivityFeed lunarPosts={lunarPosts} socialMetrics={socialMetrics} />
                     </div>
                 </div>
-            )}
 
-
-            {/* TAB CONTENT: STRATEGY (GAIA) */}
-            {
-                activeTab === 'strategy' && brandConfig && calendarEvents && (
-                    <div className="animate-fadeIn space-y-6 flex-1 h-full">
+                {/* SECTION 2: STRATEGIC PLANNING (GAIA) */}
+                {brandConfig && calendarEvents && (
+                    <div className="animate-fadeIn w-full border-t border-gray-200 pt-8 mt-8">
+                        <div className="flex items-center gap-2 mb-6">
+                            <span className="text-2xl">⚡</span>
+                            <h3 className="text-2xl font-display font-bold text-brand-text">AI Strategy Brain</h3>
+                        </div>
                         <StrategyBrain
                             brandName={brandName}
                             brandConfig={brandConfig}
@@ -407,8 +392,8 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                             onUpdateTasks={onUpdateTasks}
                         />
                     </div>
-                )
-            }
+                )}
+            </div>
 
             {/* SETUP MODAL */}
             {
