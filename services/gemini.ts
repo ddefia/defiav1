@@ -132,7 +132,7 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
  * This bypasses the client-side SDK limitation for Imagen 3.
  */
 export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<string> => {
-    // Robust API Key Loading
+    // Robust Key Loading
     const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
     const ai = new GoogleGenAI({ apiKey });
 
@@ -190,55 +190,62 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     };
 
     // Process Images (Async)
-    // Note: We are attempting to pass images directly to the model as was done previously.
-    if (params.brandConfig.referenceImages && params.brandConfig.referenceImages.length > 0) {
-        const imageParts = await Promise.all(params.brandConfig.referenceImages.map(async (img) => {
-            let finalData = img.data;
+    try {
+        if (params.brandConfig && params.brandConfig.referenceImages) {
+            const imageParts = await Promise.all(params.brandConfig.referenceImages.map(async (img) => {
+                let finalData = img.data;
 
-            // If URL is provided and data is missing, fetch it
-            if (!finalData && img.url) {
-                const fetched = await urlToBase64(img.url);
-                if (fetched) finalData = fetched;
-            }
+                // If URL is provided and data is missing, fetch it
+                if (!finalData && img.url) {
+                    const fetched = await urlToBase64(img.url);
+                    if (fetched) finalData = fetched;
+                }
 
-            if (!finalData) return null;
+                if (!finalData) return null;
 
-            const base64Data = finalData.split(',')[1] || finalData;
-            const mimeTypeMatch = finalData.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/png';
+                const base64Data = finalData.split(',')[1] || finalData;
+                const mimeTypeMatch = finalData.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
+                const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/png';
 
-            return { inlineData: { mimeType: mimeType, data: base64Data } };
-        }));
+                return { inlineData: { mimeType: mimeType, data: base64Data } };
+            }));
 
-        imageParts.forEach(part => {
-            if (part) parts.push(part);
-        });
+            imageParts.forEach(part => {
+                if (part) parts.push(part);
+            });
+        }
+    } catch (err) {
+        console.warn("Error processing reference images, proceeding with text only.", err);
     }
 
     try {
-        console.log("Attempting generation with model: imagen-3.0-generate-001");
-        // Using the exact call structure from the old successful version
+        console.log("Generating with gemini-3-pro-image-preview...");
         const response = await ai.models.generateContent({
-            model: 'imagen-3.0-generate-001',
-            contents: { parts: [{ text: params.prompt + " " + (params.artPrompt || "") }, ...parts.filter(p => !p.text)] }, // Combine prompt text with image parts
+            model: 'gemini-3-pro-image-preview',
+            // @ts-ignore
+            contents: { parts: parts },
             config: {
-                // @ts-ignore - SDK types might trail behind availability
-                sampleCount: 1,
-                aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9'
+                // @ts-ignore - Experimental/Legacy schema
+                imageConfig: {
+                    aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9',
+                    imageSize: params.size || '1024x1024'
+                }
             },
         });
 
         const responseParts = response.candidates?.[0]?.content?.parts;
-        if (!responseParts) throw new Error("No content generated.");
+        const imagePart = responseParts?.[0];
 
-        for (const part of responseParts) {
-            if (part.inlineData && part.inlineData.data) {
-                return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-            }
+        // @ts-ignore
+        if (imagePart && imagePart.inlineData) {
+            // @ts-ignore
+            return `data:${imagePart.inlineData.mimeType || 'image/png'};base64,${imagePart.inlineData.data}`;
         }
-        throw new Error("No image data found.");
+
+        throw new Error("No image data returned from Gemini.");
+
     } catch (error: any) {
-        console.error("Gemini/Imagen 3.0 generation error:", error);
+        console.error("Gemini generation error:", error.message);
         throw error;
     }
 };
