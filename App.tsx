@@ -15,7 +15,7 @@ import { Dashboard } from './components/Dashboard'; // Import Dashboard
 import { Campaigns } from './components/Campaigns'; // Import Campaigns
 import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
 import { Sidebar } from './components/Sidebar';
-import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport } from './types';
+import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals } from './types';
 
 const App: React.FC = () => {
     // Check environment variable first (injected by Vite define)
@@ -50,6 +50,15 @@ const App: React.FC = () => {
     const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null);
     const [chainMetrics, setChainMetrics] = useState<ComputedMetrics | null>(null); // Lifted for Defia Index
     const [growthReport, setGrowthReport] = useState<GrowthReport | null>(null); // Lifted for Dashboard
+
+    // NEW: Shared "War Room" Signals for Brain & UI
+    const [socialSignals, setSocialSignals] = useState<SocialSignals>({
+        sentimentScore: 78,
+        sentimentTrend: 'up',
+        activeNarratives: ["#L2Wars", "$DEFI", "Yield Farming"],
+        topKols: []
+    });
+
     const [systemLogs, setSystemLogs] = useState<string[]>([]); // New: Activity Logs for Dashboard
 
     // Single Generation State
@@ -526,6 +535,7 @@ const App: React.FC = () => {
                             growthReport={growthReport}
                             onUpdateGrowthReport={setGrowthReport}
                             onLog={(msg) => setSystemLogs(prev => [msg, ...prev].slice(0, 50))} // Pipe logs
+                            signals={socialSignals} // Pass signals to Brain
                         />
                     </div>
                 )}
@@ -548,8 +558,9 @@ const App: React.FC = () => {
                 {appSection === 'social' && selectedBrand && (
                     <SocialMedia
                         brandName={selectedBrand}
-                        lunarPosts={[]} // Pass actual posts if available in App state, else empty or fetch internally
+                        lunarPosts={[]} // Pass actual posts if available
                         socialMetrics={socialMetrics}
+                        signals={socialSignals} // Live Brain Signals
                     />
                 )}
 

@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { LunarCrushPost, SocialMetrics } from '../types';
+import { LunarCrushPost, SocialMetrics, SocialSignals } from '../types';
+import { generateSmartReply } from '../services/gemini';
 
 interface SocialMediaProps {
     brandName: string;
     lunarPosts: LunarCrushPost[];
     socialMetrics: SocialMetrics | null;
+    signals: SocialSignals;
 }
 
-export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts, socialMetrics }) => {
+export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts, socialMetrics, signals }) => {
     const [activePlatform, setActivePlatform] = useState<'twitter' | 'telegram' | 'discord'>('twitter');
     const [activeFilter, setActiveFilter] = useState<'all' | 'kol' | 'fud' | 'alpha'>('all');
 
-    // MOCK: Computed Sentiment / Narrative (In real app, comes from backend analysis)
-    const sentimentScore = 78; // 0-100 (Fear <-> Greed)
-    const activeNarratives = ["#L2Wars", "$DEFI", "Yield Farming"];
+    // Use shared state from App/Brain
+    const { sentimentScore, activeNarratives } = signals;
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fadeIn h-full flex flex-col">
@@ -194,7 +195,14 @@ export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts,
 
                                                     {/* Action Bar */}
                                                     <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-brand-accent hover:text-white text-xs font-bold text-gray-600 transition-colors">
+                                                        <button
+                                                            onClick={async () => {
+                                                                const reply = await generateSmartReply(text, handle, sentimentScore, brandName, { colors: [], referenceImages: [], tweetExamples: [], knowledgeBase: [] }); // TODO: Pass full config
+                                                                alert(`AI SUGGESTED REPLY:\n\n${reply}\n\n(Copied to clipboard)`);
+                                                                navigator.clipboard.writeText(reply);
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-brand-accent hover:text-white text-xs font-bold text-gray-600 transition-colors"
+                                                        >
                                                             <span>🤖</span> AI Reply
                                                         </button>
                                                         <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-600 transition-colors">

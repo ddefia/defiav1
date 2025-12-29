@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals } from "../types";
 
 /**
  * Helper to generate embeddings for RAG.
@@ -649,6 +649,55 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
 }
 
 /**
+ * SOCIAL BRAIN: Generates a contextual reply based on sentiment and post content.
+ */
+export const generateSmartReply = async (
+    postText: string,
+    postAuthor: string,
+    sentimentScore: number,
+    brandName: string,
+    brandConfig: BrandConfig
+): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    // Determine stance based on 'War Room' sentiment
+    const stance = sentimentScore > 60 ? "BULLISH/CONFIDENT" : sentimentScore < 40 ? "DEFENSIVE/REASSURING" : "NEUTRAL/PROFESSIONAL";
+
+    const systemInstruction = `
+    You are the Social Media Manager for ${brandName}.
+    
+    CONTEXT:
+    - We are replying to a user: @${postAuthor}
+    - They said: "${postText}"
+    - Current Market Mood: ${stance} (Score: ${sentimentScore}/100)
+    
+    TASK:
+    Draft a short, engaging reply (under 280 chars).
+    
+    GUIDELINES:
+    - If the user is FUDding, be polite but correct them with facts.
+    - If the user is Hype/Alpha, amplify the energy.
+    - If the mood is checking is Bearish, be reassuring.
+    - Use the brand's tone from examples below.
+    
+    TONE EXAMPLES:
+    ${brandConfig.tweetExamples.slice(0, 2).map(t => `- ${t}`).join('\n')}
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "Draft reply.",
+            config: { systemInstruction }
+        });
+        return response.text || "";
+    } catch (e) {
+        console.error("Smart Reply generation failed", e);
+        return "Thanks for the shoutout! 🚀"; // Fallback
+    }
+};
+
+/**
  * Generates an Investor-Grade Growth Report based on metrics.
  */
 export const generateGrowthReport = async (
@@ -762,9 +811,17 @@ export const generateStrategicAnalysis = async (
     brandConfig: BrandConfig,
     growthReport?: GrowthReport | null,
     mentions: any[] = [], // New: Incoming mentions for Community Manager
-    ragContext: string = "" // New: RAG Memory Context
+    ragContext: string = "", // New: RAG Memory Context
+    signals?: SocialSignals // New: War Room Context
 ): Promise<StrategyTask[]> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    // War Room Context
+    const warRoomContext = signals ? `
+    WAR ROOM INTELLIGENCE:
+    - Sentiment Score: ${signals.sentimentScore}/100 (${signals.sentimentTrend})
+    - Active Narratives: ${signals.activeNarratives.join(', ')}
+    ` : "";
 
     // 1. Analyze Calendar (Content Machine)
     const now = new Date();
@@ -793,6 +850,8 @@ export const generateStrategicAnalysis = async (
     const systemInstruction = `
     You are 'Gaia', the AI Marketing Employee for ${brandName}.
     You assume three specific roles to audit the current state and assign tasks:
+
+    ${warRoomContext}
 
     ${ragContext ? `
     IMPORTANT - LONG TERM MEMORY (HISTORY & CONTEXT):

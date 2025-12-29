@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { CampaignLog, GrowthInput, ComputedMetrics, GrowthReport, SocialMetrics, CalendarEvent, TrendItem, BrandConfig, LunarCrushCreator, LunarCrushTimeSeriesItem, LunarCrushPost, StrategyTask } from '../types';
+import { CampaignLog, GrowthInput, ComputedMetrics, GrowthReport, SocialMetrics, CalendarEvent, TrendItem, BrandConfig, LunarCrushCreator, LunarCrushTimeSeriesItem, LunarCrushPost, StrategyTask, SocialSignals } from '../types';
 import { computeGrowthMetrics, getSocialMetrics, fetchSocialMetrics, getHandle } from '../services/analytics';
-import { generateGrowthReport } from '../services/gemini';
+import { generateGrowthReport, generateStrategicAnalysis } from '../services/gemini';
 import { getCreator, getCreatorTimeSeries, getCreatorPosts } from '../services/pulse';
 import { Button } from './Button';
 import { StrategyBrain } from './StrategyBrain';
@@ -12,16 +12,17 @@ interface GrowthEngineProps {
     brandName: string;
     calendarEvents: CalendarEvent[];
     brandConfig: BrandConfig;
-    onSchedule: (content: string, image?: string, date?: string) => void;
+    onSchedule: (content: string, image?: string, campaignName?: string) => void;
     metrics: SocialMetrics | null;
-    onUpdateMetrics: (metrics: SocialMetrics | null) => void;
+    onUpdateMetrics: (m: SocialMetrics) => void;
     tasks: StrategyTask[];
-    onUpdateTasks: (tasks: StrategyTask[]) => void;
+    onUpdateTasks: (t: StrategyTask[]) => void;
     chainMetrics: ComputedMetrics | null;
     onUpdateChainMetrics: (metrics: ComputedMetrics | null) => void;
-    growthReport: GrowthReport | null; // Lifted
-    onUpdateGrowthReport: (report: GrowthReport | null) => void; // Lifted
-    onLog?: (message: string) => void; // Optional logger
+    growthReport: GrowthReport | null; // New
+    onUpdateGrowthReport: (r: GrowthReport) => void; // New
+    onLog: (msg: string) => void;
+    signals: SocialSignals; // New: War Room Context
 }
 
 interface ContractInput {
@@ -53,7 +54,7 @@ const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoadin
     </div>
 );
 
-export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics, growthReport, onUpdateGrowthReport, onLog }) => {
+export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics, growthReport, onUpdateGrowthReport, onLog, signals }) => {
     // --- ANALYTICS STATE ---
     // const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null); // LIFTED
     const socialMetrics = metrics; // Alias for easier refactor
@@ -172,10 +173,27 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             setProcessingStatus('Generating Strategy Brief via Gemini...');
             onLog?.(`Generating strategic brief via Gemini AI (Model: Experimental)...`);
             const metricsForReport = (overrideParams?.socialOnly) ? await fetchSocialMetrics(brandName, apifyKey) : (socialMetrics || getSocialMetrics(brandName));
+            // 5. Generate Strategy (Gaia)
             // Use 'computed' which is either fresh or existing
             const aiReport = await generateGrowthReport(computed, campaigns, metricsForReport);
-
             onUpdateGrowthReport(aiReport);
+
+            // Generate Tasks with Brain Context
+            // We need to fetch recent mentions if not already available
+            const mentions = metricsForReport?.recentPosts || [];
+
+            const newTasks = await generateStrategicAnalysis(
+                brandName,
+                calendarEvents,
+                [], // Trends (Pulse) - TODO: pass if needed or fetch
+                brandConfig,
+                aiReport,
+                mentions,
+                "", // RAG Context
+                signals // LIVE WAR ROOM SIGNALS
+            );
+            onUpdateTasks(newTasks);
+
             onLog?.(`Analysis complete. Brief generated.`);
         } catch (e) {
             console.error(e);
@@ -183,7 +201,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
         } finally {
             setIsProcessing(false);
         }
-    }, [brandName, contracts, duneKey, duneQueryIds, campaigns, socialMetrics, apifyKey, loadRealSocialData, chainMetrics]);
+    }, [brandName, contracts, duneKey, duneQueryIds, campaigns, socialMetrics, apifyKey, loadRealSocialData, chainMetrics, signals]);
 
 
 
@@ -490,6 +508,15 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                                                 onChange={e => setDuneQueryIds({ ...duneQueryIds, volume: e.target.value })}
                                                 className="w-full border border-brand-border rounded p-2 text-sm focus:outline-none focus:border-brand-accent bg-gray-50"
                                                 placeholder="e.g. 123456"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-brand-muted block mb-1">Users/Growth Query ID</label>
+                                            <input
+                                                type="text"
+                                                value={duneQueryIds.users || ''}
+                                                onChange={e => setDuneQueryIds({ ...duneQueryIds, users: e.target.value })}
+                                                className="w-full border border-brand-border rounded p-2 text-sm focus:outline-none focus:border-brand-accent bg-gray-50"
                                             />
                                         </div>
                                         <div>

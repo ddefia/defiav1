@@ -180,6 +180,13 @@ export interface CampaignLog {
   channel: string; // e.g., "Twitter", "Galxe", "Influencer"
 }
 
+export interface SocialSignals {
+  sentimentScore: number; // 0-100
+  sentimentTrend: 'up' | 'down' | 'stable';
+  activeNarratives: string[];
+  topKols: string[];
+}
+
 export interface ComputedMetrics {
   totalVolume: number;
   netNewWallets: number;
