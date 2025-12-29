@@ -248,13 +248,14 @@ export interface DefiaScore {
 export interface BrainLog {
   id: string;
   timestamp: number;
-  type: 'STRATEGY' | 'REPLY' | 'CAMPAIGN' | 'RESEARCH' | 'ANALYSIS' | 'GROWTH_REPORT' | 'REACTION';
+  type: 'STRATEGY' | 'REPLY' | 'CAMPAIGN' | 'RESEARCH' | 'ANALYSIS' | 'GROWTH_REPORT' | 'REACTION' | 'SYSTEM';
   brandId: string;
   context: string; // Brief summary of input context
-  systemPrompt: string; // The "Brain" instructions
-  userPrompt: string; // The specific trigger
-  rawOutput: string; // Full LLM response
+  systemPrompt?: string; // The "Brain" instructions
+  userPrompt?: string; // The specific trigger
+  rawOutput?: string; // Full LLM response
   structuredOutput?: any; // Parsed JSON if applicable
+  thoughts?: string; // AI Strategic Analysis / Monologue
   model: string;
   cost?: string; // Estimated token cost (optional placeholder)
 }

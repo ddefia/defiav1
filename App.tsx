@@ -4,7 +4,7 @@ import { fetchMarketPulse } from './services/pulse';
 import { fetchMentions } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog } from './services/storage';
 import { Button } from './components/Button';
 import { Select } from './components/Select';
 import { BrandKit } from './components/BrandKit';
@@ -542,7 +542,21 @@ const App: React.FC = () => {
                             onUpdateTasks={setStrategyTasks}
                             growthReport={growthReport}
                             onUpdateGrowthReport={setGrowthReport}
-                            onLog={(msg) => setSystemLogs(prev => [msg, ...prev].slice(0, 50))} // Pipe logs
+                            onLog={(msg) => {
+                                setSystemLogs(prev => [msg, ...prev].slice(0, 50));
+                                // Pipe to Brain Stream
+                                if (selectedBrand) {
+                                    saveBrainLog({
+                                        id: `sys-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                                        timestamp: Date.now(),
+                                        type: 'SYSTEM',
+                                        brandId: selectedBrand,
+                                        context: msg,
+                                        model: 'System',
+                                        thoughts: 'System Activity Log'
+                                    });
+                                }
+                            }} // Pipe logs
                             signals={socialSignals} // Pass signals to Brain
                         />
                     </div>

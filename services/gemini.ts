@@ -964,33 +964,39 @@ export const generateStrategicAnalysis = async (
     ${reportContext}
 
     TASK:
-    Propose exactly 3-5 high-impact tasks based on the roles above.
+    1. First, write a "Strategic Analysis" paragraph (3-4 sentences). Analyze the input data, identify relationships (e.g. "Calendar is empty BUT trending topic X is relevant"), and define the high-level strategy for this session.
+    2. Then, propose exactly 3-5 high-impact tasks based on that analysis.
     
-    OUTPUT JSON:
-    [
-        {
-            "id": "unique_string",
-            "type": "GAP_FILL" | "TREND_JACK" | "CAMPAIGN_IDEA" | "COMMUNITY" | "REACTION" | "REPLY" | "EVERGREEN",
-            "title": "Short Task Title (e.g. 'Reply to @User', 'News: ETF Approval')",
-            "description": "One sentence explanation.",
-            "reasoning": "Why this is important now.",
-            "impactScore": number (1-10),
-            "executionPrompt": "The specific instruction to generate the content. For REPLIES, include the user's original text."
-        }
-    ]
+    OUTPUT JSON FORMAT:
+    {
+        "thoughts": "Strategic analysis text here...",
+        "tasks": [
+            {
+                "id": "unique_string",
+                "type": "GAP_FILL" | "TREND_JACK" | "CAMPAIGN_IDEA" | "COMMUNITY" | "REACTION" | "REPLY" | "EVERGREEN",
+                "title": "Short Task Title",
+                "description": "One sentence explanation.",
+                "reasoning": "Why this is important now.",
+                "impactScore": number (1-10),
+                "executionPrompt": "Instruction..."
+            }
+        ]
+    }
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: "Perform the audit and generate tasks.",
+            contents: "Perform the audit and generate thoughts + tasks.",
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json"
             }
         });
 
-        const tasks = JSON.parse(response.text || "[]") as StrategyTask[];
+        const json = JSON.parse(response.text || "{}");
+        const tasks = (json.tasks || []) as StrategyTask[];
+        const thoughts = json.thoughts || "No analysis provided.";
 
         // BRAIN LOG
         const log: BrainLog = {
@@ -1018,6 +1024,7 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
             userPrompt: "Perform the audit and generate tasks.",
             rawOutput: response.text || "",
             structuredOutput: tasks,
+            thoughts: thoughts,
             model: "gemini-2.0-flash"
         };
         saveBrainLog(log);

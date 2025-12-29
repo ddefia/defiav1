@@ -32,6 +32,7 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
             case 'REACTION': return 'border-orange-800 text-orange-900 bg-transparent';
             case 'GROWTH_REPORT': return 'border-green-800 text-green-900 bg-transparent';
             case 'CAMPAIGN': return 'border-purple-800 text-purple-900 bg-transparent';
+            case 'SYSTEM': return 'border-cyan-600 text-cyan-700 bg-cyan-50';
             default: return 'border-gray-400 text-gray-500 bg-transparent';
         }
     };
@@ -101,6 +102,13 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
                         </div>
                     </div>
                 );
+            case 'SYSTEM':
+                return (
+                    <div className="bg-white p-6 border border-gray-200">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">System Activity</h4>
+                        <p className="text-sm text-gray-800 font-mono">{log.context}</p>
+                    </div>
+                );
             default:
                 return <pre className="text-xs bg-gray-50 p-4 border border-gray-200">{JSON.stringify(log.structuredOutput, null, 2)}</pre>;
         }
@@ -139,7 +147,7 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
                                 <span className="text-[10px] text-gray-400">{formatDate(log.timestamp)}</span>
                             </div>
                             <div className="text-xs font-medium text-gray-800 line-clamp-2">
-                                {log.context.replace('Sentinel Audit. ', '').replace('WAR ROOM INTELLIGENCE:', 'War Room Signal').substring(0, 80)}...
+                                {log.type === 'SYSTEM' ? log.context : (log.thoughts || "System Audit")}
                             </div>
                         </div>
                     ))}
@@ -168,8 +176,22 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
                             </div>
                         </div>
 
-                        {/* 2. DECISIONS / OUTPUT */}
-                        <div className="space-y-2">
+                        {/* 2. STRATEGIC ANALYSIS (THINKING) */}
+                        {selectedLog.thoughts && (
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                    Strategic Analysis
+                                </h3>
+                                <div className="bg-gradient-to-r from-gray-50 to-white p-6 border-l-4 border-l-purple-500 border-y border-r border-gray-200 shadow-sm">
+                                    <p className="text-sm text-gray-800 leading-relaxed font-serif italic">
+                                        "{selectedLog.thoughts}"
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. DECISIONS / OUTPUT */}
+                        <div className="space-y-3">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
                                 Executive Decisions
                             </h3>
