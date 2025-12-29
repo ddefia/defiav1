@@ -4,7 +4,7 @@ import { fetchMarketPulse } from './services/pulse';
 import { fetchMentions } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs } from './services/storage';
 import { Button } from './components/Button';
 import { Select } from './components/Select';
 import { BrandKit } from './components/BrandKit';
@@ -159,7 +159,9 @@ const App: React.FC = () => {
                     profiles[selectedBrand],
                     null, // Growth Report optional
                     mentions,
-                    ragContext
+                    ragContext,
+                    socialSignals,
+                    loadBrainLogs(selectedBrand) // Cognitive Loop
                 );
 
                 setStrategyTasks(generatedTasks);

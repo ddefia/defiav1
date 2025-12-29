@@ -872,7 +872,9 @@ export const generateStrategicAnalysis = async (
     growthReport?: GrowthReport | null,
     mentions: any[] = [], // New: Incoming mentions for Community Manager
     ragContext: string = "", // New: RAG Memory Context
-    signals?: SocialSignals // New: War Room Context
+
+    signals?: SocialSignals, // New: War Room Context
+    recentLogs: BrainLog[] = [] // New: Cognitive Loop (Short Term Memory)
 ): Promise<StrategyTask[]> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -881,7 +883,16 @@ export const generateStrategicAnalysis = async (
     WAR ROOM INTELLIGENCE:
     - Sentiment Score: ${signals.sentimentScore}/100 (${signals.sentimentTrend})
     - Active Narratives: ${signals.activeNarratives.join(', ')}
+
     ` : "";
+
+    // Cognitive Loop (Short Term Memory)
+    const memoryContext = recentLogs.length > 0 ? `
+    SHORT TERM MEMORY (Your Recent Decisions):
+    ${recentLogs.slice(0, 5).map(l => `- [${l.type}] ${new Date(l.timestamp).toLocaleTimeString()}: ${l.context}`).join('\n')}
+    
+    INSTRUCTION: Review your recent memory. Do not repeat actions you just took. If you just reacted to a trend, look for replies. If you just posted, check for engagement.
+    ` : "SHORT TERM MEMORY: Empty (Fresh Start).";
 
     // 1. Analyze Calendar (Content Machine)
     const now = new Date();
@@ -913,10 +924,12 @@ export const generateStrategicAnalysis = async (
 
     ${warRoomContext}
 
+    ${memoryContext}
+
     ${ragContext ? `
     IMPORTANT - LONG TERM MEMORY (HISTORY & CONTEXT):
     The following is retrieved context from our historical database and on-chain analysis. 
-    Use this to inform your decisions. Pay special attention to 'DECISION TAKEN' logs to avoid repeating recent actions or to follow up on them.
+    Use this AND your SHORT TERM MEMORY to inform your decisions. Pay special attention to 'DECISION TAKEN' logs to avoid repeating recent actions or to follow up on them.
     
     ${ragContext}
     ` : ''}
