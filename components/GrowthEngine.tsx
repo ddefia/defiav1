@@ -370,24 +370,41 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm hover:shadow-md transition-all">
-                                            <h4 className="font-bold text-brand-text mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                                                Social Health
-                                            </h4>
-                                            <div className="space-y-3">
-                                                <div className="flex justify-between py-2 border-b border-gray-50 text-sm">
-                                                    <span className="text-brand-textSecondary">Followers</span>
-                                                    <span className="font-mono font-bold text-brand-text">{lunarMetrics?.followers?.toLocaleString() || socialMetrics?.totalFollowers.toLocaleString()}</span>
-                                                </div>
-                                                <div className="flex justify-between py-2 border-b border-gray-50 text-sm">
-                                                    <span className="text-brand-textSecondary">Engagement</span>
-                                                    <span className="font-mono font-bold text-brand-text">{lunarMetrics ? engRate.toFixed(2) : socialMetrics?.engagementRate}%</span>
-                                                </div>
-                                                <div className="flex justify-between py-2 pt-1 text-sm">
-                                                    <span className="text-brand-textSecondary">Interactions (24h)</span>
-                                                    <span className="font-mono font-bold text-brand-text">{lunarMetrics?.interactions_24h || socialMetrics?.mentions}</span>
-                                                </div>
+                                        <h4 className="font-bold text-brand-text mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
+                                            <svg className="w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                            Social Health
+                                        </h4>
+                                        <div className="space-y-4">
+                                            {/* Platforms Header */}
+                                            <div className="grid grid-cols-4 text-[10px] font-bold text-brand-muted uppercase tracking-wider pb-2 border-b border-gray-100">
+                                                <span className="col-span-1">Channel</span>
+                                                <span className="col-span-1 text-right">Members</span>
+                                                <span className="col-span-1 text-right">Eng.</span>
+                                                <span className="col-span-1 text-right">Signal</span>
+                                            </div>
+
+                                            {/* X / Twitter */}
+                                            <div className="grid grid-cols-4 items-center text-sm">
+                                                <span className="col-span-1 font-medium text-brand-text flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-black"></span> X / Twitter</span>
+                                                <span className="col-span-1 text-right font-mono text-brand-textSecondary">{lunarMetrics?.followers?.toLocaleString() || '0'}</span>
+                                                <span className="col-span-1 text-right font-mono text-brand-textSecondary">{lunarMetrics ? engRate.toFixed(1) : '0.0'}%</span>
+                                                <span className="col-span-1 text-right flex justify-end"><span className="w-2 h-2 rounded-full bg-emerald-500"></span></span>
+                                            </div>
+
+                                            {/* Telegram (Mock/Future) */}
+                                            <div className="grid grid-cols-4 items-center text-sm">
+                                                <span className="col-span-1 font-medium text-brand-text flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Telegram</span>
+                                                <span className="col-span-1 text-right font-mono text-brand-textSecondary">—</span>
+                                                <span className="col-span-1 text-right font-mono text-brand-textSecondary">—</span>
+                                                <span className="col-span-1 text-right flex justify-end"><span className="w-2 h-2 rounded-full bg-gray-300"></span></span>
+                                            </div>
+
+                                            {/* Discord (Mock/Future) */}
+                                            <div className="grid grid-cols-4 items-center text-sm">
+                                                <span className="col-span-1 font-medium text-brand-text flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Discord</span>
+                                                <span className="col-span-1 text-right font-mono text-brand-textSecondary">—</span>
+                                                <span className="col-span-1 text-right font-mono text-brand-textSecondary">—</span>
+                                                <span className="col-span-1 text-right flex justify-end"><span className="w-2 h-2 rounded-full bg-gray-300"></span></span>
                                             </div>
                                         </div>
                                     </div>
@@ -550,6 +567,6 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                 )
             }
 
-        </div>
+        </div >
     );
 };
