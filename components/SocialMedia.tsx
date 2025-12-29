@@ -9,129 +9,214 @@ interface SocialMediaProps {
 
 export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts, socialMetrics }) => {
     const [activePlatform, setActivePlatform] = useState<'twitter' | 'telegram' | 'discord'>('twitter');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'kol' | 'fud' | 'alpha'>('all');
+
+    // MOCK: Computed Sentiment / Narrative (In real app, comes from backend analysis)
+    const sentimentScore = 78; // 0-100 (Fear <-> Greed)
+    const activeNarratives = ["#L2Wars", "$DEFI", "Yield Farming"];
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fadeIn">
-            {/* Header */}
-            <div>
-                <h1 className="text-3xl font-display font-bold text-brand-text tracking-tight">Community & Mentions</h1>
-                <p className="text-brand-textSecondary mt-2">Track real-time conversations across your social channels.</p>
-            </div>
+        <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fadeIn h-full flex flex-col">
 
-            {/* Platform Tabs */}
-            <div className="flex items-center gap-4 border-b border-brand-border pb-1">
-                <button
-                    onClick={() => setActivePlatform('twitter')}
-                    className={`pb-3 px-2 text-sm font-bold transition-all relative ${activePlatform === 'twitter' ? 'text-black' : 'text-brand-muted hover:text-brand-text'}`}
-                >
-                    X / Twitter
-                    {activePlatform === 'twitter' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-black rounded-t-full"></div>}
-                </button>
-                <button
-                    onClick={() => setActivePlatform('telegram')}
-                    className={`pb-3 px-2 text-sm font-bold transition-all relative ${activePlatform === 'telegram' ? 'text-blue-500' : 'text-brand-muted hover:text-brand-text'}`}
-                >
-                    Telegram
-                    {activePlatform === 'telegram' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500 rounded-t-full"></div>}
-                </button>
-                <button
-                    onClick={() => setActivePlatform('discord')}
-                    className={`pb-3 px-2 text-sm font-bold transition-all relative ${activePlatform === 'discord' ? 'text-indigo-500' : 'text-brand-muted hover:text-brand-text'}`}
-                >
-                    Discord
-                    {activePlatform === 'discord' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 rounded-t-full"></div>}
-                </button>
-            </div>
+            {/* 1. WAR ROOM HEADER */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-            {/* Content Area */}
-            <div className="bg-white rounded-2xl border border-brand-border shadow-sm min-h-[600px] flex flex-col">
-
-                {/* TOOLBAR */}
-                <div className="p-4 border-b border-brand-border flex justify-between items-center bg-gray-50/50 rounded-t-2xl">
-                    <div className="flex items-center gap-2">
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                {/* A. Brand Sentiment (Moodometer) */}
+                <div className="bg-brand-surface border border-brand-border rounded-2xl p-6 shadow-premium relative overflow-hidden">
+                    <div className="flex justify-between items-start mb-2 relative z-10">
+                        <h3 className="text-xs font-bold text-brand-muted uppercase tracking-wider">Community Sentiment</h3>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${sentimentScore > 60 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                            {sentimentScore > 60 ? 'BULLISH' : 'BEARISH'}
                         </span>
-                        <span className="text-xs font-bold text-brand-text uppercase tracking-wide">Live Stream: {activePlatform}</span>
                     </div>
-                    <div className="flex gap-2">
-                        <button className="text-xs font-bold text-brand-textSecondary hover:text-brand-text px-3 py-1.5 bg-white border border-brand-border rounded-lg shadow-sm">Config</button>
-                        <button className="text-xs font-bold text-brand-textSecondary hover:text-brand-text px-3 py-1.5 bg-white border border-brand-border rounded-lg shadow-sm">Export</button>
+                    <div className="flex items-end gap-2 relative z-10">
+                        <span className="text-4xl font-display font-bold text-brand-text">{sentimentScore}/100</span>
+                        <span className="text-xs text-brand-textSecondary mb-1.5 font-medium">Greed Index</span>
+                    </div>
+                    {/* Visual Gauge Bar */}
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full mt-4 overflow-hidden relative z-10">
+                        <div className={`h-full rounded-full transition-all duration-1000 ${sentimentScore > 60 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r from-red-400 to-red-600'}`} style={{ width: `${sentimentScore}%` }}></div>
+                    </div>
+                    <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full blur-2xl opacity-20 ${sentimentScore > 60 ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                </div>
+
+                {/* B. Active Narratives */}
+                <div className="bg-brand-surface border border-brand-border rounded-2xl p-6 shadow-premium">
+                    <h3 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-3">Detected Narratives</h3>
+                    <div className="flex flex-wrap gap-2">
+                        {activeNarratives.map(tag => (
+                            <span key={tag} className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-bold hover:bg-indigo-100 cursor-pointer transition-colors">
+                                {tag}
+                            </span>
+                        ))}
+                        <span className="px-3 py-1 bg-gray-50 text-gray-500 border border-gray-100 border-dashed rounded-lg text-xs font-medium hover:bg-gray-100 cursor-pointer transition-colors">
+                            + Add Topic
+                        </span>
                     </div>
                 </div>
 
-                {/* FEED */}
-                <div className="flex-1 p-0 overflow-y-auto custom-scrollbar">
-                    {/* TWITTER VIEW */}
-                    {activePlatform === 'twitter' && (
-                        <div className="divide-y divide-gray-100">
-                            {(lunarPosts.length > 0 ? lunarPosts : (socialMetrics?.recentPosts || [])).map((post: any) => {
-                                // Normalizing Data
-                                const id = post.id || post.post_id;
-                                const text = post.body || post.content || post.text;
-                                const date = post.posted ? new Date(post.posted * 1000).toLocaleString() : post.date;
-                                const interactions = post.interactions || (post.likes + (post.retweets || 0));
-                                const handle = post.creator_handle || post.author || 'User';
+                {/* C. Quick Stats */}
+                <div className="bg-brand-surface border border-brand-border rounded-2xl p-6 shadow-premium flex flex-col justify-between">
+                    <h3 className="text-xs font-bold text-brand-muted uppercase tracking-wider">Volume Spike</h3>
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl font-display font-bold text-brand-text">+128%</span>
+                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Trending</span>
+                    </div>
+                    <p className="text-[10px] text-brand-textSecondary">Mentions are up significantly in the last hour vs 7d avg.</p>
+                </div>
+            </div>
 
-                                return (
-                                    <div key={id} className="p-6 hover:bg-gray-50 transition-colors group">
-                                        <div className="flex gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center text-gray-500 font-bold">
-                                                {handle[0]}
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <span className="font-bold text-brand-text text-sm">{handle}</span>
-                                                        <span className="text-brand-textSecondary text-xs ml-2">{date}</span>
+            {/* 2. MAIN CONSOLE */}
+            <div className="flex-1 bg-white rounded-2xl border border-brand-border shadow-sm flex overflow-hidden">
+
+                {/* LEFT RAIL: FILTERS */}
+                <div className="w-64 border-r border-brand-border bg-gray-50/50 p-4 flex flex-col gap-6">
+
+                    {/* Platform Selector */}
+                    <div>
+                        <label className="text-[10px] font-bold text-brand-muted uppercase mb-2 block">Source</label>
+                        <div className="space-y-1">
+                            {[
+                                { id: 'twitter', label: 'X / Twitter', icon: '🐦', color: 'text-black' },
+                                { id: 'telegram', label: 'Telegram', icon: '✈️', color: 'text-blue-500' },
+                                { id: 'discord', label: 'Discord', icon: '💬', color: 'text-indigo-500' }
+                            ].map(p => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => setActivePlatform(p.id as any)}
+                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${activePlatform === p.id ? 'bg-white shadow-sm ring-1 ring-gray-200 text-brand-text' : 'text-brand-textSecondary hover:bg-gray-100'}`}
+                                >
+                                    <span className={p.color}>{p.icon}</span>
+                                    {p.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Smart Web3 Filters */}
+                    <div>
+                        <label className="text-[10px] font-bold text-brand-muted uppercase mb-2 block">Smart Loop</label>
+                        <div className="space-y-1">
+                            <button onClick={() => setActiveFilter('all')} className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium ${activeFilter === 'all' ? 'bg-brand-accent/10 text-brand-accent font-bold' : 'text-brand-textSecondary hover:bg-gray-100'}`}>
+                                ⚡ All Mentions
+                            </button>
+                            <button onClick={() => setActiveFilter('kol')} className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium ${activeFilter === 'kol' ? 'bg-purple-50 text-purple-600 font-bold' : 'text-brand-textSecondary hover:bg-gray-100'}`}>
+                                💎 KOL Watchlist
+                            </button>
+                            <button onClick={() => setActiveFilter('fud')} className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium ${activeFilter === 'fud' ? 'bg-red-50 text-red-600 font-bold' : 'text-brand-textSecondary hover:bg-gray-100'}`}>
+                                🛡️ FUD Alert
+                            </button>
+                            <button onClick={() => setActiveFilter('alpha')} className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium ${activeFilter === 'alpha' ? 'bg-amber-50 text-amber-600 font-bold' : 'text-brand-textSecondary hover:bg-gray-100'}`}>
+                                🚀 Alpha / Hype
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* CENTER: FEED */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-white relative">
+                    {/* Floating Toolbar */}
+                    <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-brand-border px-6 py-3 flex justify-between items-center">
+                        <h2 className="text-sm font-bold text-brand-text flex items-center gap-2">
+                            {activeFilter === 'all' && 'Live Feed'}
+                            {activeFilter === 'kol' && '💎 Influencer Activity'}
+                            {activeFilter === 'fud' && '🛡️ FUD Detection'}
+                            {activeFilter === 'alpha' && '🚀 High Engagement'}
+                            <span className="px-2 py-0.5 bg-gray-100 rounded text-[10px] text-gray-500 font-normal">Real-time</span>
+                        </h2>
+                        <div className="flex gap-2">
+                            <input type="text" placeholder="Search mentions..." className="bg-gray-50 border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-brand-accent w-48" />
+                        </div>
+                    </div>
+
+                    <div className="p-0">
+                        {/* EMPTY STATES FOR MOCK PLATFORMS first */}
+                        {activePlatform === 'telegram' && (
+                            <div className="flex flex-col items-center justify-center pt-24 text-center">
+                                <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4 text-2xl">✈️</div>
+                                <h3 className="font-bold text-gray-900">Telegram Command Center</h3>
+                                <p className="text-sm text-gray-500 mt-2 max-w-sm">Connect your automated raid bot to manage community raids directly from here.</p>
+                                <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-blue-700">Connect Bot</button>
+                            </div>
+                        )}
+
+                        {activePlatform === 'discord' && (
+                            <div className="flex flex-col items-center justify-center pt-24 text-center">
+                                <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mb-4 text-2xl">💬</div>
+                                <h3 className="font-bold text-gray-900">Discord Sentinel</h3>
+                                <p className="text-sm text-gray-500 mt-2 max-w-sm">Track server growth, support tickets, and FUD alerts.</p>
+                                <button className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700">Install Sentinel</button>
+                            </div>
+                        )}
+
+                        {/* TWITTER FEED */}
+                        {activePlatform === 'twitter' && (
+                            <div className="divide-y divide-gray-100">
+                                {(lunarPosts.length > 0 ? lunarPosts : (socialMetrics?.recentPosts || [])).map((post: any) => {
+                                    // Normalizing Data
+                                    const id = post.id || post.post_id;
+                                    const text = post.body || post.content || post.text;
+                                    const date = post.posted ? new Date(post.posted * 1000).toLocaleString() : post.date;
+                                    const interactions = post.interactions || (post.likes + (post.retweets || 0));
+                                    const handle = post.creator_handle || post.author || 'User';
+
+                                    // Mock Sentiment for UI demo if missing
+                                    const isBullish = (text?.length || 0) % 2 === 0;
+
+                                    return (
+                                        <div key={id} className="p-6 hover:bg-blue-50/30 transition-colors group relative">
+                                            <div className="flex gap-4">
+                                                {/* Avatar + Score */}
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex-shrink-0 flex items-center justify-center text-gray-600 font-bold border border-gray-200">
+                                                        {handle[0]}
                                                     </div>
-                                                    <a href={post.post_link || `https://twitter.com/i/web/status/${id}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                                    </a>
+                                                    <div className={`text-[10px] font-bold px-1.5 rounded border ${isBullish ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                                                        {isBullish ? 'BULL' : 'BEAR'}
+                                                    </div>
                                                 </div>
-                                                <p className="text-brand-text text-sm mt-2 leading-relaxed whitespace-pre-wrap">{text}</p>
 
-                                                <div className="flex gap-6 mt-3 text-xs text-brand-muted">
-                                                    <span className="flex items-center gap-1">♥ {interactions}</span>
-                                                    <span className="flex items-center gap-1">Sent: {post.sentiment || 'Neutral'}</span>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <span className="font-bold text-brand-text text-sm hover:underline cursor-pointer">@{handle}</span>
+                                                            <span className="text-brand-textSecondary text-xs ml-2">{date}</span>
+                                                        </div>
+
+                                                        {/* Context Tags */}
+                                                        <div className="flex gap-2">
+                                                            {interactions > 500 && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">🔥 Hype</span>}
+                                                            {interactions > 10000 && <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">💎 KOL</span>}
+                                                        </div>
+                                                    </div>
+
+                                                    <p className="text-brand-text text-sm mt-2 leading-relaxed whitespace-pre-wrap">{text}</p>
+
+                                                    {/* Action Bar */}
+                                                    <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-brand-accent hover:text-white text-xs font-bold text-gray-600 transition-colors">
+                                                            <span>🤖</span> AI Reply
+                                                        </button>
+                                                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-600 transition-colors">
+                                                            <span>🔄</span> Quote
+                                                        </button>
+                                                        <button className="ml-auto text-xs font-medium text-gray-400 hover:text-brand-text">
+                                                            Ignore
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
+                                    );
+                                })}
+                                {(!lunarPosts.length && !socialMetrics?.recentPosts?.length) && (
+                                    <div className="p-20 text-center text-brand-muted">
+                                        <p>No recent tweets found for {brandName}.</p>
                                     </div>
-                                );
-                            })}
-                            {(!lunarPosts.length && !socialMetrics?.recentPosts?.length) && (
-                                <div className="p-20 text-center text-brand-muted">
-                                    <p>No recent tweets found for {brandName}.</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* TELEGRAM VIEW */}
-                    {activePlatform === 'telegram' && (
-                        <div className="flex flex-col items-center justify-center h-[400px] text-center p-10">
-                            <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4">
-                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                                )}
                             </div>
-                            <h3 className="text-lg font-bold text-brand-text">Telegram Tracking</h3>
-                            <p className="text-sm text-brand-textSecondary max-w-sm mt-2">Connect your Telegram Community Bot to start streaming messages and sentiment analysis.</p>
-                            <button className="mt-6 px-4 py-2 bg-blue-500 text-white rounded-lg font-bold text-sm shadow-lg shadow-blue-200 hover:bg-blue-600 transition-colors">Connect Telegram</button>
-                        </div>
-                    )}
-
-                    {/* DISCORD VIEW */}
-                    {activePlatform === 'discord' && (
-                        <div className="flex flex-col items-center justify-center h-[400px] text-center p-10">
-                            <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mb-4">
-                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-brand-text">Discord Server</h3>
-                            <p className="text-sm text-brand-textSecondary max-w-sm mt-2">Install the Defia Sentinel Bot in your server to track community engagement and questions.</p>
-                            <button className="mt-6 px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors">Connect Discord</button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
