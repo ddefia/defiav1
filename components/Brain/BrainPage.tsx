@@ -152,9 +152,9 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
                                 Data Sources & Context
                             </h3>
                             <div className="bg-white p-4 rounded-xl border border-brand-border shadow-sm">
-                                <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                                <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-mono bg-gray-50 p-3 rounded">
                                     {selectedLog.context}
-                                </p>
+                                </div>
                             </div>
                         </div>
 
