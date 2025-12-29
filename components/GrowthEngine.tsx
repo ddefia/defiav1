@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { CampaignLog, GrowthInput, ComputedMetrics, GrowthReport, SocialMetrics, CalendarEvent, TrendItem, BrandConfig, LunarCrushCreator, LunarCrushTimeSeriesItem, LunarCrushPost, StrategyTask, SocialSignals } from '../types';
 import { computeGrowthMetrics, getSocialMetrics, fetchSocialMetrics, getHandle } from '../services/analytics';
 import { generateGrowthReport, generateStrategicAnalysis } from '../services/gemini';
-import { getCreator, getCreatorTimeSeries, getCreatorPosts } from '../services/pulse';
+import { getCreator, getCreatorTimeSeries, getCreatorPosts, fetchMarketPulse } from '../services/pulse';
 import { Button } from './Button';
 import { StrategyBrain } from './StrategyBrain';
 import { SocialActivityFeed } from './SocialActivityFeed';
@@ -182,10 +182,13 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             // We need to fetch recent mentions if not already available
             const mentions = metricsForReport?.recentPosts || [];
 
+            // 12/29 FIX: Fetch Real Trends for Brain Context
+            const trends = await fetchMarketPulse(brandName);
+
             const newTasks = await generateStrategicAnalysis(
                 brandName,
                 calendarEvents,
-                [], // Trends (Pulse) - TODO: pass if needed or fetch
+                trends, // Actual Trends
                 brandConfig,
                 aiReport,
                 mentions,

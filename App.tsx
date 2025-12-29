@@ -116,6 +116,21 @@ const App: React.FC = () => {
         return () => window.removeEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
     }, [selectedBrand]);
 
+    // NEW: Robust Auto-Save for Calendar
+    // This replaces manual saves in children and ensures persistence.
+    // We use a ref to skip the initial mount save to avoid overwriting with empty.
+    const isInitialMount = useRef(true);
+
+    useEffect(() => {
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
+        if (selectedBrand) {
+            saveCalendarEvents(selectedBrand, calendarEvents);
+        }
+    }, [calendarEvents, selectedBrand]);
+
     // Persist Tasks
     useEffect(() => {
         saveStrategyTasks(selectedBrand, strategyTasks);

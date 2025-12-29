@@ -23,6 +23,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     strategyTasks,
     chainMetrics,
     systemLogs = [],
+    // Force Update 12/29
     isServerOnline = false,
     growthReport,
     onNavigate
@@ -35,17 +36,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const displayScore = (indexScore / 10).toFixed(1);
 
-    // 2. Mock Data for matched metrics
-    const activeWallets = "142.3K";
-    const retentionRate = "34.2%";
-
-    // 3. Weekly Growth
-    const weeklyGrowthVal = "+5.7%";
-
     // --- UI Helper Components ---
 
     const TopBar = () => (
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-between mb-6">
             <div>
                 <h1 className="text-2xl font-display font-bold text-brand-text tracking-tight">Dashboard</h1>
                 <p className="text-sm text-brand-textSecondary">Overview of your brand's performance</p>
@@ -102,11 +96,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     );
 
     return (
-        <div className="max-w-7xl mx-auto w-full p-8 font-sans animate-fadeIn">
+        <div className="w-full p-6 font-sans animate-fadeIn max-w-[1600px] mx-auto">
             <TopBar />
 
             {/* HERO SECTION */}
-            <div className="mb-10 bg-brand-surface border border-brand-border rounded-2xl p-8 shadow-premium relative overflow-hidden">
+            <div className="mb-6 bg-brand-surface border border-brand-border rounded-2xl p-6 shadow-premium relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-32 bg-gradient-to-bl from-indigo-50/50 to-transparent rounded-bl-full pointer-events-none"></div>
 
                 <div className="relative z-10 flex justify-between items-start">
@@ -120,22 +114,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-bold uppercase tracking-wide">Growth Engine Active</span>
                             </div>
                             <p className="text-brand-textSecondary font-medium mb-4 max-w-xl">
-                                Intelligent automation active. Defia is currently optimizing for maximum ROAS across {strategyTasks.length || 0} recognized vectors.
+                                {strategyTasks.length > 0
+                                    ? `Intelligent automation active. Defia is currently optimizing for maximum ROAS across ${strategyTasks.length} recognized vectors.`
+                                    : "Growth Engine is in standby. Generate a strategy or connect data sources to begin optimization."}
                             </p>
 
                             <div className="flex gap-8 border-t border-brand-border pt-4">
-                                <div>
-                                    <span className="text-xs text-brand-muted font-bold uppercase block mb-1">Revenue (30d)</span>
-                                    <span className="text-xl font-bold text-brand-text">$1.2M</span>
-                                </div>
-                                <div>
-                                    <span className="text-xs text-brand-muted font-bold uppercase block mb-1">Active Users</span>
-                                    <span className="text-xl font-bold text-brand-text">42.8K</span>
-                                </div>
-                                <div>
-                                    <span className="text-xs text-brand-muted font-bold uppercase block mb-1">Sentiment</span>
-                                    <span className="text-xl font-bold text-brand-success">98%</span>
-                                </div>
+                                {chainMetrics ? (
+                                    <>
+                                        <div>
+                                            <span className="text-xs text-brand-muted font-bold uppercase block mb-1">On-Chain Users</span>
+                                            <span className="text-xl font-bold text-brand-text">{chainMetrics.activeWallets.toLocaleString()}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-brand-muted font-bold uppercase block mb-1">Retention</span>
+                                            <span className="text-xl font-bold text-brand-text">{chainMetrics.retentionRate.toFixed(1)}%</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>
+                                            <span className="text-xs text-brand-muted font-bold uppercase block mb-1">Followers</span>
+                                            <span className="text-xl font-bold text-brand-text">{(socialMetrics?.totalFollowers || 0).toLocaleString()}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-xs text-brand-muted font-bold uppercase block mb-1">Engagement</span>
+                                            <span className="text-xl font-bold text-brand-success">{socialMetrics?.engagementRate.toFixed(1) || "0.0"}%</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -155,33 +162,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             {/* STATS GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <StatCard
                     title="Defia Index"
                     value={`${displayScore}/10`}
                     subtext="Overall ecosystem health"
-                    trend="+0.3"
-                    isPositive={true}
+                    trend={indexScore > 5 ? "+0.3" : "-0.1"}
+                    isPositive={indexScore > 5}
                 />
                 <StatCard
-                    title="Active Wallets"
-                    value={activeWallets}
-                    subtext="Unique active addresses (7d)"
-                    trend="+12.4%"
-                    isPositive={true}
+                    title="Total Audience"
+                    value={(socialMetrics?.totalFollowers || 0).toLocaleString()}
+                    subtext="Combined social following"
+                    trend={socialMetrics?.comparison?.followersChange ? (socialMetrics.comparison.followersChange >= 0 ? "+" : "") + socialMetrics.comparison.followersChange : "0"}
+                    isPositive={(socialMetrics?.comparison?.followersChange || 0) >= 0}
                 />
                 <StatCard
-                    title="R7 Retention"
-                    value={retentionRate}
-                    subtext="User returning after 7 days"
-                    trend="-2.1%"
-                    isPositive={false}
+                    title="Engagement"
+                    value={`${socialMetrics?.engagementRate.toFixed(2) || "0.00"}%`}
+                    subtext="Average interaction rate"
+                    trend={socialMetrics?.comparison?.engagementChange ? (socialMetrics.comparison.engagementChange >= 0 ? "+" : "") + socialMetrics.comparison.engagementChange.toFixed(1) + "%" : "0.0%"}
+                    isPositive={(socialMetrics?.comparison?.engagementChange || 0) >= 0}
                 />
                 <StatCard
-                    title="TVL Growth"
-                    value={weeklyGrowthVal}
-                    subtext="Total Value Locked change"
-                    trend="+1.2%"
+                    title="Active Campaigns"
+                    value={strategyTasks.length || "0"}
+                    subtext="Strategic initiatives"
+                    trend="+1"
                     isPositive={true}
                 />
             </div>
@@ -214,33 +221,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </div>
                             </div>
                         ) : (
-                            <div className="space-y-6">
-                                <div className="flex gap-4 items-start">
-                                    <div className="w-1 h-full min-h-[40px] bg-brand-success rounded-full flex-shrink-0 mt-1"></div>
-                                    <p className="text-brand-textSecondary leading-relaxed text-sm">
-                                        <strong className="text-brand-text font-display block mb-1 text-base">Exceptional Campaign Performance</strong>
-                                        The Summer Campaign is outperforming projections with a <span className="text-brand-success font-bold">4.04 ROAS</span> (35% above target). CPA remains efficient at $23 despite scaling spend.
-                                    </p>
-                                </div>
-                                <div className="flex gap-4 items-start">
-                                    <div className="w-1 h-full min-h-[40px] bg-brand-accent rounded-full flex-shrink-0 mt-1"></div>
-                                    <p className="text-brand-textSecondary leading-relaxed text-sm">
-                                        <strong className="text-brand-text font-display block mb-1 text-base">Viral Social Momentum</strong>
-                                        Engagement surged <span className="text-brand-text font-bold">47%</span> following the latest influencer activation. Brand mentions are at an all-time monthly high of 1,834.
-                                    </p>
-                                </div>
-                                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
-                                    <div>
-                                        <span className="text-xs font-bold text-brand-muted uppercase">Active Campaigns</span>
-                                        <div className="text-2xl font-bold text-brand-text font-display">{strategyTasks.length || 12}</div>
-                                    </div>
-                                    <div>
-                                        <span className="text-xs font-bold text-brand-muted uppercase">Conversion Rate</span>
-                                        <div className="text-2xl font-bold text-brand-text font-display">4.8%</div>
-                                    </div>
-                                    <div className="w-px h-10 bg-gray-200"></div>
-                                    <button className="text-sm font-bold text-brand-text hover:text-brand-accent transition-colors">Manage Campaigns →</button>
-                                </div>
+                            <div className="flex flex-col items-center justify-center py-10 text-center opacity-60">
+                                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-2xl">📝</div>
+                                <p className="text-sm text-brand-muted font-medium">No Daily Brief available.</p>
+                                <p className="text-xs text-brand-textSecondary">Connect data sources or wait for the next analysis cycle.</p>
                             </div>
                         )}
                     </div>
@@ -254,29 +238,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="absolute left-[5px] top-2 bottom-2 w-0.5 bg-brand-bg"></div>
 
                         {/* Recent Events */}
-                        <div className="relative pl-6">
-                            <div className="absolute left-0 top-1.5 w-3 h-3 bg-brand-accent rounded-full border-2 border-brand-surface ring-2 ring-indigo-50"></div>
-                            <p className="text-xs text-brand-muted mb-0.5">Just now</p>
-                            <p className="text-sm text-brand-text font-medium">Auto-pilot optimized bids for "Yield Farming"</p>
-                        </div>
-                        <div className="relative pl-6">
-                            <div className="absolute left-0 top-1.5 w-3 h-3 bg-brand-border rounded-full border-2 border-brand-surface"></div>
-                            <p className="text-xs text-brand-muted mb-0.5">24m ago</p>
-                            <p className="text-sm text-brand-text font-medium">New creative assets generated for Q3 Push</p>
-                        </div>
-                        <div className="relative pl-6">
-                            <div className="absolute left-0 top-1.5 w-3 h-3 bg-brand-border rounded-full border-2 border-brand-surface"></div>
-                            <p className="text-xs text-brand-muted mb-0.5">1h ago</p>
-                            <p className="text-sm text-brand-text font-medium">Daily sync completed successfully</p>
-                        </div>
-                        {/* Logs Integration */}
-                        {systemLogs.slice(0, 3).map((log, i) => (
-                            <div key={i} className="relative pl-6 opacity-70">
-                                <div className="absolute left-0 top-1.5 w-3 h-3 bg-brand-border rounded-full border-2 border-brand-surface"></div>
-                                <p className="text-xs text-brand-muted mb-0.5">System</p>
-                                <p className="text-sm text-brand-text font-medium truncate">{log}</p>
-                            </div>
-                        ))}
+                        {systemLogs.length === 0 ? (
+                            <div className="pl-6 pt-2 text-sm text-brand-muted italic">No recent system activity.</div>
+                        ) : (
+                            systemLogs.slice(0, 8).map((log, i) => (
+                                <div key={i} className="relative pl-6">
+                                    <div className={`absolute left-0 top-1.5 w-3 h-3 rounded-full border-2 border-brand-surface ${i === 0 ? 'bg-brand-accent ring-2 ring-indigo-50' : 'bg-brand-border'}`}></div>
+                                    <p className="text-xs text-brand-muted mb-0.5">{i === 0 ? 'Just now' : 'System Log'}</p>
+                                    <p className="text-sm text-brand-text font-medium truncate">{log}</p>
+                                </div>
+                            ))
+                        )}
                     </div>
                     <button className="w-full mt-6 py-2 text-xs font-bold text-brand-muted hover:text-brand-text border border-dashed border-brand-border rounded-lg hover:border-brand-muted transition-all">
                         View System Logs
