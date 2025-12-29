@@ -61,11 +61,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     return (
-        <div className={`${isCollapsed ? 'w-20' : 'w-64'} h-full bg-white border-r border-gray-100 flex flex-col transition-all duration-300 relative`}>
+        <div className={`${isCollapsed ? 'w-20' : 'w-72'} h-full bg-brand-surface border-r border-brand-border flex flex-col transition-all duration-300 relative shadow-sm z-50`}>
             {/* Collapse Toggle */}
             <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className="absolute -right-3 top-8 bg-white border border-gray-200 rounded-full w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-900 shadow-sm z-10"
+                className="absolute -right-3 top-8 bg-brand-surface border border-brand-border rounded-full w-6 h-6 flex items-center justify-center text-brand-muted hover:text-brand-text shadow-sm z-10 hover:shadow-md transition-all"
             >
                 <svg className={`w-3 h-3 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -73,23 +73,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
 
             {/* Header / Brand Selector */}
-            <div className={`p-6 ${isCollapsed ? 'items-center px-4' : ''}`}>
+            <div className={`pt-8 pb-6 ${isCollapsed ? 'px-3 flex justify-center' : 'px-6'}`}>
                 <div
-                    className={`flex items-center gap-3 ${!isCollapsed && 'cursor-pointer hover:opacity-80 transition-opacity relative'}`}
+                    className={`flex items-center gap-3 p-2 -ml-2 rounded-xl transition-all duration-200 ${!isCollapsed ? 'cursor-pointer hover:bg-brand-surfaceHighlight' : ''}`}
                     onClick={() => !isCollapsed && setIsBrandMenuOpen(!isBrandMenuOpen)}
                 >
-                    <div className="w-8 h-8 rounded-xl bg-gray-900 text-white flex items-center justify-center font-bold text-lg font-display shrink-0">
-                        {brandName.charAt(0)}
+                    <div className="w-10 h-10 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center text-white shrink-0 shadow-lg shadow-gray-200">
+                        <span className="font-display font-bold text-xl">{brandName.charAt(0)}</span>
                     </div>
 
                     {!isCollapsed && (
                         <div className="flex-1 min-w-0">
-                            <span className="font-display font-bold text-lg text-gray-900 tracking-tight block truncate">{brandName}</span>
+                            <span className="font-display font-bold text-lg text-brand-text tracking-tight block truncate">{brandName}</span>
+                            <span className="text-xs text-brand-textSecondary block truncate">Enterprise Plan</span>
                         </div>
                     )}
 
                     {!isCollapsed && (
-                        <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     )}
@@ -99,27 +100,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isBrandMenuOpen && !isCollapsed && (
                     <>
                         <div className="fixed inset-0 z-10" onClick={() => setIsBrandMenuOpen(false)}></div>
-                        <div className="absolute top-20 left-4 right-4 bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-20 animate-fadeIn">
+                        <div className="absolute top-24 left-4 right-4 bg-brand-surface rounded-xl shadow-premium-hover border border-brand-border p-2 z-20 animate-fadeIn">
                             <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                 {Object.keys(profiles).map(b => (
                                     <button
                                         key={b}
                                         onClick={() => { onSelectBrand(b); setIsBrandMenuOpen(false); }}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${brandName === b ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50 text-gray-700'}`}
+                                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${brandName === b ? 'bg-brand-surfaceHighlight text-brand-accent' : 'hover:bg-brand-surfaceHighlight text-brand-textSecondary hover:text-brand-text'}`}
                                     >
-                                        <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
+                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold ${brandName === b ? 'bg-indigo-100 text-brand-accent' : 'bg-gray-100 text-gray-500'}`}>
                                             {b.charAt(0)}
                                         </div>
                                         {b}
                                     </button>
                                 ))}
                             </div>
-                            <div className="h-[1px] bg-gray-100 my-1"></div>
+                            <div className="h-[1px] bg-brand-border my-2"></div>
                             <button
                                 onClick={() => { onConnect(); setIsBrandMenuOpen(false); }}
                                 className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-brand-accent hover:bg-indigo-50 transition-colors flex items-center gap-2"
                             >
-                                <span className="w-4 h-4">+</span> Connect New
+                                <span className="w-4 h-4 flex items-center justify-center border border-current rounded-full text-[10px]">+</span> Connect Brand
                             </button>
                         </div>
                     </>
@@ -127,56 +128,64 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Nav Items */}
-            <div className="flex-1 overflow-y-auto space-y-6 custom-scrollbar px-3 py-2">
+            <div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar px-4 py-2">
                 {navItems.map((group, groupIdx) => (
                     <div key={groupIdx}>
                         {!isCollapsed && (
-                            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 pl-3">{group.group}</h3>
+                            <h3 className="text-[11px] font-bold text-brand-muted/80 uppercase tracking-wider mb-3 pl-3 font-display">{group.group}</h3>
                         )}
                         <div className="space-y-1">
-                            {group.items.map(item => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => onNavigate(item.id)}
-                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative
-                                    ${currentSection === item.id
-                                            ? 'bg-gray-900 text-white shadow-lg shadow-gray-200'
-                                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}
-                                >
-                                    <span className={`${currentSection === item.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'} shrink-0`}>
-                                        {icons[item.icon]}
-                                    </span>
+                            {group.items.map(item => {
+                                const isActive = currentSection === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => onNavigate(item.id)}
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative
+                                        ${isActive
+                                                ? 'bg-brand-text text-brand-surface shadow-md shadow-gray-200'
+                                                : 'text-brand-textSecondary hover:text-brand-text hover:bg-brand-surfaceHighlight'}`}
+                                    >
+                                        <span className={`${isActive ? 'text-brand-surface' : 'text-brand-muted group-hover:text-brand-text'} shrink-0 transition-colors`}>
+                                            {icons[item.icon]}
+                                        </span>
 
-                                    {!isCollapsed && (
-                                        <span>{item.label}</span>
-                                    )}
+                                        {!isCollapsed && (
+                                            <span>{item.label}</span>
+                                        )}
 
-                                    {/* Tooltip on Collapsed */}
-                                    {isCollapsed && (
-                                        <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
-                                            {item.label}
-                                        </div>
-                                    )}
-                                </button>
-                            ))}
+                                        {/* Status Dot for specific items (Example) */}
+                                        {!isCollapsed && item.id === 'pulse' && (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-brand-accent ml-auto"></span>
+                                        )}
+
+                                        {/* Tooltip on Collapsed */}
+                                        {isCollapsed && (
+                                            <div className="absolute left-full ml-4 px-3 py-1.5 bg-brand-text text-brand-surface text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl translate-x-[-10px] group-hover:translate-x-0 transition-all duration-200">
+                                                {item.label}
+                                                {/* Arrow */}
+                                                <div className="absolute top-1/2 -left-1 w-2 h-2 bg-brand-text transform -translate-y-1/2 rotate-45"></div>
+                                            </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Footer / Pulse */}
-            <div className="p-4 border-t border-gray-100">
-                <button
-                    onClick={() => onNavigate('pulse')}
-                    className={`w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl flex items-center group transition-colors border border-indigo-100
-                  ${isCollapsed ? 'justify-center p-3' : 'justify-between p-3'}`}
-                >
-                    <div className="flex items-center gap-3 font-bold text-sm">
-                        <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse shrink-0"></span>
-                        {!isCollapsed && "Pulse"}
+            {/* Footer / Profile */}
+            <div className="p-4 border-t border-brand-border bg-brand-surface">
+                <button className={`w-full flex items-center gap-3 p-2 rounded-xl hover:bg-brand-surfaceHighlight transition-colors ${isCollapsed ? 'justify-center' : ''}`}>
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-brand-accent font-bold text-xs ring-4 ring-white border border-indigo-200/50">
+                        MK
                     </div>
                     {!isCollapsed && (
-                        <span className="bg-indigo-200 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-full">3</span>
+                        <div className="text-left overflow-hidden">
+                            <p className="text-sm font-bold text-brand-text truncate">Mike K.</p>
+                            <p className="text-[10px] text-brand-textSecondary truncate">mike@defia.com</p>
+                        </div>
                     )}
                 </button>
             </div>

@@ -713,6 +713,7 @@ export const generateGrowthReport = async (
   OUTPUT FORMAT (JSON):
   {
     "executiveSummary": "A concise, investor-grade paragraph summarizing the growth health. ${metrics ? 'Correlate social buzz with on-chain volume.' : 'Focus on community sentiment and engagement trends.'}",
+    "tacticalPlan": "Specific, actionable next steps based on the data.",
     "strategicPlan": [
        { "action": "KILL" | "DOUBLE_DOWN" | "OPTIMIZE", "subject": "Campaign Name or Content Strategy", "reasoning": "1 sentence data-backed reason." }
     ]
@@ -738,6 +739,7 @@ export const generateGrowthReport = async (
         // Fallback if JSON parsing fails
         return {
             executiveSummary: "Analysis complete. Data indicates mixed performance across campaigns. Review individual KPIs for details.",
+            tacticalPlan: "Review current tracking configurations and ensure data sources are connected.",
             strategicPlan: [],
             metrics: metrics || undefined
         };

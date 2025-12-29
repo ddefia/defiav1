@@ -33,22 +33,22 @@ interface ContractInput {
 
 // Internal Component for Top-Row Stats
 const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoading }: any) => (
-    <div className="bg-white p-6 rounded-xl border border-brand-border shadow-sm flex flex-col justify-between h-full">
+    <div className="bg-brand-surface p-6 rounded-2xl border border-brand-border shadow-premium hover:shadow-premium-hover transition-all duration-300 flex flex-col justify-between h-full group relative overflow-hidden">
         <div className="flex justify-between items-start mb-4">
-            <span className="text-xs font-bold text-brand-muted uppercase tracking-wider">{label}</span>
+            <span className="text-[11px] font-bold text-brand-muted uppercase tracking-widest font-display">{label}</span>
             {trend && (
-                <span className={`font-bold text-xs ${trendDirection === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                    {trendDirection === 'up' ? '▲' : '▼'} {trend}
+                <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded-full border ${trendDirection === 'up' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-red-600 bg-red-50 border-red-100'}`}>
+                    {trendDirection === 'up' ? '↗' : '↘'} {trend}
                 </span>
             )}
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 relative z-10">
             {isLoading ? (
-                <div className="h-8 w-24 bg-gray-100 animate-pulse rounded" />
+                <div className="h-8 w-24 bg-brand-surfaceHighlight animate-pulse rounded" />
             ) : (
-                <div className="text-3xl font-display font-bold text-brand-text tracking-tight">{value}</div>
+                <div className="text-3xl font-display font-bold text-brand-text tracking-tight group-hover:text-brand-accent transition-colors">{value}</div>
             )}
-            <div className="text-xs text-brand-muted">{subtext}</div>
+            <div className="text-xs text-brand-textSecondary font-medium">{subtext}</div>
         </div>
     </div>
 );
@@ -236,30 +236,35 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
     const engRate = socialMetrics?.engagementRate || (lunarMetrics ? (lunarMetrics.interactions_24h / (lunarMetrics.followers || 1)) * 100 : 0);
     const growthScore = Math.min((engRate * 1.5) + (socialMetrics?.comparison.engagementChange || 0 > 0 ? 0.5 : 0), 10).toFixed(1);
     const activeAudience = chainMetrics ? chainMetrics.activeWallets : (socialMetrics?.totalFollowers || lunarMetrics?.followers || 0);
-    const retention = chainMetrics ? `${chainMetrics.retentionRate.toFixed(1)}%` : `${engRate.toFixed(2)}%`;
+    const retentionRate = chainMetrics ? `${chainMetrics.retentionRate.toFixed(1)}%` : `${engRate.toFixed(2)}%`;
 
     // Calculate trends for LC
     const followerChange = lunarTimeSeries.length > 1 ? (lunarTimeSeries[lunarTimeSeries.length - 1].followers - lunarTimeSeries[0].followers) : (socialMetrics?.comparison.followersChange || 0);
 
     return (
-        <div className="space-y-8 animate-fadeIn pb-10 w-full h-full flex flex-col">
+        <div className="space-y-12 animate-fadeIn pb-24 w-full h-full flex flex-col max-w-7xl mx-auto px-8 pt-10">
 
-            {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-xl border border-brand-border shadow-sm">
+            {/* HEADER (Matches Dashboard.tsx Style) */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
                 <div>
-                    <h2 className="text-2xl font-display font-bold text-brand-text">Growth & Strategy Hub</h2>
-                    <div className="flex items-center gap-2 mt-1">
-                        <p className="text-brand-muted text-sm">Unified command center for analysis and AI strategic planning.</p>
-                        {/* Visual Connection Status Indicators */}
-                        {duneKey && <span className="flex items-center text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-200 font-bold">● On-Chain</span>}
-                        {apifyKey && <span className="flex items-center text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200 font-bold">● Twitter Scraper</span>}
-                        {lunarMetrics && <span className="flex items-center text-[10px] bg-orange-50 text-orange-700 px-2 py-0.5 rounded border border-orange-200 font-bold">● LunarCrush</span>}
+                    <h1 className="text-2xl font-display font-bold text-brand-text tracking-tight mb-1">Growth & Strategy Hub</h1>
+                    <p className="text-sm text-brand-textSecondary">Unified command center for analysis and AI strategic planning.</p>
+                </div>
+                <div className="flex gap-3 mt-4 md:mt-0">
+                    {/* Status Indicators */}
+                    <div className="flex items-center gap-2 bg-brand-surface border border-brand-border rounded-lg px-3 py-1.5 shadow-sm">
+                        <span className={`w-2 h-2 rounded-full ${duneKey ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
+                        <span className="text-xs font-bold text-brand-textSecondary">On-Chain</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-brand-surface border border-brand-border rounded-lg px-3 py-1.5 shadow-sm">
+                        <span className={`w-2 h-2 rounded-full ${apifyKey ? 'bg-blue-500' : 'bg-gray-300'}`}></span>
+                        <span className="text-xs font-bold text-brand-textSecondary">Social</span>
                     </div>
                 </div>
             </div>
 
-            {/* STATS ROW (Always Visible) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* STATS ROW */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     label="Growth Index"
                     value={lunarMetrics ? (lunarMetrics.social_score || growthScore) : growthScore}
@@ -278,7 +283,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                 />
                 <StatCard
                     label={chainMetrics ? "Retention" : "Engagement"}
-                    value={retention}
+                    value={retentionRate}
                     subtext={chainMetrics ? ">2 Tx / Month" : "Interactions / View"}
                     trend="2.1%"
                     trendDirection="up"
@@ -293,12 +298,12 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             </div>
 
             {/* SECTIONS: ANALYTICS + STRATEGY STACKED */}
-            <div className="space-y-12 w-full">
+            <div className="space-y-16 w-full">
                 {/* SECTION 1: PERFORMANCE ANALYTICS */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-fadeIn w-full">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 w-full">
                     {/* ERROR BANNER */}
                     {socialMetrics?.error === "BACKEND_OFFLINE" && (
-                        <div className="lg:col-span-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between text-red-800">
+                        <div className="lg:col-span-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between text-red-800 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <span className="text-xl">⚠️</span>
                                 <div>
@@ -311,58 +316,92 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
 
                     {/* Main Chart/Report Area */}
                     <div className="lg:col-span-3 space-y-6">
-                        <div className="bg-white rounded-xl border border-brand-border shadow-sm p-8 relative min-h-[500px]">
-                            <div className="flex justify-between items-start mb-6 pb-4 border-b border-gray-100">
-                                <h3 className="text-lg font-bold text-brand-text flex items-center gap-2">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-premium p-8 relative min-h-[500px]">
+                            <div className="flex justify-between items-center mb-10 border-b border-brand-border pb-6">
+                                <h3 className="text-lg font-bold text-brand-text flex items-center gap-3 font-display">
+                                    <span className="relative flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                                     </span>
                                     Live Performance Intelligence
                                 </h3>
                                 {!isOnChainConnected ? (
-                                    <Button onClick={() => setIsSettingUp(true)} className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700">Connect Data Sources</Button>
+                                    <Button onClick={() => setIsSettingUp(true)} className="h-9 text-xs px-4 bg-brand-text text-brand-surface hover:bg-brand-textSecondary shadow-md">Connect Data Sources</Button>
                                 ) : (
-                                    <Button onClick={() => setIsSettingUp(true)} variant="secondary" className="h-8 text-xs">Manage Sources</Button>
+                                    <Button onClick={() => setIsSettingUp(true)} variant="secondary" className="h-9 text-xs">Manage Sources</Button>
                                 )}
                             </div>
 
                             {isProcessing ? (
                                 <div className="py-24 text-center">
                                     <div className="w-12 h-12 border-4 border-brand-accent border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-                                    <p className="text-sm text-brand-muted animate-pulse font-medium">{processingStatus}</p>
+                                    <p className="text-sm text-brand-muted animate-pulse font-medium tracking-wide">{processingStatus}</p>
                                 </div>
                             ) : growthReport ? (
-                                <div className="prose prose-sm max-w-none text-brand-text">
-                                    <div className="bg-gray-50 p-6 rounded-xl border border-brand-border mb-8">
-                                        <p className="whitespace-pre-line text-base leading-relaxed">{growthReport.executiveSummary}</p>
+                                <div className="prose prose-sm max-w-none text-brand-text font-sans">
+                                    <div className="bg-brand-surfaceHighlight p-8 rounded-2xl border border-brand-border mb-10 shadow-inner">
+                                        <p className="whitespace-pre-line text-base leading-relaxed text-brand-textSecondary">{growthReport.executiveSummary}</p>
+
+                                        {/* Insight Tags if available */}
+                                        <div className="flex gap-2 mt-4">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted bg-white border border-brand-border px-2 py-1 rounded">AI Analysis</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted bg-white border border-brand-border px-2 py-1 rounded">Real-Time</span>
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                            <h4 className="font-bold text-gray-900 mb-2">On-Chain Health</h4>
-                                            <div className="text-sm text-gray-600">
-                                                <div className="flex justify-between py-1 border-b border-gray-50"><span>New Wallets</span> <span className="font-mono font-bold text-brand-text">{chainMetrics?.netNewWallets || 'N/A'}</span></div>
-                                                <div className="flex justify-between py-1 border-b border-gray-50"><span>TVL Change</span> <span className="font-mono font-bold text-green-600">+{chainMetrics ? '$' + chainMetrics.tvlChange.toLocaleString() : 'N/A'}</span></div>
-                                                <div className="flex justify-between py-1 pt-2"><span>Retention</span> <span className="font-mono font-bold text-brand-text">{chainMetrics ? chainMetrics.retentionRate.toFixed(1) + '%' : 'N/A'}</span></div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm hover:shadow-md transition-all">
+                                            <h4 className="font-bold text-brand-text mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                                On-Chain Health
+                                            </h4>
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between py-2 border-b border-gray-50 text-sm">
+                                                    <span className="text-brand-textSecondary">New Wallets</span>
+                                                    <span className="font-mono font-bold text-brand-text">{chainMetrics?.netNewWallets || 'N/A'}</span>
+                                                </div>
+                                                <div className="flex justify-between py-2 border-b border-gray-50 text-sm">
+                                                    <span className="text-brand-textSecondary">TVL Change</span>
+                                                    <span className="font-mono font-bold text-emerald-600">+{chainMetrics ? '$' + chainMetrics.tvlChange.toLocaleString() : 'N/A'}</span>
+                                                </div>
+                                                <div className="flex justify-between py-2 pt-1 text-sm">
+                                                    <span className="text-brand-textSecondary">Retention</span>
+                                                    <span className="font-mono font-bold text-brand-text">{chainMetrics ? chainMetrics.retentionRate.toFixed(1) + '%' : 'N/A'}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                            <h4 className="font-bold text-gray-900 mb-2">Social Health</h4>
-                                            <div className="text-sm text-gray-600">
-                                                <div className="flex justify-between py-1 border-b border-gray-50"><span>Followers</span> <span className="font-mono font-bold text-brand-text">{lunarMetrics?.followers?.toLocaleString() || socialMetrics?.totalFollowers.toLocaleString()}</span></div>
-                                                <div className="flex justify-between py-1 border-b border-gray-50"><span>Engagement</span> <span className="font-mono font-bold text-brand-text">{lunarMetrics ? engRate.toFixed(2) : socialMetrics?.engagementRate}%</span></div>
-                                                <div className="flex justify-between py-1 pt-2"><span>Mentions / Interactions</span> <span className="font-mono font-bold text-brand-text">{lunarMetrics?.interactions_24h || socialMetrics?.mentions}</span></div>
+                                        <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm hover:shadow-md transition-all">
+                                            <h4 className="font-bold text-brand-text mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                                Social Health
+                                            </h4>
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between py-2 border-b border-gray-50 text-sm">
+                                                    <span className="text-brand-textSecondary">Followers</span>
+                                                    <span className="font-mono font-bold text-brand-text">{lunarMetrics?.followers?.toLocaleString() || socialMetrics?.totalFollowers.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between py-2 border-b border-gray-50 text-sm">
+                                                    <span className="text-brand-textSecondary">Engagement</span>
+                                                    <span className="font-mono font-bold text-brand-text">{lunarMetrics ? engRate.toFixed(2) : socialMetrics?.engagementRate}%</span>
+                                                </div>
+                                                <div className="flex justify-between py-2 pt-1 text-sm">
+                                                    <span className="text-brand-textSecondary">Interactions (24h)</span>
+                                                    <span className="font-mono font-bold text-brand-text">{lunarMetrics?.interactions_24h || socialMetrics?.mentions}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="bg-gray-50 border border-brand-border rounded-lg p-12 text-center h-64 flex flex-col items-center justify-center">
-                                    <div className="w-10 h-10 border-4 border-brand-muted border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                                    <p className="text-brand-muted text-sm mb-4">Live Analysis System Active...</p>
-                                    <p className="text-[10px] text-gray-400">Waiting for data streams to stabilize.</p>
-                                    <div className="flex gap-2 mt-4 opacity-50 hover:opacity-100 transition-opacity">
-                                        <Button onClick={handleSocialOnlyAnalysis} variant="secondary" className="text-xs h-8">Force Refresh</Button>
+                                <div className="bg-brand-surfaceHighlight border border-brand-border rounded-2xl p-12 text-center h-64 flex flex-col items-center justify-center relative overflow-hidden group">
+                                    <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] pointer-events-none"></div>
+                                    <div className="relative z-10">
+                                        <div className="w-12 h-12 border-4 border-brand-muted/30 border-t-brand-accent rounded-full animate-spin mx-auto mb-6"></div>
+                                        <p className="text-brand-text font-bold text-sm mb-2">Live Analysis System Active...</p>
+                                        <p className="text-xs text-brand-textSecondary max-w-xs mx-auto">Waiting for data streams to stabilize. This usually takes 5-10 seconds.</p>
+                                        <div className="mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button onClick={handleSocialOnlyAnalysis} variant="secondary" className="text-xs h-8 bg-white border-brand-border hover:bg-gray-50 shadow-sm">Force Refresh</Button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -377,10 +416,15 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
 
                 {/* SECTION 2: STRATEGIC PLANNING (GAIA) */}
                 {brandConfig && calendarEvents && (
-                    <div className="animate-fadeIn w-full border-t border-gray-200 pt-8 mt-8">
-                        <div className="flex items-center gap-2 mb-6">
-                            <span className="text-2xl">⚡</span>
-                            <h3 className="text-2xl font-display font-bold text-brand-text">AI Strategy Brain</h3>
+                    <div className="animate-fadeIn w-full border-t border-brand-border pt-12 mt-12">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-10 h-10 rounded-xl bg-brand-text text-brand-surface flex items-center justify-center shadow-lg shadow-gray-200">
+                                <span className="text-xl">⚡</span>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-display font-bold text-brand-text tracking-tight">AI Strategy Brain</h3>
+                                <p className="text-xs text-brand-textSecondary font-medium">Auto-generated tasks based on live data</p>
+                            </div>
                         </div>
                         <StrategyBrain
                             brandName={brandName}

@@ -197,6 +197,7 @@ export interface ComputedMetrics {
 
 export interface GrowthReport {
   executiveSummary: string; // Investor grade text
+  tacticalPlan: string; // Specific actionable next steps
   strategicPlan: {
     action: 'KILL' | 'DOUBLE_DOWN' | 'OPTIMIZE';
     subject: string;
