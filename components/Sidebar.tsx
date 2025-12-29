@@ -36,7 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { id: 'studio', label: 'Content Studio', icon: 'edit' },
                 { id: 'campaigns', label: 'Campaigns', icon: 'target' },
                 { id: 'calendar', label: 'Calendar', icon: 'calendar' },
-                { id: 'calendar', label: 'Calendar', icon: 'calendar' },
             ]
         },
         {

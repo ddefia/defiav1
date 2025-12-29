@@ -53,9 +53,9 @@ export const startAgent = () => {
         if (apifyKey) await updateAllBrands(apifyKey);
     }, 5000);
 
-    // 1. Core Agent Loop (Decision Making) - Every 15 mins
-    cron.schedule('*/15 * * * *', async () => {
-        console.log(`\n[${new Date().toISOString()}] 🧠 Agent Waking Up...`);
+    // 1. Core Agent Loop (Decision Making) - Every 6 Hours (Testing Mode)
+    cron.schedule('0 */6 * * *', async () => {
+        console.log(`\n[${new Date().toISOString()}] 🧠 Agent Waking Up (Testing Mode)...`);
 
         const duneKey = process.env.DUNE_API_KEY;
         const lunarKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
