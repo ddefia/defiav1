@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy } from "../types";
 
 /**
  * Helper to generate embeddings for RAG.
@@ -373,6 +373,78 @@ export const generateCampaignDrafts = async (
         throw error;
     }
 }
+
+/**
+ * STRATEGY: Generates a full marketing campaign brief.
+ */
+export const generateCampaignStrategy = async (
+    goal: string,
+    theme: string,
+    platforms: string[],
+    brandName: string,
+    brandConfig: BrandConfig
+): Promise<CampaignStrategy> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    const kb = brandConfig.knowledgeBase.join('\n');
+    const examples = brandConfig.tweetExamples.slice(0, 3).join('\n');
+
+    const systemInstruction = `
+    You are the Chief Marketing Officer for ${brandName}.
+    
+    CAMPAIGN CONTEXT:
+    - Goal: ${goal}
+    - Theme/Topic: ${theme}
+    - Platforms: ${platforms.join(', ')}
+    
+    BRAND KNOWLEDGE:
+    ${kb}
+
+    TONE EXAMPLES:
+    ${examples}
+
+    TASK:
+    Develop a comprehensive campaign strategy brief.
+    - Analyze the target audience for this specific theme.
+    - Define 3 key messaging pillars.
+    - Outline a strategy for each selected platform.
+    - Provide realistic result estimates based on a standard micro-campaign.
+
+    OUTPUT FORMAT (JSON):
+    {
+        "targetAudience": "Detailed description of who we are targeting.",
+        "keyMessaging": ["Message 1", "Message 2", "Message 3"],
+        "channelStrategy": [
+            { "channel": "Twitter", "focus": "Viral threads", "rationale": "High engage..." },
+            { "channel": "LinkedIn", "focus": "Thought leadership", "rationale": "B2B..." }
+        ],
+        "contentMix": "One sentence description of the content variety (e.g. 30% educational, 20% memes...)",
+        "estimatedResults": {
+            "impressions": "10k - 50k",
+            "engagement": "2% - 5%",
+            "conversions": "50+ Leads"
+        }
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "Generate strategy brief.",
+            config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json"
+            }
+        });
+
+        const text = response.text;
+        if (!text) throw new Error("No strategy generated");
+        return JSON.parse(text) as CampaignStrategy;
+    } catch (e) {
+        console.error("Strategy generation failed", e);
+        throw e;
+    }
+};
 
 /**
  * Pulse Engine: Generates a reaction to a specific market trend.

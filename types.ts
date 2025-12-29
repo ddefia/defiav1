@@ -205,6 +205,14 @@ export interface GrowthReport {
   metrics?: ComputedMetrics; // Optional if only social analysis is run
 }
 
+export interface CampaignStrategy {
+  targetAudience: string;
+  keyMessaging: string[];
+  channelStrategy: { channel: string; focus: string; rationale: string }[];
+  contentMix: string;
+  estimatedResults: { impressions: string; engagement: string; conversions: string };
+}
+
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;

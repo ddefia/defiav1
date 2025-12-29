@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Select } from './Select';
-import { generateWeb3Graphic, generateCampaignDrafts } from '../services/gemini';
+import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy } from '../services/gemini';
 import { saveCalendarEvents } from '../services/storage';
-import { BrandConfig, CampaignItem, CalendarEvent } from '../types';
+import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy } from '../types';
 
 interface CampaignsProps {
     brandName: string;
@@ -26,13 +26,18 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [viewMode, setViewMode] = useState<'list' | 'wizard'>('list');
 
     // Wizard State
-    const [campaignStep, setCampaignStep] = useState<1 | 2 | 3>(1); // 1: Draft, 2: Approve, 3: Results
+    const [campaignStep, setCampaignStep] = useState<1 | 2 | 3 | 4>(1); // 1: Config, 2: Strategy, 3: Drafts, 4: Assets
     const [campaignType, setCampaignType] = useState<'theme' | 'diverse'>('theme');
     const [campaignTheme, setCampaignTheme] = useState<string>('');
+    const [campaignGoal, setCampaignGoal] = useState<string>('User Acquisition'); // NEW
+    const [campaignPlatforms, setCampaignPlatforms] = useState<string[]>(['Twitter']); // NEW
+    const [campaignStrategy, setCampaignStrategy] = useState<CampaignStrategy | null>(null); // NEW
+
     const [campaignColor, setCampaignColor] = useState<string>('#4F46E5'); // Default Indigo
     const [campaignCount, setCampaignCount] = useState<string>('3');
     const [campaignStartDate, setCampaignStartDate] = useState<string>('');
     const [isDraftingCampaign, setIsDraftingCampaign] = useState<boolean>(false);
+    const [isGeneratingStrategy, setIsGeneratingStrategy] = useState<boolean>(false); // NEW
     const [campaignItems, setCampaignItems] = useState<CampaignItem[]>([]);
     const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
 
@@ -80,9 +85,32 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
     // --- Actions ---
 
-    const handleDraftCampaign = async () => {
+    // STEP 1 Action: Generate Strategy
+    const handleGenerateStrategy = async () => {
         if (campaignType === 'theme' && !campaignTheme.trim()) return;
 
+        setIsGeneratingStrategy(true);
+        setError(null);
+
+        try {
+            const strategy = await generateCampaignStrategy(
+                campaignGoal,
+                campaignType === 'diverse' ? 'Diverse Mix' : campaignTheme,
+                campaignPlatforms,
+                brandName,
+                brandConfig
+            );
+            setCampaignStrategy(strategy);
+            setCampaignStep(2); // Move to Strategy View
+        } catch (err) {
+            setError("Failed to generate strategy.");
+        } finally {
+            setIsGeneratingStrategy(false);
+        }
+    };
+
+    // STEP 2 Action: Approve Strategy & Draft
+    const handleDraftCampaign = async () => {
         setIsDraftingCampaign(true);
         setError(null);
         setCampaignItems([]);
@@ -90,8 +118,17 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         const themeToSend = campaignType === 'diverse' ? 'DIVERSE_MIX_MODE' : campaignTheme;
 
         try {
+            // Pass strategy context to drafting if available (enhancing the prompt)
+            // For now, we use the existing function but ideally we'd pass the strategy object too.
+            // We'll rely on the theme being descriptive enough or update the service later.
+            // But to make it effective now, we can append the strategy summary to the theme string temporarily
+            // so the LLM sees it in the prompt without changing the function signature yet.
+            const enhancedTheme = campaignStrategy
+                ? `${themeToSend}. STRATEGY CONTEXT: Audience: ${campaignStrategy.targetAudience}. Messages: ${campaignStrategy.keyMessaging.join(', ')}.`
+                : themeToSend;
+
             const draftsText = await generateCampaignDrafts(
-                themeToSend,
+                enhancedTheme,
                 brandName,
                 brandConfig,
                 parseInt(campaignCount)
@@ -118,7 +155,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             }));
 
             setCampaignItems(items);
-            setCampaignStep(2);
+            setCampaignStep(3); // Move to Review
         } catch (err) {
             setError("Failed to draft campaign.");
         } finally {
@@ -145,7 +182,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             return;
         }
 
-        setCampaignStep(3);
+        setCampaignStep(4);
         setIsBatchProcessing(true);
         setCampaignItems(prev => prev.map(item => item.isApproved ? { ...item, status: 'pending' } : item));
 
@@ -351,15 +388,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         <div className="flex items-center justify-between px-2 bg-white p-4 rounded-xl border border-brand-border shadow-sm">
                             <div className={`flex flex-col items-center ${campaignStep >= 1 ? 'text-brand-accent' : 'text-gray-300'}`}>
                                 <div className="w-2 h-2 rounded-full bg-current mb-1" />
-                                <span className="text-[10px] font-bold">DRAFT</span>
+                                <span className="text-[10px] font-bold">CONFIG</span>
                             </div>
                             <div className={`h-[1px] flex-1 mx-2 ${campaignStep >= 2 ? 'bg-brand-accent' : 'bg-gray-200'}`} />
                             <div className={`flex flex-col items-center ${campaignStep >= 2 ? 'text-brand-accent' : 'text-gray-300'}`}>
                                 <div className="w-2 h-2 rounded-full bg-current mb-1" />
-                                <span className="text-[10px] font-bold">REVIEW</span>
+                                <span className="text-[10px] font-bold">STRATEGY</span>
                             </div>
                             <div className={`h-[1px] flex-1 mx-2 ${campaignStep >= 3 ? 'bg-brand-accent' : 'bg-gray-200'}`} />
                             <div className={`flex flex-col items-center ${campaignStep >= 3 ? 'text-brand-accent' : 'text-gray-300'}`}>
+                                <div className="w-2 h-2 rounded-full bg-current mb-1" />
+                                <span className="text-[10px] font-bold">REVIEW</span>
+                            </div>
+                            <div className={`h-[1px] flex-1 mx-2 ${campaignStep >= 4 ? 'bg-brand-accent' : 'bg-gray-200'}`} />
+                            <div className={`flex flex-col items-center ${campaignStep >= 4 ? 'text-brand-accent' : 'text-gray-300'}`}>
                                 <div className="w-2 h-2 rounded-full bg-current mb-1" />
                                 <span className="text-[10px] font-bold">DONE</span>
                             </div>
@@ -404,15 +446,68 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     </div>
                                 )}
 
+                                <div>
+                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Goal</label>
+                                    <Select
+                                        value={campaignGoal}
+                                        onChange={(e) => setCampaignGoal(e.target.value)}
+                                        options={[
+                                            { value: 'User Acquisition', label: 'User Acquisition' },
+                                            { value: 'Brand Awareness', label: 'Brand Awareness' },
+                                            { value: 'Community Engagement', label: 'Community Engagement' },
+                                            { value: 'Product Education', label: 'Product Education' }
+                                        ]}
+                                    />
+                                </div>
+
                                 <Select label="Tweet Count" value={campaignCount} onChange={e => setCampaignCount(e.target.value)} options={[{ value: '3', label: '3 Tweets' }, { value: '5', label: '5 Tweets' }, { value: '7', label: '7 Tweets' }]} />
-                                <Button onClick={handleDraftCampaign} isLoading={isDraftingCampaign} disabled={campaignType === 'theme' && !campaignTheme} className="w-full shadow-lg shadow-indigo-500/20">
-                                    {campaignType === 'diverse' ? 'Generate Mix' : 'Draft Campaign'}
+                                <Button onClick={handleGenerateStrategy} isLoading={isGeneratingStrategy} disabled={campaignType === 'theme' && !campaignTheme} className="w-full shadow-lg shadow-indigo-500/20">
+                                    Next: Generate Strategy
                                 </Button>
                             </div>
                         )}
 
-                        {/* STEP 2: REVIEW SUMMARY */}
-                        {campaignStep === 2 && (
+                        {/* STEP 2: STRATEGY REVIEW */}
+                        {campaignStep === 2 && campaignStrategy && (
+                            <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-6">
+                                <h3 className="text-lg font-bold text-brand-text">Strategy Brief</h3>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-brand-muted uppercase block mb-1">Target Audience</label>
+                                        <p className="text-xs text-brand-text">{campaignStrategy.targetAudience}</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-brand-muted uppercase block mb-1">Key Messaging</label>
+                                        <ul className="list-disc list-inside text-xs text-brand-text space-y-1">
+                                            {campaignStrategy.keyMessaging.map((m, i) => <li key={i}>{m}</li>)}
+                                        </ul>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-indigo-50 p-2 rounded">
+                                            <span className="block text-[10px] text-indigo-600 font-bold uppercase">Topic Mix</span>
+                                            <span className="text-xs font-medium text-indigo-900">{campaignStrategy.contentMix.split('.')[0]}</span>
+                                        </div>
+                                        <div className="bg-green-50 p-2 rounded">
+                                            <span className="block text-[10px] text-green-600 font-bold uppercase">Est. Reach</span>
+                                            <span className="text-xs font-medium text-green-900">{campaignStrategy.estimatedResults.impressions}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2 flex gap-2">
+                                    <Button onClick={() => setCampaignStep(1)} variant="secondary" className="flex-1">Back</Button>
+                                    <Button onClick={handleDraftCampaign} isLoading={isDraftingCampaign} className="flex-[2] shadow-lg shadow-indigo-500/20">
+                                        Approve & Draft Content
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* STEP 3: REVIEW SUMMARY */}
+                        {campaignStep === 3 && (
                             <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-4">
                                 <div className="text-center">
                                     <p className="text-sm text-brand-text font-semibold">{campaignItems.length} Drafts Generated</p>
@@ -431,12 +526,12 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 <Button onClick={handleGenerateApproved} className="w-full bg-brand-text text-white hover:bg-black">
                                     Generate Assets
                                 </Button>
-                                <button onClick={() => setCampaignStep(1)} className="w-full text-xs text-brand-muted hover:text-brand-text py-2">Back to Draft</button>
+                                <button onClick={() => setCampaignStep(2)} className="w-full text-xs text-brand-muted hover:text-brand-text py-2">Back to Strategy</button>
                             </div>
                         )}
 
-                        {/* STEP 3: SCHEDULE SUMMARY */}
-                        {campaignStep === 3 && (
+                        {/* STEP 4: SCHEDULE SUMMARY */}
+                        {campaignStep === 4 && (
                             <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-4">
                                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto text-green-600">
                                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
@@ -485,8 +580,61 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 </div>
                             )}
 
+                            {/* RIGHT PANEL - STRATEGY PREVIEW (Only for step 2) */}
+                            {campaignStep === 2 && campaignStrategy && (
+                                <div className="p-6 space-y-6 animate-fadeIn">
+                                    <div className="flex justify-between items-center pb-4 border-b border-brand-border">
+                                        <h2 className="text-xl font-display font-bold text-brand-text">Strategic Research Brief</h2>
+                                        <span className="bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full uppercase">AI Generated</span>
+                                    </div>
+
+                                    {/* Estimates */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="bg-gray-50 p-4 rounded-xl text-center">
+                                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Reach</div>
+                                            <div className="text-lg font-bold text-brand-text">{campaignStrategy.estimatedResults.impressions}</div>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-xl text-center">
+                                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Engagement</div>
+                                            <div className="text-lg font-bold text-brand-text">{campaignStrategy.estimatedResults.engagement}</div>
+                                        </div>
+                                        <div className="bg-gray-50 p-4 rounded-xl text-center">
+                                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Impact</div>
+                                            <div className="text-lg font-bold text-brand-text">{campaignStrategy.estimatedResults.conversions}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Strategy Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {campaignStrategy.channelStrategy.map((s, i) => (
+                                            <div key={i} className="border border-brand-border p-4 rounded-xl bg-white shadow-sm">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="font-bold text-sm text-brand-text">{s.channel}</h4>
+                                                    <span className="text-[10px] bg-brand-accent/10 text-brand-accent px-2 py-1 rounded-full">{s.focus}</span>
+                                                </div>
+                                                <p className="text-xs text-brand-muted leading-relaxed">{s.rationale}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Messaging */}
+                                    <div className="bg-yellow-50/50 border border-yellow-100 p-4 rounded-xl">
+                                        <h4 className="text-sm font-bold text-yellow-800 mb-2">Key Messaging Pillars</h4>
+                                        <div className="space-y-2">
+                                            {campaignStrategy.keyMessaging.map((msg, i) => (
+                                                <div key={i} className="flex gap-2">
+                                                    <span className="text-yellow-500 font-bold">•</span>
+                                                    <p className="text-xs text-yellow-900">{msg}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                </div>
+                            )}
+
                             {/* REVIEW DRAFTS */}
-                            {campaignStep === 2 && (
+                            {campaignStep === 3 && (
                                 <div className="space-y-4 animate-fadeIn">
                                     <div className="flex justify-between items-center mb-6">
                                         <h2 className="text-xl font-display font-bold text-brand-text">Review Drafts</h2>
@@ -531,7 +679,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             )}
 
                             {/* RESULTS / GENERATION */}
-                            {campaignStep === 3 && (
+                            {campaignStep === 4 && (
                                 <div className="space-y-8 animate-fadeIn">
                                     <div className="flex justify-between items-center">
                                         <h2 className="text-xl font-display font-bold text-brand-text">Campaign Assets</h2>
