@@ -128,8 +128,8 @@ const mergeWithDefaults = (storedData: any): Record<string, BrandConfig> => {
                 let sArr = Array.isArray(stored[field]) ? stored[field] : [];
                 const dArr = Array.isArray(def[field]) ? def[field] : [];
 
-                // FORCE OVERRIDE: For Enki, always return default images (hardcoded) to reset broken state
-                if (key === 'ENKI Protocol' && field === 'referenceImages') {
+                // FORCE OVERRIDE: If defaults exist in code (brandData), always prefer them over potentially stale/broken local storage
+                if (dArr.length > 0 && field === 'referenceImages') {
                     return dArr;
                 }
 

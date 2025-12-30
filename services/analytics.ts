@@ -467,9 +467,10 @@ export const fetchMentions = async (brandName: string, apiKey?: string): Promise
     if (!token) return [];
 
     try {
-        console.log(`[Apify] Fetching mentions for @${brandName}...`);
+        const handle = getHandle(brandName);
+        console.log(`[Apify] Fetching mentions for @${handle}...`);
         const items = await runApifyActor(ACTOR_TWEETS, {
-            "searchTerms": [`@${brandName}`, brandName],
+            "searchTerms": [`@${handle}`, handle, brandName],
             "maxItems": 5,
             "sort": "Latest",
             "tweetLanguage": "en",
