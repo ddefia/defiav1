@@ -12,6 +12,7 @@ import { GrowthEngine } from './components/GrowthEngine';
 import { PulseEngine } from './components/PulseEngine'; // Import Pulse
 import { ContentCalendar } from './components/ContentCalendar';
 import { Dashboard } from './components/Dashboard'; // Import Dashboard
+import { AnalyticsPage } from './components/AnalyticsPage'; // Import Analytics
 import { Campaigns } from './components/Campaigns'; // Import Campaigns
 import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
 import { BrainPage } from './components/Brain/BrainPage'; // Import BrainPage
@@ -522,6 +523,15 @@ const App: React.FC = () => {
                 {/* SECTION: BRAIN (NEW) */}
                 {appSection === 'brain' && selectedBrand && (
                     <BrainPage brandName={selectedBrand} />
+                )}
+
+                {/* SECTION: ANALYTICS (NEW) */}
+                {appSection === 'analytics' && selectedBrand && (
+                    <AnalyticsPage
+                        brandName={selectedBrand}
+                        metrics={socialMetrics}
+                        chainMetrics={chainMetrics}
+                    />
                 )}
 
                 {/* SECTION: PULSE */}

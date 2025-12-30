@@ -333,7 +333,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
 
                 {/* VISUAL ANALYTICS */}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 w-full">
-                    {/* ERROR BANNER */}
+                    {/* ERROR BANNER: BACKEND */}
                     {socialMetrics?.error === "BACKEND_OFFLINE" && (
                         <div className="lg:col-span-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between text-red-800 shadow-sm">
                             <div className="flex items-center gap-3">
@@ -343,6 +343,22 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                                     <p className="text-xs">Live data cache is unreachable. Run <code className="bg-red-100 px-1 rounded">npm run server</code> to restore services.</p>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* ERROR BANNER: API LIMITS */}
+                    {socialMetrics?.error && socialMetrics.error !== "BACKEND_OFFLINE" && (
+                        <div className="lg:col-span-4 bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-center justify-between text-orange-800 shadow-sm animate-fadeIn">
+                            <div className="flex items-center gap-3">
+                                <span className="text-xl">🛑</span>
+                                <div>
+                                    <p className="font-bold text-sm">Data Source Error</p>
+                                    <p className="text-xs">{socialMetrics.error}</p>
+                                </div>
+                            </div>
+                            <Button onClick={handleSkipToSimulation} variant="secondary" className="h-8 text-xs bg-white text-orange-800 border-orange-200 hover:bg-orange-100">
+                                Switch to Simulation
+                            </Button>
                         </div>
                     )}
 

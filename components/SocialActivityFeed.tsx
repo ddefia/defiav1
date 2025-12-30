@@ -7,7 +7,7 @@ interface SocialActivityFeedProps {
 }
 
 export const SocialActivityFeed: React.FC<SocialActivityFeedProps> = ({ lunarPosts, socialMetrics }) => {
-    const [activeTab, setActiveTab] = React.useState<'twitter' | 'telegram' | 'discord'>('twitter');
+    const [activeTab, setActiveTab] = React.useState<'twitter' | 'telegram' | 'discord' | 'mentions'>('twitter');
 
     const renderContent = () => {
         if (activeTab === 'twitter') {
@@ -76,6 +76,30 @@ export const SocialActivityFeed: React.FC<SocialActivityFeedProps> = ({ lunarPos
                 </div>
             )
         }
+
+        if (activeTab === 'mentions') {
+            const mentions = socialMetrics?.recentMentions || [];
+            return (
+                <>
+                    {mentions.map((m) => (
+                        <div key={m.id} className="bg-pink-50 p-4 rounded-lg border border-pink-100 hover:border-pink-200 transition-colors group">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-[10px] font-bold text-pink-700">@{m.author}</span>
+                                <span className="text-[9px] text-pink-400">{new Date(m.timestamp).toLocaleDateString()}</span>
+                            </div>
+                            <p className="text-xs text-gray-800 leading-relaxed mb-1">
+                                {m.text}
+                            </p>
+                        </div>
+                    ))}
+                    {mentions.length === 0 && (
+                        <div className="text-center py-10 text-brand-muted text-xs">
+                            No recent mentions found.
+                        </div>
+                    )}
+                </>
+            )
+        }
     };
 
     return (
@@ -109,6 +133,12 @@ export const SocialActivityFeed: React.FC<SocialActivityFeedProps> = ({ lunarPos
                     className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${activeTab === 'discord' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     Discord
+                </button>
+                <button
+                    onClick={() => setActiveTab('mentions')}
+                    className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${activeTab === 'mentions' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    Mentions
                 </button>
             </div>
 

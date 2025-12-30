@@ -36,6 +36,12 @@ const runApifyActor = async (actorId: string, input: any, token: string) => {
 
         const runData = await response.json();
 
+        // Check for specific platform errors (e.g. Limit Exceeded)
+        if (runData.error) {
+            console.error(`[Apify] Platform Error: ${runData.error.type} - ${runData.error.message}`);
+            throw new Error(runData.error.message || "Apify Platform Error");
+        }
+
         // Check for success
         if (!runData.data || (runData.data.status !== 'SUCCEEDED' && runData.data.status !== 'RUNNING')) {
             // If 401/403, throw specific error
@@ -196,7 +202,7 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
             promises.push(Promise.resolve([])); // resolve empty if cached
         }
 
-        // Always fetch tweets for "Recent Activity" (or we could cache this too, but live is better for feed)
+        // Always fetch tweets for "Recent Activity"
         promises.push(
             runApifyActor(ACTOR_TWEETS, {
                 "twitterHandles": [handle],
@@ -208,7 +214,10 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
             }, token).catch(e => { console.warn("Tweet fetch failed", e); return []; })
         );
 
-        const [profileItems, tweetItems] = await Promise.all(promises);
+        // NEW: Fetch Mentions in same batch
+        promises.push(fetchMentions(brandName, token));
+
+        const [profileItems, tweetItems, mentionItems] = await Promise.all(promises);
 
         // PROCESS PROFILE
         let realFollowers = cachedStats?.totalFollowers || 0; // Default to Cache logic
@@ -276,7 +285,8 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
             totalFollowers: realFollowers,
             weeklyImpressions: totalImpressions > 0 ? totalImpressions * 2 : fallback.weeklyImpressions,
             engagementRate: parseFloat(avgEng.toFixed(2)),
-            mentions: fallback.mentions,
+            mentions: mentionItems ? mentionItems.length : fallback.mentions, // Use actual count if available
+            recentMentions: mentionItems || [], // Pass the array
             topPost: realRecentPosts[0]?.content || "No recent posts found",
             recentPosts: realRecentPosts,
             engagementHistory: fallback.engagementHistory,
@@ -295,7 +305,7 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
             ...fallback,
             totalFollowers: cachedStats?.totalFollowers || 0, // Keep cached followers if available
             isLive: false,
-            error: error.message || "Connection Failed"
+            error: error.message // Pass the actual error (e.g. "Monthly usage hard limit exceeded")
         };
     }
 };

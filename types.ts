@@ -106,11 +106,19 @@ export interface SocialPost {
   engagementRate: number;
 }
 
+export interface Mention {
+  id: string;
+  text: string;
+  author: string;
+  timestamp: string;
+}
+
 export interface SocialMetrics {
   totalFollowers: number;
   weeklyImpressions: number;
   engagementRate: number; // percentage
   mentions: number;
+  recentMentions?: Mention[]; // New: Actual list of mentions
   topPost: string;
   recentPosts: SocialPost[];
   engagementHistory: { date: string; rate: number }[];
