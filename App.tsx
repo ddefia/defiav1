@@ -204,14 +204,18 @@ const App: React.FC = () => {
     const [isServerOnline, setIsServerOnline] = useState<boolean>(false);
     useEffect(() => {
         const checkHealth = async () => {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
             try {
-                const res = await fetch('http://localhost:3001/api/health'); // Assume standard port
-                if (res.ok) setIsServerOnline(true);
+                // simple check, if fails we just set offline
+                const res = await fetch(`${baseUrl}/api/health`).catch(() => null);
+                if (res && res.ok) setIsServerOnline(true);
                 else setIsServerOnline(false);
             } catch (e) {
                 setIsServerOnline(false);
             }
         };
+        // Only poll if we expect a backend (e.g. dev or specific env)
+        // For now, we run it but suppress errors
         checkHealth();
         const interval = setInterval(checkHealth, 30000); // Check every 30s
         return () => clearInterval(interval);
@@ -221,17 +225,21 @@ const App: React.FC = () => {
     const [agentDecisions, setAgentDecisions] = useState<any[]>([]);
     useEffect(() => {
         const fetchDecisions = async () => {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
             try {
-                const res = await fetch('http://localhost:3001/api/decisions');
-                if (res.ok) {
+                // If health check failed previously, maybe skip this? 
+                // For now, simple fetch with suppression
+                const res = await fetch(`${baseUrl}/api/decisions`).catch(() => null);
+                if (res && res.ok) {
                     const data = await res.json();
-                    // FILTER: Pending + Matches Current Brand
                     setAgentDecisions(data.filter((d: any) =>
                         d.status === 'pending' &&
                         (!d.brandId || d.brandId === selectedBrand)
                     ));
                 }
-            } catch (e) { console.error("Failed to fetch decisions", e); }
+            } catch (e) {
+                // scilent fail 
+            }
         };
         fetchDecisions();
         const interval = setInterval(fetchDecisions, 10000); // Poll every 10s
