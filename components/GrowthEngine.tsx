@@ -286,7 +286,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
     const followerChange = lunarTimeSeries.length > 1 ? (lunarTimeSeries[lunarTimeSeries.length - 1].followers - lunarTimeSeries[0].followers) : (socialMetrics?.comparison.followersChange || 0);
 
     return (
-        <div className="space-y-12 animate-fadeIn pb-24 w-full h-full flex flex-col max-w-7xl mx-auto px-8 pt-10">
+        <div className="space-y-4 animate-fadeIn pb-8 w-full h-full flex flex-col max-w-7xl mx-auto px-4 pt-4">
 
             {/* HEADER (Matches Dashboard.tsx Style) */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
@@ -296,15 +296,24 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                 </div>
                 <div className="flex gap-3 mt-4 md:mt-0">
                     {/* Status Indicators */}
-                    <div className="flex items-center gap-2 bg-brand-surface border border-brand-border rounded-lg px-3 py-1.5 shadow-sm">
-                        <span className={`w-2 h-2 rounded-full ${duneKey ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
-                        <span className="text-xs font-bold text-brand-textSecondary">On-Chain</span>
+                    <div className="flex items-center gap-1.5 bg-brand-surface border border-brand-border rounded px-2 py-1 shadow-sm">
+                        <span className={`w-1.5 h-1.5 rounded-full ${duneKey ? 'bg-emerald-500' : 'bg-gray-300'}`}></span>
+                        <span className="text-[10px] font-bold text-brand-textSecondary">On-Chain</span>
                     </div>
-                    <div className="flex items-center gap-2 bg-brand-surface border border-brand-border rounded-lg px-3 py-1.5 shadow-sm">
-                        <span className={`w-2 h-2 rounded-full ${apifyKey ? 'bg-blue-500' : 'bg-gray-300'}`}></span>
-                        <span className="text-xs font-bold text-brand-textSecondary">Social</span>
+                    <div className="flex items-center gap-1.5 bg-brand-surface border border-brand-border rounded px-2 py-1 shadow-sm">
+                        <span className={`w-1.5 h-1.5 rounded-full ${apifyKey ? 'bg-blue-500' : 'bg-gray-300'}`}></span>
+                        <span className="text-[10px] font-bold text-brand-textSecondary">Social</span>
                     </div>
                 </div>
+            </div>
+
+            {/* EXPLANATION BANNER */}
+            <div className="bg-brand-accent/5 border border-brand-accent/20 rounded-lg p-3 flex items-start sm:items-center gap-3 text-xs text-brand-textSecondary">
+                <span className="text-brand-accent text-lg">💡</span>
+                <p>
+                    <strong>How it works:</strong> The <strong>Propulsion Brain</strong> (Top) analyzes the <strong>Live Intelligence</strong> (Bottom) to generate strategic actions.
+                    Review the tasks below and click "Execute" to let the AI draft content or schedule campaigns based on this data.
+                </p>
             </div>
 
             {/* SECTION 1: STRATEGIC PLANNING (GAIA) - MOVED TO TOP */}
@@ -325,14 +334,14 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             <div className="h-px bg-brand-border w-full my-8"></div>
 
             {/* SECTIONS: ANALYTICS + STRATEGY STACKED */}
-            <div className="space-y-16 w-full opacity-60 hover:opacity-100 transition-opacity duration-500">
-                <div className="flex items-center gap-2 mb-[-40px]">
-                    <h3 className="text-sm font-bold text-brand-muted uppercase tracking-wider">Supporting Performance Data</h3>
+            <div className="space-y-4 w-full opacity-60 hover:opacity-100 transition-opacity duration-500">
+                <div className="flex items-center gap-2 mb-[-16px]">
+                    <h3 className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">Supporting Performance Data</h3>
                     <div className="h-px bg-brand-border flex-1"></div>
                 </div>
 
                 {/* VISUAL ANALYTICS */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 w-full">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 w-full">
                     {/* ERROR BANNER: BACKEND */}
                     {socialMetrics?.error === "BACKEND_OFFLINE" && (
                         <div className="lg:col-span-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between text-red-800 shadow-sm">
@@ -363,8 +372,8 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                     )}
 
                     {/* Main Chart/Report Area */}
-                    <div className="lg:col-span-3 space-y-6">
-                        <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-premium p-8 relative min-h-[500px]">
+                    <div className="lg:col-span-3 space-y-4">
+                        <div className="bg-brand-surface rounded-xl border border-brand-border shadow-premium p-5 relative min-h-[400px]">
                             <div className="flex justify-between items-center mb-10 border-b border-brand-border pb-6">
                                 <h3 className="text-lg font-bold text-brand-text flex items-center gap-3 font-display">
                                     <span className="relative flex h-3 w-3">

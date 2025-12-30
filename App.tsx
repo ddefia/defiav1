@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis } from './services/gemini';
 import { fetchMarketPulse } from './services/pulse';
-import { fetchMentions } from './services/analytics';
+import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
 import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog } from './services/storage';
@@ -156,8 +156,13 @@ const App: React.FC = () => {
                 setSystemLogs(prev => ["Analysis: Fetching Trends & Mentions...", ...prev]);
                 const [trends, mentions] = await Promise.all([
                     fetchMarketPulse(selectedBrand),
-                    fetchMentions(selectedBrand)
+                    fetchMentions(selectedBrand),
+                    fetchSocialMetrics(selectedBrand)
                 ]);
+
+                // 2b. Update Live Signals (Brain Context)
+                const liveSignals = computeSocialSignals(trends, mentions, socialMetrics || undefined);
+                setSocialSignals(liveSignals);
 
                 // 3. RAG Memory Retrieval
                 setSystemLogs(prev => ["Memory: Querying Vector Database...", ...prev]);

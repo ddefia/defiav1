@@ -157,13 +157,13 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             </div>
 
             {/* DATA GRID */}
-            <div className="bg-white border border-brand-border rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-white border border-brand-border rounded-lg shadow-sm overflow-hidden mt-[-8px]">
                 {/* Header Row */}
-                <div className="grid grid-cols-12 gap-4 border-b border-brand-border bg-gray-50/50 px-4 py-3 text-[10px] uppercase tracking-widest font-bold text-brand-muted">
-                    <div className="col-span-1">Priority</div>
-                    <div className="col-span-1">Type</div>
+                <div className="grid grid-cols-12 gap-2 border-b border-brand-border bg-gray-50/50 px-4 py-2 text-[10px] uppercase tracking-widest font-bold text-brand-muted">
+                    <div className="col-span-1" title="Urgency level based on market opportunity">Priority ⓘ</div>
+                    <div className="col-span-1" title="Category of strategic action">Type ⓘ</div>
                     <div className="col-span-5">Task Details</div>
-                    <div className="col-span-3">AI Reasoning & Context</div>
+                    <div className="col-span-3" title="Why AI recommends this now">AI Reasoning & Context ⓘ</div>
                     <div className="col-span-2 text-right">Actions</div>
                 </div>
 
@@ -177,16 +177,16 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
 
                 {/* Empty State */}
                 {!isLoading && tasks.length === 0 && (
-                    <div className="p-12 text-center">
+                    <div className="p-6 text-center">
                         <p className="text-sm font-bold text-brand-text mb-1">No Pending Actions</p>
-                        <p className="text-xs text-brand-textSecondary">System is monitoring for new signals.</p>
+                        <p className="text-xs text-brand-textSecondary max-w-sm mx-auto">System is monitoring. Refresh to scan.</p>
                     </div>
                 )}
 
                 {/* Rows */}
                 <div className="divide-y divide-brand-border/50">
                     {tasks.map((task, idx) => (
-                        <div key={task.id} className="grid grid-cols-12 gap-4 px-4 py-3 hover:bg-brand-surfaceHighlight transition-colors items-start group">
+                        <div key={task.id} className="grid grid-cols-12 gap-2 px-4 py-2 hover:bg-brand-surfaceHighlight transition-colors items-center group">
 
                             {/* Priority */}
                             <div className="col-span-1 flex items-center gap-2 pt-1">
@@ -236,8 +236,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                     disabled={isExecuting !== null}
                                     isLoading={isExecuting === task.id}
                                     className="h-8 text-xs px-3 shadow-none border border-brand-accent bg-brand-accent hover:bg-brand-accent/90"
+                                    title="Click to draft content and schedule this action"
                                 >
-                                    {isExecuting === task.id ? 'Running...' : 'Approve'}
+                                    {isExecuting === task.id ? 'Running...' : 'Execute'}
                                 </Button>
                             </div>
 

@@ -1,4 +1,4 @@
-import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost } from "../types";
+import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost, SocialSignals, TrendItem, Mention } from "../types";
 import { getIntegrationConfig } from "../config/integrations";
 
 
@@ -464,12 +464,7 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
     };
 };
 
-export interface Mention {
-    id: string;
-    text: string;
-    author: string;
-    timestamp: string;
-}
+
 
 export const fetchMentions = async (brandName: string, apiKey?: string): Promise<Mention[]> => {
     // Real Implementation
@@ -500,4 +495,55 @@ export const fetchMentions = async (brandName: string, apiKey?: string): Promise
         console.warn("[Apify] Mentions fetch failed:", e);
         return [];
     }
+};
+
+export const computeSocialSignals = (trends: TrendItem[], mentions: Mention[], socialMetrics?: SocialMetrics): SocialSignals => {
+    // 1. Calculate Sentiment
+    // Simple heuristic: Trend Sentiment (Positive=80, Neutral=50, Negative=20) + Engagement Bonus
+    let baseScore = 50;
+    let positiveCount = 0;
+
+    trends.forEach(t => {
+        if (t.sentiment === 'Positive') positiveCount++;
+        if (t.sentiment === 'Negative') baseScore -= 10;
+        else if (t.sentiment === 'Positive') baseScore += 5;
+    });
+
+    if (socialMetrics && socialMetrics.engagementRate > 2.0) baseScore += 10;
+    if (socialMetrics && socialMetrics.engagementRate > 5.0) baseScore += 10;
+
+    const sentimentScore = Math.min(100, Math.max(0, baseScore));
+
+    // 2. Determine Trend
+    let sentimentTrend: 'up' | 'down' | 'stable' = 'stable';
+    if (socialMetrics?.comparison) {
+        if (socialMetrics.comparison.engagementChange > 5) sentimentTrend = 'up';
+        else if (socialMetrics.comparison.engagementChange < -5) sentimentTrend = 'down';
+    }
+
+    // 3. Extract Narratives (Hashtags from headlines/summaries)
+    const narratives = new Set<string>();
+    trends.forEach(t => {
+        const match = t.headline.match(/#\w+/g);
+        if (match) match.forEach(m => narratives.add(m));
+
+        // Fallback: Use headline keywords if no hashtags
+        if (!match) {
+            const words = t.headline.split(' ').filter(w => w.length > 5 && !['Trending', 'Volume'].includes(w));
+            if (words.length > 0) narratives.add(words[0]);
+        }
+    });
+
+    // 4. Identify KOLs
+    const kols = new Set<string>();
+    mentions.forEach(m => {
+        if (m.author && m.author !== 'Unknown') kols.add(`@${m.author}`);
+    });
+
+    return {
+        sentimentScore,
+        sentimentTrend,
+        activeNarratives: Array.from(narratives).slice(0, 5), // Top 5
+        topKols: Array.from(kols).slice(0, 5) // Top 5
+    };
 };
