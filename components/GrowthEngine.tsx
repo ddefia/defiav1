@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CampaignLog, GrowthInput, ComputedMetrics, GrowthReport, SocialMetrics, CalendarEvent, TrendItem, BrandConfig, LunarCrushCreator, LunarCrushTimeSeriesItem, LunarCrushPost, StrategyTask, SocialSignals } from '../types';
 import { computeGrowthMetrics, getSocialMetrics, fetchSocialMetrics, getHandle } from '../services/analytics';
+import { getIntegrationConfig } from '../config/integrations';
 import { generateGrowthReport, generateStrategicAnalysis } from '../services/gemini';
 import { getCreator, getCreatorTimeSeries, getCreatorPosts, fetchMarketPulse } from '../services/pulse';
 import { Button } from './Button';
@@ -41,6 +42,14 @@ const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoadin
                 <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded-full border ${trendDirection === 'up' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-red-600 bg-red-50 border-red-100'}`}>
                     {trendDirection === 'up' ? '↗' : '↘'} {trend}
                 </span>
+            )}
+            {/* Sparkline Placeholder if needed for engagement */}
+            {label === 'Engagement' && (
+                <div className="absolute right-0 top-0 opacity-10">
+                    <svg width="60" height="30" viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0,30 Q10,25 20,20 T40,10 T60,5" fill="none" stroke="currentColor" strokeWidth="2" />
+                    </svg>
+                </div>
             )}
         </div>
         <div className="space-y-1 relative z-10">
@@ -117,13 +126,27 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
     // Load persisted keys when Brand changes
     useEffect(() => {
         const savedKeys = loadIntegrationKeys(brandName);
+
+        // 1. Load Dune Keys: Saved/User > Known Integration Default
+        let activeDuneIds = savedKeys.duneQueryIds || {};
+        const knownConfig = getIntegrationConfig(brandName);
+
+        if (!savedKeys.duneQueryIds && knownConfig?.dune) {
+            console.log(`[GrowthEngine] Auto-loading known Dune IDs for ${brandName}`);
+            activeDuneIds = {
+                volume: knownConfig.dune.volumeQueryId,
+                users: knownConfig.dune.usersQueryId,
+                retention: knownConfig.dune.retentionQueryId
+            };
+        }
+
         setDuneKey(savedKeys.dune || '');
-        const ids = savedKeys.duneQueryIds || {};
         setDuneQueryIds({
-            volume: ids.volume || '',
-            users: ids.users || '',
-            retention: ids.retention || ''
+            volume: activeDuneIds.volume || '',
+            users: activeDuneIds.users || '',
+            retention: activeDuneIds.retention || ''
         });
+
         setApifyKey(savedKeys.apify || '');
 
         if (savedKeys.dune) setIsOnChainConnected(true);

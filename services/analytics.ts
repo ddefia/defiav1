@@ -1,4 +1,5 @@
 import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost } from "../types";
+import { getIntegrationConfig } from "../config/integrations";
 
 
 /**
@@ -16,15 +17,8 @@ const ACTOR_TWEETS = '61RPP7dywgiy0JPD0';
 
 
 export const getHandle = (brandName: string) => {
-    // Explicit mapping based on user request
-    const map: Record<string, string> = {
-        'enki': 'ENKIProtocol',
-        'netswap': 'netswapofficial',
-        'meme': 'MetisL2',
-        'lazai': 'LazAI_Official',
-        'defia': 'DefiaLabs'
-    };
-    return map[brandName.toLowerCase()] || 'MetisL2';
+    const config = getIntegrationConfig(brandName);
+    return config?.apify?.twitterHandle || 'MetisL2';
 };
 
 /**
