@@ -15,7 +15,7 @@ interface StrategyBrainProps {
     onUpdateTasks: (tasks: StrategyTask[]) => void;
     events: CalendarEvent[];
     onSchedule: (content: string, image?: string) => void;
-    growthReport?: GrowthReport | null; // Keep optional
+    growthReport?: GrowthReport | null;
 }
 
 export const StrategyBrain: React.FC<StrategyBrainProps> = ({
@@ -27,44 +27,36 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     onSchedule,
     growthReport
 }) => {
-    // const [tasks, setTasks] = useState<StrategyTask[]>([]); // LIFTED UP
     const [isLoading, setIsLoading] = useState(false);
-    const [isExecuting, setIsExecuting] = useState<string | null>(null); // ID of task being executed
-    // const [hasAnalyzed, setHasAnalyzed] = useState(false); // Controlled by parent or effect
-    const [ragEvents, setRagEvents] = useState<any[]>([]); // New: Store retrieved context for UI
+    const [isExecuting, setIsExecuting] = useState<string | null>(null);
+    const [ragEvents, setRagEvents] = useState<any[]>([]);
+    const [lastScan, setLastScan] = useState<Date | null>(new Date());
 
     const performAudit = async () => {
         setIsLoading(true);
-        setRagEvents([]); // Reset
+        setRagEvents([]);
         try {
-            // 1. Ingest/Refresh Memory (Live Scan)
             await runMarketScan(brandName);
-
-            // 2. Fetch fresh trends & mentions internally
             const [trends, mentions] = await Promise.all([
                 fetchMarketPulse(brandName),
                 fetchMentions(brandName)
             ]);
 
-            // 3. RAG Retrieval
             const ragHits = await searchContext(`Market trends, strategy context, and past decisions for ${brandName}`, 5);
-            setRagEvents(ragHits); // Update UI
+            setRagEvents(ragHits);
             const ragContext = buildContextBlock(ragHits);
 
-            console.log("RAG Context Injected:", ragContext);
-
-            // 4. Generate Analysis with Memory
             const generatedTasks = await generateStrategicAnalysis(
                 brandName,
                 events,
                 trends,
                 brandConfig,
-                growthReport, // NOW PASSED
+                growthReport,
                 mentions,
                 ragContext
             );
             onUpdateTasks(generatedTasks);
-            // setHasAnalyzed(true);
+            setLastScan(new Date());
         } catch (e) {
             console.error(e);
         } finally {
@@ -72,25 +64,16 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         }
     };
 
-    // Auto-run logic moved to parent or kept here for first load check?
-    // For now, let's keep it manual or triggered by parent if needed.
-    // If we want auto-run on mount if empty:
-    // Auto-run logic: Ensure strategy is always "live"
     useEffect(() => {
         if (tasks.length === 0 && !isLoading) {
-            console.log("Auto-Strategy: Initializing live scan...");
             performAudit();
         }
-    }, [brandName]); // Only run on brand switch if empty.
-
+    }, [brandName]);
 
     const handleExecuteTask = async (task: StrategyTask) => {
         setIsExecuting(task.id);
         try {
-            // 1. Generate Copy
             const copy = await generateTweet(task.executionPrompt, brandName, brandConfig, 'Professional');
-
-            // 2. Generate Visual (Contextual) - Only if not a simple Reply
             let image;
             if (task.type !== 'REPLY') {
                 const visualPrompt = `Editorial graphic for ${brandName}. Context: ${task.title}. Style: Professional, clean, on-brand.`;
@@ -102,20 +85,13 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     brandName: brandName
                 });
             }
-
-            // 3. Open Schedule Modal with results
             onSchedule(copy, image);
-
-            // 4. Log Decision to Long-Term Memory
             await logDecision(`Executed Task: ${task.title} (${task.type})`, task.reasoning);
-
-            // 5. Remove task from list (optional, or mark done)
             const remaining = tasks.filter(t => t.id !== task.id);
             onUpdateTasks(remaining);
-
         } catch (e) {
-            console.error("Execution failed", e);
-            alert("Failed to execute task. Please try again.");
+            console.error(e);
+            alert("Failed. Try again.");
         } finally {
             setIsExecuting(null);
         }
@@ -126,138 +102,160 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         onUpdateTasks(remaining);
     }
 
-    return (
-        <div className="w-full space-y-6 animate-fadeIn pb-4">
+    // Helper for Type Badges
+    const getTypeBadge = (type: string) => {
+        const styles = {
+            'REPLY': 'bg-blue-50 text-blue-700 border-blue-200',
+            'REACTION': 'bg-pink-50 text-pink-700 border-pink-200',
+            'EVERGREEN': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            'GAP_FILL': 'bg-orange-50 text-orange-700 border-orange-200',
+            'TREND_JACK': 'bg-purple-50 text-purple-700 border-purple-200'
+        };
+        return (
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${styles[type as keyof typeof styles] || 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                {type.replace('_', ' ')}
+            </span>
+        );
+    };
 
-            {/* Control Bar (Replaces System Status Card) */}
-            <div className="flex flex-col md:flex-row justify-between items-center bg-brand-surface px-6 py-4 rounded-xl border border-brand-border shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></div>
-                    <p className="text-sm font-medium text-brand-text">
-                        {isLoading ? "AI Analyst is scanning decentralized networks..." : "System analysis complete."}
-                    </p>
+    return (
+        <div className="w-full space-y-4 animate-fadeIn pb-4">
+
+            {/* PROFESSIONAL TOOLBAR */}
+            <div className="flex flex-col md:flex-row justify-between items-center bg-white border-b border-brand-border pb-4 mb-2">
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></div>
+                        <span className="text-sm font-bold text-brand-text">AI Analyst Active</span>
+                    </div>
+                    <div className="h-4 w-px bg-brand-border"></div>
+                    <div className="flex items-center gap-2 text-xs text-brand-textSecondary">
+                        <span>Last Scan:</span>
+                        <span className="font-mono text-brand-text">{lastScan?.toLocaleTimeString()}</span>
+                    </div>
                 </div>
-                <div className="flex gap-3">
-                    <Button onClick={performAudit} disabled={isLoading} variant="secondary" className="h-8 text-xs bg-white hover:bg-gray-50 border-brand-border shadow-sm">
-                        {isLoading ? 'Scanning...' : 'Refresh Strategy'}
+                <div className="flex gap-2">
+                    <Button
+                        onClick={performAudit}
+                        disabled={isLoading}
+                        variant="secondary"
+                        className="h-8 text-xs bg-white hover:bg-gray-50 border-brand-border text-brand-text font-medium"
+                    >
+                        {isLoading ? (
+                            <span className="flex items-center gap-2">
+                                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                Scanning Market...
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-2">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                Refresh Intelligence
+                            </span>
+                        )}
                     </Button>
                 </div>
             </div>
 
-            {/* BRAIN DEBUGGER: Visualization of RAG Memory */}
-            {ragEvents.length > 0 && (
-                <div className="bg-blue-50/20 p-4 rounded-xl border border-blue-100/50 mb-6">
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Active Context</span>
-                        <div className="h-px bg-blue-100 flex-1"></div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {ragEvents.map((event, i) => (
-                            <div key={i} className="bg-white p-3 rounded-lg border border-blue-100 text-xs text-brand-textSecondary shadow-sm">
-                                <div className="flex justify-between mb-1">
-                                    <span className="font-bold text-blue-700">{event.source}</span>
-                                    <span className="text-brand-muted">{(event.similarity * 100).toFixed(0)}% Match</span>
-                                </div>
-                                <p className="line-clamp-1">{event.content}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Task Agenda */}
-            <div>
-                {/* HEADER */}
-                <div className="flex items-center justify-between mb-6 px-1">
-                    <div>
-                        <h3 className="text-xs font-bold text-brand-muted uppercase tracking-widest flex items-center gap-2 font-display">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            Live Strategy Monitoring
-                        </h3>
-                        <span className="text-xs text-brand-textSecondary mt-1 block">{tasks.length} Actionable Items</span>
-                    </div>
+            {/* DATA GRID */}
+            <div className="bg-white border border-brand-border rounded-lg shadow-sm overflow-hidden">
+                {/* Header Row */}
+                <div className="grid grid-cols-12 gap-4 border-b border-brand-border bg-gray-50/50 px-4 py-3 text-[10px] uppercase tracking-widest font-bold text-brand-muted">
+                    <div className="col-span-1">Priority</div>
+                    <div className="col-span-1">Type</div>
+                    <div className="col-span-5">Task Details</div>
+                    <div className="col-span-3">AI Reasoning & Context</div>
+                    <div className="col-span-2 text-right">Actions</div>
                 </div>
 
-                <div className="space-y-4">
-                    {isLoading && tasks.length === 0 && (
-                        <div className="p-12 text-center text-brand-muted bg-brand-surfaceHighlight rounded-2xl border border-dashed border-brand-border">
-                            <div className="w-10 h-10 border-4 border-brand-accent border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                            <p className="text-sm font-medium">Analyzing market data...</p>
-                        </div>
-                    )}
+                {/* Loading State */}
+                {isLoading && tasks.length === 0 && (
+                    <div className="p-12 flex flex-col items-center justify-center text-brand-muted">
+                        <div className="w-8 h-8 border-2 border-brand-border border-t-brand-accent rounded-full animate-spin mb-4"></div>
+                        <span className="text-xs font-mono">Running Inference...</span>
+                    </div>
+                )}
 
-                    {!isLoading && tasks.length === 0 && (
-                        <div className="p-12 text-center text-brand-muted bg-brand-surface rounded-2xl border border-brand-border shadow-premium">
-                            <p className="text-lg text-brand-text mb-2 font-bold font-display">All Caught Up</p>
-                            <p className="text-sm text-brand-textSecondary">No critical gaps or trends detected requiring immediate action.</p>
-                            <Button onClick={performAudit} className="mt-6" variant="secondary">Run Deep Scan</Button>
-                        </div>
-                    )}
+                {/* Empty State */}
+                {!isLoading && tasks.length === 0 && (
+                    <div className="p-12 text-center">
+                        <p className="text-sm font-bold text-brand-text mb-1">No Pending Actions</p>
+                        <p className="text-xs text-brand-textSecondary">System is monitoring for new signals.</p>
+                    </div>
+                )}
 
+                {/* Rows */}
+                <div className="divide-y divide-brand-border/50">
                     {tasks.map((task, idx) => (
-                        <div key={task.id} className="bg-brand-surface group rounded-2xl border border-brand-border p-6 flex flex-col md:flex-row gap-6 shadow-premium hover:shadow-premium-hover hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden">
+                        <div key={task.id} className="grid grid-cols-12 gap-4 px-4 py-3 hover:bg-brand-surfaceHighlight transition-colors items-start group">
 
-                            {/* Dismiss Button (Hover only) */}
-                            <button
-                                onClick={() => handleDismiss(task.id)}
-                                className="absolute top-4 right-4 text-brand-muted hover:text-brand-error opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                title="Disapprove/Dismiss"
-                            >
-                                ✕
-                            </button>
-
-                            {/* Priority Column */}
-                            <div className="w-full md:w-16 shrink-0 flex flex-col items-center justify-center border-r border-brand-border pr-6">
-                                <span className="text-4xl font-display font-bold text-brand-border group-hover:text-brand-text transition-colors duration-300">0{idx + 1}</span>
+                            {/* Priority */}
+                            <div className="col-span-1 flex items-center gap-2 pt-1">
+                                <div className={`w-2 h-2 rounded-full ${task.impactScore >= 8 ? 'bg-red-500 shadow-sm shadow-red-200' : 'bg-blue-400'}`}></div>
+                                <span className={`text-xs font-mono font-bold ${task.impactScore >= 8 ? 'text-brand-text' : 'text-brand-muted'}`}>
+                                    {task.impactScore >= 8 ? 'HIGH' : 'NORM'}
+                                </span>
                             </div>
 
-                            {/* Content Column */}
-                            <div className="flex-1 pt-1">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${task.type === 'REPLY' ? 'bg-pink-50 text-pink-700 border-pink-100' :
-                                        task.type === 'REACTION' ? 'bg-orange-50 text-orange-700 border-orange-100' :
-                                            task.type === 'EVERGREEN' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                'bg-indigo-50 text-indigo-700 border-indigo-100'
-                                        }`}>
-                                        {task.type}
-                                    </span>
-                                    {task.impactScore >= 8 && <span className="text-[10px] font-bold text-brand-accent flex items-center gap-1">★ High Priority</span>}
-                                </div>
-                                <h3 className="text-lg font-bold text-brand-text mb-2 font-display">{task.title}</h3>
-                                <p className="text-sm text-brand-textSecondary mb-4 leading-relaxed">{task.description}</p>
-
-                                <div className="flex gap-3 text-xs bg-brand-surfaceHighlight p-3 rounded-xl border border-brand-border items-start mt-2">
-                                    <div className="mt-0.5 opacity-70" title="Trigger Source">
-                                        {task.type === 'TREND_JACK' ? '📉' :
-                                            task.type === 'REPLY' ? '💬' :
-                                                task.type === 'GAP_FILL' ? '🗓️' : '🧠'}
-                                    </div>
-                                    <div>
-                                        <span className="font-bold text-brand-text block mb-0.5 text-[10px] uppercase tracking-wide">
-                                            Triggered by {task.type === 'TREND_JACK' ? 'Market News' :
-                                                task.type === 'REPLY' ? 'Community' :
-                                                    task.type === 'GAP_FILL' ? 'Schedule Gap' : 'Growth Data'}
-                                        </span>
-                                        <span className="text-brand-muted leading-snug">{task.reasoning}</span>
-                                    </div>
-                                </div>
+                            {/* Type */}
+                            <div className="col-span-1 pt-0.5">
+                                {getTypeBadge(task.type)}
                             </div>
 
-                            {/* Action Column */}
-                            <div className="w-full md:w-40 shrink-0 flex items-center justify-center pl-4 border-l border-brand-border">
+                            {/* Task Details */}
+                            <div className="col-span-5 pr-4">
+                                <p className="text-sm font-bold text-brand-text leading-tight mb-1 group-hover:text-brand-accent transition-colors">
+                                    {task.title}
+                                </p>
+                                <p className="text-xs text-brand-textSecondary leading-relaxed line-clamp-2">
+                                    {task.description}
+                                </p>
+                            </div>
+
+                            {/* Reasoning */}
+                            <div className="col-span-3 border-l border-brand-border/30 pl-4 h-full">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="text-[10px] text-brand-muted uppercase font-bold">Signal</span>
+                                    <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 rounded">{((task.impactScore / 10) * 100).toFixed(0)}% Conf.</span>
+                                </div>
+                                <p className="text-xs text-brand-textSecondary/80 leading-snug font-medium">
+                                    {task.reasoning}
+                                </p>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="col-span-2 flex items-center justify-end gap-2 pt-0.5">
+                                <button
+                                    onClick={() => handleDismiss(task.id)}
+                                    className="p-1.5 text-brand-muted hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Dismiss"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
                                 <Button
                                     onClick={() => handleExecuteTask(task)}
                                     disabled={isExecuting !== null}
                                     isLoading={isExecuting === task.id}
-                                    className="w-full text-xs h-10 shadow-md font-bold"
+                                    className="h-8 text-xs px-3 shadow-none border border-brand-accent bg-brand-accent hover:bg-brand-accent/90"
                                 >
-                                    {isExecuting === task.id ? 'Drafting...' : 'Approve Draft'}
+                                    {isExecuting === task.id ? 'Running...' : 'Approve'}
                                 </Button>
                             </div>
+
                         </div>
                     ))}
                 </div>
             </div>
+
+            {/* Pagination / Context Footer if needed */}
+            {ragEvents.length > 0 && (
+                <div className="mt-4 flex items-center gap-2 text-[10px] text-brand-muted bg-gray-50 border border-brand-border rounded px-3 py-2">
+                    <span className="font-bold">Context Sources:</span>
+                    {ragEvents.map((e, i) => (
+                        <span key={i} className="bg-white border border-gray-200 px-1.5 rounded">{e.source}</span>
+                    ))}
+                </div>
+            )}
+
         </div>
     );
 };
