@@ -257,7 +257,7 @@ export const saveCalendarEvents = (brandName: string, events: CalendarEvent[]): 
         const key = `${CALENDAR_STORAGE_KEY}_${brandName.toLowerCase()}`;
         localStorage.setItem(key, JSON.stringify(events));
         setLocalTimestamp(key, Date.now());
-        dispatchStorageEvent(STORAGE_EVENTS.CALENDAR_UPDATE, { brandName }); // Local update trigger
+        // dispatchStorageEvent(STORAGE_EVENTS.CALENDAR_UPDATE, { brandName }); // Local update trigger - REMOVED TO PREVENT INFINITE LOOP WITH APP.TSX LISTENER
         saveToCloud(key, events);
     } catch (e) {
         console.error("Failed to save calendar events", e);
