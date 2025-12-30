@@ -28,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
                 { id: 'brain', label: 'Propulsion Brain', icon: 'brain' },
                 { id: 'analytics', label: 'Analytics', icon: 'bar-chart' },
-                { id: 'growth', label: 'Performance', icon: 'trending-up' },
+                { id: 'growth', label: 'Action Center', icon: 'trending-up' },
             ]
         },
         {

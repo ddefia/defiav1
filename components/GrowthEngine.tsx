@@ -291,8 +291,8 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             {/* HEADER (Matches Dashboard.tsx Style) */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
                 <div>
-                    <h1 className="text-2xl font-display font-bold text-brand-text tracking-tight mb-1">Growth & Strategy Hub</h1>
-                    <p className="text-sm text-brand-textSecondary">Unified command center for analysis and AI strategic planning.</p>
+                    <h1 className="text-2xl font-display font-bold text-brand-text tracking-tight mb-1">Action Center</h1>
+                    <p className="text-sm text-brand-textSecondary">Review and approve high-priority strategic actions.</p>
                 </div>
                 <div className="flex gap-3 mt-4 md:mt-0">
                     {/* Status Indicators */}
@@ -307,43 +307,31 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                 </div>
             </div>
 
-            {/* STATS ROW */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                    label="Growth Index"
-                    value={lunarMetrics ? (lunarMetrics.social_score || growthScore) : growthScore}
-                    subtext={lunarMetrics ? "LunarCrush Social Score" : "Composite Score (0-10)"}
-                    trend={Math.abs(socialMetrics?.comparison.engagementChange || 0) / 10}
-                    trendDirection={(socialMetrics?.comparison.engagementChange || 0) >= 0 ? 'up' : 'down'}
-                    isLoading={isSocialLoading}
-                />
-                <StatCard
-                    label={chainMetrics ? "Active Addresses" : "Total Audience"}
-                    value={(activeAudience > 1000 ? (activeAudience / 1000).toFixed(1) + 'K' : activeAudience)}
-                    subtext={chainMetrics ? "7d Unique Wallets" : "Followers"}
-                    trend={Math.abs(followerChange)}
-                    trendDirection={followerChange >= 0 ? 'up' : 'down'}
-                    isLoading={isSocialLoading}
-                />
-                <StatCard
-                    label={chainMetrics ? "Retention" : "Engagement"}
-                    value={retentionRate}
-                    subtext={chainMetrics ? ">2 Tx / Month" : "Interactions / View"}
-                    trend="2.1%"
-                    trendDirection="up"
-                    isLoading={isSocialLoading}
-                />
-                <StatCard
-                    label="Active Campaigns"
-                    value={campaigns.length}
-                    subtext="Tracking Attribution"
-                    isLoading={isSocialLoading}
-                />
-            </div>
+            {/* SECTION 1: STRATEGIC PLANNING (GAIA) - MOVED TO TOP */}
+            {brandConfig && calendarEvents && (
+                <div className="animate-fadeIn w-full">
+                    <StrategyBrain
+                        brandName={brandName}
+                        brandConfig={brandConfig}
+                        events={calendarEvents}
+                        growthReport={growthReport}
+                        onSchedule={(content, image) => onSchedule?.(content, image)}
+                        tasks={tasks}
+                        onUpdateTasks={onUpdateTasks}
+                    />
+                </div>
+            )}
+
+            <div className="h-px bg-brand-border w-full my-8"></div>
 
             {/* SECTIONS: ANALYTICS + STRATEGY STACKED */}
-            <div className="space-y-16 w-full">
-                {/* SECTION 1: PERFORMANCE ANALYTICS */}
+            <div className="space-y-16 w-full opacity-60 hover:opacity-100 transition-opacity duration-500">
+                <div className="flex items-center gap-2 mb-[-40px]">
+                    <h3 className="text-sm font-bold text-brand-muted uppercase tracking-wider">Supporting Performance Data</h3>
+                    <div className="h-px bg-brand-border flex-1"></div>
+                </div>
+
+                {/* VISUAL ANALYTICS */}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 w-full">
                     {/* ERROR BANNER */}
                     {socialMetrics?.error === "BACKEND_OFFLINE" && (
@@ -475,29 +463,42 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                     </div>
                 </div>
 
-                {/* SECTION 2: STRATEGIC PLANNING (GAIA) */}
-                {brandConfig && calendarEvents && (
-                    <div className="animate-fadeIn w-full border-t border-brand-border pt-12 mt-12">
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="w-10 h-10 rounded-xl bg-brand-text text-brand-surface flex items-center justify-center shadow-lg shadow-gray-200">
-                                <span className="text-xl">⚡</span>
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-display font-bold text-brand-text tracking-tight">AI Strategy Brain</h3>
-                                <p className="text-xs text-brand-textSecondary font-medium">Auto-generated tasks based on live data</p>
-                            </div>
-                        </div>
-                        <StrategyBrain
-                            brandName={brandName}
-                            brandConfig={brandConfig}
-                            events={calendarEvents}
-                            growthReport={growthReport}
-                            onSchedule={(content, image) => onSchedule?.(content, image)}
-                            tasks={tasks}
-                            onUpdateTasks={onUpdateTasks}
-                        />
-                    </div>
-                )}
+                {/* SECTION 2: ANALYTICS (FORMERLY SECTION 1) */}
+
+                {/* STATS ROW */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full mb-8">
+                    <StatCard
+                        label="Growth Index"
+                        value={lunarMetrics ? (lunarMetrics.social_score || growthScore) : growthScore}
+                        subtext={lunarMetrics ? "LunarCrush Social Score" : "Composite Score (0-10)"}
+                        trend={Math.abs(socialMetrics?.comparison.engagementChange || 0) / 10}
+                        trendDirection={(socialMetrics?.comparison.engagementChange || 0) >= 0 ? 'up' : 'down'}
+                        isLoading={isSocialLoading}
+                    />
+                    <StatCard
+                        label={chainMetrics ? "Active Addresses" : "Total Audience"}
+                        value={(activeAudience > 1000 ? (activeAudience / 1000).toFixed(1) + 'K' : activeAudience)}
+                        subtext={chainMetrics ? "7d Unique Wallets" : "Followers"}
+                        trend={Math.abs(followerChange)}
+                        trendDirection={followerChange >= 0 ? 'up' : 'down'}
+                        isLoading={isSocialLoading}
+                    />
+                    <StatCard
+                        label={chainMetrics ? "Retention" : "Engagement"}
+                        value={retentionRate}
+                        subtext={chainMetrics ? ">2 Tx / Month" : "Interactions / View"}
+                        trend="2.1%"
+                        trendDirection="up"
+                        isLoading={isSocialLoading}
+                    />
+                    <StatCard
+                        label="Active Campaigns"
+                        value={campaigns.length}
+                        subtext="Tracking Attribution"
+                        isLoading={isSocialLoading}
+                    />
+                </div>
+
             </div>
 
             {/* SETUP MODAL */}
