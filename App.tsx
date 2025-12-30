@@ -28,9 +28,9 @@ const App: React.FC = () => {
     const [appSection, setAppSection] = useState<string>('dashboard'); // Default to dashboard
 
     // App State - Profiles
-    const [profiles, setProfiles] = useState<Record<string, BrandConfig>>(loadBrandProfiles());
+    const [profiles, setProfiles] = useState<Record<string, BrandConfig>>(() => loadBrandProfiles());
     // Safely initialize selectedBrand to the first available profile, or empty string if none exist.
-    const [selectedBrand, setSelectedBrand] = useState<string>(Object.keys(loadBrandProfiles())[0] || '');
+    const [selectedBrand, setSelectedBrand] = useState<string>(() => Object.keys(loadBrandProfiles())[0] || '');
     const [activeTab, setActiveTab] = useState<'brand' | 'writer' | 'generate' | 'calendar'>('calendar');
 
     // Onboarding / Connect State
