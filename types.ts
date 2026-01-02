@@ -21,6 +21,11 @@ export interface BrandConfig {
   referenceImages: ReferenceImage[];
   tweetExamples: string[]; // List of "Gold Standard" tweets for style
   knowledgeBase: string[]; // List of text content (docs/whitepapers)
+  graphicTemplates?: {
+    id: string;
+    label: string;
+    prompt: string;
+  }[];
 }
 
 export interface GenerateImageParams {

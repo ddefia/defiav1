@@ -34,6 +34,17 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
     const [suggestedIdeas, setSuggestedIdeas] = useState<string[]>([]);
 
+    // Combine default templates with brand custom templates
+    const availableTemplates = React.useMemo(() => {
+        const custom = (brandConfig.graphicTemplates || []).map(t => ({
+            id: t.label, // Use label as ID for simplicity in selection
+            label: t.label,
+            isCustom: true,
+            prompt: t.prompt
+        }));
+        return [...TEMPLATE_OPTIONS, ...custom];
+    }, [brandConfig.graphicTemplates]);
+
     // Generator State
     const [tweetText, setTweetText] = useState('');
     const [visualPrompt, setVisualPrompt] = useState('');
@@ -222,7 +233,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                             <div>
                                 <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">2. Template & Style</label>
                                 <div className="grid grid-cols-2 gap-2 mb-3">
-                                    {TEMPLATE_OPTIONS.map(opt => (
+                                    {availableTemplates.map(opt => (
                                         <button
                                             key={opt.id}
                                             onClick={() => setSelectedTemplate(selectedTemplate === opt.id ? '' : opt.id)}

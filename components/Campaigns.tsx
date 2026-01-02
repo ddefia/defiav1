@@ -33,6 +33,10 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [campaignPlatforms, setCampaignPlatforms] = useState<string[]>(['Twitter']); // NEW
     const [campaignStrategy, setCampaignStrategy] = useState<CampaignStrategy | null>(null); // NEW
 
+    // Graphic Settings
+    const [campaignTemplate, setCampaignTemplate] = useState<string>('');
+    const [campaignReferenceImage, setCampaignReferenceImage] = useState<string | null>(null);
+
     const [campaignColor, setCampaignColor] = useState<string>('#4F46E5'); // Default Indigo
     const [campaignCount, setCampaignCount] = useState<string>('3');
     const [campaignStartDate, setCampaignStartDate] = useState<string>('');
@@ -53,7 +57,11 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             if (saved.campaignTheme) setCampaignTheme(saved.campaignTheme);
             if (saved.campaignGoal) setCampaignGoal(saved.campaignGoal);
             if (saved.campaignPlatforms) setCampaignPlatforms(saved.campaignPlatforms);
+            if (saved.campaignGoal) setCampaignGoal(saved.campaignGoal);
+            if (saved.campaignPlatforms) setCampaignPlatforms(saved.campaignPlatforms);
             if (saved.campaignStrategy) setCampaignStrategy(saved.campaignStrategy);
+            if (saved.campaignTemplate) setCampaignTemplate(saved.campaignTemplate);
+            if (saved.campaignReferenceImage) setCampaignReferenceImage(saved.campaignReferenceImage);
             if (saved.campaignItems) setCampaignItems(saved.campaignItems);
             if (saved.campaignStartDate) setCampaignStartDate(saved.campaignStartDate);
         }
@@ -69,6 +77,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             campaignGoal,
             campaignPlatforms,
             campaignStrategy,
+            campaignTemplate,
+            campaignReferenceImage,
             campaignItems,
             campaignStartDate
         };
@@ -77,7 +87,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             saveCampaignState(brandName, stateToSave);
         }, 1000);
         return () => clearTimeout(timeout);
-    }, [viewMode, campaignStep, campaignType, campaignTheme, campaignGoal, campaignPlatforms, campaignStrategy, campaignItems, campaignStartDate, brandName]);
+    }, [viewMode, campaignStep, campaignType, campaignTheme, campaignGoal, campaignPlatforms, campaignStrategy, campaignTemplate, campaignReferenceImage, campaignItems, campaignStartDate, brandName]);
 
     // --- Helpers ---
 
@@ -243,8 +253,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'generating' } : p));
             try {
                 const promises = [
-                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName }),
-                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName })
+                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined }),
+                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined })
                 ];
                 const images = await Promise.all(promises);
                 setCampaignItems(prev => prev.map(p => p.id === item.id ? {
@@ -276,8 +286,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
         try {
             const promises = [
-                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName }),
-                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName })
+                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined }),
+                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined })
             ];
             const images = await Promise.all(promises);
             setCampaignItems(prev => prev.map(p => p.id === id ? { ...p, status: 'completed', images: images, selectedImageIndex: 0 } : p));
@@ -515,6 +525,57 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 </div>
 
                                 <Select label="Tweet Count" value={campaignCount} onChange={e => setCampaignCount(e.target.value)} options={[{ value: '3', label: '3 Tweets' }, { value: '5', label: '5 Tweets' }, { value: '7', label: '7 Tweets' }]} />
+                                <div className="space-y-4 pt-4 border-t border-brand-border">
+                                    {/* Visual Style Selection */}
+                                    <div>
+                                        <label className="text-xs font-bold text-brand-muted uppercase mb-2 block">Visual Style (Optional)</label>
+                                        <select
+                                            value={campaignTemplate}
+                                            onChange={(e) => setCampaignTemplate(e.target.value)}
+                                            className="w-full bg-white border border-brand-border rounded-lg p-2 text-xs text-brand-text outline-none"
+                                        >
+                                            <option value="">No Template (Default)</option>
+                                            <option value="Partnership">Partnership</option>
+                                            <option value="Campaign">Campaign Launch</option>
+                                            <option value="Giveaway">Giveaway</option>
+                                            <option value="Events">Event</option>
+                                            <option value="Speaker Scenes">Speaker Quote</option>
+                                            {/* Custom Templates */}
+                                            {(brandConfig.graphicTemplates || []).map(t => (
+                                                <option key={t.id} value={t.label}>{t.label} (Custom)</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Reference Image Selection */}
+                                    <div>
+                                        <label className="text-xs font-bold text-brand-muted uppercase mb-2 block">Reference Image (Optional)</label>
+                                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                            <div
+                                                onClick={() => setCampaignReferenceImage(null)}
+                                                className={`flex-shrink-0 w-16 h-16 rounded border-2 cursor-pointer flex items-center justify-center bg-gray-50 ${!campaignReferenceImage ? 'border-brand-accent' : 'border-transparent'}`}
+                                            >
+                                                <span className="text-[10px] text-gray-400">None</span>
+                                            </div>
+                                            {brandConfig.referenceImages.map(img => (
+                                                <div
+                                                    key={img.id}
+                                                    onClick={() => setCampaignReferenceImage(campaignReferenceImage === img.id ? null : img.id)}
+                                                    className={`flex-shrink-0 w-16 h-16 rounded border-2 cursor-pointer overflow-hidden relative group ${campaignReferenceImage === img.id ? 'border-brand-accent' : 'border-transparent'}`}
+                                                    title={img.name}
+                                                >
+                                                    <img src={img.data || img.url} className="w-full h-full object-cover" />
+                                                    {campaignReferenceImage === img.id && (
+                                                        <div className="absolute inset-0 bg-brand-accent/20 flex items-center justify-center">
+                                                            <div className="w-2 h-2 bg-brand-accent rounded-full shadow-sm" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <Button onClick={handleGenerateStrategy} isLoading={isGeneratingStrategy} disabled={campaignType === 'theme' && !campaignTheme} className="w-full shadow-lg shadow-indigo-500/20">
                                     Next: Generate Strategy
                                 </Button>

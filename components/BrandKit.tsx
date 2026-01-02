@@ -22,6 +22,11 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
   const [isAddingKB, setIsAddingKB] = useState(false);
   const [isUploadingKB, setIsUploadingKB] = useState(false);
 
+  // Template State
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplatePrompt, setNewTemplatePrompt] = useState('');
+  const [isAddingTemplate, setIsAddingTemplate] = useState(false);
+
   // Example State
   const [newExample, setNewExample] = useState('');
   const [isAddingExample, setIsAddingExample] = useState(false);
@@ -76,6 +81,30 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
     const newKB = [...(config.knowledgeBase || [])];
     newKB.splice(idx, 1);
     onChange({ ...config, knowledgeBase: newKB });
+  };
+
+  // --- Templates ---
+  const addTemplate = () => {
+    if (!newTemplateName.trim() || !newTemplatePrompt.trim()) return;
+    const newTmpl = {
+      id: `tmpl-${Date.now()}`,
+      label: newTemplateName,
+      prompt: newTemplatePrompt
+    };
+    onChange({
+      ...config,
+      graphicTemplates: [...(config.graphicTemplates || []), newTmpl]
+    });
+    setNewTemplateName('');
+    setNewTemplatePrompt('');
+    setIsAddingTemplate(false);
+  };
+
+  const removeTemplate = (id: string) => {
+    onChange({
+      ...config,
+      graphicTemplates: (config.graphicTemplates || []).filter(t => t.id !== id)
+    });
   };
 
   const handleKBUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -330,7 +359,51 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
 
       <div className="border-t border-brand-border"></div>
 
-      {/* 3. COLORS */}
+      {/* 3. GRAPHIC TEMPLATES */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Custom Graphic Templates</h3>
+          <button onClick={() => setIsAddingTemplate(!isAddingTemplate)} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
+            {isAddingTemplate ? 'Cancel' : '+ Add Template'}
+          </button>
+        </div>
+        {isAddingTemplate && (
+          <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-brand-border space-y-2">
+            <input
+              type="text"
+              value={newTemplateName}
+              onChange={e => setNewTemplateName(e.target.value)}
+              placeholder="Template Name (e.g. My Newsletter)"
+              className="w-full bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
+            />
+            <textarea
+              value={newTemplatePrompt}
+              onChange={e => setNewTemplatePrompt(e.target.value)}
+              placeholder="AI Instruction: Describe the layout, composition, and style..."
+              className="w-full h-20 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
+            />
+            <Button onClick={addTemplate} className="text-xs h-8 py-0 px-4" disabled={!newTemplateName || !newTemplatePrompt}>Save Template</Button>
+          </div>
+        )}
+        <div className="space-y-2">
+          {(config.graphicTemplates || []).map((tmpl) => (
+            <div key={tmpl.id} className="bg-white border border-brand-border rounded-lg p-3 flex justify-between items-start group shadow-sm">
+              <div>
+                <div className="text-xs font-bold text-brand-text mb-1">{tmpl.label}</div>
+                <p className="text-[10px] text-brand-muted line-clamp-2">{tmpl.prompt}</p>
+              </div>
+              <button onClick={() => removeTemplate(tmpl.id)} className="ml-2 text-[10px] text-red-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
+            </div>
+          ))}
+          {(!config.graphicTemplates || config.graphicTemplates.length === 0) && !isAddingTemplate && (
+            <div className="text-xs text-brand-muted italic">No custom templates. Add one to define reusable styles.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-brand-border"></div>
+
+      {/* 4. COLORS */}
       <div>
         <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider mb-4">Brand Colors</h3>
         <div className="grid grid-cols-1 gap-2 mb-4">
@@ -355,7 +428,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
 
       <div className="border-t border-brand-border"></div>
 
-      {/* 4. IMAGES */}
+      {/* 5. IMAGES */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Reference Images</h3>
