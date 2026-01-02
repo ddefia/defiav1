@@ -218,7 +218,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-3 gap-3">
+                                <Select label="Quantity" value={variationCount} onChange={e => setVariationCount(e.target.value)} options={[{ value: '1', label: '1 Image' }, { value: '2', label: '2 Images' }, { value: '3', label: '3 Images' }, { value: '4', label: '4 Images' }]} />
                                 <Select label="Format" value={aspectRatio} onChange={e => setAspectRatio(e.target.value as any)} options={[{ value: '16:9', label: 'Landscape (16:9)' }, { value: '1:1', label: 'Square (1:1)' }, { value: '4:5', label: 'Portrait (4:5)' }]} />
                                 <Select label="Quality" value={size} onChange={e => setSize(e.target.value as any)} options={[{ value: '1K', label: 'Standard (1K)' }, { value: '2K', label: 'High (2K)' }]} />
                             </div>
