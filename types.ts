@@ -25,7 +25,7 @@ export interface BrandConfig {
     id: string;
     label: string;
     prompt: string;
-    referenceImageId?: string;
+    referenceImageIds?: string[]; // New: Link multiple reference images
   }[];
 }
 

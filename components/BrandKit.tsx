@@ -25,7 +25,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
   // Template State
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplatePrompt, setNewTemplatePrompt] = useState('');
-  const [newTemplateImageId, setNewTemplateImageId] = useState<string>(''); // New
+  const [newTemplateImageIds, setNewTemplateImageIds] = useState<string[]>([]); // Changed to Array
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
 
@@ -95,7 +95,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         ...config,
         graphicTemplates: (config.graphicTemplates || []).map(t =>
           t.id === editingTemplateId
-            ? { ...t, label: newTemplateName, prompt: newTemplatePrompt, referenceImageId: newTemplateImageId }
+            ? { ...t, label: newTemplateName, prompt: newTemplatePrompt, referenceImageIds: newTemplateImageIds }
             : t
         )
       });
@@ -106,7 +106,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         id: `tmpl-${Date.now()}`,
         label: newTemplateName,
         prompt: newTemplatePrompt,
-        referenceImageId: newTemplateImageId
+        referenceImageIds: newTemplateImageIds
       };
       onChange({
         ...config,
@@ -116,14 +116,14 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
 
     setNewTemplateName('');
     setNewTemplatePrompt('');
-    setNewTemplateImageId('');
+    setNewTemplateImageIds([]);
     setIsAddingTemplate(false);
   };
 
-  const startEditingTemplate = (t: { id: string, label: string, prompt: string, referenceImageId?: string }) => {
+  const startEditingTemplate = (t: { id: string, label: string, prompt: string, referenceImageIds?: string[] }) => {
     setNewTemplateName(t.label);
     setNewTemplatePrompt(t.prompt);
-    setNewTemplateImageId(t.referenceImageId || '');
+    setNewTemplateImageIds(t.referenceImageIds || []);
     setEditingTemplateId(t.id);
     setIsAddingTemplate(true);
   };
@@ -403,7 +403,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
               setEditingTemplateId(null);
               setNewTemplateName('');
               setNewTemplatePrompt('');
-              setNewTemplateImageId('');
+              setNewTemplateImageIds([]);
             }
           }} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
             {isAddingTemplate ? 'Cancel' : '+ Add Template'}
@@ -425,19 +425,30 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
               className="w-full h-20 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
             />
 
-            {/* Image Link Selector */}
+            {/* Image Link Selector (Multi-Select) */}
             <div>
-              <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">Link Reference Image (Style Anchor)</label>
-              <select
-                value={newTemplateImageId}
-                onChange={e => setNewTemplateImageId(e.target.value)}
-                className="w-full bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
-              >
-                <option value="">-- No Linked Image --</option>
+              <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">Link Reference Images (Style Anchors)</label>
+              <div className="bg-white border border-brand-border rounded p-2 max-h-32 overflow-y-auto space-y-1">
+                {config.referenceImages.length === 0 && <span className="text-xs text-brand-muted italic">No images uploaded.</span>}
                 {config.referenceImages.map(img => (
-                  <option key={img.id} value={img.id}>{img.name}</option>
+                  <label key={img.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={newTemplateImageIds.includes(img.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setNewTemplateImageIds(prev => [...prev, img.id]);
+                        } else {
+                          setNewTemplateImageIds(prev => prev.filter(id => id !== img.id));
+                        }
+                      }}
+                      className="rounded border-brand-border text-brand-accent focus:ring-brand-accent h-3 w-3"
+                    />
+                    <span className="text-xs text-brand-text truncate">{img.name}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
+              <p className="text-[10px] text-brand-muted mt-1">Select one or more images to anchor the style.</p>
             </div>
 
             <Button onClick={addTemplate} className="text-xs h-8 py-0 px-4" disabled={!newTemplateName || !newTemplatePrompt}>

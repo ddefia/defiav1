@@ -219,19 +219,21 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     try {
         if (params.brandConfig && params.brandConfig.referenceImages) {
             // FILTER: If a specific image is selected, use ONLY that one. 
-            // OR if the template has a linked image and no override is selected.
-            let targetImageId = params.selectedReferenceImage;
+            // OR if the template has linked images and no override is selected.
+            let targetImageIds: string[] = [];
 
-            if (!targetImageId && params.templateType && params.brandConfig.graphicTemplates) {
+            if (params.selectedReferenceImage) {
+                targetImageIds = [params.selectedReferenceImage];
+            } else if (params.templateType && params.brandConfig.graphicTemplates) {
                 const tmpl = params.brandConfig.graphicTemplates.find(t => t.id === params.templateType || t.label === params.templateType);
-                if (tmpl && tmpl.referenceImageId) {
-                    targetImageId = tmpl.referenceImageId;
-                    console.log(`Using linked reference image from template [${tmpl.label}]: ${targetImageId}`);
+                if (tmpl && tmpl.referenceImageIds && tmpl.referenceImageIds.length > 0) {
+                    targetImageIds = tmpl.referenceImageIds;
+                    console.log(`Using linked reference images from template [${tmpl.label}]: ${targetImageIds.length} images`);
                 }
             }
 
-            const sourceImages = targetImageId
-                ? params.brandConfig.referenceImages.filter(img => img.id === targetImageId)
+            const sourceImages = targetImageIds.length > 0
+                ? params.brandConfig.referenceImages.filter(img => targetImageIds.includes(img.id))
                 : params.brandConfig.referenceImages;
 
             const imageParts = await Promise.all(sourceImages.map(async (img) => {
