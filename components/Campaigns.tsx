@@ -4,6 +4,8 @@ import { Select } from './Select';
 import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy } from '../services/gemini';
 import { saveCalendarEvents, saveCampaignState, loadCampaignState } from '../services/storage';
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface CampaignsProps {
     brandName: string;
@@ -399,6 +401,144 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
     const handlePrepareTweet = (text: string) => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
 
+    // --- EXPORT FUNCTIONS ---
+
+    const handleExportCSV = (campaignName: string) => {
+        // Filter events for this campaign
+        const campaignEvents = events.filter(e => e.campaignName === campaignName).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        if (campaignEvents.length === 0) {
+            alert('No scheduled events found for this campaign.');
+            return;
+        }
+
+        // CSV Header
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Date,Platform,Status,Content,Image URL\r\n";
+
+        // CSV Rows
+        campaignEvents.forEach(evt => {
+            const cleanContent = evt.content.replace(/"/g, '""'); // Escape quotes
+            const row = `${evt.date},${evt.platform},${evt.status},"${cleanContent}",${evt.image || ''}`;
+            csvContent += row + "\r\n";
+        });
+
+        // Download Trigger
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${brandName}_Campaign_${campaignName.replace(/\s+/g, '_')}_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportPDF = async (campaignName: string) => {
+        // Filter events
+        const campaignEvents = events.filter(e => e.campaignName === campaignName).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        if (campaignEvents.length === 0) {
+            alert('No scheduled events found for this campaign.');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // TITLE
+        doc.setFontSize(22);
+        doc.setTextColor(40, 40, 40);
+        doc.text(`${brandName}: ${campaignName}`, 14, 20);
+
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Campaign Report generated on ${new Date().toLocaleDateString()}`, 14, 28);
+        doc.text(`Total Posts: ${campaignEvents.length}`, 14, 34);
+
+        // PREPARE TABLE DATA
+        const tableBody: any[] = [];
+
+        for (const evt of campaignEvents) {
+            const rowData = [
+                evt.date,
+                evt.content,
+                evt.status.toUpperCase()
+            ];
+            tableBody.push(rowData);
+        }
+
+        // GENERATE TABLE WITH IMAGES
+        // Note: autotable doesn't support complex customization easily for images in cells without hooks.
+        // We will use a simplified approach: Text Table first, then appended images or just text if images fail.
+
+        // @ts-ignore
+        autoTable(doc, {
+            startY: 45,
+            head: [['Date', 'Copy', 'Status']],
+            body: tableBody,
+            columnStyles: {
+                0: { cellWidth: 25 },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 25 }
+            },
+            styles: { overflow: 'linebreak', fontSize: 10 },
+            didDrawCell: (data) => {
+                // Hook to potentially draw images (advanced)
+                // For simplicity/reliability in this version, we will list images below the table or separate page 
+                // if the user requests "visual" PDF. For now, text focused.
+            }
+        });
+
+        // ADD VISUAL BOARD (New Page)
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text("Visual Assets", 14, 20);
+
+        let yPos = 30;
+        const margin = 14;
+        const imgWidth = 80;
+        const imgHeight = 45; // 16:9 approx
+
+        // Loop to add images
+        let xPos = margin;
+
+        for (const evt of campaignEvents) {
+            if (evt.image) {
+                try {
+                    // Check if image is Base64 or URL. If URL, might need fetch if not CORS friendly.
+                    // Assuming stored images are often Base64 in this app (from previous context).
+
+                    // If it's a huge base64, might crash. 
+                    // Simple layout: 2 cols
+
+                    if (yPos + imgHeight > 280) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+
+                    doc.addImage(evt.image, 'PNG', xPos, yPos, imgWidth, imgHeight);
+
+                    // Add caption (date)
+                    doc.setFontSize(8);
+                    doc.text(evt.date, xPos, yPos + imgHeight + 5);
+
+                    // Move Cursor
+                    if (xPos === margin) {
+                        xPos = margin + imgWidth + 10;
+                    } else {
+                        xPos = margin;
+                        yPos += imgHeight + 15;
+                    }
+
+                } catch (e) {
+                    console.warn("Failed to add image to PDF", e);
+                }
+            }
+        }
+
+        doc.save(`${brandName}_Campaign_${campaignName.replace(/\s+/g, '_')}.pdf`);
+    };
+
 
     // --- RENDER ---
     const activeCampaigns = getActiveCampaigns();
@@ -444,7 +584,11 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     <span className="font-medium">{camp.nextDate}</span>
                                 </div>
                             </div>
-                            <Button variant="outline" className="w-full text-xs" onClick={() => setAnalyzingCampaign(camp.name)}>View Analytics</Button>
+                            <div className="flex gap-2 mt-4">
+                                <Button variant="outline" className="flex-1 text-xs" onClick={() => setAnalyzingCampaign(camp.name)}>Analytics</Button>
+                                <Button variant="secondary" className="text-xs px-2" onClick={() => handleExportCSV(camp.name)} title="Download CSV">CSV</Button>
+                                <Button variant="secondary" className="text-xs px-2" onClick={() => handleExportPDF(camp.name)} title="Download PDF">PDF</Button>
+                            </div>
                         </div>
                     ))}
                     {activeCampaigns.length === 0 && (

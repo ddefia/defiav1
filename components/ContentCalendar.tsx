@@ -2,6 +2,8 @@
 import React, { useState, useRef } from 'react';
 import { CalendarEvent } from '../types';
 import { Button } from './Button';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ContentCalendarProps {
     brandName: string;
@@ -111,6 +113,123 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
             hash = campaignName.charCodeAt(i) + ((hash << 5) - hash);
         }
         return { ...variants[Math.abs(hash) % variants.length], isExplicit: false };
+    };
+
+    // --- EXPORT FUNCTIONS ---
+
+    const handleExportAllCSV = () => {
+        if (events.length === 0) {
+            alert('No events to export.');
+            return;
+        }
+
+        const sortedEvents = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        // CSV Header
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Date,Campaign,Platform,Status,Content,Image URL\r\n";
+
+        // CSV Rows
+        sortedEvents.forEach(evt => {
+            const cleanContent = evt.content.replace(/"/g, '""'); // Escape quotes
+            const row = `${evt.date},${evt.campaignName || 'Single Post'},${evt.platform},${evt.status},"${cleanContent}",${evt.image || ''}`;
+            csvContent += row + "\r\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${brandName}_Full_Calendar_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleExportAllPDF = async () => {
+        if (events.length === 0) {
+            alert('No events to export.');
+            return;
+        }
+
+        const sortedEvents = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        const doc = new jsPDF();
+
+        // TITLE
+        doc.setFontSize(22);
+        doc.setTextColor(40, 40, 40);
+        doc.text(`${brandName}: Full Content Calendar`, 14, 20);
+
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 28);
+        doc.text(`Total Posts: ${sortedEvents.length}`, 14, 34);
+
+        // PREPARE TABLE DATA
+        const tableBody: any[] = [];
+
+        for (const evt of sortedEvents) {
+            const rowData = [
+                evt.date,
+                evt.campaignName || '-',
+                evt.content,
+                evt.status.toUpperCase()
+            ];
+            tableBody.push(rowData);
+        }
+
+        // @ts-ignore
+        autoTable(doc, {
+            startY: 45,
+            head: [['Date', 'Campaign', 'Copy', 'Status']],
+            body: tableBody,
+            columnStyles: {
+                0: { cellWidth: 25 },
+                1: { cellWidth: 30 },
+                2: { cellWidth: 'auto' },
+                3: { cellWidth: 20 }
+            },
+            styles: { overflow: 'linebreak', fontSize: 9 },
+        });
+
+        // ADD VISUAL BOARD (New Page)
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.text("Visual Assets", 14, 20);
+
+        let yPos = 30;
+        const margin = 14;
+        const imgWidth = 80;
+        const imgHeight = 45; // 16:9 approx
+        let xPos = margin;
+
+        for (const evt of sortedEvents) {
+            if (evt.image) {
+                try {
+                    if (yPos + imgHeight > 280) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+
+                    doc.addImage(evt.image, 'PNG', xPos, yPos, imgWidth, imgHeight);
+
+                    doc.setFontSize(8);
+                    doc.text(`${evt.date} (${evt.campaignName || 'Single'})`, xPos, yPos + imgHeight + 5);
+
+                    if (xPos === margin) {
+                        xPos = margin + imgWidth + 10;
+                    } else {
+                        xPos = margin;
+                        yPos += imgHeight + 15;
+                    }
+
+                } catch (e) {
+                    console.warn("Failed to add image to PDF", e);
+                }
+            }
+        }
+
+        doc.save(`${brandName}_Full_Calendar.pdf`);
     };
 
     // --- Drag & Drop Logic ---
@@ -228,6 +347,12 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                     <p className="text-sm text-brand-muted">Schedule and manage your upcoming content for <span className="font-bold">{brandName}</span></p>
                 </div>
                 <div className="flex items-center gap-4 bg-white p-2 rounded-lg border border-brand-border shadow-sm">
+                    {/* Export Buttons */}
+                    <div className="flex items-center gap-1 mr-2 border-r border-gray-200 pr-4">
+                        <button onClick={handleExportAllCSV} className="text-xs px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 text-brand-text font-medium" title="Export All to CSV">CSV</button>
+                        <button onClick={handleExportAllPDF} className="text-xs px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 text-brand-text font-medium" title="Export All to PDF">PDF</button>
+                    </div>
+
                     <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-full text-brand-muted">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                     </button>

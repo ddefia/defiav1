@@ -187,12 +187,13 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         ${templateInstruction}
         BRANDING:
         - Colors: ${colorPalette}.
-        - Style: Glassmorphism, Ethereal, Geometric, Futuristic.
+        - Style: PROFESSIONAL, HIGH-END, PREMIUM, Glassmorphism, Ethereal, Geometric.
         - Typography: Minimal.
         INSTRUCTIONS:
         - Analyze tweet sentiment.
         - ${visualOverride}
         - STRICTLY follow the visual style of the reference images provided.
+        - ALWAYS give a professional image approach.
       `;
     }
 
@@ -305,7 +306,7 @@ export const generateTweet = async (
     const systemInstruction = `
     You are the Social Media Lead for ${brandName}.
     
-    TASK: Write a single, engaging tweet (detailed and comprehensive, up to 280 chars) about: "${topic}".
+    TASK: Write a single, engaging tweet (CONCISE and MINIMAL, up to 280 chars) about: "${topic}".
     TONE: ${tone}
     
     ${examples}
@@ -317,6 +318,7 @@ export const generateTweet = async (
     - If style examples are provided, strictly follow their formatting (spacing, emojis, capitalization).
     - If Knowledge Base info is relevant to the topic, ensure accuracy.
     - STRICTLY NO HASHTAGS.
+    - CRITICAL: Minimize text as much as possible. Summarize context unless explicitly told otherwise.
     `;
 
     try {
@@ -390,12 +392,13 @@ export const generateCampaignDrafts = async (
     - First line MUST be "THEME_COLOR: [Hex Code]" (e.g. THEME_COLOR: #FF5733). Choose a color that matches the vibe of the campaign theme.
     - Then separate each tweet clearly with "---".
     - Do not number the tweets.
-    - Keep each tweet detailed (up to 280 characters).
+    - Keep each tweet CONCISE and MINIMAL (max 280 characters).
     - STRUCTURE: Start with a COMPULSORY TEMPLATE TAG in brackets, then the hook.
       Example: "[Event] Join us for the..." or "[Speaker Quote] As our CEO said..."
       Choose the best visual template from this list: ${allTemplates}. If none fit perfectly, use [Campaign Launch].
     - Mimic the style of the examples provided.
     - STRICTLY NO HASHTAGS.
+    - CRITICAL: Minimize text as much as possible. Summarize unless told not to.
     `;
 
     try {
@@ -540,6 +543,7 @@ export const generateTrendReaction = async (
         Strategy: Explicitly mention ${brandName} or its products. Connect the news ("${trend.headline}") to our specific value proposition defined in the Knowledge Base.
         Structure: Start with a HOOK. End with a CTA.
         STRICTLY NO HASHTAGS.
+        CRITICAL: Minimize text as much as possible. Summarize context.
         `;
     } else {
         outputGuidance = `
@@ -751,7 +755,7 @@ export const generateSmartReply = async (
     - Current Market Mood: ${stance} (Score: ${sentimentScore}/100)
     
     TASK:
-    Draft a short, engaging reply (under 280 chars).
+    Draft a short, engaging reply (under 280 chars). Keep it professional and minimized.
     
     GUIDELINES:
     - If the user is FUDding, be polite but correct them with facts.
