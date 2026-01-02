@@ -250,33 +250,68 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
     });
   };
 
+  const uploadToSupabase = async (file: File): Promise<string | null> => {
+    try {
+      // @ts-ignore
+      const { createClient } = await import('@supabase/supabase-js');
+      // @ts-ignore
+      const url = (import.meta as any).env.VITE_SUPABASE_URL || "https://fwvqrdxgcugullcwkfiq.supabase.co";
+      // @ts-ignore
+      const key = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || "sb_publishable_dn_SxJbbX9sIYjCiR9paTw_MRMnokPf";
+
+      const supabase = createClient(url, key);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('brand-assets')
+        .upload(filePath, file);
+
+      if (error) {
+        if (error.message.includes("bucket")) alert("Upload failed: 'brand-assets' bucket missing in Supabase. Please create it.");
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('brand-assets').getPublicUrl(filePath);
+      return publicUrl;
+    } catch (e) {
+      console.error("Upload process failed", e);
+      return null;
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const newImages: ReferenceImage[] = [];
 
-    const isSupabaseEnabled = (import.meta as any).env?.VITE_SUPABASE_URL || localStorage.getItem('defia_integrations_v1');
+    const isSupabaseEnabled = true;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
-      // SOFT CHECK: Warn if huge, but try to compress
-      if (file.size > 5 * 1024 * 1024 && !isSupabaseEnabled) {
-        if (!window.confirm(`File ${file.name} is quite large (${(file.size / 1024 / 1024).toFixed(1)}MB). Compress might take a moment. Continue?`)) continue;
+      if (file.size > 5 * 1024 * 1024) {
+        if (!window.confirm(`File ${file.name} is quite large (${(file.size / 1024 / 1024).toFixed(1)}MB). Continue?`)) continue;
       }
 
       try {
-        // Always compress for local storage efficiency
-        // If Supabase is added later, we can skip compression or upload raw
         const compressedBase64 = await compressImage(file);
+
+        let finalUrl = "";
+        try {
+          const uploadedUrl = await uploadToSupabase(file);
+          if (uploadedUrl) finalUrl = uploadedUrl;
+        } catch (err) { console.error("Upload skipped", err); }
 
         newImages.push({
           id: `${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
           name: file.name,
-          data: compressedBase64
+          data: finalUrl ? "" : compressedBase64,
+          url: finalUrl
         });
       } catch (err) {
-        console.error("Compression failed", err);
+        console.error("Processing failed", err);
         alert(`Failed to process ${file.name}`);
       }
     }
