@@ -443,7 +443,6 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         }
 
         const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
 
         // TITLE
         doc.setFontSize(22);
@@ -462,79 +461,42 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             const rowData = [
                 evt.date,
                 evt.content,
-                evt.status.toUpperCase()
+                evt.status.toUpperCase(),
+                '' // Placeholder for Visual
             ];
             tableBody.push(rowData);
         }
 
         // GENERATE TABLE WITH IMAGES
-        // Note: autotable doesn't support complex customization easily for images in cells without hooks.
-        // We will use a simplified approach: Text Table first, then appended images or just text if images fail.
-
         // @ts-ignore
         autoTable(doc, {
             startY: 45,
-            head: [['Date', 'Copy', 'Status']],
+            head: [['Date', 'Copy', 'Status', 'Visual']],
             body: tableBody,
             columnStyles: {
                 0: { cellWidth: 25 },
                 1: { cellWidth: 'auto' },
-                2: { cellWidth: 25 }
+                2: { cellWidth: 25 },
+                3: { cellWidth: 35, minCellHeight: 25 }
             },
-            styles: { overflow: 'linebreak', fontSize: 10 },
+            styles: { overflow: 'linebreak', fontSize: 10, valign: 'middle' },
             didDrawCell: (data) => {
-                // Hook to potentially draw images (advanced)
-                // For simplicity/reliability in this version, we will list images below the table or separate page 
-                // if the user requests "visual" PDF. For now, text focused.
-            }
-        });
-
-        // ADD VISUAL BOARD (New Page)
-        doc.addPage();
-        doc.setFontSize(16);
-        doc.text("Visual Assets", 14, 20);
-
-        let yPos = 30;
-        const margin = 14;
-        const imgWidth = 80;
-        const imgHeight = 45; // 16:9 approx
-
-        // Loop to add images
-        let xPos = margin;
-
-        for (const evt of campaignEvents) {
-            if (evt.image) {
-                try {
-                    // Check if image is Base64 or URL. If URL, might need fetch if not CORS friendly.
-                    // Assuming stored images are often Base64 in this app (from previous context).
-
-                    // If it's a huge base64, might crash. 
-                    // Simple layout: 2 cols
-
-                    if (yPos + imgHeight > 280) {
-                        doc.addPage();
-                        yPos = 20;
+                if (data.section === 'body' && data.column.index === 3) {
+                    const evtIndex = data.row.index;
+                    const evt = campaignEvents[evtIndex];
+                    if (evt && evt.image) {
+                        try {
+                            const dim = data.cell.height - 4;
+                            const x = data.cell.x + 2;
+                            const y = data.cell.y + 2;
+                            doc.addImage(evt.image, 'PNG', x, y, dim * 1.77, dim);
+                        } catch (e) {
+                            // console.warn('Image fail');
+                        }
                     }
-
-                    doc.addImage(evt.image, 'PNG', xPos, yPos, imgWidth, imgHeight);
-
-                    // Add caption (date)
-                    doc.setFontSize(8);
-                    doc.text(evt.date, xPos, yPos + imgHeight + 5);
-
-                    // Move Cursor
-                    if (xPos === margin) {
-                        xPos = margin + imgWidth + 10;
-                    } else {
-                        xPos = margin;
-                        yPos += imgHeight + 15;
-                    }
-
-                } catch (e) {
-                    console.warn("Failed to add image to PDF", e);
                 }
             }
-        }
+        });
 
         doc.save(`${brandName}_Campaign_${campaignName.replace(/\s+/g, '_')}.pdf`);
     };

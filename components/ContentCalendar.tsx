@@ -173,7 +173,8 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                 evt.date,
                 evt.campaignName || '-',
                 evt.content,
-                evt.status.toUpperCase()
+                evt.status.toUpperCase(),
+                '' // Visual placeholder
             ];
             tableBody.push(rowData);
         }
@@ -181,53 +182,33 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
         // @ts-ignore
         autoTable(doc, {
             startY: 45,
-            head: [['Date', 'Campaign', 'Copy', 'Status']],
+            head: [['Date', 'Campaign', 'Copy', 'Status', 'Visual']],
             body: tableBody,
             columnStyles: {
                 0: { cellWidth: 25 },
                 1: { cellWidth: 30 },
                 2: { cellWidth: 'auto' },
-                3: { cellWidth: 20 }
+                3: { cellWidth: 20 },
+                4: { cellWidth: 35, minCellHeight: 25 }
             },
-            styles: { overflow: 'linebreak', fontSize: 9 },
-        });
-
-        // ADD VISUAL BOARD (New Page)
-        doc.addPage();
-        doc.setFontSize(16);
-        doc.text("Visual Assets", 14, 20);
-
-        let yPos = 30;
-        const margin = 14;
-        const imgWidth = 80;
-        const imgHeight = 45; // 16:9 approx
-        let xPos = margin;
-
-        for (const evt of sortedEvents) {
-            if (evt.image) {
-                try {
-                    if (yPos + imgHeight > 280) {
-                        doc.addPage();
-                        yPos = 20;
+            styles: { overflow: 'linebreak', fontSize: 9, valign: 'middle' },
+            didDrawCell: (data) => {
+                if (data.section === 'body' && data.column.index === 4) {
+                    const evtIndex = data.row.index;
+                    const evt = sortedEvents[evtIndex];
+                    if (evt && evt.image) {
+                        try {
+                            const dim = data.cell.height - 4;
+                            const x = data.cell.x + 2;
+                            const y = data.cell.y + 2;
+                            doc.addImage(evt.image, 'PNG', x, y, dim * 1.77, dim);
+                        } catch (e) {
+                            // console.warn('Image fail');
+                        }
                     }
-
-                    doc.addImage(evt.image, 'PNG', xPos, yPos, imgWidth, imgHeight);
-
-                    doc.setFontSize(8);
-                    doc.text(`${evt.date} (${evt.campaignName || 'Single'})`, xPos, yPos + imgHeight + 5);
-
-                    if (xPos === margin) {
-                        xPos = margin + imgWidth + 10;
-                    } else {
-                        xPos = margin;
-                        yPos += imgHeight + 15;
-                    }
-
-                } catch (e) {
-                    console.warn("Failed to add image to PDF", e);
                 }
             }
-        }
+        });
 
         doc.save(`${brandName}_Full_Calendar.pdf`);
     };
