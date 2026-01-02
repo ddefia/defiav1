@@ -411,6 +411,8 @@ export const generateCampaignStrategy = async (
     goal: string,
     theme: string,
     platforms: string[],
+    userContext: string,
+    activeCampaigns: string[],
     brandName: string,
     brandConfig: BrandConfig
 ): Promise<CampaignStrategy> => {
@@ -419,6 +421,10 @@ export const generateCampaignStrategy = async (
     const kb = brandConfig.knowledgeBase.join('\n');
     const examples = brandConfig.tweetExamples.slice(0, 3).join('\n');
 
+    const activeCampaignsList = activeCampaigns.length > 0
+        ? activeCampaigns.join(', ')
+        : "None";
+
     const systemInstruction = `
     You are the Chief Marketing Officer for ${brandName}.
     
@@ -426,6 +432,10 @@ export const generateCampaignStrategy = async (
     - Goal: ${goal}
     - Theme/Topic: ${theme}
     - Platforms: ${platforms.join(', ')}
+    - Situation / Context: ${userContext || "None provided"}
+    
+    ACTIVE CAMPAIGNS (Cross-reference to avoid conflict/repetition):
+    - ${activeCampaignsList}
     
     BRAND KNOWLEDGE:
     ${kb}
@@ -436,6 +446,8 @@ export const generateCampaignStrategy = async (
     TASK:
     Develop a comprehensive campaign strategy brief.
     - Analyze the target audience for this specific theme.
+    - Consider the "Situation" provided to tailor the messaging.
+    - Ensure synergy or clear differentiation from other active campaigns.
     - Define 3 key messaging pillars.
     - Outline a strategy for each selected platform.
     - Provide realistic result estimates based on a standard micro-campaign.

@@ -31,6 +31,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [campaignTheme, setCampaignTheme] = useState<string>('');
     const [campaignGoal, setCampaignGoal] = useState<string>('User Acquisition'); // NEW
     const [campaignPlatforms, setCampaignPlatforms] = useState<string[]>(['Twitter']); // NEW
+    const [campaignContext, setCampaignContext] = useState<string>(''); // NEW
     const [campaignStrategy, setCampaignStrategy] = useState<CampaignStrategy | null>(null); // NEW
 
     // Graphic Settings
@@ -76,6 +77,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             campaignTheme,
             campaignGoal,
             campaignPlatforms,
+            campaignContext,
             campaignStrategy,
             campaignTemplate,
             campaignReferenceImage,
@@ -156,10 +158,15 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         setError(null);
 
         try {
+            // Get Active Campaigns for context
+            const activeCampaigns = getActiveCampaigns().map(c => `${c.name} (${c.status})`);
+
             const strategy = await generateCampaignStrategy(
                 campaignGoal,
-                campaignType === 'diverse' ? 'Diverse Mix' : campaignTheme,
+                campaignType === 'theme' ? campaignTheme : 'Diverse Content Mix',
                 campaignPlatforms,
+                campaignContext, // NEW
+                activeCampaigns, // NEW
                 brandName,
                 brandConfig
             );
@@ -582,15 +589,30 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             </div>
                         )}
 
-                        {/* STEP 2: STRATEGY REVIEW */}
+                        {/* STEP 2: STRATEGY REVIEW & EDIT */}
                         {campaignStep === 2 && campaignStrategy && (
                             <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-6">
-                                <h3 className="text-lg font-bold text-brand-text">Strategy Brief</h3>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-lg font-bold text-brand-text">Strategy Brief</h3>
+                                    <div className="text-xs text-brand-muted bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                        Active Campaigns Considered: <span className="font-medium text-brand-text">{getActiveCampaigns().length}</span>
+                                    </div>
+                                </div>
+
+                                {/* Context Recap */}
+                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs mb-4">
+                                    <p className="font-bold text-blue-800 mb-1">Context Provided:</p>
+                                    <p className="text-blue-700 italic">"{campaignContext || 'None'}"</p>
+                                </div>
 
                                 <div className="space-y-4">
                                     <div>
                                         <label className="text-xs font-bold text-brand-muted uppercase block mb-1">Target Audience</label>
-                                        <p className="text-xs text-brand-text">{campaignStrategy.targetAudience}</p>
+                                        <textarea
+                                            value={campaignStrategy.targetAudience}
+                                            onChange={(e) => updateStrategyField('targetAudience', e.target.value)}
+                                            className="w-full bg-white border border-brand-border rounded p-2 text-sm text-brand-text focus:border-brand-accent focus:outline-none min-h-[80px]"
+                                        />
                                     </div>
 
                                     <div>
@@ -612,10 +634,47 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     </div>
                                 </div>
 
-                                <div className="pt-2 flex gap-2">
-                                    <Button onClick={() => setCampaignStep(1)} variant="secondary" className="flex-1">Back</Button>
-                                    <Button onClick={handleDraftCampaign} isLoading={isDraftingCampaign} className="flex-[2] shadow-lg shadow-indigo-500/20">
-                                        Approve & Draft Content
+                                <div className="pt-4 border-t border-brand-border">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-xs font-bold text-brand-muted uppercase">Estimated Results</label>
+                                        <span className="text-[10px] text-brand-muted italic bg-gray-50 px-2 rounded">Estimates based on micro-campaign standards</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="bg-gray-50 p-2 rounded text-center border border-gray-100">
+                                            <div className="text-lg font-bold text-brand-accent">{campaignStrategy.estimatedResults.impressions}</div>
+                                            <div className="text-[10px] text-brand-muted uppercase">Impressions</div>
+                                        </div>
+                                        <div className="bg-gray-50 p-2 rounded text-center border border-gray-100">
+                                            <div className="text-lg font-bold text-teal-600">{campaignStrategy.estimatedResults.engagement}</div>
+                                            <div className="text-[10px] text-brand-muted uppercase">Engagement</div>
+                                        </div>
+                                        <div className="bg-gray-50 p-2 rounded text-center border border-gray-100">
+                                            <div className="text-lg font-bold text-purple-600">{campaignStrategy.estimatedResults.conversions}</div>
+                                            <div className="text-[10px] text-brand-muted uppercase">Conversions</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* SCHEDULING INPUT in STRATEGY STEP */}
+                                <div className="pt-4 border-t border-brand-border">
+                                    <label className="text-xs font-bold text-brand-muted uppercase block mb-2">Campaign Start Date</label>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="date"
+                                            value={campaignStartDate}
+                                            onChange={(e) => setCampaignStartDate(e.target.value)}
+                                            className="bg-white border border-brand-border rounded p-2 text-sm text-brand-text focus:border-brand-accent outline-none"
+                                        />
+                                        <span className="text-xs text-brand-muted">
+                                            First post will be scheduled for this date.
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 pt-4">
+                                    <Button variant="secondary" onClick={() => setCampaignStep(1)}>Back</Button>
+                                    <Button onClick={handleDraftCampaign} isLoading={isDraftingCampaign} className="flex-1 shadow-lg shadow-green-500/20 bg-green-600 hover:bg-green-700 border-green-600">
+                                        Approve Strategy & Draft Content
                                     </Button>
                                 </div>
                             </div>
@@ -748,23 +807,41 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                                     {/* Strategy Cards */}
                                     <div className="space-y-2">
+                                        <label className="text-xs font-bold text-brand-muted uppercase tracking-wider">Campaign Context & Situation</label>
+                                        <textarea
+                                            className="w-full bg-white border border-brand-border rounded p-2 text-sm text-brand-text focus:border-brand-accent focus:outline-none h-20"
+                                            placeholder="e.g. Market is down, focus on reassurance. We are launching a partner integration with X..."
+                                            value={campaignContext}
+                                            onChange={(e) => setCampaignContext(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* Strategy Cards - Editable */}
+                                    <div className="space-y-2">
                                         <label className="text-xs font-bold text-brand-muted uppercase block">Platform Strategy</label>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {campaignStrategy.channelStrategy.map((s, i) => (
                                                 <div key={i} className="border border-brand-border p-4 rounded-xl bg-white shadow-sm flex flex-col gap-2 relative group">
-                                                    <div className="flex justify-between items-center">
-                                                        <h4 className="font-bold text-sm text-brand-text">{s.channel}</h4>
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="font-bold text-brand-text text-sm">{s.channel}</span>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] text-brand-muted uppercase font-bold">Focus</label>
                                                         <input
+                                                            type="text"
                                                             value={s.focus}
                                                             onChange={(e) => updateChannelStrategy(i, 'focus', e.target.value)}
-                                                            className="text-[10px] bg-brand-accent/5 text-brand-accent px-2 py-1 rounded-full text-right border-none focus:bg-white focus:ring-1 ring-brand-accent outline-none w-24"
+                                                            className="w-full bg-gray-50 border border-brand-border rounded px-2 py-1 text-xs text-brand-text focus:border-brand-accent focus:outline-none mb-2"
                                                         />
                                                     </div>
-                                                    <textarea
-                                                        value={s.rationale}
-                                                        onChange={(e) => updateChannelStrategy(i, 'rationale', e.target.value)}
-                                                        className="text-xs text-brand-muted leading-relaxed w-full bg-transparent border-none p-0 focus:ring-0 resize-none min-h-[60px]"
-                                                    />
+                                                    <div>
+                                                        <label className="text-[10px] text-brand-muted uppercase font-bold">Rationale</label>
+                                                        <textarea
+                                                            value={s.rationale}
+                                                            onChange={(e) => updateChannelStrategy(i, 'rationale', e.target.value)}
+                                                            className="w-full bg-gray-50 border border-brand-border rounded px-2 py-1 text-xs text-brand-muted focus:border-brand-accent focus:outline-none min-h-[60px]"
+                                                        />
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -776,6 +853,29 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
                                             Key Messaging Pillars
                                         </h4>
+                                        {/* Key Messaging - Editable */}
+                                        <div>
+                                            <label className="text-xs font-bold text-brand-muted uppercase block mb-1">Key Messaging Pillars</label>
+                                            <div className="space-y-2">
+                                                {campaignStrategy.keyMessaging.map((msg, idx) => (
+                                                    <div key={idx} className="flex gap-2">
+                                                        <div className="w-6 h-6 rounded-full bg-brand-accent/10 text-brand-accent flex items-center justify-center text-xs font-bold shrink-0">
+                                                            {idx + 1}
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            value={msg}
+                                                            onChange={(e) => {
+                                                                const newMsgs = [...campaignStrategy.keyMessaging];
+                                                                newMsgs[idx] = e.target.value;
+                                                                updateStrategyField('keyMessaging', newMsgs);
+                                                            }}
+                                                            className="w-full bg-white border border-brand-border rounded px-2 py-1 text-xs text-brand-text focus:border-brand-accent focus:outline-none"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                         <div className="space-y-2">
                                             {campaignStrategy.keyMessaging.map((msg, i) => (
                                                 <div key={i} className="flex gap-2 items-start group">
