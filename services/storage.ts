@@ -128,10 +128,10 @@ const mergeWithDefaults = (storedData: any): Record<string, BrandConfig> => {
                 let sArr = Array.isArray(stored[field]) ? stored[field] : [];
                 const dArr = Array.isArray(def[field]) ? def[field] : [];
 
-                // FORCE OVERRIDE: If defaults exist in code (brandData), always prefer them over potentially stale/broken local storage
-                if (dArr.length > 0 && field === 'referenceImages') {
-                    return dArr;
-                }
+                // FORCE OVERRIDE: Removed to prevent overwriting user-uploaded images
+                // if (dArr.length > 0 && field === 'referenceImages') {
+                //    return dArr;
+                // }
 
                 if (sArr.length === 0) return dArr;
                 if (dArr.length === 0) return sArr;

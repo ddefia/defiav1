@@ -25,6 +25,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
   // Template State
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplatePrompt, setNewTemplatePrompt] = useState('');
+  const [newTemplateImageId, setNewTemplateImageId] = useState<string>(''); // New
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
 
@@ -94,7 +95,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         ...config,
         graphicTemplates: (config.graphicTemplates || []).map(t =>
           t.id === editingTemplateId
-            ? { ...t, label: newTemplateName, prompt: newTemplatePrompt }
+            ? { ...t, label: newTemplateName, prompt: newTemplatePrompt, referenceImageId: newTemplateImageId }
             : t
         )
       });
@@ -104,7 +105,8 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
       const newTmpl = {
         id: `tmpl-${Date.now()}`,
         label: newTemplateName,
-        prompt: newTemplatePrompt
+        prompt: newTemplatePrompt,
+        referenceImageId: newTemplateImageId
       };
       onChange({
         ...config,
@@ -114,12 +116,14 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
 
     setNewTemplateName('');
     setNewTemplatePrompt('');
+    setNewTemplateImageId('');
     setIsAddingTemplate(false);
   };
 
-  const startEditingTemplate = (t: { id: string, label: string, prompt: string }) => {
+  const startEditingTemplate = (t: { id: string, label: string, prompt: string, referenceImageId?: string }) => {
     setNewTemplateName(t.label);
     setNewTemplatePrompt(t.prompt);
+    setNewTemplateImageId(t.referenceImageId || '');
     setEditingTemplateId(t.id);
     setIsAddingTemplate(true);
   };
@@ -399,6 +403,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
               setEditingTemplateId(null);
               setNewTemplateName('');
               setNewTemplatePrompt('');
+              setNewTemplateImageId('');
             }
           }} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
             {isAddingTemplate ? 'Cancel' : '+ Add Template'}
@@ -419,6 +424,22 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
               placeholder="AI Instruction: Describe the layout, composition, and style..."
               className="w-full h-20 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
             />
+
+            {/* Image Link Selector */}
+            <div>
+              <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">Link Reference Image (Style Anchor)</label>
+              <select
+                value={newTemplateImageId}
+                onChange={e => setNewTemplateImageId(e.target.value)}
+                className="w-full bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
+              >
+                <option value="">-- No Linked Image --</option>
+                {config.referenceImages.map(img => (
+                  <option key={img.id} value={img.id}>{img.name}</option>
+                ))}
+              </select>
+            </div>
+
             <Button onClick={addTemplate} className="text-xs h-8 py-0 px-4" disabled={!newTemplateName || !newTemplatePrompt}>
               {editingTemplateId ? 'Save Changes' : 'Save Template'}
             </Button>

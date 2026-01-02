@@ -25,6 +25,7 @@ export interface BrandConfig {
     id: string;
     label: string;
     prompt: string;
+    referenceImageId?: string;
   }[];
 }
 
