@@ -198,6 +198,19 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
     onChange({ ...config, referenceImages: config.referenceImages.filter(img => img.id !== id) });
   };
 
+  const handleRenameImage = (e: React.MouseEvent, id: string, currentName: string) => {
+    e.stopPropagation();
+    const newName = window.prompt("Rename Reference Image:", currentName);
+    if (newName && newName.trim() !== "") {
+      onChange({
+        ...config,
+        referenceImages: config.referenceImages.map(img =>
+          img.id === id ? { ...img, name: newName.trim() } : img
+        )
+      });
+    }
+  };
+
   // --- Meta ---
   const handleRestoreDefaults = () => {
     if (window.confirm(`Restore defaults for ${brandName}?`)) {
@@ -355,9 +368,21 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
           {config.referenceImages.map(img => (
             <div key={img.id} className="relative aspect-square rounded bg-gray-100 cursor-pointer overflow-hidden border border-brand-border group shadow-sm" onClick={() => setViewingImage(img.data || img.url)}>
               <img src={img.data || img.url} alt={img.name} className="w-full h-full object-cover" />
-              <button onClick={(e) => removeImage(e, img.id)} className="absolute top-1 right-1 bg-white text-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 shadow">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+
+              {/* Overlay Controls */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                <div className="flex justify-end gap-1">
+                  <button onClick={(e) => handleRenameImage(e, img.id, img.name)} className="bg-white text-gray-700 rounded-full p-1.5 hover:bg-gray-100 shadow transition-colors" title="Rename">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  </button>
+                  <button onClick={(e) => removeImage(e, img.id)} className="bg-white text-red-500 rounded-full p-1.5 hover:bg-red-50 shadow transition-colors" title="Delete">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                <div className="text-[10px] bg-black/60 text-white px-2 py-1 rounded truncate backdrop-blur-sm">
+                  {img.name}
+                </div>
+              </div>
             </div>
           ))}
         </div>

@@ -250,16 +250,23 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                                             <div
                                                 key={img.id}
                                                 onClick={() => setSelectedReferenceImage(selectedReferenceImage === img.id ? null : img.id)}
-                                                className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all relative ${selectedReferenceImage === img.id ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-transparent hover:border-brand-border'}`}
+                                                className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all relative group ${selectedReferenceImage === img.id ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-transparent hover:border-brand-border'}`}
                                             >
                                                 <img src={img.url || img.data} className="w-full h-full object-cover" />
+
+                                                {/* Selected Indicator */}
                                                 {selectedReferenceImage === img.id && (
                                                     <div className="absolute inset-0 bg-brand-accent/20 flex items-center justify-center">
-                                                        <div className="bg-white rounded-full p-0.5">
+                                                        <div className="bg-white rounded-full p-0.5 shadow-sm">
                                                             <svg className="w-3 h-3 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                                                         </div>
                                                     </div>
                                                 )}
+
+                                                {/* Hover Name Tooltip */}
+                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm p-1 translate-y-full group-hover:translate-y-0 transition-transform duration-200">
+                                                    <p className="text-[9px] text-white font-medium truncate text-center">{img.name}</p>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
