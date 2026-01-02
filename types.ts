@@ -30,6 +30,8 @@ export interface GenerateImageParams {
   aspectRatio: AspectRatio;
   brandConfig: BrandConfig;
   brandName?: string; // Optional context for the model
+  selectedReferenceImage?: string; // Specific reference image to use
+  templateType?: string; // Type of template (Partnership, etc.)
 }
 
 export interface GeneratedImage {

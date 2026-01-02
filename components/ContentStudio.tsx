@@ -14,6 +14,14 @@ interface ContentStudioProps {
     onUpdateBrandConfig: (config: BrandConfig) => void;
 }
 
+const TEMPLATE_OPTIONS = [
+    { id: 'Partnership', label: '🤝 Partnership' },
+    { id: 'Campaign', label: '🚀 Campaign Launch' },
+    { id: 'Giveaway', label: '🎁 Giveaway' },
+    { id: 'Events', label: '📅 Event' },
+    { id: 'Speaker Scenes', label: '🎤 Speaker Quote' }
+];
+
 export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandConfig, onSchedule, onUpdateBrandConfig }) => {
     // Tab State
     const [activeTab, setActiveTab] = useState<'writer' | 'generate' | 'brand'>('writer');
@@ -35,6 +43,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedImages, setGeneratedImages] = useState<string[]>([]);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
+    const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+    const [selectedReferenceImage, setSelectedReferenceImage] = useState<string | null>(null);
 
     const [error, setError] = useState<string | null>(null);
 
@@ -92,7 +102,9 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                     size,
                     aspectRatio,
                     brandConfig,
-                    brandName
+                    brandName,
+                    templateType: selectedTemplate,
+                    selectedReferenceImage: selectedReferenceImage || undefined
                 })
             );
             const images = await Promise.all(promises);
@@ -208,15 +220,56 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">2. Art Direction (Optional)</label>
+                                <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">2. Template & Style</label>
+                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                    {TEMPLATE_OPTIONS.map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setSelectedTemplate(selectedTemplate === opt.id ? '' : opt.id)}
+                                            className={`text-xs px-3 py-2 rounded-lg border transition-all text-left ${selectedTemplate === opt.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold' : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-200'}`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
                                 <input
                                     type="text"
                                     value={visualPrompt}
                                     onChange={e => setVisualPrompt(e.target.value)}
-                                    placeholder="e.g. Cyberpunk, Neon, Minimal..."
+                                    placeholder="Additional Style Override (e.g. Cyberpunk)..."
                                     className="w-full bg-gray-50 border border-brand-border rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-brand-accent outline-none transition-all"
                                 />
                             </div>
+
+                            {/* Reference Image Selector */}
+                            {brandConfig.referenceImages && brandConfig.referenceImages.length > 0 && (
+                                <div>
+                                    <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">3. Reference Image (Optional)</label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {brandConfig.referenceImages.map((img) => (
+                                            <div
+                                                key={img.id}
+                                                onClick={() => setSelectedReferenceImage(selectedReferenceImage === img.id ? null : img.id)}
+                                                className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all relative ${selectedReferenceImage === img.id ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-transparent hover:border-brand-border'}`}
+                                            >
+                                                <img src={img.url || img.data} className="w-full h-full object-cover" />
+                                                {selectedReferenceImage === img.id && (
+                                                    <div className="absolute inset-0 bg-brand-accent/20 flex items-center justify-center">
+                                                        <div className="bg-white rounded-full p-0.5">
+                                                            <svg className="w-3 h-3 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {selectedReferenceImage && (
+                                        <div className="mt-1 text-right">
+                                            <button onClick={() => setSelectedReferenceImage(null)} className="text-[10px] text-red-500 hover:underline">Clear Selection</button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-3 gap-3">
                                 <Select label="Quantity" value={variationCount} onChange={e => setVariationCount(e.target.value)} options={[{ value: '1', label: '1 Image' }, { value: '2', label: '2 Images' }, { value: '3', label: '3 Images' }, { value: '4', label: '4 Images' }]} />

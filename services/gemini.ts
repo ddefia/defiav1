@@ -141,7 +141,30 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     const brandName = params.brandName || "Web3";
     const isMeme = brandName === 'Meme';
 
-    // Include the user's explicit art prompt override if present
+    // Template Logic
+    let templateInstruction = "";
+    if (params.templateType) {
+        switch (params.templateType) {
+            case 'Partnership':
+                templateInstruction = "TEMPLATE TYPE: PARTNERSHIP ANNOUNCEMENT. Composition: Split screen or handshake motif. Showcase two entities joining forces. High trust, official look.";
+                break;
+            case 'Campaign':
+                templateInstruction = "TEMPLATE TYPE: MAJOR CAMPAIGN LAUNCH. Composition: Bold, poster-style, central focal point. High energy, call to action vibe.";
+                break;
+            case 'Giveaway':
+                templateInstruction = "TEMPLATE TYPE: GIVEAWAY / AIRDROP. Composition: Gift box, tokens, or chest motif. Exciting, rewarding, flashy visual style.";
+                break;
+            case 'Events':
+                templateInstruction = "TEMPLATE TYPE: EVENT / SAVE THE DATE. Composition: Calendar, stage, or pass motif. Inviting, spatial, celebratory.";
+                break;
+            case 'Speaker Scenes':
+                templateInstruction = "TEMPLATE TYPE: SPEAKER QUOTE / HIGHLIGHT. Composition: Portrait layout preference. Space for text/quote. Professional, spotlight lighting.";
+                break;
+            default:
+                templateInstruction = `TEMPLATE TYPE: ${params.templateType}`;
+        }
+    }
+
     const visualOverride = params.artPrompt
         ? `VISUAL DIRECTION OVERRIDE: ${params.artPrompt}`
         : "Visualize momentum, connections, or security based on keywords.";
@@ -161,6 +184,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         systemPrompt = `
         You are an expert 3D graphic designer for ${brandName}, a leading Web3 company.
         TASK: Create a professional social media graphic for: "${params.prompt}"
+        ${templateInstruction}
         BRANDING:
         - Colors: ${colorPalette}.
         - Style: Glassmorphism, Ethereal, Geometric, Futuristic.
@@ -193,7 +217,12 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     // Process Images (Async)
     try {
         if (params.brandConfig && params.brandConfig.referenceImages) {
-            const imageParts = await Promise.all(params.brandConfig.referenceImages.map(async (img) => {
+            // FILTER: If a specific image is selected, use ONLY that one. Otherwise use all.
+            const sourceImages = params.selectedReferenceImage
+                ? params.brandConfig.referenceImages.filter(img => img.id === params.selectedReferenceImage)
+                : params.brandConfig.referenceImages;
+
+            const imageParts = await Promise.all(sourceImages.map(async (img) => {
                 let finalData = img.data;
 
                 // If URL is provided and data is missing, fetch it
