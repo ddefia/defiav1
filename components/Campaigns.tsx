@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Select } from './Select';
 import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy } from '../services/gemini';
-import { saveCalendarEvents } from '../services/storage';
+import { saveCalendarEvents, saveCampaignState, loadCampaignState } from '../services/storage';
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy } from '../types';
 
 interface CampaignsProps {
@@ -41,6 +41,45 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [campaignItems, setCampaignItems] = useState<CampaignItem[]>([]);
     const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
     const [analyzingCampaign, setAnalyzingCampaign] = useState<string | null>(null); // New State
+
+    // --- PERSISTENCE ---
+    // Load state on mount
+    useEffect(() => {
+        const saved = loadCampaignState(brandName);
+        if (saved) {
+            if (saved.viewMode) setViewMode(saved.viewMode);
+            if (saved.campaignStep) setCampaignStep(saved.campaignStep);
+            if (saved.campaignType) setCampaignType(saved.campaignType);
+            if (saved.campaignTheme) setCampaignTheme(saved.campaignTheme);
+            if (saved.campaignGoal) setCampaignGoal(saved.campaignGoal);
+            if (saved.campaignPlatforms) setCampaignPlatforms(saved.campaignPlatforms);
+            if (saved.campaignStrategy) setCampaignStrategy(saved.campaignStrategy);
+            if (saved.campaignItems) setCampaignItems(saved.campaignItems);
+            if (saved.campaignStartDate) setCampaignStartDate(saved.campaignStartDate);
+        }
+    }, [brandName]);
+
+    // Save state on change
+    useEffect(() => {
+        const stateToSave = {
+            viewMode,
+            campaignStep,
+            campaignType,
+            campaignTheme,
+            campaignGoal,
+            campaignPlatforms,
+            campaignStrategy,
+            campaignItems,
+            campaignStartDate
+        };
+        // Debounce slightly or just save (localStorage is fast)
+        const timeout = setTimeout(() => {
+            saveCampaignState(brandName, stateToSave);
+        }, 1000);
+        return () => clearTimeout(timeout);
+    }, [viewMode, campaignStep, campaignType, campaignTheme, campaignGoal, campaignPlatforms, campaignStrategy, campaignItems, campaignStartDate, brandName]);
+
+    // --- Helpers ---
 
     // Helpers for Strategy Editing
     const updateStrategyField = (field: keyof CampaignStrategy, value: any) => {

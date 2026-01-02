@@ -29,6 +29,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isExecuting, setIsExecuting] = useState<string | null>(null);
+    const [selectedTask, setSelectedTask] = useState<StrategyTask | null>(null); // For Modal
     const [ragEvents, setRagEvents] = useState<any[]>([]);
     const [lastScan, setLastScan] = useState<Date | null>(new Date());
 
@@ -186,7 +187,11 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                 {/* Rows */}
                 <div className="divide-y divide-brand-border/50">
                     {tasks.map((task, idx) => (
-                        <div key={task.id} className="grid grid-cols-12 gap-2 px-4 py-2 hover:bg-brand-surfaceHighlight transition-colors items-center group">
+                        <div
+                            key={task.id}
+                            onClick={() => setSelectedTask(task)}
+                            className="grid grid-cols-12 gap-2 px-4 py-2 hover:bg-brand-surfaceHighlight transition-colors items-center group cursor-pointer"
+                        >
 
                             {/* Priority */}
                             <div className="col-span-1 flex items-center gap-2 pt-1">
@@ -232,7 +237,10 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                                 <Button
-                                    onClick={() => handleExecuteTask(task)}
+                                    onClick={(e: any) => {
+                                        e.stopPropagation(); // Prevent modal open
+                                        handleExecuteTask(task);
+                                    }}
                                     disabled={isExecuting !== null}
                                     isLoading={isExecuting === task.id}
                                     className="h-8 text-xs px-3 shadow-none border border-brand-accent bg-brand-accent hover:bg-brand-accent/90"
@@ -254,6 +262,71 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     {ragEvents.map((e, i) => (
                         <span key={i} className="bg-white border border-gray-200 px-1.5 rounded">{e.source}</span>
                     ))}
+                </div>
+            )}
+
+            {/* STRATEGY INSIGHT MODAL */}
+            {selectedTask && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setSelectedTask(null)}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+
+                        {/* Modal Header */}
+                        <div className="bg-brand-surfaceHighlight border-b border-brand-border p-6 flex justify-between items-start">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    {getTypeBadge(selectedTask.type)}
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${selectedTask.impactScore >= 8 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                                        IMPACT: {selectedTask.impactScore}/10
+                                    </span>
+                                </div>
+                                <h3 className="text-lg font-bold text-brand-text leading-tight">{selectedTask.title}</h3>
+                            </div>
+                            <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-6">
+
+                            {/* Section: The Why */}
+                            <div>
+                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                                    <span className="text-lg">🧠</span> AI Reasoning
+                                </h4>
+                                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+                                    <p className="text-sm text-indigo-900 leading-relaxed font-medium">
+                                        "{selectedTask.reasoning}"
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Section: The What */}
+                            <div>
+                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Detailed Context</h4>
+                                <p className="text-sm text-brand-textSecondary leading-relaxed">
+                                    {selectedTask.description}
+                                </p>
+                            </div>
+
+                            {/* Section: The Plan */}
+                            <div>
+                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Execution Strategy</h4>
+                                <div className="bg-gray-50 border border-gray-100 rounded p-3">
+                                    <p className="text-xs font-mono text-gray-600 line-clamp-3">
+                                        Prompt: {selectedTask.executionPrompt}
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 bg-gray-50 border-t border-brand-border flex justify-end gap-3">
+                            <Button variant="secondary" onClick={() => setSelectedTask(null)}>Close</Button>
+                            <Button onClick={() => { handleExecuteTask(selectedTask); setSelectedTask(null); }}>
+                                Execute Action
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             )}
 

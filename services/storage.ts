@@ -275,6 +275,8 @@ export interface IntegrationKeys {
     };
     apify?: string;
     lunarCrush?: string;
+    supabaseUrl?: string; // New
+    supabaseKey?: string; // New
 }
 
 export const loadIntegrationKeys = (brandName?: string): IntegrationKeys => {
@@ -365,5 +367,54 @@ export const saveBrainLog = (log: any): void => {
         // dispatchStorageEvent('BRAIN_UPDATE', { brandName: log.brandId });
     } catch (e) {
         console.error("Failed to save brain log", e);
+    }
+};
+
+// --- CAMPAIGN DRAFTS PERSISTENCE ---
+
+const CAMPAIGN_STORAGE_KEY = 'defia_campaign_drafts_v1';
+const STUDIO_STORAGE_KEY = 'defia_studio_state_v1';
+
+export const loadCampaignState = (brandName: string): any => {
+    try {
+        const key = `${CAMPAIGN_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+        // Fire async cloud fetch to sync if newer
+        fetchFromCloud(key).then(res => {
+            if (res && res.value && JSON.stringify(res.value) !== stored) {
+                // If cloud has different data, we could prompt user or auto-update. 
+                // For now, let's just log it. Real-time sync requires more complex merging.
+                console.log("Cloud campaign state found via fetchFromCloud");
+            }
+        });
+        return stored ? JSON.parse(stored) : null;
+    } catch (e) { return null; }
+};
+
+export const saveCampaignState = (brandName: string, state: any): void => {
+    try {
+        const key = `${CAMPAIGN_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(state));
+        saveToCloud(key, state);
+    } catch (e) {
+        console.error("Failed to save campaign state", e);
+    }
+};
+
+export const loadStudioState = (brandName: string): any => {
+    try {
+        const key = `${STUDIO_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+        return stored ? JSON.parse(stored) : null;
+    } catch (e) { return null; }
+};
+
+export const saveStudioState = (brandName: string, state: any): void => {
+    try {
+        const key = `${STUDIO_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(state));
+        saveToCloud(key, state);
+    } catch (e) {
+        console.error("Failed to save studio state", e);
     }
 };

@@ -82,6 +82,8 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
     const [duneKey, setDuneKey] = useState('');
     const [duneQueryIds, setDuneQueryIds] = useState({ volume: '', users: '', retention: '' });
     const [apifyKey, setApifyKey] = useState('');
+    const [supabaseUrl, setSupabaseUrl] = useState('');
+    const [supabaseKey, setSupabaseKey] = useState('');
     const [isAutoPilot, setIsAutoPilot] = useState(true); // Default to true based on "constant scan" request
 
     const [campaigns, setCampaigns] = useState<CampaignLog[]>([]);
@@ -148,13 +150,21 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
         });
 
         setApifyKey(savedKeys.apify || '');
+        setSupabaseUrl(savedKeys.supabaseUrl || '');
+        setSupabaseKey(savedKeys.supabaseKey || '');
 
         if (savedKeys.dune) setIsOnChainConnected(true);
     }, [brandName]);
 
     const handleSaveKeys = () => {
-        saveIntegrationKeys({ dune: duneKey, duneQueryIds, apify: apifyKey }, brandName);
+        saveIntegrationKeys({ dune: duneKey, duneQueryIds, apify: apifyKey, supabaseUrl, supabaseKey }, brandName);
         if (duneKey) setIsOnChainConnected(true);
+        // Reload page to re-init supabase client with new keys? Or just let next action handle it.
+        // Ideally we should force reload to ensure client is fresh, but simplified for now.
+        if (supabaseUrl && supabaseKey) {
+            window.location.reload(); // Force reload to init supabase
+            return;
+        }
         performAnalysis(); // Auto-run analysis on save
         setIsSettingUp(false);
     };
@@ -609,6 +619,31 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                                         placeholder="apify_api_..."
                                     />
                                     <p className="text-[10px] text-gray-500 mt-1">Required for real-time Twitter scraping.</p>
+                                </div>
+
+                                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                    <h4 className="font-bold text-sm text-brand-text mb-2 flex items-center gap-2">
+                                        {supabaseUrl ? <span className="text-green-500">●</span> : null} Cloud Sync (Supabase)
+                                    </h4>
+                                    <p className="text-[10px] text-brand-textSecondary mb-3">Connect a Supabase project to ensure your **Brand Data & Settings** are saved online and synced across devices.</p>
+
+                                    <label className="text-xs text-brand-muted block mb-1">Project URL</label>
+                                    <input
+                                        type="text"
+                                        value={supabaseUrl}
+                                        onChange={e => setSupabaseUrl(e.target.value)}
+                                        className="w-full border border-brand-border rounded p-2 text-sm focus:outline-none focus:border-brand-accent mb-3"
+                                        placeholder="https://xyz.supabase.co"
+                                    />
+
+                                    <label className="text-xs text-brand-muted block mb-1">Anon Public Key</label>
+                                    <input
+                                        type="password"
+                                        value={supabaseKey}
+                                        onChange={e => setSupabaseKey(e.target.value)}
+                                        className="w-full border border-brand-border rounded p-2 text-sm focus:outline-none focus:border-brand-accent"
+                                        placeholder="eyJh..."
+                                    />
                                 </div>
 
                                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-between">

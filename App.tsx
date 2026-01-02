@@ -16,6 +16,7 @@ import { AnalyticsPage } from './components/AnalyticsPage'; // Import Analytics
 import { Campaigns } from './components/Campaigns'; // Import Campaigns
 import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
 import { BrainPage } from './components/Brain/BrainPage'; // Import BrainPage
+import { ContentStudio } from './components/ContentStudio'; // Import ContentStudio
 import { Sidebar } from './components/Sidebar';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals } from './types';
 
@@ -32,7 +33,6 @@ const App: React.FC = () => {
     const [profiles, setProfiles] = useState<Record<string, BrandConfig>>(() => loadBrandProfiles());
     // Safely initialize selectedBrand to the first available profile, or empty string if none exist.
     const [selectedBrand, setSelectedBrand] = useState<string>(() => Object.keys(loadBrandProfiles())[0] || '');
-    const [activeTab, setActiveTab] = useState<'brand' | 'writer' | 'generate' | 'calendar'>('calendar');
 
     // Onboarding / Connect State
     const [showOnboarding, setShowOnboarding] = useState(false);
@@ -62,23 +62,6 @@ const App: React.FC = () => {
     });
 
     const [systemLogs, setSystemLogs] = useState<string[]>([]); // New: Activity Logs for Dashboard
-
-    // Single Generation State
-    const [tweetText, setTweetText] = useState<string>('');
-    const [visualPrompt, setVisualPrompt] = useState<string>(''); // Explicit visual direction
-    const [size, setSize] = useState<ImageSize>('1K');
-    const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
-    const [variationCount, setVariationCount] = useState<string>('1');
-    const [isGenerating, setIsGenerating] = useState<boolean>(false);
-    const [generatedImages, setGeneratedImages] = useState<string[]>([]);
-
-    // Writer State
-    const [writerTopic, setWriterTopic] = useState<string>('');
-    const [writerTone, setWriterTone] = useState<string>('Professional');
-    const [isWritingTweet, setIsWritingTweet] = useState<boolean>(false);
-    const [generatedDraft, setGeneratedDraft] = useState<string>('');
-    const [suggestedIdeas, setSuggestedIdeas] = useState<string[]>([]);
-    const [isGeneratingIdeas, setIsGeneratingIdeas] = useState<boolean>(false);
 
     // Campaign Intent State (Handover from Pulse)
     const [campaignIntent, setCampaignIntent] = useState<{ type: 'theme' | 'diverse', theme: string } | null>(null);
@@ -427,49 +410,7 @@ const App: React.FC = () => {
     // Campaign Workflow Functions (handleDraftCampaign, etc.) moved to Campaigns.tsx
 
     // --- Other Logic ---
-    const handleGenerateIdeas = async () => {
-        setIsGeneratingIdeas(true);
-        try { setSuggestedIdeas(await generateIdeas(selectedBrand)); } catch (e) { } finally { setIsGeneratingIdeas(false); }
-    };
-
-    const handleAIWrite = async () => {
-        if (!writerTopic.trim()) return;
-        setIsWritingTweet(true);
-        try {
-            const writtenTweet = await generateTweet(writerTopic, selectedBrand, profiles[selectedBrand], writerTone);
-            setGeneratedDraft(writtenTweet);
-        } catch (err) { setError("Failed to write tweet."); } finally { setIsWritingTweet(false); }
-    };
-
-    const handleGenerateSingle = async () => {
-        setIsGenerating(true);
-        setGeneratedImages([]);
-        try {
-            const count = parseInt(variationCount);
-            const finalPrompt = tweetText || visualPrompt; // Allow generating just from visual prompt if tweet is empty
-
-            const promises = Array.from({ length: count }).map(() => generateWeb3Graphic({
-                prompt: finalPrompt,
-                artPrompt: visualPrompt,
-                size,
-                aspectRatio,
-                brandConfig: profiles[selectedBrand],
-                brandName: selectedBrand
-            }));
-            setGeneratedImages(await Promise.all(promises));
-        } catch (err) { setError("Failed to generate."); } finally { setIsGenerating(false); }
-    };
-
-    const handleDownload = (imageUrl: string, prefix: string) => {
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.download = `${selectedBrand}-${prefix}-${Date.now()}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const handlePrepareTweet = (text: string) => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+    // Campaign Workflow Functions (handleDraftCampaign, etc.) moved to Campaigns.tsx
 
     // count moved
     // const approvedCount = campaignItems.filter(i => i.isApproved).length;
@@ -626,168 +567,12 @@ const App: React.FC = () => {
 
                 {/* SECTION: STUDIO TOOLS */}
                 {appSection === 'studio' && selectedBrand && profiles[selectedBrand] && (
-                    <div className="max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-6">
-
-                        {/* SIDEBAR */}
-                        <div className="w-full lg:w-[400px] flex flex-col gap-4">
-
-                            {/* Navigation */}
-                            <div className="bg-white border border-brand-border rounded-xl p-2 shadow-sm flex flex-col gap-1">
-                                {['writer', 'generate', 'brand'].map(tab => {
-                                    const showBadge = tab === 'brand' && (!profiles[selectedBrand].referenceImages || profiles[selectedBrand].referenceImages.length === 0);
-                                    return (
-                                        <button key={tab} onClick={() => setActiveTab(tab as any)} className={`relative w-full text-left px-4 py-3 text-sm font-medium rounded-lg capitalize transition-colors flex items-center gap-3 ${activeTab === tab ? 'bg-gray-100 text-brand-text font-semibold' : 'text-brand-muted hover:bg-gray-50'}`}>
-                                            <span className="opacity-50">
-                                                {tab === 'writer' && '✍️'}
-                                                {tab === 'generate' && '🎨'}
-                                                {tab === 'brand' && '💼'}
-                                            </span>
-                                            {tab}
-                                            {showBadge && <span className="absolute right-3 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {/* PANEL CONTENT */}
-                            <div className="bg-white border border-brand-border rounded-2xl p-6 shadow-xl shadow-gray-200/50 min-h-[400px]">
-
-                                {/* Campaign Manager Moved to separate component */}
-
-                                {/* 2. WRITER */}
-                                {activeTab === 'writer' && (
-                                    <div className="space-y-6 animate-fadeIn">
-                                        <div className="flex justify-between items-end">
-                                            <label className="text-xs font-bold text-brand-muted uppercase">Single Tweet Writer</label>
-                                            <button onClick={handleGenerateIdeas} disabled={isGeneratingIdeas} className="text-[10px] text-brand-accent hover:text-brand-text font-medium">
-                                                {isGeneratingIdeas ? 'Thinking...' : '✨ Suggest Ideas'}
-                                            </button>
-                                        </div>
-                                        {suggestedIdeas.length > 0 && (
-                                            <div className="bg-white border border-brand-border rounded-lg overflow-hidden shadow-sm">
-                                                {suggestedIdeas.map((idea, idx) => (
-                                                    <button key={idx} onClick={() => { setWriterTopic(idea); setSuggestedIdeas([]); }} className="w-full text-left px-3 py-2 text-xs text-brand-text hover:bg-gray-50 border-b border-brand-border last:border-0">{idea}</button>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <textarea value={writerTopic} onChange={e => setWriterTopic(e.target.value)} placeholder="Topic..." className="w-full h-24 bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none resize-none shadow-sm" />
-                                        <Select label="Tone" value={writerTone} onChange={e => setWriterTone(e.target.value)} options={[{ value: 'Professional', label: 'Professional' }, { value: 'Hype', label: 'Hype' }, { value: 'Casual', label: 'Casual' }]} />
-                                        <Button onClick={handleAIWrite} isLoading={isWritingTweet} disabled={!writerTopic} className="w-full">Draft Tweet</Button>
-                                    </div>
-                                )}
-
-                                {/* 3. GENERATOR */}
-                                {activeTab === 'generate' && (
-                                    <div className="space-y-6 animate-fadeIn">
-                                        <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
-                                            <h3 className="text-sm font-bold text-indigo-900 mb-2">Graphic Generator</h3>
-                                            <p className="text-xs text-indigo-700">Create visuals that perfectly match your social copy.</p>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">1. Tweet Content (Context)</label>
-                                            <textarea
-                                                value={tweetText}
-                                                onChange={e => setTweetText(e.target.value)}
-                                                placeholder="Paste the tweet text here. The AI will analyze the sentiment and topic..."
-                                                className="w-full h-24 bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none resize-none shadow-sm"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">2. Visual Direction (Optional)</label>
-                                            <input
-                                                type="text"
-                                                value={visualPrompt}
-                                                onChange={e => setVisualPrompt(e.target.value)}
-                                                placeholder="e.g. Cyberpunk city, neon green lines, minimal geometric shapes..."
-                                                className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm"
-                                            />
-                                        </div>
-
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <Select label="Quantity" value={variationCount} onChange={e => setVariationCount(e.target.value)} options={[{ value: '1', label: '1 Image' }, { value: '2', label: '2 Images' }, { value: '3', label: '3 Images' }, { value: '4', label: '4 Images' }]} />
-                                            <Select label="Size" value={size} onChange={e => setSize(e.target.value as any)} options={[{ value: '1K', label: '1K' }, { value: '2K', label: '2K' }, { value: '4K', label: '4K' }]} />
-                                            <Select label="Aspect" value={aspectRatio} onChange={e => setAspectRatio(e.target.value as any)} options={[{ value: '16:9', label: '16:9' }, { value: '1:1', label: '1:1' }, { value: '4:5', label: '4:5 (Portrait)' }]} />
-                                        </div>
-
-                                        <Button onClick={handleGenerateSingle} isLoading={isGenerating} disabled={!tweetText && !visualPrompt} className="w-full">
-                                            Generate {variationCount} Graphic{parseInt(variationCount) > 1 ? 's' : ''}
-                                        </Button>
-                                    </div>
-                                )}
-
-                                {/* 4. BRAND DB */}
-                                {activeTab === 'brand' && (
-                                    <BrandKit config={profiles[selectedBrand]} brandName={selectedBrand} onChange={handleUpdateCurrentBrandConfig} />
-                                )}
-
-                                {error && <div className="mt-4 p-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded">{error}</div>}
-                            </div>
-                        </div>
-
-                        {/* MAIN DISPLAY AREA */}
-                        <div className={`flex-1 bg-white border border-brand-border rounded-2xl relative flex flex-col min-h-[600px] overflow-hidden shadow-sm`}>
-
-                            {/* Subtle background pattern/gradient for light mode */}
-                            <div className={`absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent ${selectedBrand === 'Meme' ? 'via-yellow-400' : 'via-brand-accent'} to-transparent opacity-50`}></div>
-
-                            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-gray-50/50">
-
-                                {/* VIEW: CAMPAIGN REVIEW (Moved) */}
-
-                                {/* VIEW: CAMPAIGN RESULTS (Moved) */}
-
-                                {/* VIEW: WRITER / GENERATOR OUTPUT */}
-                                {(activeTab === 'writer' || activeTab === 'generate') && (
-                                    <div className="space-y-6 animate-fadeIn">
-                                        {generatedDraft && activeTab === 'writer' && (
-                                            <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm">
-                                                <h3 className="text-xs font-bold text-brand-muted uppercase mb-4">Draft Result</h3>
-                                                <textarea value={generatedDraft} onChange={e => setGeneratedDraft(e.target.value)} className="w-full bg-transparent text-lg font-display text-brand-text border-none resize-none h-32 focus:ring-0 p-0" />
-                                                <div className="flex justify-end gap-2 mt-4">
-                                                    <Button onClick={() => handleOpenScheduleModal(generatedDraft)} variant="outline" className="text-xs">Schedule</Button>
-                                                    <Button onClick={() => { setTweetText(generatedDraft); setActiveTab('generate'); }} className="text-xs">Use in Generator</Button>
-                                                    <Button onClick={() => handlePrepareTweet(generatedDraft)} variant="secondary" className="text-xs">Post to X</Button>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {generatedImages.length > 0 && activeTab === 'generate' && (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                {generatedImages.map((img, idx) => (
-                                                    <div key={idx} className="relative group rounded-xl overflow-hidden border border-brand-border shadow-md cursor-pointer" onClick={() => setViewingImage(img)}>
-                                                        <img src={img} className="w-full" />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                                                            <Button onClick={(e) => { e.stopPropagation(); handleDownload(img, 'gen'); }}>Download</Button>
-                                                            <Button onClick={(e) => { e.stopPropagation(); handleOpenScheduleModal(tweetText || 'Scheduled Graphic', img); }} variant="secondary">Schedule</Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {!generatedDraft && generatedImages.length === 0 && (
-                                            <div className="flex flex-col items-center justify-center h-full text-brand-muted text-sm space-y-2">
-                                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-300">
-                                                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                </div>
-                                                <p>Generated content will appear here</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* VIEW: BRAND DB EMPTY STATE */}
-                                {activeTab === 'brand' && (
-                                    <div className="flex flex-col items-center justify-center h-full text-brand-muted text-sm space-y-2">
-                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-300">
-                                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                                        </div>
-                                        <p>Use the left panel to manage brand assets.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                    <ContentStudio
+                        brandName={selectedBrand}
+                        brandConfig={profiles[selectedBrand]}
+                        onSchedule={(content, image) => handleOpenScheduleModal(content, image)}
+                        onUpdateBrandConfig={handleUpdateCurrentBrandConfig}
+                    />
                 )}
 
                 {/* ONBOARDING MODAL */}
