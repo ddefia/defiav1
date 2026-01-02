@@ -223,32 +223,62 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
   };
 
   // --- Images ---
+  const compressImage = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200; // Resize to reasonable max width
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Compress to JPEG at 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const newImages: ReferenceImage[] = [];
 
+    const isSupabaseEnabled = (import.meta as any).env?.VITE_SUPABASE_URL || localStorage.getItem('defia_integrations_v1');
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
-      // Reduced to 800KB to prevent rapid storage filling
-      if (file.size > 800 * 1024) {
-        alert(`Skipped ${file.name}: Image too large. Max 800KB allowed for local storage.`);
-        continue;
+      // SOFT CHECK: Warn if huge, but try to compress
+      if (file.size > 5 * 1024 * 1024 && !isSupabaseEnabled) {
+        if (!window.confirm(`File ${file.name} is quite large (${(file.size / 1024 / 1024).toFixed(1)}MB). Compress might take a moment. Continue?`)) continue;
       }
 
       try {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+        // Always compress for local storage efficiency
+        // If Supabase is added later, we can skip compression or upload raw
+        const compressedBase64 = await compressImage(file);
+
         newImages.push({
           id: `${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
           name: file.name,
-          data: base64
+          data: compressedBase64
         });
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error("Compression failed", err);
+        alert(`Failed to process ${file.name}`);
+      }
     }
     if (newImages.length > 0) {
       onChange({ ...config, referenceImages: [...config.referenceImages, ...newImages] });
