@@ -353,6 +353,11 @@ export const generateCampaignDrafts = async (
 
     const isDiverse = theme === 'DIVERSE_MIX_MODE';
 
+    // Build list of valid templates for AI to choose from
+    const standardTemplates = ['Partnership', 'Campaign Launch', 'Giveaway', 'Event', 'Speaker Quote'];
+    const customTemplates = (brandConfig.graphicTemplates || []).map(t => t.label);
+    const allTemplates = [...standardTemplates, ...customTemplates].join(', ');
+
     let taskInstruction = '';
     if (isDiverse) {
         taskInstruction = `
@@ -386,7 +391,9 @@ export const generateCampaignDrafts = async (
     - Then separate each tweet clearly with "---".
     - Do not number the tweets.
     - Keep each tweet detailed (up to 280 characters).
-    - STRUCTURE: Start with a compelling HOOK. End with a clear Call-To-Action (CTA).
+    - STRUCTURE: Start with a COMPULSORY TEMPLATE TAG in brackets, then the hook.
+      Example: "[Event] Join us for the..." or "[Speaker Quote] As our CEO said..."
+      Choose the best visual template from this list: ${allTemplates}. If none fit perfectly, use [Campaign Launch].
     - Mimic the style of the examples provided.
     - STRICTLY NO HASHTAGS.
     `;

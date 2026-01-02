@@ -215,14 +215,27 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
             const splitDrafts = textToParse.split(/---/).map(t => t.trim()).filter(t => t.length > 0);
 
-            const items: CampaignItem[] = splitDrafts.map((txt, i) => ({
-                id: `draft-${Date.now()}-${i}`,
-                tweet: txt,
-                isApproved: true,
-                status: 'draft',
-                images: [],
-                campaignColor: colorMatch ? colorMatch[1] : campaignColor
-            }));
+            const items: CampaignItem[] = splitDrafts.map((txt, i) => {
+                // Extract Template Tag if present (e.g., "[Event] Tweet content...")
+                let tweetContent = txt;
+                let detectedTemplate = campaignTemplate; // Fallback to global setting
+
+                const templateMatch = txt.match(/^\[(.*?)\]/);
+                if (templateMatch) {
+                    detectedTemplate = templateMatch[1];
+                    tweetContent = txt.replace(templateMatch[0], '').trim();
+                }
+
+                return {
+                    id: `draft-${Date.now()}-${i}`,
+                    tweet: tweetContent,
+                    isApproved: true,
+                    status: 'draft',
+                    images: [],
+                    campaignColor: colorMatch ? colorMatch[1] : campaignColor,
+                    template: detectedTemplate
+                };
+            });
 
             setCampaignItems(items);
             setCampaignStep(3); // Move to Review
@@ -260,8 +273,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'generating' } : p));
             try {
                 const promises = [
-                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined }),
-                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined })
+                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined }),
+                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined })
                 ];
                 const images = await Promise.all(promises);
                 setCampaignItems(prev => prev.map(p => p.id === item.id ? {
@@ -293,8 +306,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
         try {
             const promises = [
-                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined }),
-                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined })
+                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined }),
+                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined })
             ];
             const images = await Promise.all(promises);
             setCampaignItems(prev => prev.map(p => p.id === id ? { ...p, status: 'completed', images: images, selectedImageIndex: 0 } : p));
@@ -941,21 +954,48 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         <div key={item.id} className={`p-4 rounded-xl border transition-all shadow-sm ${item.isApproved ? 'bg-white border-brand-border opacity-100' : 'bg-gray-100 border-transparent opacity-60'}`}>
                                             <div className="flex justify-between items-start mb-3">
                                                 <span className="text-xs font-mono text-brand-muted">#{idx + 1}</span>
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => handleDeleteDraft(item.id)} className="text-xs text-red-500 hover:text-red-700 font-medium">Delete</button>
-                                                    <button
-                                                        onClick={() => handleToggleApproval(item.id)}
-                                                        className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${item.isApproved ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}
-                                                    >
-                                                        {item.isApproved ? 'Approved' : 'Discarded'}
-                                                    </button>
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="flex justify-between items-start">
+                                                        <span className="text-[10px] uppercase font-bold text-gray-400">Post {idx + 1}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            {/* Per-Post Template Selector */}
+                                                            <select
+                                                                value={item.template || ''}
+                                                                onChange={(e) => {
+                                                                    const newVal = e.target.value;
+                                                                    setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, template: newVal } : p));
+                                                                }}
+                                                                className="text-[10px] border border-brand-border rounded px-1 py-0.5 text-brand-text bg-white outline-none focus:border-brand-accent max-w-[120px]"
+                                                            >
+                                                                <option value="">Default Style</option>
+                                                                <option value="Partnership">Partnership</option>
+                                                                <option value="Campaign Launch">Campaign Launch</option>
+                                                                <option value="Giveaway">Giveaway</option>
+                                                                <option value="Event">Event</option>
+                                                                <option value="Speaker Quote">Speaker Quote</option>
+                                                                {(brandConfig.graphicTemplates || []).map(t => (
+                                                                    <option key={t.id} value={t.label}>{t.label}</option>
+                                                                ))}
+                                                            </select>
+                                                            <button onClick={() => handleDeleteDraft(item.id)} className="text-gray-400 hover:text-red-500">
+                                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <textarea
+                                                        value={item.tweet}
+                                                        onChange={(e) => handleUpdateDraft(item.id, e.target.value)}
+                                                        className="w-full bg-transparent border-none p-0 text-sm text-brand-text resize-none focus:ring-0"
+                                                        rows={3}
+                                                    />
                                                 </div>
+                                                <button
+                                                    onClick={() => handleToggleApproval(item.id)}
+                                                    className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${item.isApproved ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}
+                                                >
+                                                    {item.isApproved ? 'Approved' : 'Discarded'}
+                                                </button>
                                             </div>
-                                            <textarea
-                                                value={item.tweet}
-                                                onChange={(e) => handleUpdateDraft(item.id, e.target.value)}
-                                                className="w-full bg-transparent border-none focus:ring-0 text-sm text-brand-text resize-none p-0 h-auto min-h-[120px]"
-                                            />
                                             {item.isApproved && (
                                                 <div className="mt-2 pt-2 border-t border-brand-border flex justify-end">
                                                     <span className="text-[10px] text-brand-accent font-medium">Will generate 2 images</span>

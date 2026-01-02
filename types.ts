@@ -53,6 +53,7 @@ export interface CampaignItem {
   images: string[];
   selectedImageIndex?: number; // Index of the chosen image for scheduling
   campaignColor?: string; // Color code for the campaign
+  template?: string; // The specific graphic template used for this item
 }
 
 export interface CalendarEvent {
