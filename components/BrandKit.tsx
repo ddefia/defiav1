@@ -250,7 +250,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
     });
   };
 
-  const uploadToSupabase = async (file: File): Promise<string | null> => {
+  const uploadToSupabase = async (file: File, brandId: string): Promise<string | null> => {
     try {
       // @ts-ignore
       const { createClient } = await import('@supabase/supabase-js');
@@ -261,8 +261,10 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
 
       const supabase = createClient(url, key);
       const fileExt = file.name.split('.').pop();
+      // Sanitize brand name for folder usage
+      const cleanBrand = brandId.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const filePath = `${cleanBrand}/${fileName}`;
 
       const { data, error } = await supabase.storage
         .from('brand-assets')
@@ -300,7 +302,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
 
         let finalUrl = "";
         try {
-          const uploadedUrl = await uploadToSupabase(file);
+          const uploadedUrl = await uploadToSupabase(file, brandName);
           if (uploadedUrl) finalUrl = uploadedUrl;
         } catch (err) { console.error("Upload skipped", err); }
 
