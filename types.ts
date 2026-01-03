@@ -38,6 +38,7 @@ export interface GenerateImageParams {
   brandName?: string; // Optional context for the model
   selectedReferenceImage?: string; // Specific reference image to use
   templateType?: string; // Type of template (Partnership, etc.)
+  negativePrompt?: string; // Things to avoid in the image
 }
 
 export interface GeneratedImage {

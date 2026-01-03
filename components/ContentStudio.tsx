@@ -14,13 +14,7 @@ interface ContentStudioProps {
     onUpdateBrandConfig: (config: BrandConfig) => void;
 }
 
-const TEMPLATE_OPTIONS = [
-    { id: 'Partnership', label: '🤝 Partnership' },
-    { id: 'Campaign', label: '🚀 Campaign Launch' },
-    { id: 'Giveaway', label: '🎁 Giveaway' },
-    { id: 'Events', label: '📅 Event' },
-    { id: 'Speaker Scenes', label: '🎤 Speaker Quote' }
-];
+const TEMPLATE_OPTIONS: { id: string; label: string; }[] = [];
 
 export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandConfig, onSchedule, onUpdateBrandConfig }) => {
     // Tab State
@@ -48,6 +42,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     // Generator State
     const [tweetText, setTweetText] = useState('');
     const [visualPrompt, setVisualPrompt] = useState('');
+    const [negativePrompt, setNegativePrompt] = useState('');
     const [variationCount, setVariationCount] = useState('1');
     const [size, setSize] = useState<'1K' | '2K' | '4K'>('1K');
     const [aspectRatio, setAspectRatio] = useState<'16:9' | '1:1' | '4:5'>('16:9');
@@ -56,7 +51,6 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     const [viewingImage, setViewingImage] = useState<string | null>(null);
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedReferenceImage, setSelectedReferenceImage] = useState<string | null>(null);
-
     const [error, setError] = useState<string | null>(null);
 
     // --- PERSISTENCE ---
@@ -68,17 +62,18 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
             if (saved.generatedDraft) setGeneratedDraft(saved.generatedDraft);
             if (saved.tweetText) setTweetText(saved.tweetText);
             if (saved.visualPrompt) setVisualPrompt(saved.visualPrompt);
+            if (saved.negativePrompt) setNegativePrompt(saved.negativePrompt);
             if (saved.generatedImages) setGeneratedImages(saved.generatedImages);
         }
     }, [brandName]);
 
     useEffect(() => {
         const state = {
-            activeTab, writerTopic, generatedDraft, tweetText, visualPrompt, generatedImages
+            activeTab, writerTopic, generatedDraft, tweetText, visualPrompt, negativePrompt, generatedImages
         };
         const timeout = setTimeout(() => saveStudioState(brandName, state), 1000);
         return () => clearTimeout(timeout);
-    }, [activeTab, writerTopic, generatedDraft, tweetText, visualPrompt, generatedImages, brandName]);
+    }, [activeTab, writerTopic, generatedDraft, tweetText, visualPrompt, negativePrompt, generatedImages, brandName]);
 
 
     // --- HANDLERS ---
@@ -110,6 +105,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                 generateWeb3Graphic({
                     prompt: tweetText,
                     artPrompt: visualPrompt,
+                    negativePrompt, // Pass negative prompt
                     size,
                     aspectRatio,
                     brandConfig,
@@ -248,7 +244,14 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                                     value={visualPrompt}
                                     onChange={e => setVisualPrompt(e.target.value)}
                                     placeholder="Additional Style Override (e.g. Cyberpunk)..."
-                                    className="w-full bg-gray-50 border border-brand-border rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-brand-accent outline-none transition-all"
+                                    className="w-full bg-gray-50 border border-brand-border rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-brand-accent outline-none transition-all mb-2"
+                                />
+                                <input
+                                    type="text"
+                                    value={negativePrompt}
+                                    onChange={e => setNegativePrompt(e.target.value)}
+                                    placeholder="⚠️ Exclusions (e.g. No text, No blur, No red)..."
+                                    className="w-full bg-red-50/50 border border-red-100 rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-red-300 outline-none transition-all placeholder-red-300"
                                 />
                             </div>
 

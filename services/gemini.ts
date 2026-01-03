@@ -143,7 +143,15 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
     // Template Logic
     let templateInstruction = "";
-    if (params.templateType) {
+
+    // Check for Custom Template first
+    const customTmpl = params.brandConfig?.graphicTemplates?.find(t => t.id === params.templateType || t.label === params.templateType);
+
+    if (customTmpl) {
+        templateInstruction = `TEMPLATE TYPE: ${customTmpl.label}. INSTRUCTION: ${customTmpl.prompt}`;
+        console.log(`Using Custom Template: ${customTmpl.label}`);
+    } else if (params.templateType) {
+        // Fallback to Standard Templates
         switch (params.templateType) {
             case 'Partnership':
                 templateInstruction = "TEMPLATE TYPE: PARTNERSHIP ANNOUNCEMENT. Composition: Split screen or handshake motif. Showcase two entities joining forces. High trust, official look.";
@@ -169,6 +177,10 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         ? `VISUAL DIRECTION OVERRIDE: ${params.artPrompt}`
         : "Visualize momentum, connections, or security based on keywords.";
 
+    const negativeInstruction = params.negativePrompt
+        ? `\n        NEGATIVE PROMPT (DO NOT INCLUDE): ${params.negativePrompt}`
+        : "";
+
     let systemPrompt = '';
 
     if (isMeme) {
@@ -192,6 +204,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         INSTRUCTIONS:
         - Analyze tweet sentiment.
         - ${visualOverride}
+        ${negativeInstruction}
         - STRICTLY follow the visual style of the reference images provided.
         - ALWAYS give a professional image approach.
       `;

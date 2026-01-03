@@ -157,6 +157,7 @@ const mergeWithDefaults = (storedData: any): Record<string, BrandConfig> => {
                 referenceImages: preferStoredArray('referenceImages'),
                 tweetExamples: preferStoredArray('tweetExamples'),
                 knowledgeBase: preferStoredArray('knowledgeBase'),
+                graphicTemplates: preferStoredArray('graphicTemplates'),
             };
         }
     });
