@@ -181,9 +181,23 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                         </div>
                         <div className="flex items-center gap-3">
                             {getTypeBadge(selectedTask.type)}
-                            <Button onClick={() => handleExecuteTask(selectedTask)} className="px-6">
-                                Execute Strategy
-                            </Button>
+                            {selectedTask.type === 'CAMPAIGN_IDEA' ? (
+                                <Button onClick={() => handleExecuteTask(selectedTask)} className="px-6 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200">
+                                    🚀 Launch Campaign Wizard
+                                </Button>
+                            ) : selectedTask.type === 'TREND_JACK' ? (
+                                <Button onClick={() => handleExecuteTask(selectedTask)} className="px-6 bg-pink-600 hover:bg-pink-700 shadow-lg shadow-pink-200">
+                                    ⚡ React to Trend
+                                </Button>
+                            ) : selectedTask.type === 'REPLY' ? (
+                                <Button onClick={() => handleExecuteTask(selectedTask)} className="px-6 bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">
+                                    💬 Draft Reply
+                                </Button>
+                            ) : (
+                                <Button onClick={() => handleExecuteTask(selectedTask)} className="px-6">
+                                    ✨ Execute Strategy
+                                </Button>
+                            )}
                         </div>
                     </div>
 
@@ -194,7 +208,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                             {/* 1. EXECUTION PLAN */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-xs font-bold text-brand-muted uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">
-                                    <span className="text-lg">⚡</span> Execution Strategy
+                                    <svg className="w-4 h-4 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                    Execution Strategy
                                 </h4>
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 font-mono text-sm text-gray-800 whitespace-pre-wrap leading-relaxed shadow-inner">
                                     {selectedTask.executionPrompt}
@@ -204,7 +219,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                             {/* 2. THE WHY (AI LOGIC) */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-xs font-bold text-brand-muted uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">
-                                    <span className="text-lg">🧠</span> Cognitive Process
+                                    <svg className="w-4 h-4 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                                    Cognitive Process
                                 </h4>
                                 <div className="space-y-4">
                                     {selectedTask.reasoningSteps?.map((step, idx) => (
@@ -235,11 +251,16 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                     return (
                                         <div className="mt-8 animate-fadeIn">
                                             <h4 className="flex items-center gap-2 text-xs font-bold text-brand-muted uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">
-                                                <span className="text-lg">🧬</span> System Monologue (Raw)
+                                                <svg className="w-4 h-4 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                System Monologue
                                             </h4>
-                                            <div className="bg-gray-900 text-gray-300 p-6 rounded-xl font-mono text-xs leading-loose shadow-2xl border border-gray-800 overflow-x-auto">
-                                                <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
-                                                    <span className="text-green-500 font-bold">● SYSTEM_LOG_ID: {sourceLog.id}</span>
+                                            <div className="bg-gray-50 text-gray-700 p-6 rounded-xl font-mono text-xs leading-loose shadow-sm border border-gray-200 overflow-x-auto relative group">
+                                                <div className="absolute top-2 right-2 opacity-50 text-[10px] uppercase font-bold tracking-widest text-gray-400">Raw Brain Log</div>
+                                                <div className="flex items-center justify-between mb-4 border-b border-gray-200 pb-2">
+                                                    <span className="text-gray-900 font-bold flex items-center gap-2">
+                                                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                                        SYSTEM_LOG_ID: {sourceLog.id}
+                                                    </span>
                                                     <span className="text-gray-500">{new Date(sourceLog.timestamp).toLocaleString()}</span>
                                                 </div>
                                                 <p className="whitespace-pre-wrap">{sourceLog.thoughts}</p>
@@ -257,7 +278,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                             {/* CONTEXT */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-xs font-bold text-brand-muted uppercase tracking-wider mb-3">
-                                    <span className="text-lg">📡</span> Input Signals
+                                    <svg className="w-4 h-4 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Input Signals
                                 </h4>
                                 {selectedTask.contextData && selectedTask.contextData.length > 0 ? (
                                     <div className="space-y-3">

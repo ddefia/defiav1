@@ -749,16 +749,39 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 <div className="flex justify-between items-start mb-2">
                                     <h3 className="text-lg font-bold text-brand-text">Strategy Brief</h3>
 
-                                    {/* PROPULSION BRAIN AWARENESS BADGE */}
-                                    <div className="flex flex-col items-end">
-                                        <div className="flex items-center gap-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 px-3 py-2 rounded-lg">
-                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                            <div className="text-right">
-                                                <span className="block text-[10px] font-bold text-indigo-800 uppercase tracking-wider">Propulsion Brain Active</span>
-                                                <div className="flex gap-3 text-[10px] text-indigo-600">
-                                                    <span>🧠 Analyzed {contextStats?.brainMemoriesCount || 0} Memories</span>
-                                                    <span>🌐 Synced w/ {contextStats?.activeCampaignsCount || 0} Campaigns</span>
+                                    {/* COGNITIVE CONTEXT CARD */}
+                                    <div className="bg-brand-surfaceHighlight border border-brand-accent/20 rounded-xl p-4 min-w-[320px]">
+                                        <div className="flex items-center justify-between mb-3 border-b border-brand-border/50 pb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                                <span className="text-[10px] font-bold text-brand-text uppercase tracking-widest">Cognitive Context</span>
+                                            </div>
+                                            <span className="text-[9px] font-mono text-brand-muted">v2.4 Active</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {/* Memory Stats */}
+                                            <div>
+                                                <div className="flex items-center gap-1.5 mb-1 text-brand-textSecondary text-[10px] font-bold uppercase">
+                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                                                    Active Memory
                                                 </div>
+                                                <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1 overflow-hidden">
+                                                    <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-1000" style={{ width: `${Math.min((contextStats?.brainMemoriesCount || 0) * 10, 100)}%` }}></div>
+                                                </div>
+                                                <div className="text-xs font-mono text-brand-text">{contextStats?.brainMemoriesCount || 0} Nodes Linked</div>
+                                            </div>
+
+                                            {/* Campaign Sync */}
+                                            <div>
+                                                <div className="flex items-center gap-1.5 mb-1 text-brand-textSecondary text-[10px] font-bold uppercase">
+                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                                                    Campaign Sync
+                                                </div>
+                                                <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1 overflow-hidden">
+                                                    <div className="bg-purple-500 h-1.5 rounded-full transition-all duration-1000" style={{ width: `${Math.min((contextStats?.activeCampaignsCount || 0) * 20, 100)}%` }}></div>
+                                                </div>
+                                                <div className="text-xs font-mono text-brand-text">{contextStats?.activeCampaignsCount || 0} References</div>
                                             </div>
                                         </div>
                                     </div>

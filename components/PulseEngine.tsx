@@ -13,9 +13,10 @@ interface PulseEngineProps {
     brandConfig: BrandConfig;
     onLaunchCampaign: (trend: TrendItem) => void;
     onSchedule: (content: string, image?: string) => void;
+    initialTrend?: TrendItem; // Deep Link Support
 }
 
-export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig, onLaunchCampaign, onSchedule }) => {
+export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig, onLaunchCampaign, onSchedule, initialTrend }) => {
     const [trends, setTrends] = useState<TrendItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<number>(0);
@@ -37,6 +38,18 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
     const [actionType, setActionType] = useState<'Tweet' | 'Meme'>('Tweet');
 
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Deep Link Effect
+    useEffect(() => {
+        if (initialTrend) {
+            setSelectedTrend(initialTrend);
+            // Ensure it's in the list safely if we haven't scanned yet
+            setTrends(prev => {
+                const exists = prev.find(p => p.id === initialTrend.id);
+                return exists ? prev : [initialTrend, ...prev];
+            });
+        }
+    }, [initialTrend]);
 
     useEffect(() => {
         const cache = loadPulseCache(brandName);

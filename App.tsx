@@ -65,6 +65,8 @@ const App: React.FC = () => {
 
     // Campaign Intent State (Handover from Pulse)
     const [campaignIntent, setCampaignIntent] = useState<{ type: 'theme' | 'diverse', theme: string } | null>(null);
+    const [initialTrend, setInitialTrend] = useState<any>(null); // For Pulse
+    const [socialFilter, setSocialFilter] = useState<string>('all'); // For Social
 
     // Legacy State Removed (campaignStep, campaignType, campaignItems etc. moved to specific component)
 
@@ -283,13 +285,20 @@ const App: React.FC = () => {
 
     const handleNavigate = (section: string, params: any) => {
         setAppSection(section);
+
+        // Campaigns: Pre-fill Concept
         if (section === 'campaigns' && params?.intent) {
             setCampaignIntent({ type: 'theme', theme: params.intent });
         }
-        // Add other navigations as needed
+
+        // Pulse: Deep Link to Trend
         if (section === 'pulse' && params?.trend) {
-            // We can't easily pre-select in Pulse yet, but we can navigate there
-            // Maybe add a query param or state later
+            setInitialTrend(params.trend);
+        }
+
+        // Social: Filter View
+        if (section === 'social' && params?.filter) {
+            setSocialFilter(params.filter);
         }
     }
 
@@ -499,6 +508,7 @@ const App: React.FC = () => {
                             brandConfig={profiles[selectedBrand]}
                             onLaunchCampaign={handleTrendToCampaign}
                             onSchedule={handleOpenScheduleModal}
+                            initialTrend={initialTrend} // Pass deep link
                         />
                     </div>
                 )}
@@ -574,6 +584,7 @@ const App: React.FC = () => {
                         lunarPosts={[]} // Pass actual posts if available
                         socialMetrics={socialMetrics}
                         signals={socialSignals} // Live Brain Signals
+                        initialFilter={socialFilter} // Pass filter
                     />
                 )}
 

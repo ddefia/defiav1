@@ -7,11 +7,12 @@ interface SocialMediaProps {
     lunarPosts: LunarCrushPost[];
     socialMetrics: SocialMetrics | null;
     signals: SocialSignals;
+    initialFilter?: string;
 }
 
-export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts, socialMetrics, signals }) => {
+export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts, socialMetrics, signals, initialFilter }) => {
     const [activePlatform, setActivePlatform] = useState<'twitter' | 'telegram' | 'discord'>('twitter');
-    const [activeFilter, setActiveFilter] = useState<'all' | 'kol' | 'fud' | 'alpha'>('all');
+    const [activeFilter, setActiveFilter] = useState<string>(initialFilter || 'all');
 
     // Use shared state from App/Brain
     const { sentimentScore, activeNarratives } = signals;
