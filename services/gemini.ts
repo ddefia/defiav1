@@ -1037,6 +1037,7 @@ export const generateStrategicAnalysis = async (
     - Review 'Upcoming Schedule'.
     - If there are fewer than 3 items scheduled for the next 7 days, create 'EVERGREEN' tasks to fill the gaps.
     - Topics: Educational, Brand Values, Feature Highlights (from Knowledge Base).
+    - CRITICAL: In 'contextData', cite {"type": "CALENDAR", "source": "Schedule Audit", "headline": "Content Gap Identified", "relevance": 10}.
 
     CONTEXT:
     - Upcoming Schedule:
@@ -1144,7 +1145,13 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
                 description: 'The calendar is light. Generating educational content.',
                 reasoning: 'Consistent presence is key.',
                 impactScore: 7,
-                executionPrompt: `Write an educational tweet about ${brandName}'s core value proposition.`
+                executionPrompt: `Write an educational tweet about ${brandName}'s core value proposition.`,
+                contextData: [{
+                    type: 'CALENDAR',
+                    source: 'Growth Engine',
+                    headline: 'Schedule Gap Detected',
+                    relevance: 9
+                }]
             });
         }
 
@@ -1155,7 +1162,13 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
             description: 'The calendar is looking empty for the next few days.',
             reasoning: 'Consistent posting is key to maintaining algorithmic reach.',
             impactScore: 8,
-            executionPrompt: `Write a tweet for ${brandName} that engages the community about current market conditions.`
+            executionPrompt: `Write a tweet for ${brandName} that engages the community about current market conditions.`,
+            contextData: [{
+                type: 'CALENDAR',
+                source: 'Growth Engine',
+                headline: 'Consistency Warning',
+                relevance: 8
+            }]
         }];
     }
 };

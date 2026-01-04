@@ -284,14 +284,32 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                 {selectedTask.contextData && selectedTask.contextData.length > 0 ? (
                                     <div className="space-y-3">
                                         {selectedTask.contextData.map((data, idx) => (
-                                            <div key={idx} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:border-brand-accent transition-colors">
+                                            <button
+                                                key={idx}
+                                                onClick={() => {
+                                                    if (!onNavigate) return;
+                                                    // Intelligent Context Navigation
+                                                    const type = data.type as string;
+                                                    if (type === 'TREND' || type === 'NEWS') {
+                                                        onNavigate('pulse', { trend: { headline: data.headline, summary: data.source } });
+                                                    } else if (type === 'CALENDAR' || type === 'GAP_FILL') {
+                                                        onNavigate('calendar');
+                                                    } else if (type === 'MENTION' || type === 'REPLY') {
+                                                        onNavigate('social', { filter: 'mentions' });
+                                                    }
+                                                }}
+                                                className={`w-full text-left bg-white border border-gray-200 rounded-lg p-4 shadow-sm transition-all group/card ${onNavigate ? 'hover:border-brand-accent hover:shadow-md cursor-pointer' : ''}`}
+                                            >
                                                 <div className="flex justify-between items-start mb-2">
-                                                    <span className="text-[10px] font-bold uppercase text-brand-muted bg-gray-100 px-2 py-0.5 rounded">{data.type}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-bold uppercase text-brand-muted bg-gray-100 px-2 py-0.5 rounded">{data.type}</span>
+                                                        {onNavigate && <svg className="w-3 h-3 text-brand-muted opacity-0 group-hover/card:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>}
+                                                    </div>
                                                     {data.relevance && <span className="text-[10px] text-green-600 font-bold">Hit: {data.relevance}/10</span>}
                                                 </div>
-                                                <p className="text-xs font-bold text-brand-text mb-1 line-clamp-2">{data.headline}</p>
+                                                <p className="text-xs font-bold text-brand-text mb-1 line-clamp-2 group-hover/card:text-brand-accent transition-colors">{data.headline}</p>
                                                 <p className="text-[10px] text-brand-textSecondary break-words">{data.source.substring(0, 100)}...</p>
-                                            </div>
+                                            </button>
                                         ))}
                                     </div>
                                 ) : (
