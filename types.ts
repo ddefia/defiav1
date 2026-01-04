@@ -81,6 +81,7 @@ export interface StrategyTask {
   suggestedDate?: string;
   executionPrompt: string; // The prompt to send to the generator
   contextData?: TaskContextSource[]; // New: Evidence for the task
+  reasoningSteps?: string[]; // New: Step-by-step logic chain
 }
 
 export interface TaskContextSource {

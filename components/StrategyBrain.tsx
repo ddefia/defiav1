@@ -303,7 +303,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             {/* STRATEGY INSIGHT MODAL */}
             {selectedTask && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setSelectedTask(null)}>
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
                         {/* Modal Header */}
                         <div className="bg-brand-surfaceHighlight border-b border-brand-border p-6 flex justify-between items-start shrink-0">
@@ -325,22 +325,38 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
 
                                 {/* Left Column: Logic & Plan */}
                                 <div className="flex-1 p-6 space-y-6">
-                                    {/* Section: The Why */}
+                                    {/* Section: The Why (Detailed Logic Chain) */}
                                     <div>
-                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-                                            <span className="text-lg">🧠</span> AI Reasoning
+                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+                                            <span className="text-lg">🧠</span> AI Reasoning Chain
                                         </h4>
-                                        <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 shadow-sm">
-                                            <p className="text-sm text-indigo-900 leading-relaxed font-medium italic">
-                                                "{selectedTask.reasoning}"
-                                            </p>
-                                        </div>
+
+                                        {selectedTask.reasoningSteps && selectedTask.reasoningSteps.length > 0 ? (
+                                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 shadow-sm space-y-3">
+                                                {selectedTask.reasoningSteps.map((step, idx) => (
+                                                    <div key={idx} className="flex gap-3">
+                                                        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 text-indigo-700 flex items-center justify-center text-[10px] font-bold mt-0.5">
+                                                            {idx + 1}
+                                                        </div>
+                                                        <p className="text-sm text-indigo-900 leading-snug font-medium">
+                                                            {step}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 shadow-sm">
+                                                <p className="text-sm text-indigo-900 leading-relaxed font-medium italic">
+                                                    "{selectedTask.reasoning}"
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Section: The What */}
                                     <div>
                                         <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Detailed Context</h4>
-                                        <p className="text-sm text-brand-textSecondary leading-relaxed">
+                                        <p className="text-sm text-brand-textSecondary leading-relaxed bg-white border border-gray-100 p-3 rounded-lg shadow-sm">
                                             {selectedTask.description}
                                         </p>
                                     </div>
@@ -348,10 +364,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                     {/* Section: The Plan */}
                                     <div>
                                         <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Execution Strategy</h4>
-                                        <div className="bg-gray-50 border border-gray-100 rounded p-3">
-                                            <p className="text-xs font-mono text-gray-600 whitespace-pre-wrap">
-                                                Prompt: {selectedTask.executionPrompt}
-                                            </p>
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 font-mono text-xs text-gray-700 whitespace-pre-wrap shadow-inner relative overflow-hidden group">
+                                            <div className="absolute top-2 right-2 opacity-50 text-[10px] font-bold uppercase tracking-widest text-gray-400">GenAI Prompt</div>
+                                            {selectedTask.executionPrompt}
                                         </div>
                                     </div>
                                 </div>
@@ -359,7 +374,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                 {/* Right Column: Evidence & Data (New) */}
                                 <div className="w-full md:w-80 bg-gray-50 border-l border-brand-border p-6 space-y-6 shrink-0">
                                     <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-                                        <span className="text-lg">📊</span> Source Evidence
+                                        <span className="text-lg">📡</span> Intelligence Signals
                                     </h4>
 
                                     {selectedTask.contextData && selectedTask.contextData.length > 0 ? (

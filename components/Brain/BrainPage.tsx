@@ -166,8 +166,8 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
 
                         {/* 1. DATA SOURCES */}
                         <div className="space-y-2">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                Citation Sources
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <span className="text-base">📡</span> Input Signals
                             </h3>
                             <div className="bg-white p-4 rounded-xl border border-brand-border shadow-sm">
                                 <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed font-mono bg-gray-50 p-3 rounded">
@@ -179,8 +179,8 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
                         {/* 2. STRATEGIC ANALYSIS (THINKING) */}
                         {selectedLog.thoughts && (
                             <div className="space-y-3">
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                    Strategic Analysis
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <span className="text-base">🧠</span> Cognitive Process
                                 </h3>
                                 <div className="bg-gradient-to-r from-gray-50 to-white p-6 border-l-4 border-l-purple-500 border-y border-r border-gray-200 shadow-sm">
                                     <p className="text-sm text-gray-800 leading-relaxed font-serif italic">
@@ -192,8 +192,8 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
 
                         {/* 3. DECISIONS / OUTPUT */}
                         <div className="space-y-3">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                Executive Decisions
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <span className="text-base">⚡</span> Action Output
                             </h3>
                             {renderDecisions(selectedLog)}
                         </div>

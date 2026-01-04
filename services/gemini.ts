@@ -207,6 +207,13 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         ${negativeInstruction}
         - STRICTLY follow the visual style of the reference images provided.
         - ALWAYS give a professional image approach.
+        - TEXT RULES: 
+          - ⛔ CRITICAL: NEVER copy-paste the prompt/tweet text onto the image.
+          - ⛔ NO Paragraphs or long sentences.
+          - ✅ Use text SPARINGLY. Only use a short title or key stat if necessary.
+          - Focus on creating a professional, high-end visual composition that represents the concept.
+          - Valid approaches: Abstract 3D art, minimalist typography, clean data visualization, or cinematic scenes.
+          - The goal is a high-end brand asset, not a text document.
       `;
     }
 
@@ -1059,16 +1066,21 @@ export const generateStrategicAnalysis = async (
                 "type": "GAP_FILL" | "TREND_JACK" | "CAMPAIGN_IDEA" | "COMMUNITY" | "REACTION" | "REPLY" | "EVERGREEN",
                 "title": "Short Task Title",
                 "description": "One sentence explanation.",
-                "reasoning": "Why this is important now.",
+                "reasoning": "Why this is important now (Summary).",
+                "reasoningSteps": ["Step 1: Analyzed trend X", "Step 2: Identified gap Y", "Step 3: Determined action Z"],
                 "impactScore": number (1-10),
                 "executionPrompt": "Instruction...",
                 "contextData": [
                     { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 9 },
-                    { "type": "MENTION", "source": "@user", "headline": "User question..." }
+                    { "type": "MENTION", "source": "User @user", "headline": "Asked about staking", "relevance": 10 }
                 ]
             }
         ]
     }
+    
+    CRITICAL: 
+    - 'contextData' must cite REAL inputs from the provided 'Market Trends' or 'Incoming Mentions'. Do NOT hallucinate sources.
+    - 'reasoningSteps' should show your logic chain.
     `;
 
     try {
