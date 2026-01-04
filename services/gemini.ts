@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource } from "../types";
 import { saveBrainLog } from "./storage";
 
 /**
@@ -245,9 +245,10 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
                 }
             }
 
+            // If no specific images targetted, LIMIT to top 3 to prevent payload explosion/timeout
             const sourceImages = targetImageIds.length > 0
                 ? params.brandConfig.referenceImages.filter(img => targetImageIds.includes(img.id))
-                : params.brandConfig.referenceImages;
+                : params.brandConfig.referenceImages.slice(0, 3);
 
             const imageParts = await Promise.all(sourceImages.map(async (img) => {
                 let finalData = img.data;
@@ -1056,7 +1057,11 @@ export const generateStrategicAnalysis = async (
                 "description": "One sentence explanation.",
                 "reasoning": "Why this is important now.",
                 "impactScore": number (1-10),
-                "executionPrompt": "Instruction..."
+                "executionPrompt": "Instruction...",
+                "contextData": [
+                    { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 9 },
+                    { "type": "MENTION", "source": "@user", "headline": "User question..." }
+                ]
             }
         ]
     }

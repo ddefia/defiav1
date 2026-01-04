@@ -80,6 +80,15 @@ export interface StrategyTask {
   impactScore: number; // 1-10
   suggestedDate?: string;
   executionPrompt: string; // The prompt to send to the generator
+  contextData?: TaskContextSource[]; // New: Evidence for the task
+}
+
+export interface TaskContextSource {
+  type: 'TREND' | 'MENTION' | 'METRIC' | 'CALENDAR';
+  source: string; // e.g. "CoinDesk", "@user_handle"
+  headline: string; // e.g. "ETH hits $3k", "Tweet content"
+  url?: string;
+  relevance?: number;
 }
 
 // --- PULSE / TRENDS TYPES ---

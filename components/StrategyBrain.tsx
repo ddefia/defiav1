@@ -16,6 +16,7 @@ interface StrategyBrainProps {
     events: CalendarEvent[];
     onSchedule: (content: string, image?: string) => void;
     growthReport?: GrowthReport | null;
+    onNavigate?: (section: string, params?: any) => void; // New Navigation Handler
 }
 
 export const StrategyBrain: React.FC<StrategyBrainProps> = ({
@@ -25,7 +26,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     onUpdateTasks,
     events,
     onSchedule,
-    growthReport
+    growthReport,
+    onNavigate
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isExecuting, setIsExecuting] = useState<string | null>(null);
@@ -74,6 +76,35 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     const handleExecuteTask = async (task: StrategyTask) => {
         setIsExecuting(task.id);
         try {
+            // Intelligent Routing based on Task Type
+            if (task.type === 'CAMPAIGN_IDEA' && onNavigate) {
+                // Route to Campaigns
+                onNavigate('campaigns', { intent: task.title });
+                setIsExecuting(null);
+                setSelectedTask(null);
+                return; // Exit, let router handle
+            }
+
+            if (task.type === 'TREND_JACK' && onNavigate && task.contextData && task.contextData.length > 0) {
+                // Route to Pulse if trend data available
+                const trendSource = task.contextData.find(c => c.type === 'TREND');
+                if (trendSource) {
+                    onNavigate('pulse', { trend: { headline: trendSource.headline, summary: trendSource.source } });
+                    setIsExecuting(null);
+                    setSelectedTask(null);
+                    return;
+                }
+            }
+
+            if (task.type === 'REPLY' && onNavigate && task.contextData && task.contextData.length > 0) {
+                // Route to Social
+                onNavigate('social', { filter: 'mentions' }); // Simple redirect for now
+                setIsExecuting(null);
+                setSelectedTask(null);
+                return;
+            }
+
+            // Default: "Execute" = Generate Content Draft (Quick Action)
             const copy = await generateTweet(task.executionPrompt, brandName, brandConfig, 'Professional');
             let image;
             if (task.type !== 'REPLY') {
@@ -88,8 +119,11 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             }
             onSchedule(copy, image);
             await logDecision(`Executed Task: ${task.title} (${task.type})`, task.reasoning);
+
+            // Remove from list
             const remaining = tasks.filter(t => t.id !== task.id);
             onUpdateTasks(remaining);
+
         } catch (e) {
             console.error(e);
             alert("Failed. Try again.");
@@ -110,7 +144,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             'REACTION': 'bg-pink-50 text-pink-700 border-pink-200',
             'EVERGREEN': 'bg-emerald-50 text-emerald-700 border-emerald-200',
             'GAP_FILL': 'bg-orange-50 text-orange-700 border-orange-200',
-            'TREND_JACK': 'bg-purple-50 text-purple-700 border-purple-200'
+            'TREND_JACK': 'bg-purple-50 text-purple-700 border-purple-200',
+            'CAMPAIGN_IDEA': 'bg-indigo-50 text-indigo-700 border-indigo-200'
         };
         return (
             <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${styles[type as keyof typeof styles] || 'bg-gray-50 text-gray-600 border-gray-200'}`}>
@@ -222,7 +257,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                     <span className="text-[10px] text-brand-muted uppercase font-bold">Signal</span>
                                     <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 rounded">{((task.impactScore / 10) * 100).toFixed(0)}% Conf.</span>
                                 </div>
-                                <p className="text-xs text-brand-textSecondary/80 leading-snug font-medium">
+                                <p className="text-xs text-brand-textSecondary/80 leading-snug font-medium line-clamp-2">
                                     {task.reasoning}
                                 </p>
                             </div>
@@ -230,7 +265,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                             {/* Actions */}
                             <div className="col-span-2 flex items-center justify-end gap-2 pt-0.5">
                                 <button
-                                    onClick={() => handleDismiss(task.id)}
+                                    onClick={(e) => { e.stopPropagation(); handleDismiss(task.id); }}
                                     className="p-1.5 text-brand-muted hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
                                     title="Dismiss"
                                 >
@@ -244,7 +279,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                     disabled={isExecuting !== null}
                                     isLoading={isExecuting === task.id}
                                     className="h-8 text-xs px-3 shadow-none border border-brand-accent bg-brand-accent hover:bg-brand-accent/90"
-                                    title="Click to draft content and schedule this action"
+                                    title="Click to execute intention"
                                 >
                                     {isExecuting === task.id ? 'Running...' : 'Execute'}
                                 </Button>
@@ -267,11 +302,11 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
 
             {/* STRATEGY INSIGHT MODAL */}
             {selectedTask && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setSelectedTask(null)}>
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setSelectedTask(null)}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
                         {/* Modal Header */}
-                        <div className="bg-brand-surfaceHighlight border-b border-brand-border p-6 flex justify-between items-start">
+                        <div className="bg-brand-surfaceHighlight border-b border-brand-border p-6 flex justify-between items-start shrink-0">
                             <div>
                                 <div className="flex items-center gap-2 mb-2">
                                     {getTypeBadge(selectedTask.type)}
@@ -279,50 +314,93 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                         IMPACT: {selectedTask.impactScore}/10
                                     </span>
                                 </div>
-                                <h3 className="text-lg font-bold text-brand-text leading-tight">{selectedTask.title}</h3>
+                                <h3 className="text-xl font-bold text-brand-text leading-tight font-display">{selectedTask.title}</h3>
                             </div>
-                            <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                            <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 bg-white p-2 rounded-full shadow-sm hover:shadow">✕</button>
                         </div>
 
-                        {/* Modal Body */}
-                        <div className="p-6 space-y-6">
+                        {/* Modal Body - Scrollable */}
+                        <div className="p-0 overflow-y-auto custom-scrollbar">
+                            <div className="flex flex-col md:flex-row">
 
-                            {/* Section: The Why */}
-                            <div>
-                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-                                    <span className="text-lg">🧠</span> AI Reasoning
-                                </h4>
-                                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
-                                    <p className="text-sm text-indigo-900 leading-relaxed font-medium">
-                                        "{selectedTask.reasoning}"
-                                    </p>
+                                {/* Left Column: Logic & Plan */}
+                                <div className="flex-1 p-6 space-y-6">
+                                    {/* Section: The Why */}
+                                    <div>
+                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                                            <span className="text-lg">🧠</span> AI Reasoning
+                                        </h4>
+                                        <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 shadow-sm">
+                                            <p className="text-sm text-indigo-900 leading-relaxed font-medium italic">
+                                                "{selectedTask.reasoning}"
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Section: The What */}
+                                    <div>
+                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Detailed Context</h4>
+                                        <p className="text-sm text-brand-textSecondary leading-relaxed">
+                                            {selectedTask.description}
+                                        </p>
+                                    </div>
+
+                                    {/* Section: The Plan */}
+                                    <div>
+                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Execution Strategy</h4>
+                                        <div className="bg-gray-50 border border-gray-100 rounded p-3">
+                                            <p className="text-xs font-mono text-gray-600 whitespace-pre-wrap">
+                                                Prompt: {selectedTask.executionPrompt}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Column: Evidence & Data (New) */}
+                                <div className="w-full md:w-80 bg-gray-50 border-l border-brand-border p-6 space-y-6 shrink-0">
+                                    <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                                        <span className="text-lg">📊</span> Source Evidence
+                                    </h4>
+
+                                    {selectedTask.contextData && selectedTask.contextData.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {selectedTask.contextData.map((data, idx) => (
+                                                <div key={idx} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:border-brand-accent transition-colors">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <span className="text-[10px] font-bold uppercase text-brand-muted bg-gray-100 px-1.5 rounded">{data.type}</span>
+                                                        {data.relevance && <span className="text-[10px] text-green-600 font-bold">Relevance: {data.relevance}/10</span>}
+                                                    </div>
+                                                    <p className="text-xs font-bold text-brand-text mb-1 line-clamp-2">{data.headline}</p>
+                                                    <p className="text-[10px] text-brand-textSecondary truncate">{data.source}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-brand-muted">
+                                            <div className="text-2xl mb-2">🔭</div>
+                                            <p className="text-xs">No specific data sources linked to this task.</p>
+                                        </div>
+                                    )}
+
+                                    {/* Manual Action Tips */}
+                                    <div className="pt-6 border-t border-brand-border/50">
+                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">System Action</h4>
+                                        <p className="text-xs text-brand-textSecondary">
+                                            Clicking execute will
+                                            {selectedTask.type === 'CAMPAIGN_IDEA' ? ' <b>open the Campaign Wizard</b> with this strategy pre-filled.' :
+                                                selectedTask.type === 'TREND_JACK' ? ' <b>take you to the Pulse Engine</b> to react to this trend.' :
+                                                    ' <b>draft and schedule</b> content immediately.'
+                                            }
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* Section: The What */}
-                            <div>
-                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Detailed Context</h4>
-                                <p className="text-sm text-brand-textSecondary leading-relaxed">
-                                    {selectedTask.description}
-                                </p>
-                            </div>
-
-                            {/* Section: The Plan */}
-                            <div>
-                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Execution Strategy</h4>
-                                <div className="bg-gray-50 border border-gray-100 rounded p-3">
-                                    <p className="text-xs font-mono text-gray-600 line-clamp-3">
-                                        Prompt: {selectedTask.executionPrompt}
-                                    </p>
-                                </div>
-                            </div>
-
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="p-4 bg-gray-50 border-t border-brand-border flex justify-end gap-3">
+                        <div className="p-4 bg-gray-50 border-t border-brand-border flex justify-end gap-3 shrink-0">
                             <Button variant="secondary" onClick={() => setSelectedTask(null)}>Close</Button>
-                            <Button onClick={() => { handleExecuteTask(selectedTask); setSelectedTask(null); }}>
+                            <Button onClick={() => { handleExecuteTask(selectedTask); }}>
                                 Execute Action
                             </Button>
                         </div>

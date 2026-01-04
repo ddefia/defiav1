@@ -24,6 +24,7 @@ interface GrowthEngineProps {
     onUpdateGrowthReport: (r: GrowthReport) => void; // New
     onLog: (msg: string) => void;
     signals: SocialSignals; // New: War Room Context
+    onNavigate?: (section: string, params?: any) => void; // New
 }
 
 interface ContractInput {
@@ -63,7 +64,7 @@ const StatCard = ({ label, value, trend, trendDirection, subtext, icon, isLoadin
     </div>
 );
 
-export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics, growthReport, onUpdateGrowthReport, onLog, signals }) => {
+export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarEvents, brandConfig, onSchedule, metrics, onUpdateMetrics, tasks, onUpdateTasks, chainMetrics, onUpdateChainMetrics, growthReport, onUpdateGrowthReport, onLog, signals, onNavigate }) => {
     // --- ANALYTICS STATE ---
     // const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null); // LIFTED
     const socialMetrics = metrics; // Alias for easier refactor
@@ -337,6 +338,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                         onSchedule={(content, image) => onSchedule?.(content, image)}
                         tasks={tasks}
                         onUpdateTasks={onUpdateTasks}
+                        onNavigate={onNavigate}
                     />
                 </div>
             )}

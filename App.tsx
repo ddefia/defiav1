@@ -278,9 +278,20 @@ const App: React.FC = () => {
     };
 
     const handleTrendToCampaign = (trend: TrendItem) => {
-        setAppSection('campaigns');
-        setCampaignIntent({ type: 'theme', theme: `${trend.headline} (Trend Response)` });
+        handleNavigate('campaigns', { title: trend.headline });
     };
+
+    const handleNavigate = (section: string, params: any) => {
+        setAppSection(section);
+        if (section === 'campaigns' && params?.intent) {
+            setCampaignIntent({ type: 'theme', theme: params.intent });
+        }
+        // Add other navigations as needed
+        if (section === 'pulse' && params?.trend) {
+            // We can't easily pre-select in Pulse yet, but we can navigate there
+            // Maybe add a query param or state later
+        }
+    }
 
     // --- Onboarding / Research ---
 
@@ -537,6 +548,7 @@ const App: React.FC = () => {
                                 }
                             }} // Pipe logs
                             signals={socialSignals} // Pass signals to Brain
+                            onNavigate={handleNavigate}
                         />
                     </div>
                 )}

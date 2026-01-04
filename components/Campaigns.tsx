@@ -650,11 +650,22 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     />
                                 </div>
 
+                                <div>
+                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Scenario / Context (Optional)</label>
+                                    <textarea
+                                        value={campaignContext}
+                                        onChange={e => setCampaignContext(e.target.value)}
+                                        placeholder="Describe the specific situation (e.g., 'We are launching v2 next week and need to hype the new features...')"
+                                        className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[80px]"
+                                    />
+                                </div>
+
                                 <Select label="Tweet Count" value={campaignCount} onChange={e => setCampaignCount(e.target.value)} options={[{ value: '3', label: '3 Tweets' }, { value: '5', label: '5 Tweets' }, { value: '7', label: '7 Tweets' }]} />
                                 <div className="space-y-4 pt-4 border-t border-brand-border">
                                     {/* Visual Style Selection */}
                                     <div>
-                                        <label className="text-xs font-bold text-brand-muted uppercase mb-2 block">Visual Style (Optional)</label>
+                                        <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Visual Style (Optional)</label>
+                                        <p className="text-[10px] text-brand-muted mb-2">Leave as "Default" to let AI automatically mix content types (images, threads, text) based on the post topic.</p>
                                         <select
                                             value={campaignTemplate}
                                             onChange={(e) => setCampaignTemplate(e.target.value)}
@@ -741,15 +752,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         </ul>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="bg-indigo-50 p-2 rounded">
-                                            <span className="block text-[10px] text-indigo-600 font-bold uppercase">Topic Mix</span>
-                                            <span className="text-xs font-medium text-indigo-900">{campaignStrategy.contentMix.split('.')[0]}</span>
-                                        </div>
-                                        <div className="bg-green-50 p-2 rounded">
-                                            <span className="block text-[10px] text-green-600 font-bold uppercase">Est. Reach</span>
-                                            <span className="text-xs font-medium text-green-900">{campaignStrategy.estimatedResults.impressions}</span>
-                                        </div>
+                                    <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg">
+                                        <span className="block text-[10px] text-indigo-600 font-bold uppercase mb-1">Recommended Content Mix</span>
+                                        <p className="text-sm font-medium text-indigo-900 leading-snug">{campaignStrategy.contentMix}</p>
                                     </div>
                                 </div>
 
@@ -1197,75 +1202,80 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* Hidden File Inputs */}
             <input type="file" ref={campaignFileInputRef} onChange={handleCampaignImageUpload} accept="image/*" className="hidden" />
 
             {/* Image Preview Helper */}
-            {viewingImage && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingImage(null)}>
-                    <img src={viewingImage} className="max-w-full max-h-[90vh] rounded shadow-2xl" onClick={e => e.stopPropagation()} />
-                    <button onClick={() => setViewingImage(null)} className="absolute top-5 right-5 text-white bg-gray-800 rounded-full p-2 hover:bg-gray-700">✕</button>
-                </div>
-            )}
+            {
+                viewingImage && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingImage(null)}>
+                        <img src={viewingImage} className="max-w-full max-h-[90vh] rounded shadow-2xl" onClick={e => e.stopPropagation()} />
+                        <button onClick={() => setViewingImage(null)} className="absolute top-5 right-5 text-white bg-gray-800 rounded-full p-2 hover:bg-gray-700">✕</button>
+                    </div>
+                )
+            }
             {/* ANALYTICS MODAL */}
-            {analyzingCampaign && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-                        <div className="p-6 border-b border-brand-border flex justify-between items-center bg-gray-50">
-                            <div>
-                                <h3 className="text-lg font-bold text-brand-text">{analyzingCampaign}</h3>
-                                <p className="text-xs text-brand-muted">Campaign Performance & Schedule</p>
+            {
+                analyzingCampaign && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-gray-50">
+                                <div>
+                                    <h3 className="text-lg font-bold text-brand-text">{analyzingCampaign}</h3>
+                                    <p className="text-xs text-brand-muted">Campaign Performance & Schedule</p>
+                                </div>
+                                <button onClick={() => setAnalyzingCampaign(null)} className="text-gray-400 hover:text-gray-600">✕</button>
                             </div>
-                            <button onClick={() => setAnalyzingCampaign(null)} className="text-gray-400 hover:text-gray-600">✕</button>
-                        </div>
-                        <div className="p-6 overflow-y-auto">
-                            {/* Summary Stats */}
-                            <div className="grid grid-cols-3 gap-4 mb-8">
-                                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-center">
-                                    <div className="text-2xl font-bold text-indigo-600">{events.filter(e => e.campaignName === analyzingCampaign).length}</div>
-                                    <div className="text-[10px] uppercase font-bold text-indigo-400">Scheduled Posts</div>
-                                </div>
-                                <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
-                                    <div className="text-2xl font-bold text-green-600">0</div>
-                                    <div className="text-[10px] uppercase font-bold text-green-400">Engagement (Live)</div>
-                                </div>
-                                <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-center">
-                                    <div className="text-2xl font-bold text-purple-600">100%</div>
-                                    <div className="text-[10px] uppercase font-bold text-purple-400">Completion</div>
-                                </div>
-                            </div>
-
-                            {/* Post List */}
-                            <h4 className="text-xs font-bold text-brand-muted uppercase mb-4">Scheduled Content</h4>
-                            <div className="space-y-3">
-                                {events.filter(e => e.campaignName === analyzingCampaign).sort((a, b) => a.date.localeCompare(b.date)).map((evt, i) => (
-                                    <div key={i} className="flex gap-4 p-3 border border-brand-border rounded-lg items-start">
-                                        <div className="bg-gray-100 px-3 py-2 rounded text-center min-w-[60px]">
-                                            <div className="text-xs font-bold text-gray-500">{new Date(evt.date).toLocaleString('default', { month: 'short' }).toUpperCase()}</div>
-                                            <div className="text-lg font-bold text-gray-900">{new Date(evt.date).getDate()}</div>
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm text-brand-text line-clamp-2">{evt.content}</p>
-                                            <div className="flex gap-2 mt-2">
-                                                <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100">Twitter</span>
-                                                <span className="text-[10px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded border border-gray-200 uppercase">{evt.status}</span>
-                                            </div>
-                                        </div>
-                                        {evt.image && (
-                                            <img src={evt.image} alt="Post asset" className="w-16 h-16 object-cover rounded-lg border border-gray-100" />
-                                        )}
+                            <div className="p-6 overflow-y-auto">
+                                {/* Summary Stats */}
+                                <div className="grid grid-cols-3 gap-4 mb-8">
+                                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-center">
+                                        <div className="text-2xl font-bold text-indigo-600">{events.filter(e => e.campaignName === analyzingCampaign).length}</div>
+                                        <div className="text-[10px] uppercase font-bold text-indigo-400">Scheduled Posts</div>
                                     </div>
-                                ))}
+                                    <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
+                                        <div className="text-2xl font-bold text-green-600">0</div>
+                                        <div className="text-[10px] uppercase font-bold text-green-400">Engagement (Live)</div>
+                                    </div>
+                                    <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-center">
+                                        <div className="text-2xl font-bold text-purple-600">100%</div>
+                                        <div className="text-[10px] uppercase font-bold text-purple-400">Completion</div>
+                                    </div>
+                                </div>
+
+                                {/* Post List */}
+                                <h4 className="text-xs font-bold text-brand-muted uppercase mb-4">Scheduled Content</h4>
+                                <div className="space-y-3">
+                                    {events.filter(e => e.campaignName === analyzingCampaign).sort((a, b) => a.date.localeCompare(b.date)).map((evt, i) => (
+                                        <div key={i} className="flex gap-4 p-3 border border-brand-border rounded-lg items-start">
+                                            <div className="bg-gray-100 px-3 py-2 rounded text-center min-w-[60px]">
+                                                <div className="text-xs font-bold text-gray-500">{new Date(evt.date).toLocaleString('default', { month: 'short' }).toUpperCase()}</div>
+                                                <div className="text-lg font-bold text-gray-900">{new Date(evt.date).getDate()}</div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm text-brand-text line-clamp-2">{evt.content}</p>
+                                                <div className="flex gap-2 mt-2">
+                                                    <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100">Twitter</span>
+                                                    <span className="text-[10px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded border border-gray-200 uppercase">{evt.status}</span>
+                                                </div>
+                                            </div>
+                                            {evt.image && (
+                                                <img src={evt.image} alt="Post asset" className="w-16 h-16 object-cover rounded-lg border border-gray-100" />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                        <div className="p-4 border-t border-brand-border bg-gray-50 flex justify-end">
-                            <Button onClick={() => setAnalyzingCampaign(null)} variant="secondary">Close</Button>
+                            <div className="p-4 border-t border-brand-border bg-gray-50 flex justify-end">
+                                <Button onClick={() => setAnalyzingCampaign(null)} variant="secondary">Close</Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
