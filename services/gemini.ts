@@ -451,7 +451,8 @@ export const generateCampaignStrategy = async (
     userContext: string,
     activeCampaigns: string[],
     brandName: string,
-    brandConfig: BrandConfig
+    brandConfig: BrandConfig,
+    brainContext: string = "" // NEW
 ): Promise<CampaignStrategy> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -459,7 +460,7 @@ export const generateCampaignStrategy = async (
     const examples = brandConfig.tweetExamples.slice(0, 3).join('\n');
 
     const activeCampaignsList = activeCampaigns.length > 0
-        ? activeCampaigns.join(', ')
+        ? activeCampaigns.join('\n')
         : "None";
 
     const systemInstruction = `
@@ -471,8 +472,11 @@ export const generateCampaignStrategy = async (
     - Platforms: ${platforms.join(', ')}
     - Situation / Context: ${userContext || "None provided"}
     
-    ACTIVE CAMPAIGNS (Cross-reference to avoid conflict/repetition):
-    - ${activeCampaignsList}
+    ACTIVE CAMPAIGNS & CONTENT (Analyze for synergy/conflicts):
+    ${activeCampaignsList}
+
+    MARKETING BRAIN MEMORY (Recent decisions/insights):
+    ${brainContext || "No recent context."}
     
     BRAND KNOWLEDGE:
     ${kb}
@@ -484,7 +488,7 @@ export const generateCampaignStrategy = async (
     Develop a comprehensive campaign strategy brief.
     - Analyze the target audience for this specific theme.
     - Consider the "Situation" provided to tailor the messaging.
-    - Ensure synergy or clear differentiation from other active campaigns.
+    - SYNERGY: Review "Active Campaigns" and "Brain Memory". Ensure this new campaign complements existing ones (e.g. if we are already doing a 'Giveaway', maybe this one should be 'Educational').
     - Define 3 key messaging pillars.
     - Outline a strategy for each selected platform.
     - Provide realistic result estimates based on a standard micro-campaign.

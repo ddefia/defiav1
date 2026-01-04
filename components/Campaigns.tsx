@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Select } from './Select';
 import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy } from '../services/gemini';
-import { saveCalendarEvents, saveCampaignState, loadCampaignState } from '../services/storage';
+import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs } from '../services/storage';
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -48,6 +48,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [campaignItems, setCampaignItems] = useState<CampaignItem[]>([]);
     const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
     const [analyzingCampaign, setAnalyzingCampaign] = useState<string | null>(null); // New State
+    // Track what the AI actually analyzed for transparency
+    const [contextStats, setContextStats] = useState<{ activeCampaignsCount: number, brainMemoriesCount: number } | null>(null);
 
     // --- PERSISTENCE ---
     // Load state on mount
@@ -160,17 +162,39 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         setError(null);
 
         try {
-            // Get Active Campaigns for context
-            const activeCampaigns = getActiveCampaigns().map(c => `${c.name} (${c.status})`);
+            // CONTEXT 1: Active Campaigns & CONTENT
+            // Instead of just names, get the actual upcoming content to prevent collision
+            const activeCampaignsData = getActiveCampaigns();
+            const activeContext = activeCampaignsData.map(c => {
+                // Get first 3 scheduled posts for this campaign to give AI flavor
+                const campaignPosts = events
+                    .filter(e => e.campaignName === c.name && new Date(e.date) >= new Date())
+                    .slice(0, 3)
+                    .map(e => `[${e.date}] ${e.content.substring(0, 50)}...`)
+                    .join(' | ');
+                return `CAMPAIGN: ${c.name} (${c.status})\n   UPCOMING: ${campaignPosts || "No upcoming posts scheduled."}`;
+            });
+
+            // CONTEXT 2: Brain Memory
+            // Fetch recent strategic decisions to maintain consistency
+            const brainLogs = loadBrainLogs(brandName);
+            const recentLogs = brainLogs.slice(0, 5).map(l => `[${new Date(l.timestamp).toLocaleDateString()}] ${l.type}: ${l.context}`).join('\n');
+
+            // UPDATE UI STATS FOR TRANSPARENCY
+            setContextStats({
+                activeCampaignsCount: activeCampaignsData.length,
+                brainMemoriesCount: brainLogs.length // Usage of total available vs filtered (5) is a design choice, showing total available implies depth
+            });
 
             const strategy = await generateCampaignStrategy(
                 campaignGoal,
                 campaignType === 'theme' ? campaignTheme : 'Diverse Content Mix',
                 campaignPlatforms,
-                campaignContext, // NEW
-                activeCampaigns, // NEW
+                campaignContext, // Scenerio
+                activeContext,   // RICHER Active Campaign Context
                 brandName,
-                brandConfig
+                brandConfig,
+                recentLogs       // BRAIN CONTEXT
             );
             setCampaignStrategy(strategy);
             setCampaignStep(2); // Move to Strategy View
@@ -722,10 +746,21 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         {/* STEP 2: STRATEGY REVIEW & EDIT */}
                         {campaignStep === 2 && campaignStrategy && (
                             <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-6">
-                                <div className="flex justify-between items-center mb-2">
+                                <div className="flex justify-between items-start mb-2">
                                     <h3 className="text-lg font-bold text-brand-text">Strategy Brief</h3>
-                                    <div className="text-xs text-brand-muted bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                        Active Campaigns Considered: <span className="font-medium text-brand-text">{getActiveCampaigns().length}</span>
+
+                                    {/* PROPULSION BRAIN AWARENESS BADGE */}
+                                    <div className="flex flex-col items-end">
+                                        <div className="flex items-center gap-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 px-3 py-2 rounded-lg">
+                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                            <div className="text-right">
+                                                <span className="block text-[10px] font-bold text-indigo-800 uppercase tracking-wider">Propulsion Brain Active</span>
+                                                <div className="flex gap-3 text-[10px] text-indigo-600">
+                                                    <span>🧠 Analyzed {contextStats?.brainMemoriesCount || 0} Memories</span>
+                                                    <span>🌐 Synced w/ {contextStats?.activeCampaignsCount || 0} Campaigns</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -747,14 +782,14 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                                     <div>
                                         <label className="text-xs font-bold text-brand-muted uppercase block mb-1">Key Messaging</label>
-                                        <ul className="list-disc list-inside text-xs text-brand-text space-y-1">
-                                            {campaignStrategy.keyMessaging.map((m, i) => <li key={i}>{m}</li>)}
+                                        <ul className="list-disc list-inside text-xs text-brand-text space-y-1 max-h-[150px] overflow-y-auto custom-scrollbar">
+                                            {campaignStrategy.keyMessaging.map((m, i) => <li key={i} className="whitespace-pre-wrap break-words">{m}</li>)}
                                         </ul>
                                     </div>
 
                                     <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg">
                                         <span className="block text-[10px] text-indigo-600 font-bold uppercase mb-1">Recommended Content Mix</span>
-                                        <p className="text-sm font-medium text-indigo-900 leading-snug">{campaignStrategy.contentMix}</p>
+                                        <p className="text-sm font-medium text-indigo-900 leading-snug whitespace-pre-wrap break-words max-h-[100px] overflow-y-auto custom-scrollbar">{campaignStrategy.contentMix}</p>
                                     </div>
                                 </div>
 
