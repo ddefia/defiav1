@@ -300,129 +300,139 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                 </div>
             )}
 
-            {/* STRATEGY INSIGHT MODAL */}
-            {selectedTask && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setSelectedTask(null)}>
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn" onClick={() => setSelectedTask(null)}>
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col h-[85vh] max-h-[800px]" onClick={e => e.stopPropagation()}>
 
-                        {/* Modal Header */}
-                        <div className="bg-brand-surfaceHighlight border-b border-brand-border p-6 flex justify-between items-start shrink-0">
-                            <div>
-                                <div className="flex items-center gap-2 mb-2">
-                                    {getTypeBadge(selectedTask.type)}
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${selectedTask.impactScore >= 8 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
-                                        IMPACT: {selectedTask.impactScore}/10
-                                    </span>
-                                </div>
-                                <h3 className="text-xl font-bold text-brand-text leading-tight font-display">{selectedTask.title}</h3>
+                    {/* Modal Header */}
+                    <div className="bg-brand-surfaceHighlight border-b border-brand-border p-6 flex justify-between items-start shrink-0">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                {getTypeBadge(selectedTask.type)}
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${selectedTask.impactScore >= 8 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                                    IMPACT: {selectedTask.impactScore}/10
+                                </span>
                             </div>
-                            <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 bg-white p-2 rounded-full shadow-sm hover:shadow">✕</button>
+                            <h3 className="text-xl font-bold text-brand-text leading-tight font-display pr-8">{selectedTask.title}</h3>
                         </div>
+                        <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 bg-white p-2 rounded-full shadow-sm hover:shadow transition-all">✕</button>
+                    </div>
 
-                        {/* Modal Body - Scrollable */}
-                        <div className="p-0 overflow-y-auto custom-scrollbar">
-                            <div className="flex flex-col md:flex-row">
+                    {/* Modal Body - Scrollable Area */}
+                    <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
 
-                                {/* Left Column: Logic & Plan */}
-                                <div className="flex-1 p-6 space-y-6">
-                                    {/* Section: The Why (Detailed Logic Chain) */}
-                                    <div>
-                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-3 flex items-center gap-2">
-                                            <span className="text-lg">🧠</span> AI Reasoning Chain
-                                        </h4>
+                        {/* Left Column: Logic & Plan (Scrollable) */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                            {/* Section: The Why (Detailed Logic Chain) */}
+                            <div>
+                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <span className="text-lg">🧠</span> AI Reasoning Chain
+                                </h4>
 
-                                        {selectedTask.reasoningSteps && selectedTask.reasoningSteps.length > 0 ? (
-                                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 shadow-sm space-y-3">
-                                                {selectedTask.reasoningSteps.map((step, idx) => (
-                                                    <div key={idx} className="flex gap-3">
-                                                        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 text-indigo-700 flex items-center justify-center text-[10px] font-bold mt-0.5">
-                                                            {idx + 1}
-                                                        </div>
-                                                        <p className="text-sm text-indigo-900 leading-snug font-medium">
-                                                            {step}
-                                                        </p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 shadow-sm">
-                                                <p className="text-sm text-indigo-900 leading-relaxed font-medium italic">
-                                                    "{selectedTask.reasoning}"
+                                {selectedTask.reasoningSteps && selectedTask.reasoningSteps.length > 0 ? (
+                                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 shadow-sm space-y-3">
+                                        {selectedTask.reasoningSteps.map((step, idx) => (
+                                            <div key={idx} className="flex gap-3">
+                                                <div className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-200 text-indigo-700 flex items-center justify-center text-[10px] font-bold mt-0.5">
+                                                    {idx + 1}
+                                                </div>
+                                                <p className="text-sm text-indigo-900 leading-snug font-medium">
+                                                    {step}
                                                 </p>
                                             </div>
-                                        )}
+                                        ))}
                                     </div>
-
-                                    {/* Section: The What */}
-                                    <div>
-                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Detailed Context</h4>
-                                        <p className="text-sm text-brand-textSecondary leading-relaxed bg-white border border-gray-100 p-3 rounded-lg shadow-sm">
-                                            {selectedTask.description}
+                                ) : (
+                                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 shadow-sm">
+                                        <p className="text-sm text-indigo-900 leading-relaxed font-medium italic">
+                                            "{selectedTask.reasoning}"
                                         </p>
                                     </div>
+                                )}
+                            </div>
 
-                                    {/* Section: The Plan */}
-                                    <div>
-                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Execution Strategy</h4>
-                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 font-mono text-xs text-gray-700 whitespace-pre-wrap shadow-inner relative overflow-hidden group">
-                                            <div className="absolute top-2 right-2 opacity-50 text-[10px] font-bold uppercase tracking-widest text-gray-400">GenAI Prompt</div>
-                                            {selectedTask.executionPrompt}
-                                        </div>
-                                    </div>
-                                </div>
+                            {/* Section: The What */}
+                            <div>
+                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Detailed Context</h4>
+                                <p className="text-sm text-brand-textSecondary leading-relaxed bg-white border border-gray-100 p-3 rounded-lg shadow-sm">
+                                    {selectedTask.description}
+                                </p>
+                            </div>
 
-                                {/* Right Column: Evidence & Data (New) */}
-                                <div className="w-full md:w-80 bg-gray-50 border-l border-brand-border p-6 space-y-6 shrink-0">
-                                    <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-                                        <span className="text-lg">📡</span> Intelligence Signals
-                                    </h4>
-
-                                    {selectedTask.contextData && selectedTask.contextData.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {selectedTask.contextData.map((data, idx) => (
-                                                <div key={idx} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:border-brand-accent transition-colors">
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <span className="text-[10px] font-bold uppercase text-brand-muted bg-gray-100 px-1.5 rounded">{data.type}</span>
-                                                        {data.relevance && <span className="text-[10px] text-green-600 font-bold">Relevance: {data.relevance}/10</span>}
-                                                    </div>
-                                                    <p className="text-xs font-bold text-brand-text mb-1 line-clamp-2">{data.headline}</p>
-                                                    <p className="text-[10px] text-brand-textSecondary truncate">{data.source}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-8 text-brand-muted">
-                                            <div className="text-2xl mb-2">🔭</div>
-                                            <p className="text-xs">No specific data sources linked to this task.</p>
-                                        </div>
-                                    )}
-
-                                    {/* Manual Action Tips */}
-                                    <div className="pt-6 border-t border-brand-border/50">
-                                        <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">System Action</h4>
-                                        <p className="text-xs text-brand-textSecondary">
-                                            Clicking execute will
-                                            {selectedTask.type === 'CAMPAIGN_IDEA' ? ' <b>open the Campaign Wizard</b> with this strategy pre-filled.' :
-                                                selectedTask.type === 'TREND_JACK' ? ' <b>take you to the Pulse Engine</b> to react to this trend.' :
-                                                    ' <b>draft and schedule</b> content immediately.'
-                                            }
-                                        </p>
-                                    </div>
+                            {/* Section: The Plan */}
+                            <div>
+                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Execution Strategy</h4>
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 font-mono text-xs text-gray-700 whitespace-pre-wrap shadow-inner relative overflow-hidden group">
+                                    <div className="absolute top-2 right-2 opacity-50 text-[10px] font-bold uppercase tracking-widest text-gray-400">GenAI Prompt</div>
+                                    {selectedTask.executionPrompt}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Modal Footer */}
-                        <div className="p-4 bg-gray-50 border-t border-brand-border flex justify-end gap-3 shrink-0">
-                            <Button variant="secondary" onClick={() => setSelectedTask(null)}>Close</Button>
-                            <Button onClick={() => { handleExecuteTask(selectedTask); }}>
-                                Execute Action
-                            </Button>
+                        {/* Right Column: Evidence & Data (Fixed Width, Scrollable) */}
+                        <div className="w-full md:w-80 bg-gray-50 border-l border-brand-border p-6 space-y-6 shrink-0 overflow-y-auto custom-scrollbar md:h-full h-auto border-t md:border-t-0">
+                            <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+                                <span className="text-lg">📡</span> Intelligence Signals
+                            </h4>
+
+                            {selectedTask.contextData && selectedTask.contextData.length > 0 ? (
+                                <div className="space-y-3">
+                                    {selectedTask.contextData.map((data, idx) => (
+                                        <div key={idx} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:border-brand-accent transition-colors">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="text-[10px] font-bold uppercase text-brand-muted bg-gray-100 px-1.5 rounded">{data.type}</span>
+                                                {data.relevance && <span className="text-[10px] text-green-600 font-bold">Relevance: {data.relevance}/10</span>}
+                                            </div>
+                                            <p className="text-xs font-bold text-brand-text mb-1 line-clamp-2">{data.headline}</p>
+                                            <p className="text-[10px] text-brand-textSecondary truncate">{data.source}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-brand-muted">
+                                    <div className="text-2xl mb-2">🔭</div>
+                                    <p className="text-xs">No specific data sources linked to this task.</p>
+                                </div>
+                            )}
+
+                            {/* Manual Action Tips */}
+                            <div className="pt-6 border-t border-brand-border/50">
+                                <h4 className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">System Action</h4>
+                                <p className="text-xs text-brand-textSecondary">
+                                    Clicking execute will
+                                    {selectedTask.type === 'CAMPAIGN_IDEA' ? ' <b>open the Campaign Wizard</b> with this strategy pre-filled.' :
+                                        selectedTask.type === 'TREND_JACK' ? ' <b>take you to the Pulse Engine</b> to react to this trend.' :
+                                            ' <b>draft and schedule</b> content immediately.'
+                                    }
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            )}
 
+                {/* Modal Footer - Fixed */}
+                <div className="p-4 bg-white border-t border-brand-border flex justify-between items-center shrink-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    {/* Log Link */}
+                    {selectedTask.sourceLogId && onNavigate ? (
+                        <button
+                            onClick={() => onNavigate('brain', { logId: selectedTask.sourceLogId })}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 hover:underline decoration-indigo-300 underline-offset-2"
+                        >
+                            <span>🔍 View System Log</span>
+                        </button>
+                    ) : <div></div>}
+
+                    <div className="flex gap-3">
+                        <Button variant="secondary" onClick={() => setSelectedTask(null)}>Close</Button>
+                        <Button onClick={() => { handleExecuteTask(selectedTask); }}>
+                            Execute Action
+                        </Button>
+                    </div>
+                </div>
+            </div>
         </div>
+    )
+}
+
+        </div >
     );
 };

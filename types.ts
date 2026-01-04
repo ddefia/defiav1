@@ -82,6 +82,7 @@ export interface StrategyTask {
   executionPrompt: string; // The prompt to send to the generator
   contextData?: TaskContextSource[]; // New: Evidence for the task
   reasoningSteps?: string[]; // New: Step-by-step logic chain
+  sourceLogId?: string; // New: Link to the BrainLog that created this
 }
 
 export interface TaskContextSource {

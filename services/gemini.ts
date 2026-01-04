@@ -1097,7 +1097,6 @@ export const generateStrategicAnalysis = async (
         const tasks = (json.tasks || []) as StrategyTask[];
         const thoughts = json.thoughts || "No analysis provided.";
 
-        // BRAIN LOG
         const log: BrainLog = {
             id: `brain-${Date.now()}`,
             timestamp: Date.now(),
@@ -1128,7 +1127,10 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
         };
         saveBrainLog(log);
 
-        return tasks;
+        // Link Tasks to Log
+        const linkedTasks = tasks.map(t => ({ ...t, sourceLogId: log.id }));
+
+        return linkedTasks;
     } catch (error) {
         console.error("Strategy generation error", error);
         // Fallback
