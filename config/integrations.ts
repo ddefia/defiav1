@@ -52,6 +52,16 @@ export const KNOWN_INTEGRATIONS: Record<string, IntegrationConfig> = {
         apify: {
             twitterHandle: 'DefiaLabs'
         }
+    },
+    'Metis': {
+        dune: {
+            volumeQueryId: '3339234',
+            usersQueryId: '3339235',
+            retentionQueryId: '3339236'
+        },
+        apify: {
+            twitterHandle: 'MetisL2'
+        }
     }
 };
 

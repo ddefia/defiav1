@@ -2,7 +2,7 @@ import { BrandConfig, PulseCache, CalendarEvent } from "../types";
 import { DEFAULT_PROFILES } from './brandData';
 import { supabase } from './supabaseClient';
 
-const STORAGE_KEY = 'ethergraph_brand_profiles_v16';
+const STORAGE_KEY = 'ethergraph_brand_profiles_v17';
 const PULSE_STORAGE_PREFIX = 'defia_pulse_cache_v2_';
 const CALENDAR_STORAGE_KEY = 'defia_calendar_events_v1';
 const KEYS_STORAGE_KEY = 'defia_integrations_v1';

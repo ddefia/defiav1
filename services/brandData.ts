@@ -179,5 +179,22 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
             "We build tools like the Defia Studio to help protocols manage their brand identity and growth.",
             "Our mission is to professionalize Web3 marketing."
         ]
+    },
+    'Metis': {
+        colors: [
+            { id: 'metis_1', hex: '#00D2FF', name: 'Metis Cyan' },
+            { id: 'metis_2', hex: '#000000', name: 'Black' },
+            { id: 'metis_3', hex: '#FFFFFF', name: 'White' },
+        ],
+        referenceImages: [],
+        tweetExamples: [
+            "The first decentralized sequencer is live on mainnet. 🌿\n\nMetis is restoring the original promise of Ethereum scaling.\n\nDecentralization isn't a roadmap item. It's our foundation.",
+            "Low fees. High speed. Community owned. 🚀\n\nBuild the future on Metis L2."
+        ],
+        knowledgeBase: [
+            "Metis is a Smart Layer 2 Rollup on Ethereum.",
+            "It is the first L2 to successfully decentralize its sequencer.",
+            "Key features: Low gas fees, fast transactions, and community governance via Metro DAO."
+        ]
     }
 };

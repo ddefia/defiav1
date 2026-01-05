@@ -198,7 +198,17 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         TASK: Create a professional social media graphic for: "${params.prompt}"
         ${templateInstruction}
         BRANDING:
-        - Colors: ${colorPalette}.
+        ${params.selectedReferenceImage ? `
+        - ⛔ CRITICAL COLOR OVERRIDE: 
+        - IGNORE the default brand palette.
+        - You MUST extract and use the exact color palette from the provided reference image.
+        - The goal is to make the new image look like it belongs to the SAME EXACT series as the reference image.
+        ` : `
+        - ⛔ CRITICAL COLOR ENFORCEMENT:
+          - PRIMARY PALETTE: ${colorPalette}.
+          - RULE: You must use these EXACT Hex Codes. Do not shift the hue or saturation.
+          - BANNED: Do not add random accent colors (e.g. no random oranges/greens if not in palette). Keep it monochromatic to the brand if needed.
+        `}
         - Style: PROFESSIONAL, HIGH-END, PREMIUM, Glassmorphism, Ethereal, Geometric.
         - Typography: Minimal.
         INSTRUCTIONS:
@@ -214,6 +224,16 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - Focus on creating a professional, high-end visual composition that represents the concept.
           - Valid approaches: Abstract 3D art, minimalist typography, clean data visualization, or cinematic scenes.
           - The goal is a high-end brand asset, not a text document.
+          ${params.selectedReferenceImage ? `
+          - ⛔ CRITICAL STRUCTURAL & COLOR & FONT RULE: A Single Reference Image has been provided. 
+          - You MUST clone this image's exact composition, camera angle, lighting, AND COLOR GRADING.
+          - The output must match the reference image's color palette exactly.
+          - ⛔ TYPOGRAPHY CLONING: You must analyze the font in the reference image (Serif/Sans/Display, Weight, Kerning) and use a visually identical match.
+          - Do not mistakenly use a generic font if the reference uses a customized or specific verified font style.
+          - Do NOT create a new design from scratch. 
+          - Use the reference image as a rigid 3D scene template.
+          - The output must look like a direct variation of the reference image.
+          ` : ''}
       `;
     }
 
