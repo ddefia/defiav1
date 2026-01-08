@@ -314,7 +314,12 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
     try {
         console.log("Generating with gemini-3-pro-image-preview...");
-        const response = await ai.models.generateContent({
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Generation timed out after 60s")), 60000)
+        );
+
+        const generationPromise = ai.models.generateContent({
             model: 'gemini-3-pro-image-preview',
             // @ts-ignore
             contents: { parts: parts },
@@ -326,6 +331,8 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
                 }
             },
         });
+
+        const response = await Promise.race([generationPromise, timeoutPromise]) as any;
 
         const responseParts = response.candidates?.[0]?.content?.parts;
         const imagePart = responseParts?.[0];
