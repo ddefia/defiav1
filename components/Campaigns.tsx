@@ -157,34 +157,67 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
     // --- Actions ---
 
-    // STEP 1 Action: Generate Strategy
+    // STEP 1 Action: Generate Strategy (OR Direct Draft for Notes)
     const handleGenerateStrategy = async () => {
         if (campaignType === 'theme' && !campaignTheme.trim()) return;
-        // if (campaignType === 'notes' && !campaignContext.trim()) return; // Validation
 
         setIsGeneratingStrategy(true);
         setError(null);
 
         try {
-            let currentContentPlan = null;
-            let themeForStrategy = campaignTheme;
-            let contextForStrategy = campaignContext;
-
-            // 1. If Smart Plan, Parse Notes FIRST
+            // FAST TRACK FOR NOTES: Analyze -> Drafts (Skip Strategy Brief)
             if (campaignType === 'notes') {
                 const plan = await analyzeContentNotes(campaignContext, brandName);
-                if (plan) {
-                    currentContentPlan = plan;
-                    setContentPlan(plan);
-                    setCampaignTheme(plan.theme || "Smart Content Plan");
-                    themeForStrategy = plan.theme || "Smart Content Plan";
-                    // Append Global Instructions to context
-                    if (plan.globalInstructions && plan.globalInstructions.length > 0) {
-                        contextForStrategy = `${campaignContext}\n\nGLOBAL RULES: ${plan.globalInstructions.join(', ')}`;
-                        setCampaignContext(contextForStrategy);
-                    }
+                if (!plan) throw new Error("Could not analyze notes");
+
+                setContentPlan(plan);
+                const planTheme = plan.theme || "Smart Content Plan";
+                setCampaignTheme(planTheme);
+
+                // Immediately Generate Drafts
+                const draftsText = await generateCampaignDrafts(
+                    planTheme,
+                    brandName,
+                    brandConfig,
+                    0, // Count invalid for smart plan
+                    plan // Pass the plan
+                );
+
+                // Parse & Set Items (Reusing logic from handleDraftCampaign - ideally refactor this)
+                let textToParse = draftsText;
+                const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
+                if (colorMatch) {
+                    setCampaignColor(colorMatch[1]);
+                    textToParse = textToParse.replace(colorMatch[0], '').trim();
                 }
+
+                const splitDrafts = textToParse.split(/---/).map(t => t.trim()).filter(t => t.length > 0);
+                const items: CampaignItem[] = splitDrafts.map((txt, i) => {
+                    let tweetContent = txt;
+                    let detectedTemplate = campaignTemplate;
+                    const templateMatch = txt.match(/^\[(.*?)\]/);
+                    if (templateMatch) {
+                        detectedTemplate = templateMatch[1];
+                        tweetContent = txt.replace(templateMatch[0], '').trim();
+                    }
+                    return {
+                        id: `draft-${Date.now()}-${i}`,
+                        tweet: tweetContent,
+                        isApproved: true,
+                        status: 'draft',
+                        images: [],
+                        campaignColor: colorMatch ? colorMatch[1] : campaignColor,
+                        template: detectedTemplate
+                    };
+                });
+
+                setCampaignItems(items);
+                setCampaignStep(3); // Jump straight to drafts
+                setIsGeneratingStrategy(false);
+                return;
             }
+
+            // ... STANDARD FLOW FOR CAMPAIGNS ...
 
             // CONTEXT 1: Active Campaigns & CONTENT
             // Instead of just names, get the actual upcoming content to prevent collision
@@ -207,18 +240,18 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             // UPDATE UI STATS FOR TRANSPARENCY
             setContextStats({
                 activeCampaignsCount: activeCampaignsData.length,
-                brainMemoriesCount: brainLogs.length // Usage of total available vs filtered (5) is a design choice, showing total available implies depth
+                brainMemoriesCount: brainLogs.length
             });
 
             const strategy = await generateCampaignStrategy(
                 campaignGoal,
-                campaignType === 'theme' || campaignType === 'notes' ? themeForStrategy : 'Diverse Content Mix',
+                campaignType === 'theme' ? campaignTheme : 'Diverse Content Mix',
                 campaignPlatforms,
-                contextForStrategy, // Scenerio
-                activeContext,   // RICHER Active Campaign Context
+                campaignContext,
+                activeContext,
                 brandName,
                 brandConfig,
-                recentLogs       // BRAIN CONTEXT
+                recentLogs
             );
             setCampaignStrategy(strategy);
             setCampaignStep(2); // Move to Strategy View
