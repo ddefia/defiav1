@@ -393,9 +393,13 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         setCampaignItems(prev => prev.map(p => p.id === id ? { ...p, status: 'generating' } : p));
 
         try {
+            // Use Item overrides if present, otherwise global defaults
+            const effectiveTemplate = item.template || campaignTemplate || undefined;
+            const effectiveRefImage = item.referenceImageId || campaignReferenceImage || undefined;
+
             const promises = [
-                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined }),
-                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImage: campaignReferenceImage || undefined })
+                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImage: effectiveRefImage }),
+                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImage: effectiveRefImage })
             ];
             const images = await Promise.all(promises);
             setCampaignItems(prev => prev.map(p => p.id === id ? { ...p, status: 'completed', images: images, selectedImageIndex: 0 } : p));
@@ -1288,8 +1292,46 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     />
                                                     <Button onClick={() => handlePrepareTweet(item.tweet)} variant="secondary" className="h-8 text-xs py-0 whitespace-nowrap">Post</Button>
                                                 </div>
+
+                                                {/* Advanced Overrides */}
+                                                <div className="flex gap-2 mb-2 pt-2 border-t border-gray-200">
+                                                    <select
+                                                        value={item.template || campaignTemplate || ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, template: val } : i));
+                                                        }}
+                                                        className="flex-1 bg-white border border-gray-200 rounded text-[10px] p-1.5 focus:border-brand-accent outline-none"
+                                                    >
+                                                        <option value="">Default Template</option>
+                                                        <option value="Partnership">Partnership</option>
+                                                        <option value="Campaign Link">Campaign Link</option>
+                                                        <option value="Campaign Launch">Campaign Launch</option>
+                                                        <option value="Giveaway">Giveaway</option>
+                                                        <option value="Events">Event</option>
+                                                        <option value="Speaker Scenes">Speaker Quote</option>
+                                                        {(brandConfig.graphicTemplates || []).map(t => (
+                                                            <option key={t.id} value={t.label}>{t.label} (Custom)</option>
+                                                        ))}
+                                                    </select>
+
+                                                    <select
+                                                        value={item.referenceImageId || campaignReferenceImage || ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, referenceImageId: val || undefined } : i));
+                                                        }}
+                                                        className="flex-1 bg-white border border-gray-200 rounded text-[10px] p-1.5 focus:border-brand-accent outline-none"
+                                                    >
+                                                        <option value="">Default Style</option>
+                                                        {brandConfig.referenceImages.map(img => (
+                                                            <option key={img.id} value={img.id}>{img.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
                                                 {/* Visual Refinement Input */}
-                                                <div className="flex gap-2 items-center mt-2 border-t border-gray-200 pt-2">
+                                                <div className="flex gap-2 items-center">
                                                     <span className="text-[10px] font-bold text-brand-muted uppercase whitespace-nowrap">Visual Direction:</span>
                                                     <input
                                                         type="text"
@@ -1302,6 +1344,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                         onClick={() => handleRegenerateItem(item.id)}
                                                         className="h-7 text-[10px] px-3 py-0"
                                                         isLoading={item.status === 'generating'}
+                                                        variant="primary"
                                                     >
                                                         Regenerate
                                                     </Button>
