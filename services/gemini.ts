@@ -141,6 +141,22 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     const brandName = params.brandName || "Web3";
     const isMeme = brandName === 'Meme';
 
+    // Logic: If a specific image is selected, use it.
+    // If NOT, but a Template is selected that has linked images, PICK ONE randomly.
+    // This enforces "Strict Mode" for that specific style (e.g. Dark) instead of mixing Dark + Light.
+    let effectiveReferenceImageId = params.selectedReferenceImage;
+
+    if (!effectiveReferenceImageId && params.templateType && params.brandConfig.graphicTemplates) {
+        const tmpl = params.brandConfig.graphicTemplates.find(t => t.id === params.templateType || t.label === params.templateType);
+        if (tmpl && tmpl.referenceImageIds && tmpl.referenceImageIds.length > 0) {
+            // Randomly select one to ensure distinct style adherence
+            const randomIndex = Math.floor(Math.random() * tmpl.referenceImageIds.length);
+            effectiveReferenceImageId = tmpl.referenceImageIds[randomIndex];
+            console.log(`[Template Strict Mode] Selected Ref Image: ${effectiveReferenceImageId} from Template: ${tmpl.label}`);
+        }
+    }
+
+
     // Template Logic
     let templateInstruction = "";
 
@@ -198,7 +214,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         TASK: Create a professional social media graphic for: "${params.prompt}"
         ${templateInstruction}
         BRANDING:
-        ${params.selectedReferenceImage ? `
+        ${effectiveReferenceImageId ? `
         - ⛔ CRITICAL COLOR OVERRIDE: 
         - IGNORE the default brand palette.
         - You MUST extract and use the exact color palette from the provided reference image.
@@ -224,7 +240,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - Focus on creating a professional, high-end visual composition that represents the concept.
           - Valid approaches: Abstract 3D art, minimalist typography, clean data visualization, or cinematic scenes.
           - The goal is a high-end brand asset, not a text document.
-          ${params.selectedReferenceImage ? `
+          ${effectiveReferenceImageId ? `
           - ⛔ CRITICAL STRUCTURAL & COLOR & FONT RULE: A Single Reference Image has been provided. 
           - You MUST clone this image's exact composition, camera angle, lighting, AND COLOR GRADING.
           - The output must match the reference image's color palette exactly.
@@ -258,18 +274,11 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     // Process Images (Async)
     try {
         if (params.brandConfig && params.brandConfig.referenceImages) {
-            // FILTER: If a specific image is selected, use ONLY that one. 
-            // OR if the template has linked images and no override is selected.
+            // Updated: Use the effective ID calculated at the start
             let targetImageIds: string[] = [];
 
-            if (params.selectedReferenceImage) {
-                targetImageIds = [params.selectedReferenceImage];
-            } else if (params.templateType && params.brandConfig.graphicTemplates) {
-                const tmpl = params.brandConfig.graphicTemplates.find(t => t.id === params.templateType || t.label === params.templateType);
-                if (tmpl && tmpl.referenceImageIds && tmpl.referenceImageIds.length > 0) {
-                    targetImageIds = tmpl.referenceImageIds;
-                    console.log(`Using linked reference images from template [${tmpl.label}]: ${targetImageIds.length} images`);
-                }
+            if (effectiveReferenceImageId) {
+                targetImageIds = [effectiveReferenceImageId];
             }
 
             // If no specific images targetted, LIMIT to top 3 to prevent payload explosion/timeout
@@ -391,11 +400,67 @@ export const generateTweet = async (
 /**
  * Generates a campaign of tweets (Drafting Phase).
  */
+/**
+ * SMART CAMPAIGN: Analyzes raw notes to create a structured content plan.
+ */
+export const analyzeContentNotes = async (notes: string, brandName: string): Promise<any> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    const systemInstruction = `
+    You are a Content Strategy Expert for ${brandName}.
+    
+    TASK: Analyze the provided RAW NOTES and structure them into a concrete Campaign Plan.
+    
+    INPUT:
+    ${notes}
+    
+    INSTRUCTIONS:
+    1. EXTRACT discrete content items. Look for links, specific topic requests, or event mentions.
+    2. IGNORE general conversation filler.
+    3. IDENTIFY global rules (e.g. "No GMs", "Don't use emojis").
+    4. For each item, capture specific instructions (e.g. "Credit the interviewer").
+    
+    OUTPUT JSON FORMAT:
+    {
+        "theme": "A short, summarized theme title based on the content (e.g. 'January Updates Mix')",
+        "globalInstructions": ["Rule 1", "Rule 2"],
+        "items": [
+            {
+                "type": "Tweet" | "Thread" | "Announcement",
+                "topic": "Brief topic summary",
+                "specificInstruction": "The specific constraint or instruction for this exact post",
+                "url": "extracted link or null"
+            }
+        ]
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "Analyze these notes.",
+            config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json"
+            }
+        });
+
+        return JSON.parse(response.text || "{}");
+    } catch (e) {
+        console.error("Content note analysis failed", e);
+        throw e;
+    }
+};
+
+/**
+ * Generates a campaign of tweets (Drafting Phase) - Supports Smart Plan.
+ */
 export const generateCampaignDrafts = async (
     theme: string,
     brandName: string,
     brandConfig: BrandConfig,
-    count: number
+    count: number,
+    contentPlan?: any // OPTIONAL: Smart Plan
 ): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -407,31 +472,56 @@ export const generateCampaignDrafts = async (
         ? `KNOWLEDGE BASE:\n${brandConfig.knowledgeBase.join('\n\n')}`
         : "";
 
-    const isDiverse = theme === 'DIVERSE_MIX_MODE';
-
     // Build list of valid templates for AI to choose from
     const standardTemplates = ['Partnership', 'Campaign Launch', 'Giveaway', 'Event', 'Speaker Quote'];
     const customTemplates = (brandConfig.graphicTemplates || []).map(t => t.label);
     const allTemplates = [...standardTemplates, ...customTemplates].join(', ');
 
     let taskInstruction = '';
-    if (isDiverse) {
+
+    if (contentPlan && contentPlan.items && contentPlan.items.length > 0) {
+        // SMART MODE: Generate based on specific items
+        const planItems = contentPlan.items.map((item: any, i: number) =>
+            `ITEM ${i + 1}: Type: ${item.type}. Topic: ${item.topic}. URL: ${item.url || 'None'}. Instruction: ${item.specificInstruction}`
+        ).join('\n');
+
+        const rules = contentPlan.globalInstructions ? `GLOBAL RULES: ${contentPlan.globalInstructions.join(', ')}` : "";
+
         taskInstruction = `
-        TASK: Write ${count} distinct tweets covering a DIVERSE MIX of topics for ${brandName}.
+        TASK: Write exactly ${contentPlan.items.length} tweets based on the following CONTENT PLAN.
         
-        TOPIC GUIDANCE:
-        - Do NOT stick to a single theme.
-        - Ensure the mix includes: 1 educational tweet, 1 community/engagement tweet, 1 market/industry insight, 1 product feature highlight.
-        - Make them feel like a natural, varied week of content.
+        ${rules}
+        
+        CONTENT PLAN ITEMS:
+        ${planItems}
+        
+        CRITICAL: 
+        - You MUST generate exactly one tweet per ITEM.
+        - The order must match the plan (Item 1 = Tweet 1).
+        - If an Item has a URL, you MUST include it naturally in the tweet (unless instructed otherwise).
+        - If an Item says "Credit interviewer", ensure you tag/mention relevant parties.
         `;
     } else {
-        taskInstruction = `
-        TASK: Write ${count} distinct tweets about the THEME: "${theme}" for ${brandName}.
-        `;
+        // LEGACY MODE
+        const isDiverse = theme === 'DIVERSE_MIX_MODE';
+
+        if (isDiverse) {
+            taskInstruction = `
+            TASK: Write ${count} distinct tweets covering a DIVERSE MIX of topics for ${brandName}.
+            
+            TOPIC GUIDANCE:
+            - Do NOT stick to a single theme.
+            - Ensure the mix includes: 1 educational tweet, 1 community/engagement tweet, 1 market/industry insight, 1 product feature highlight.
+            - Make them feel like a natural, varied week of content.
+            `;
+        } else {
+            taskInstruction = `
+            TASK: Write ${count} distinct tweets about the THEME: "${theme}" for ${brandName}.
+            `;
+        }
     }
 
     const isNoTagBrand = ['netswap', 'enki'].includes(brandName.toLowerCase());
-    const hashtagInstruction = isNoTagBrand ? "- Do NOT use any hashtags." : "- Use 1-2 relevant hashtags.";
 
     const systemInstruction = `
     You are the Social Media Lead for ${brandName}.
@@ -451,7 +541,7 @@ export const generateCampaignDrafts = async (
       Example: "[Event] Join us for the..." or "[Speaker Quote] As our CEO said..."
       Choose the best visual template from this list: ${allTemplates}. If none fit perfectly, use [Campaign Launch].
     - Mimic the style of the examples provided.
-    - STRICTLY NO HASHTAGS.
+    - STRICTLY NO HASHTAGS (unless explicitly requested in specific instructions).
     - CRITICAL: Minimize text as much as possible. Summarize unless told not to.
     `;
 

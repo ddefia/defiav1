@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Select } from './Select';
-import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy } from '../services/gemini';
+import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy, analyzeContentNotes } from '../services/gemini';
 import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs } from '../services/storage';
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy } from '../types';
 import jsPDF from 'jspdf';
@@ -29,12 +29,13 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
     // Wizard State
     const [campaignStep, setCampaignStep] = useState<1 | 2 | 3 | 4>(1); // 1: Config, 2: Strategy, 3: Drafts, 4: Assets
-    const [campaignType, setCampaignType] = useState<'theme' | 'diverse'>('theme');
+    const [campaignType, setCampaignType] = useState<'theme' | 'diverse' | 'notes'>('theme');
     const [campaignTheme, setCampaignTheme] = useState<string>('');
     const [campaignGoal, setCampaignGoal] = useState<string>('User Acquisition'); // NEW
     const [campaignPlatforms, setCampaignPlatforms] = useState<string[]>(['Twitter']); // NEW
     const [campaignContext, setCampaignContext] = useState<string>(''); // NEW
     const [campaignStrategy, setCampaignStrategy] = useState<CampaignStrategy | null>(null); // NEW
+    const [contentPlan, setContentPlan] = useState<any>(null); // NEW for Smart Plan
 
     // Graphic Settings
     const [campaignTemplate, setCampaignTemplate] = useState<string>('');
@@ -69,6 +70,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             if (saved.campaignReferenceImage) setCampaignReferenceImage(saved.campaignReferenceImage);
             if (saved.campaignItems) setCampaignItems(saved.campaignItems);
             if (saved.campaignStartDate) setCampaignStartDate(saved.campaignStartDate);
+            if (saved.contentPlan) setContentPlan(saved.contentPlan);
         }
     }, [brandName]);
 
@@ -86,14 +88,15 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             campaignTemplate,
             campaignReferenceImage,
             campaignItems,
-            campaignStartDate
+            campaignStartDate,
+            contentPlan
         };
         // Debounce slightly or just save (localStorage is fast)
         const timeout = setTimeout(() => {
             saveCampaignState(brandName, stateToSave);
         }, 1000);
         return () => clearTimeout(timeout);
-    }, [viewMode, campaignStep, campaignType, campaignTheme, campaignGoal, campaignPlatforms, campaignStrategy, campaignTemplate, campaignReferenceImage, campaignItems, campaignStartDate, brandName]);
+    }, [viewMode, campaignStep, campaignType, campaignTheme, campaignGoal, campaignPlatforms, campaignStrategy, campaignTemplate, campaignReferenceImage, campaignItems, campaignStartDate, contentPlan, brandName]);
 
     // --- Helpers ---
 
@@ -157,11 +160,32 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     // STEP 1 Action: Generate Strategy
     const handleGenerateStrategy = async () => {
         if (campaignType === 'theme' && !campaignTheme.trim()) return;
+        // if (campaignType === 'notes' && !campaignContext.trim()) return; // Validation
 
         setIsGeneratingStrategy(true);
         setError(null);
 
         try {
+            let currentContentPlan = null;
+            let themeForStrategy = campaignTheme;
+            let contextForStrategy = campaignContext;
+
+            // 1. If Smart Plan, Parse Notes FIRST
+            if (campaignType === 'notes') {
+                const plan = await analyzeContentNotes(campaignContext, brandName);
+                if (plan) {
+                    currentContentPlan = plan;
+                    setContentPlan(plan);
+                    setCampaignTheme(plan.theme || "Smart Content Plan");
+                    themeForStrategy = plan.theme || "Smart Content Plan";
+                    // Append Global Instructions to context
+                    if (plan.globalInstructions && plan.globalInstructions.length > 0) {
+                        contextForStrategy = `${campaignContext}\n\nGLOBAL RULES: ${plan.globalInstructions.join(', ')}`;
+                        setCampaignContext(contextForStrategy);
+                    }
+                }
+            }
+
             // CONTEXT 1: Active Campaigns & CONTENT
             // Instead of just names, get the actual upcoming content to prevent collision
             const activeCampaignsData = getActiveCampaigns();
@@ -188,9 +212,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
             const strategy = await generateCampaignStrategy(
                 campaignGoal,
-                campaignType === 'theme' ? campaignTheme : 'Diverse Content Mix',
+                campaignType === 'theme' || campaignType === 'notes' ? themeForStrategy : 'Diverse Content Mix',
                 campaignPlatforms,
-                campaignContext, // Scenerio
+                contextForStrategy, // Scenerio
                 activeContext,   // RICHER Active Campaign Context
                 brandName,
                 brandConfig,
@@ -199,6 +223,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             setCampaignStrategy(strategy);
             setCampaignStep(2); // Move to Strategy View
         } catch (err) {
+            console.error(err);
             setError("Failed to generate strategy.");
         } finally {
             setIsGeneratingStrategy(false);
@@ -227,7 +252,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 enhancedTheme,
                 brandName,
                 brandConfig,
-                parseInt(campaignCount)
+                parseInt(campaignCount),
+                contentPlan // PASS THE SMART PLAN
             );
 
             // Parse output
@@ -251,6 +277,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     detectedTemplate = templateMatch[1];
                     tweetContent = txt.replace(templateMatch[0], '').trim();
                 }
+
+                // If Smart Plan, try to match link from plan item to the tweet if not present (though prompt asks for it)
+                // For now, we trust the prompt generation.
 
                 return {
                     id: `draft-${Date.now()}-${i}`,
@@ -638,10 +667,16 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         >
                                             Diverse Mix
                                         </button>
+                                        <button
+                                            onClick={() => setCampaignType('notes')}
+                                            className={`flex-1 py-2 text-xs rounded border transition-colors ${campaignType === 'notes' ? 'bg-brand-accent text-white border-brand-accent' : 'bg-white text-brand-text border-brand-border hover:bg-gray-50'}`}
+                                        >
+                                            ✨ Smart Plan
+                                        </button>
                                     </div>
                                 </div>
 
-                                {campaignType === 'theme' ? (
+                                {campaignType === 'theme' && (
                                     <div>
                                         <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Theme</label>
                                         <input
@@ -652,39 +687,64 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm"
                                         />
                                     </div>
-                                ) : (
+                                )}
+
+                                {campaignType === 'diverse' && (
                                     <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-800">
                                         <p className="font-bold mb-1">Diverse Mix Mode</p>
                                         The AI will automatically generate a balanced week of content covering Education, Community, Market Insights, and Product Updates.
                                     </div>
                                 )}
 
-                                <div>
-                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Goal</label>
-                                    <Select
-                                        label="Campaign Goal"
-                                        value={campaignGoal}
-                                        onChange={(e) => setCampaignGoal(e.target.value)}
-                                        options={[
-                                            { value: 'User Acquisition', label: 'User Acquisition' },
-                                            { value: 'Brand Awareness', label: 'Brand Awareness' },
-                                            { value: 'Community Engagement', label: 'Community Engagement' },
-                                            { value: 'Product Education', label: 'Product Education' }
-                                        ]}
-                                    />
-                                </div>
+                                {campaignType === 'notes' && (
+                                    <div>
+                                        <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Raw Content Notes</label>
+                                        <textarea
+                                            value={campaignContext}
+                                            onChange={e => setCampaignContext(e.target.value)}
+                                            placeholder="Paste your rough notes here (e.g. valid URLs, bullet points, specific instructions like 'No GMs' or 'Credit this user'). The AI will parse this into a structured plan."
+                                            className="w-full bg-indigo-50/50 border border-indigo-200 rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[150px] font-mono"
+                                        />
+                                        <p className="text-[10px] text-brand-muted mt-2">
+                                            The AI will extract links, identify rules, and create one post per item.
+                                        </p>
+                                    </div>
+                                )}
 
-                                <div>
-                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Scenario / Context (Optional)</label>
-                                    <textarea
-                                        value={campaignContext}
-                                        onChange={e => setCampaignContext(e.target.value)}
-                                        placeholder="Describe the specific situation (e.g., 'We are launching v2 next week and need to hype the new features...')"
-                                        className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[80px]"
-                                    />
-                                </div>
 
-                                <Select label="Tweet Count" value={campaignCount} onChange={e => setCampaignCount(e.target.value)} options={[{ value: '3', label: '3 Tweets' }, { value: '5', label: '5 Tweets' }, { value: '7', label: '7 Tweets' }]} />
+                                {campaignType !== 'notes' && (
+                                    <>
+                                        <div>
+                                            <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Goal</label>
+                                            <Select
+                                                label="Campaign Goal"
+                                                value={campaignGoal}
+                                                onChange={(e) => setCampaignGoal(e.target.value)}
+                                                options={[
+                                                    { value: 'User Acquisition', label: 'User Acquisition' },
+                                                    { value: 'Brand Awareness', label: 'Brand Awareness' },
+                                                    { value: 'Community Engagement', label: 'Community Engagement' },
+                                                    { value: 'Product Education', label: 'Product Education' }
+                                                ]}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Scenario / Context (Optional)</label>
+                                            <textarea
+                                                value={campaignContext}
+                                                onChange={e => setCampaignContext(e.target.value)}
+                                                placeholder="Describe the specific situation (e.g., 'We are launching v2 next week and need to hype the new features...')"
+                                                className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[80px]"
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
+                                {campaignType !== 'notes' && (
+                                    <Select label="Tweet Count" value={campaignCount} onChange={e => setCampaignCount(e.target.value)} options={[{ value: '3', label: '3 Tweets' }, { value: '5', label: '5 Tweets' }, { value: '7', label: '7 Tweets' }]} />
+                                )}
+
                                 <div className="space-y-4 pt-4 border-t border-brand-border">
                                     {/* Visual Style Selection */}
                                     <div>
@@ -738,7 +798,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 </div>
 
                                 <Button onClick={handleGenerateStrategy} isLoading={isGeneratingStrategy} disabled={campaignType === 'theme' && !campaignTheme} className="w-full shadow-lg shadow-indigo-500/20">
-                                    Next: Generate Strategy
+                                    {campaignType === 'notes' ? 'Analyze Notes & Create Plan' : 'Next: Generate Strategy'}
                                 </Button>
                             </div>
                         )}
