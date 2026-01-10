@@ -79,6 +79,10 @@ const App: React.FC = () => {
     // const campaignFileInputRef = useRef<HTMLInputElement>(null); // Moved
     const [activeUploadId, setActiveUploadId] = useState<string | null>(null);
 
+    // Studio Deep Link State
+    const [studioDraft, setStudioDraft] = useState<string>('');
+    const [studioVisualPrompt, setStudioVisualPrompt] = useState<string>('');
+
     useEffect(() => {
         if (Object.keys(profiles).length > 0) {
             saveBrandProfiles(profiles);
@@ -299,6 +303,12 @@ const App: React.FC = () => {
         // Social: Filter View
         if (section === 'social' && params?.filter) {
             setSocialFilter(params.filter);
+        }
+
+        // Studio: Deep Link with Content
+        if (section === 'studio') {
+            if (params?.draft) setStudioDraft(params.draft);
+            if (params?.visualPrompt) setStudioVisualPrompt(params.visualPrompt);
         }
     }
 
@@ -595,6 +605,8 @@ const App: React.FC = () => {
                         brandConfig={profiles[selectedBrand]}
                         onSchedule={(content, image) => handleOpenScheduleModal(content, image)}
                         onUpdateBrandConfig={handleUpdateCurrentBrandConfig}
+                        initialDraft={studioDraft}
+                        initialVisualPrompt={studioVisualPrompt}
                     />
                 )}
 

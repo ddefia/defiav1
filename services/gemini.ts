@@ -1223,7 +1223,9 @@ export const generateStrategicAnalysis = async (
     }
     
     CRITICAL: 
-    - 'contextData' must cite REAL inputs from the provided 'Market Trends' or 'Incoming Mentions'. Do NOT hallucinate sources.
+    - 'contextData' must cite REAL inputs from the provided 'Market Trends', 'Incoming Mentions', or 'System Memory'. 
+    - You MUST include at least 1 item in 'contextData' for every task to prove why it was generated.
+    - Do NOT hallucinate sources. If you use a trend, cite the specific headline.
     - 'reasoningSteps' should show your logic chain.
     `;
 

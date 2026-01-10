@@ -12,11 +12,13 @@ interface ContentStudioProps {
     brandConfig: BrandConfig;
     onSchedule: (content: string, image?: string) => void;
     onUpdateBrandConfig: (config: BrandConfig) => void;
+    initialDraft?: string;
+    initialVisualPrompt?: string;
 }
 
 const TEMPLATE_OPTIONS: { id: string; label: string; }[] = [];
 
-export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandConfig, onSchedule, onUpdateBrandConfig }) => {
+export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandConfig, onSchedule, onUpdateBrandConfig, initialDraft, initialVisualPrompt }) => {
     // Tab State
     const [activeTab, setActiveTab] = useState<'writer' | 'generate' | 'brand'>('writer');
 
@@ -53,19 +55,34 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     const [selectedReferenceImage, setSelectedReferenceImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // --- PERSISTENCE ---
+    // --- PERSISTENCE & DEEP LINKS ---
     useEffect(() => {
-        const saved = loadStudioState(brandName);
-        if (saved) {
-            if (saved.activeTab) setActiveTab(saved.activeTab);
-            if (saved.writerTopic) setWriterTopic(saved.writerTopic);
-            if (saved.generatedDraft) setGeneratedDraft(saved.generatedDraft);
-            if (saved.tweetText) setTweetText(saved.tweetText);
-            if (saved.visualPrompt) setVisualPrompt(saved.visualPrompt);
-            if (saved.negativePrompt) setNegativePrompt(saved.negativePrompt);
-            if (saved.generatedImages) setGeneratedImages(saved.generatedImages);
+        // Handle Deep Linking Overrides
+        if (initialDraft || initialVisualPrompt) {
+            if (initialDraft) {
+                setWriterTopic(initialDraft);
+                // Also infer tone if possible, but default is fine
+                setActiveTab('writer');
+            }
+            if (initialVisualPrompt) {
+                // If visual prompt provided, go to generator
+                setVisualPrompt(initialVisualPrompt);
+                setActiveTab('generate');
+            }
+        } else {
+            // Load saved state only if no deep link (prevent overwriting deep link with old state)
+            const saved = loadStudioState(brandName);
+            if (saved) {
+                if (saved.activeTab) setActiveTab(saved.activeTab);
+                if (saved.writerTopic) setWriterTopic(saved.writerTopic);
+                if (saved.generatedDraft) setGeneratedDraft(saved.generatedDraft);
+                if (saved.tweetText) setTweetText(saved.tweetText);
+                if (saved.visualPrompt) setVisualPrompt(saved.visualPrompt);
+                if (saved.negativePrompt) setNegativePrompt(saved.negativePrompt);
+                if (saved.generatedImages) setGeneratedImages(saved.generatedImages);
+            }
         }
-    }, [brandName]);
+    }, [brandName, initialDraft, initialVisualPrompt]);
 
     useEffect(() => {
         const state = {

@@ -225,138 +225,181 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                         {configuringTask.reasoning}
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-center text-xs border-t border-gray-100 pt-3">
-                                    <span className="text-gray-500">Impact Score</span>
-                                    <div className="flex items-center gap-1.5 font-bold text-brand-text">
-                                        <div className={`w-2 h-2 rounded-full ${configuringTask.impactScore >= 8 ? 'bg-red-500' : 'bg-blue-400'}`}></div>
-                                        {configuringTask.impactScore}/10
+                            </div>
+
+                            {/* DATA SIGNALS (PROOF) */}
+                            {configuringTask.contextData && configuringTask.contextData.length > 0 && (
+                                <div className="border-t border-gray-100 pt-3">
+                                    <label className="text-[10px] font-bold text-brand-muted uppercase block mb-2">Data Signals (Proof)</label>
+                                    <div className="space-y-2">
+                                        {configuringTask.contextData.map((data, idx) => (
+                                            <div key={idx} className="flex items-start gap-2 text-xs bg-indigo-50/50 p-2 rounded border border-indigo-50">
+                                                <div className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${data.relevance >= 8 ? 'bg-indigo-500' : 'bg-indigo-300'}`}></div>
+                                                <div>
+                                                    <div className="font-bold text-gray-700">{data.headline}</div>
+                                                    <div className="text-[10px] text-gray-500 flex items-center gap-1">
+                                                        <span className="uppercase tracking-wider font-bold">{data.type}</span>
+                                                        <span>•</span>
+                                                        <span>{data.source}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* RIGHT COL: CONFIGURATION */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white border border-brand-border rounded-xl shadow-sm overflow-hidden">
-                            <div className="p-6 border-b border-brand-border bg-gray-50/30 flex justify-between items-center">
-                                <h3 className="font-bold text-brand-text flex items-center gap-2">
-                                    <span className="flex items-center justify-center w-6 h-6 rounded bg-brand-accent/10 text-brand-accent text-sm">1</span>
-                                    Content Generation
-                                </h3>
-                                {/* Toggle */}
-                                <div className="flex items-center gap-3">
-                                    <span className={`text-xs font-bold ${includeGraphic ? 'text-brand-text' : 'text-gray-400'}`}>Generate Graphic?</span>
-                                    <button
-                                        onClick={() => setIncludeGraphic(!includeGraphic)}
-                                        className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${includeGraphic ? 'bg-brand-accent' : 'bg-gray-200'}`}
-                                    >
-                                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${includeGraphic ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="p-6 space-y-8">
-
-                                {/* GRAPHIC SETTINGS - CONDITIONALLY SHOWN */}
-                                {includeGraphic ? (
-                                    <div className="animate-fadeIn space-y-6">
-
-                                        {/* MODE SELECTION */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <button
-                                                onClick={() => { setSelectedTemplate('Campaign Launch'); setExecutionMode('Creative'); }}
-                                                className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${executionMode === 'Creative' ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-100 hover:border-brand-accent/30'}`}
-                                            >
-                                                <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border border-brand-accent flex items-center justify-center ${executionMode === 'Creative' ? 'bg-brand-accent' : 'bg-transparent'}`}>
-                                                    {executionMode === 'Creative' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
-                                                </div>
-                                                <div className="font-bold text-sm text-brand-text mb-1">Creative Harmony</div>
-                                                <div className="text-xs text-brand-textSecondary leading-snug">Artistic Direction. Use reference for "Vibe" & Light. Flexible Layout.</div>
-                                            </button>
-
-                                            <button
-                                                onClick={() => { setSelectedTemplate('Partnership'); setExecutionMode('Structure'); }}
-                                                className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${executionMode === 'Structure' ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-100 hover:border-brand-accent/30'}`}
-                                            >
-                                                <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border border-brand-accent flex items-center justify-center ${executionMode === 'Structure' ? 'bg-brand-accent' : 'bg-transparent'}`}>
-                                                    {executionMode === 'Structure' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
-                                                </div>
-                                                <div className="font-bold text-sm text-brand-text mb-1">Structural Clone</div>
-                                                <div className="text-xs text-brand-textSecondary leading-snug">Template Mode. Strict layout preservation. Best for announcements.</div>
-                                            </button>
-                                        </div>
-
-                                        {/* DROPDOWNS */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-xl border border-gray-100">
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Visual Template</label>
-                                                <select
-                                                    value={selectedTemplate}
-                                                    onChange={(e) => setSelectedTemplate(e.target.value)}
-                                                    className="w-full text-sm p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-brand-accent shadow-sm"
-                                                >
-                                                    <option value="Campaign Launch">Campaign Launch (Creative)</option>
-                                                    <option value="Partnership">Partnership (Structural)</option>
-                                                    <option value="Speaker Scenes">Speaker Quote (Structural)</option>
-                                                    <option value="Events">Event / Date (Structural)</option>
-                                                    <option value="Giveaway">Giveaway (Structural)</option>
-                                                    {brandConfig.graphicTemplates?.map(t => (
-                                                        <option key={t.id} value={t.label}>{t.label} (Custom)</option>
-                                                    ))}
-                                                </select>
-                                                <p className="text-[10px] text-gray-500">Determines the structure/layout of the image.</p>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Reference Image</label>
-                                                <select
-                                                    value={selectedRefImage}
-                                                    onChange={(e) => setSelectedRefImage(e.target.value)}
-                                                    className="w-full text-sm p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-brand-accent shadow-sm"
-                                                >
-                                                    <option value="">Auto-Select Best Match</option>
-                                                    {brandConfig.referenceImages?.map(img => (
-                                                        <option key={img.id} value={img.id}>Ref: {img.id.substring(0, 8)}...</option>
-                                                    ))}
-                                                </select>
-                                                <p className="text-[10px] text-gray-500">The style/vibe source for the generation.</p>
-                                            </div>
-                                        </div>
-
-                                    </div>
-                                ) : (
-                                    <div className="p-8 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                                        <div className="text-4xl mb-3">📝</div>
-                                        <h4 className="font-bold text-brand-text text-sm">Text Only Workflow</h4>
-                                        <p className="text-xs text-brand-textSecondary max-w-xs mx-auto mt-1">The AI will draft a high-quality, formatted tweet without generating any accompanying graphics.</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* FOOTER ACTIONS */}
-                            <div className="p-6 bg-gray-50 border-t border-brand-border flex justify-end gap-3">
-                                <Button
-                                    onClick={() => setConfiguringTask(null)}
-                                    variant="secondary"
-                                    className="bg-white hover:bg-gray-100"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handleConfirmExecute}
-                                    disabled={isExecuting !== null}
-                                    isLoading={isExecuting === configuringTask.id}
-                                    className="px-8 shadow-lg shadow-brand-accent/20"
-                                >
-                                    {isExecuting ? 'Generate Draft' : `Execute Strategy ${includeGraphic ? '+ Graphic' : ''}`}
-                                </Button>
-                            </div>
-
+                            )}
                         </div>
                     </div>
                 </div>
+
+                {/* RIGHT COL: CONFIGURATION */}
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white border border-brand-border rounded-xl shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-brand-border bg-gray-50/30 flex justify-between items-center">
+                            <h3 className="font-bold text-brand-text flex items-center gap-2">
+                                <span className="flex items-center justify-center w-6 h-6 rounded bg-brand-accent/10 text-brand-accent text-sm">1</span>
+                                Content Generation
+                            </h3>
+                            {/* Toggle */}
+                            <div className="flex items-center gap-3">
+                                <span className={`text-xs font-bold ${includeGraphic ? 'text-brand-text' : 'text-gray-400'}`}>Generate Graphic?</span>
+                                <button
+                                    onClick={() => setIncludeGraphic(!includeGraphic)}
+                                    className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${includeGraphic ? 'bg-brand-accent' : 'bg-gray-200'}`}
+                                >
+                                    <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${includeGraphic ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-8">
+
+                            {/* GRAPHIC SETTINGS - CONDITIONALLY SHOWN */}
+                            {includeGraphic ? (
+                                <div className="animate-fadeIn space-y-6">
+
+                                    {/* MODE SELECTION */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <button
+                                            onClick={() => { setSelectedTemplate('Campaign Launch'); setExecutionMode('Creative'); }}
+                                            className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${executionMode === 'Creative' ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-100 hover:border-brand-accent/30'}`}
+                                        >
+                                            <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border border-brand-accent flex items-center justify-center ${executionMode === 'Creative' ? 'bg-brand-accent' : 'bg-transparent'}`}>
+                                                {executionMode === 'Creative' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                            </div>
+                                            <div className="font-bold text-sm text-brand-text mb-1">Creative Harmony</div>
+                                            <div className="text-xs text-brand-textSecondary leading-snug">Artistic Direction. Use reference for "Vibe" & Light. Flexible Layout.</div>
+                                        </button>
+
+                                        <button
+                                            onClick={() => { setSelectedTemplate('Partnership'); setExecutionMode('Structure'); }}
+                                            className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${executionMode === 'Structure' ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-100 hover:border-brand-accent/30'}`}
+                                        >
+                                            <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border border-brand-accent flex items-center justify-center ${executionMode === 'Structure' ? 'bg-brand-accent' : 'bg-transparent'}`}>
+                                                {executionMode === 'Structure' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                            </div>
+                                            <div className="font-bold text-sm text-brand-text mb-1">Structural Clone</div>
+                                            <div className="text-xs text-brand-textSecondary leading-snug">Template Mode. Strict layout preservation. Best for announcements.</div>
+                                        </button>
+                                    </div>
+
+                                    {/* DROPDOWNS */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Visual Template</label>
+                                            <select
+                                                value={selectedTemplate}
+                                                onChange={(e) => setSelectedTemplate(e.target.value)}
+                                                className="w-full text-sm p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-brand-accent shadow-sm"
+                                            >
+                                                <option value="Campaign Launch">Campaign Launch (Creative)</option>
+                                                <option value="Partnership">Partnership (Structural)</option>
+                                                <option value="Speaker Scenes">Speaker Quote (Structural)</option>
+                                                <option value="Events">Event / Date (Structural)</option>
+                                                <option value="Giveaway">Giveaway (Structural)</option>
+                                                {brandConfig.graphicTemplates?.map(t => (
+                                                    <option key={t.id} value={t.label}>{t.label} (Custom)</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-gray-500">Determines the structure/layout of the image.</p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Reference Image</label>
+                                            <select
+                                                value={selectedRefImage}
+                                                onChange={(e) => setSelectedRefImage(e.target.value)}
+                                                className="w-full text-sm p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-brand-accent shadow-sm"
+                                            >
+                                                <option value="">Auto-Select Best Match</option>
+                                                {brandConfig.referenceImages?.map(img => (
+                                                    <option key={img.id} value={img.id}>Ref: {img.id.substring(0, 8)}...</option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-gray-500">The style/vibe source for the generation.</p>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            ) : (
+                                <div className="p-8 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                    <div className="text-4xl mb-3">📝</div>
+                                    <h4 className="font-bold text-brand-text text-sm">Text Only Workflow</h4>
+                                    <p className="text-xs text-brand-textSecondary max-w-xs mx-auto mt-1">The AI will draft a high-quality, formatted tweet without generating any accompanying graphics.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* FOOTER ACTIONS */}
+                        <div className="p-6 bg-gray-50 border-t border-brand-border flex justify-end gap-3">
+                            <Button
+                                onClick={() => setConfiguringTask(null)}
+                                variant="secondary"
+                                className="bg-white hover:bg-gray-100 mr-auto"
+                            >
+                                Cancel
+                            </Button>
+
+                            {/* SMART ROUTING BUTTON */}
+                            {onNavigate && (
+                                <Button
+                                    onClick={() => {
+                                        if (configuringTask.type === 'CAMPAIGN_IDEA') {
+                                            onNavigate!('campaigns', { intent: configuringTask.title });
+                                        } else if (configuringTask.type === 'TREND_JACK') {
+                                            const trend = configuringTask.contextData?.find(c => c.type === 'TREND');
+                                            onNavigate!('studio', {
+                                                draft: `Write a post about ${configuringTask.title}. Context: ${trend?.headline || 'Current Market Trend'}`,
+                                                visualPrompt: `Editorial graphic representing ${configuringTask.title}`
+                                            });
+                                        } else {
+                                            // Default to Studio Writer
+                                            onNavigate!('studio', {
+                                                draft: configuringTask.executionPrompt
+                                            });
+                                        }
+                                    }}
+                                    variant="secondary"
+                                    className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-100"
+                                >
+                                    Open in Workbench ↗
+                                </Button>
+                            )}
+
+                            <Button
+                                onClick={handleConfirmExecute}
+                                disabled={isExecuting !== null}
+                                isLoading={isExecuting === configuringTask.id}
+                                className="px-8 shadow-lg shadow-brand-accent/20"
+                            >
+                                {isExecuting ? 'Generate Draft' : `Execute Strategy ${includeGraphic ? '+ Graphic' : ''}`}
+                            </Button>
+                        </div>
+
+                    </div>
+                </div>
             </div>
+
         )
     }
 
