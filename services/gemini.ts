@@ -483,7 +483,7 @@ export const generateCampaignDrafts = async (
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const examples = brandConfig.tweetExamples.length > 0
-        ? `STYLE EXAMPLES:\n${brandConfig.tweetExamples.slice(0, 3).map(t => `- ${t}`).join('\n')}`
+        ? `STYLE EXAMPLES (COPY THIS VIBE EXACTLY):\n${brandConfig.tweetExamples.slice(0, 5).map(t => `- ${t}`).join('\n')}`
         : "";
 
     const kb = brandConfig.knowledgeBase.length > 0
@@ -516,7 +516,6 @@ export const generateCampaignDrafts = async (
         ${focusContent ? `STRATEGIC FOCUS DOCUMENT (PRIORITIZE THIS CONTEXT): ${focusContent}` : ''}
         
         CRITICAL: 
-
         - You MUST generate exactly one tweet per ITEM.
         - The order must match the plan (Item 1 = Tweet 1).
         - If an Item has a URL, you MUST include it naturally in the tweet (unless instructed otherwise).
@@ -543,10 +542,8 @@ export const generateCampaignDrafts = async (
         }
     }
 
-    const isNoTagBrand = ['netswap', 'enki'].includes(brandName.toLowerCase());
-
     const systemInstruction = `
-    You are the Social Media Lead for ${brandName}.
+    You are the Social Media Lead for ${brandName} (Crypto/Tech/Modern Brand).
     
     ${taskInstruction}
     
@@ -554,21 +551,31 @@ export const generateCampaignDrafts = async (
     
     ${kb}
     
-    FORMATTING:
-    - First line MUST be "THEME_COLOR: [Hex Code]" (e.g. THEME_COLOR: #FF5733). Choose a color that matches the vibe of the campaign theme.
+    CRITICAL STYLE RULES (DO NOT IGNORE):
+    1. **NO CORPORATE FLUFF**: banned phrases include "We are excited to announce", "Revolutionizing the future", "Game changer", "In the rapidly evolving landscape". 
+    2. **HOOK FIRST**: The first sentence must be punchy, confusing, or controversial. It must stop the scroll.
+    3. **VALUE DENSITY**: The middle must explain "Why this matters" in plain English.
+    4. **CASUAL AUTHORITY**: Sound like a founder or a degen, not a PR agency. Use sentence fragments. Be direct.
+    5. **FORMATTING**: 
+       - Use line breaks often. 
+       - Max 2 sentences per paragraph.
+       - Use specific numbers/stats if available.
+
+    FORMATTING OUTPUT:
+    - First line MUST be "THEME_COLOR: [Hex Code]" (e.g. THEME_COLOR: #FF5733). Choose a color that matches the vibe.
     - Then separate each tweet clearly with "---".
-    - Do not number the tweets.
-    - LENGTH & STYLE: Write longer, high-value tweets. Use the full 280 character limit to add depth.
-    - STRUCTURE: 
+    - Do not number the tweets (e.g. "Tweet 1").
+    - STRUCTURE PER TWEET: 
         - Start with a COMPULSORY TEMPLATE TAG in brackets (e.g. [Event]).
-        - Follow with a strong Hook.
-        - Use multiple line breaks for readability (3-4 lines).
-        - Use bullet points if useful.
-        - End with a CTA.
+        - [New Line]
+        - The Hook (No emojis at start).
+        - [New Line]
+        - The Body (CRITICAL: Write 2-3 senteces of value-dense content. Do not write just a header.).
+        - [New Line]
+        - The CTA / URL.
     - Choose the best visual template from: ${allTemplates}. If none fit, use [Campaign Launch].
-    - Mimic the style of the examples provided.
-    - STRICTLY NO HASHTAGS (unless explicitly requested in specific instructions).
-    - FORMATTING: Be creative. Avoid dense blocks of text.
+    - STRICTLY NO HASHTAGS (unless explicitly requested).
+    - OUTPUT LENGTH: Each tweet must be substantial, not just a one-liner.
     `;
 
     try {
