@@ -32,11 +32,11 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isExecuting, setIsExecuting] = useState<string | null>(null);
-    // const [selectedTask, setSelectedTask] = useState<StrategyTask | null>(null); // REMOVED DETAIL VIEW FOR SIMPLICITY
     const [lastScan, setLastScan] = useState<Date | null>(new Date());
 
-    // Config Modal State
+    // EXECUTION STATE (Full Page Mode)
     const [configuringTask, setConfiguringTask] = useState<StrategyTask | null>(null);
+    const [includeGraphic, setIncludeGraphic] = useState(true); // New Toggle
     const [selectedTemplate, setSelectedTemplate] = useState<string>('Campaign Launch');
     const [selectedRefImage, setSelectedRefImage] = useState<string>('');
     const [executionMode, setExecutionMode] = useState<'Creative' | 'Structure'>('Creative');
@@ -77,9 +77,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         }
     }, [brandName]);
 
-    // PREPARE EXECUTION (Open Modal)
+    // PREPARE EXECUTION (Enter Config Mode)
     const handleConfigureExecution = (task: StrategyTask) => {
-        // Intelligent Routing Bypass: If no generation needed, just route
+        // Intelligent Routing Bypass
         if (task.type === 'CAMPAIGN_IDEA' && onNavigate) {
             onNavigate('campaigns', { intent: task.title });
             return;
@@ -96,47 +96,48 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             return;
         }
 
-        // Default: Open Graphics Config Modal
+        // Enter Execution View
         setConfiguringTask(task);
-        // Reset defaults
+
+        // Smart Defaults
+        setIncludeGraphic(task.type !== 'REPLY'); // Replies usually text-only
         setSelectedTemplate('Campaign Launch');
         if (brandConfig.referenceImages?.length > 0) {
             setSelectedRefImage(brandConfig.referenceImages[0].id);
         }
     };
 
-    // RUN EXECUTION (Called from Modal)
+    // RUN EXECUTION
     const handleConfirmExecute = async () => {
         if (!configuringTask) return;
         const task = configuringTask;
 
         setIsExecuting(task.id);
-        setConfiguringTask(null); // Close modal
 
         try {
             // 1. Generate Copy
             const copy = await generateTweet(task.executionPrompt, brandName, brandConfig, 'Professional');
 
-            // 2. Generate Graphic (Smart Mode)
+            // 2. Generate Graphic (Only if toggled)
             let image;
-            if (task.type !== 'REPLY') {
+            if (includeGraphic) {
                 const visualPrompt = `Editorial graphic for ${brandName}. Context: ${task.title}. Style: Professional, clean, on-brand.`;
-
                 image = await generateWeb3Graphic({
                     prompt: visualPrompt,
                     size: '1K',
                     aspectRatio: '16:9',
                     brandConfig: brandConfig,
                     brandName: brandName,
-                    templateType: selectedTemplate, // USER SELECTED
-                    selectedReferenceImage: selectedRefImage // USER SELECTED
+                    templateType: selectedTemplate,
+                    selectedReferenceImage: selectedRefImage
                 });
             }
 
             onSchedule(copy, image);
             await logDecision(`Executed Task: ${task.title} (${task.type})`, task.reasoning);
 
-            // Remove from list
+            // Access granted - clear task and view
+            setConfiguringTask(null);
             const remaining = tasks.filter(t => t.id !== task.id);
             onUpdateTasks(remaining);
 
@@ -153,9 +154,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         onUpdateTasks(remaining);
     }
 
-    // --- RENDER HELPERS ---
-
-    // Type Badge Style (Clean, Pill)
+    // Helper for Type Badges
     const getTypeBadge = (type: string) => {
         const styles: Record<string, string> = {
             'REPLY': 'text-blue-600 bg-blue-50 border-blue-100',
@@ -173,6 +172,179 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             </span>
         );
     };
+
+    // --- FULL PAGE EXECUTION VIEW ---
+    if (configuringTask) {
+        return (
+            <div className="w-full h-full bg-gray-50/50 -m-4 p-8 animate-fadeIn flex flex-col">
+                {/* Header */}
+                <div className="flex items-center gap-4 mb-8">
+                    <button
+                        onClick={() => setConfiguringTask(null)}
+                        className="p-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors shadow-sm text-gray-500"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                    </button>
+                    <div>
+                        <h2 className="text-2xl font-display font-bold text-brand-text">Configure Action</h2>
+                        <p className="text-sm text-brand-textSecondary">Fine-tune how the AI executes this strategic intent.</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl">
+                    {/* LEFT COL: CONTEXT */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm">
+                            <div className="flex items-center gap-2 mb-4">
+                                {getTypeBadge(configuringTask.type)}
+                                <span className="text-xs font-bold text-brand-muted uppercase tracking-wider">Strategy Context</span>
+                            </div>
+                            <h3 className="text-lg font-bold text-brand-text mb-2 leading-tight">{configuringTask.title}</h3>
+                            <p className="text-sm text-brand-textSecondary leading-relaxed mb-6">
+                                {configuringTask.description}
+                            </p>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-brand-muted uppercase block mb-1">AI Reasoning</label>
+                                    <div className="text-xs bg-gray-50 p-3 rounded border border-gray-100 text-gray-700 leading-relaxed">
+                                        {configuringTask.reasoning}
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center text-xs border-t border-gray-100 pt-3">
+                                    <span className="text-gray-500">Impact Score</span>
+                                    <div className="flex items-center gap-1.5 font-bold text-brand-text">
+                                        <div className={`w-2 h-2 rounded-full ${configuringTask.impactScore >= 8 ? 'bg-red-500' : 'bg-blue-400'}`}></div>
+                                        {configuringTask.impactScore}/10
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* RIGHT COL: CONFIGURATION */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="bg-white border border-brand-border rounded-xl shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-brand-border bg-gray-50/30 flex justify-between items-center">
+                                <h3 className="font-bold text-brand-text flex items-center gap-2">
+                                    <span className="flex items-center justify-center w-6 h-6 rounded bg-brand-accent/10 text-brand-accent text-sm">1</span>
+                                    Content Generation
+                                </h3>
+                                {/* Toggle */}
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-xs font-bold ${includeGraphic ? 'text-brand-text' : 'text-gray-400'}`}>Generate Graphic?</span>
+                                    <button
+                                        onClick={() => setIncludeGraphic(!includeGraphic)}
+                                        className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${includeGraphic ? 'bg-brand-accent' : 'bg-gray-200'}`}
+                                    >
+                                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${includeGraphic ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-6 space-y-8">
+
+                                {/* GRAPHIC SETTINGS - CONDITIONALLY SHOWN */}
+                                {includeGraphic ? (
+                                    <div className="animate-fadeIn space-y-6">
+
+                                        {/* MODE SELECTION */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <button
+                                                onClick={() => { setSelectedTemplate('Campaign Launch'); setExecutionMode('Creative'); }}
+                                                className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${executionMode === 'Creative' ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-100 hover:border-brand-accent/30'}`}
+                                            >
+                                                <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border border-brand-accent flex items-center justify-center ${executionMode === 'Creative' ? 'bg-brand-accent' : 'bg-transparent'}`}>
+                                                    {executionMode === 'Creative' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                                </div>
+                                                <div className="font-bold text-sm text-brand-text mb-1">Creative Harmony</div>
+                                                <div className="text-xs text-brand-textSecondary leading-snug">Artistic Direction. Use reference for "Vibe" & Light. Flexible Layout.</div>
+                                            </button>
+
+                                            <button
+                                                onClick={() => { setSelectedTemplate('Partnership'); setExecutionMode('Structure'); }}
+                                                className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${executionMode === 'Structure' ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-100 hover:border-brand-accent/30'}`}
+                                            >
+                                                <div className={`absolute top-3 right-3 w-4 h-4 rounded-full border border-brand-accent flex items-center justify-center ${executionMode === 'Structure' ? 'bg-brand-accent' : 'bg-transparent'}`}>
+                                                    {executionMode === 'Structure' && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                                                </div>
+                                                <div className="font-bold text-sm text-brand-text mb-1">Structural Clone</div>
+                                                <div className="text-xs text-brand-textSecondary leading-snug">Template Mode. Strict layout preservation. Best for announcements.</div>
+                                            </button>
+                                        </div>
+
+                                        {/* DROPDOWNS */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-gray-50 p-6 rounded-xl border border-gray-100">
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Visual Template</label>
+                                                <select
+                                                    value={selectedTemplate}
+                                                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                                                    className="w-full text-sm p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-brand-accent shadow-sm"
+                                                >
+                                                    <option value="Campaign Launch">Campaign Launch (Creative)</option>
+                                                    <option value="Partnership">Partnership (Structural)</option>
+                                                    <option value="Speaker Scenes">Speaker Quote (Structural)</option>
+                                                    <option value="Events">Event / Date (Structural)</option>
+                                                    <option value="Giveaway">Giveaway (Structural)</option>
+                                                    {brandConfig.graphicTemplates?.map(t => (
+                                                        <option key={t.id} value={t.label}>{t.label} (Custom)</option>
+                                                    ))}
+                                                </select>
+                                                <p className="text-[10px] text-gray-500">Determines the structure/layout of the image.</p>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Reference Image</label>
+                                                <select
+                                                    value={selectedRefImage}
+                                                    onChange={(e) => setSelectedRefImage(e.target.value)}
+                                                    className="w-full text-sm p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-brand-accent shadow-sm"
+                                                >
+                                                    <option value="">Auto-Select Best Match</option>
+                                                    {brandConfig.referenceImages?.map(img => (
+                                                        <option key={img.id} value={img.id}>Ref: {img.id.substring(0, 8)}...</option>
+                                                    ))}
+                                                </select>
+                                                <p className="text-[10px] text-gray-500">The style/vibe source for the generation.</p>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                ) : (
+                                    <div className="p-8 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                        <div className="text-4xl mb-3">📝</div>
+                                        <h4 className="font-bold text-brand-text text-sm">Text Only Workflow</h4>
+                                        <p className="text-xs text-brand-textSecondary max-w-xs mx-auto mt-1">The AI will draft a high-quality, formatted tweet without generating any accompanying graphics.</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* FOOTER ACTIONS */}
+                            <div className="p-6 bg-gray-50 border-t border-brand-border flex justify-end gap-3">
+                                <Button
+                                    onClick={() => setConfiguringTask(null)}
+                                    variant="secondary"
+                                    className="bg-white hover:bg-gray-100"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleConfirmExecute}
+                                    disabled={isExecuting !== null}
+                                    isLoading={isExecuting === configuringTask.id}
+                                    className="px-8 shadow-lg shadow-brand-accent/20"
+                                >
+                                    {isExecuting ? 'Generate Draft' : `Execute Strategy ${includeGraphic ? '+ Graphic' : ''}`}
+                                </Button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="w-full space-y-4 animate-fadeIn pb-4">
@@ -261,94 +433,6 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     </div>
                 ))}
             </div>
-
-            {/* SMART EXECUTION MODAL */}
-            {configuringTask && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-brand-border">
-                        <div className="bg-gray-50 border-b border-brand-border p-4 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-brand-text uppercase tracking-wider flex items-center gap-2">
-                                <span className="text-lg">⚡</span> Configure Action
-                            </h3>
-                            <button onClick={() => setConfiguringTask(null)} className="text-gray-400 hover:text-red-500">✕</button>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-
-                            {/* CONTEXT SUMMARY */}
-                            <div className="text-xs text-brand-textSecondary bg-blue-50/50 p-3 rounded border border-blue-100">
-                                <strong>Creating Content for:</strong> {configuringTask.title}
-                            </div>
-
-                            {/* 1. SETUP GRAPHIC */}
-                            <div>
-                                <label className="text-xs font-bold text-brand-text uppercase tracking-wider mb-2 block">1. Graphic Generation Mode</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        onClick={() => { setSelectedTemplate('Campaign Launch'); setExecutionMode('Creative'); }}
-                                        className={`p-3 rounded-lg border text-left transition-all ${executionMode === 'Creative' ? 'border-brand-accent bg-brand-accent/5 ring-1 ring-brand-accent' : 'border-gray-200 hover:border-gray-300'}`}
-                                    >
-                                        <div className="font-bold text-xs text-brand-text mb-1">Creative Harmony</div>
-                                        <div className="text-[10px] text-gray-500 leading-tight">Artistic Vibe. Adapts layout to fit the text. Best for general posts.</div>
-                                    </button>
-                                    <button
-                                        onClick={() => { setSelectedTemplate('Partnership'); setExecutionMode('Structure'); }}
-                                        className={`p-3 rounded-lg border text-left transition-all ${executionMode === 'Structure' ? 'border-brand-accent bg-brand-accent/5 ring-1 ring-brand-accent' : 'border-gray-200 hover:border-gray-300'}`}
-                                    >
-                                        <div className="font-bold text-xs text-brand-text mb-1">Structural Clone</div>
-                                        <div className="text-[10px] text-gray-500 leading-tight">Rigid Template. Keeps logo & text placement. Best for announcements.</div>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* 2. SELECT REFS */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-brand-muted uppercase">Visual Template</label>
-                                    <select
-                                        value={selectedTemplate}
-                                        onChange={(e) => setSelectedTemplate(e.target.value)}
-                                        className="w-full text-xs p-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-brand-accent"
-                                    >
-                                        <option value="Campaign Launch">Campaign Launch (Creative)</option>
-                                        <option value="Partnership">Partnership (Structural)</option>
-                                        <option value="Speaker Scenes">Speaker Quote (Structural)</option>
-                                        <option value="Events">Event / Date (Structural)</option>
-                                        <option value="Giveaway">Giveaway (Structural)</option>
-                                        {brandConfig.graphicTemplates?.map(t => (
-                                            <option key={t.id} value={t.label}>{t.label} (Custom)</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-brand-muted uppercase">Reference Image</label>
-                                    <select
-                                        value={selectedRefImage}
-                                        onChange={(e) => setSelectedRefImage(e.target.value)}
-                                        className="w-full text-xs p-2 border border-gray-300 rounded bg-white focus:outline-none focus:border-brand-accent"
-                                    >
-                                        <option value="">Auto-Select Best Match</option>
-                                        {brandConfig.referenceImages?.map(img => (
-                                            <option key={img.id} value={img.id}>Ref: {img.id.substring(0, 8)}...</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <div className="bg-gray-50 p-4 flex justify-end gap-3 border-t border-brand-border">
-                            <Button onClick={() => setConfiguringTask(null)} variant="secondary" className="text-xs">
-                                Cancel
-                            </Button>
-                            <Button onClick={handleConfirmExecute} className="text-xs px-6">
-                                Generate Draft
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }
