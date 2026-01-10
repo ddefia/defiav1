@@ -164,10 +164,24 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             'TREND_JACK': 'text-purple-600 bg-purple-50 border-purple-100',
             'CAMPAIGN_IDEA': 'text-indigo-600 bg-indigo-50 border-indigo-100'
         };
+
+        const definitions: Record<string, string> = {
+            'REPLY': 'Direct response to a mention or relevant conversation.',
+            'REACTION': 'Immediate commentary on breaking news or market moves.',
+            'EVERGREEN': 'Timeless educational or brand-building content that is always relevant.',
+            'GAP_FILL': 'Content designed to maintain presence during quiet periods.',
+            'TREND_JACK': 'Leveraging a current hot topic to gain visibility.',
+            'CAMPAIGN_IDEA': 'A multi-post strategic narrative or product launch.'
+        };
+
         const style = styles[type] || 'text-gray-600 bg-gray-50 border-gray-100';
+        const definition = definitions[type] || 'Strategic Action';
 
         return (
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${style}`}>
+            <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider cursor-help ${style}`}
+                title={definition}
+            >
                 {type.replace('_', ' ')}
             </span>
         );
@@ -388,7 +402,11 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                 )}
 
                 {tasks.map((task) => (
-                    <div key={task.id} className="group bg-white border border-brand-border rounded-lg p-4 shadow-sm hover:shadow-md hover:border-brand-accent/50 transition-all flex flex-col md:flex-row md:items-center gap-4">
+                    <div
+                        key={task.id}
+                        onClick={() => handleConfigureExecution(task)}
+                        className="group bg-white border border-brand-border rounded-lg p-4 shadow-sm hover:shadow-md hover:border-brand-accent/50 transition-all flex flex-col md:flex-row md:items-center gap-4 cursor-pointer"
+                    >
 
                         {/* SCORE & TYPE */}
                         <div className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-1 min-w-[80px]">
@@ -416,13 +434,13 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                         {/* ACTIONS */}
                         <div className="flex items-center gap-2 shrink-0 md:ml-auto border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4 mt-3 md:mt-0 w-full md:w-auto justify-end">
                             <button
-                                onClick={() => handleDismiss(task.id)}
+                                onClick={(e) => { e.stopPropagation(); handleDismiss(task.id); }}
                                 className="text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded transition-colors"
                             >
                                 Dismiss
                             </button>
                             <Button
-                                onClick={() => handleConfigureExecution(task)}
+                                onClick={(e: any) => { e.stopPropagation(); handleConfigureExecution(task); }}
                                 disabled={isExecuting !== null}
                                 isLoading={isExecuting === task.id}
                                 className="h-8 text-xs font-bold shadow-sm"
