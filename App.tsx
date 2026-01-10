@@ -573,7 +573,17 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {/* SECTION: CALENDAR */}
+                {/* SECTION: BRAND KIT */}
+                {appSection === 'profile' && selectedBrand && profiles[selectedBrand] && (
+                    <div className="w-full max-w-5xl mx-auto">
+                        <BrandKit
+                            brandName={selectedBrand}
+                            config={profiles[selectedBrand]}
+                            onChange={handleUpdateCurrentBrandConfig}
+                        />
+                    </div>
+                )}
+
                 {appSection === 'calendar' && selectedBrand && (
                     <div className="w-full max-w-7xl mx-auto">
                         <ContentCalendar
