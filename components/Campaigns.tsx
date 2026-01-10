@@ -41,6 +41,11 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [campaignTemplate, setCampaignTemplate] = useState<string>('');
     const [campaignReferenceImage, setCampaignReferenceImage] = useState<string | null>(null);
 
+    // Focus Document State
+    const [campaignFocusDoc, setCampaignFocusDoc] = useState<string>('');
+    const [isUploadingFocusDoc, setIsUploadingFocusDoc] = useState<boolean>(false);
+    const focusDocInputRef = useRef<HTMLInputElement>(null);
+
     const [campaignColor, setCampaignColor] = useState<string>('#4F46E5'); // Default Indigo
     const [campaignCount, setCampaignCount] = useState<string>('3');
     const [campaignStartDate, setCampaignStartDate] = useState<string>('');
@@ -251,7 +256,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 activeContext,
                 brandName,
                 brandConfig,
-                recentLogs
+                recentLogs,
+                campaignFocusDoc // PASS FOCUS DOC
             );
             setCampaignStrategy(strategy);
             setCampaignStep(2); // Move to Strategy View
@@ -286,7 +292,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 brandName,
                 brandConfig,
                 parseInt(campaignCount),
-                contentPlan // PASS THE SMART PLAN
+                contentPlan, // PASS THE SMART PLAN
+                campaignFocusDoc // PASS FOCUS DOC
             );
 
             // Parse output
@@ -435,6 +442,27 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             setActiveUploadId(null);
             if (campaignFileInputRef.current) campaignFileInputRef.current.value = '';
         } catch (err) { console.error("Campaign upload failed", err); }
+    };
+
+    const handleFocusDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setIsUploadingFocusDoc(true);
+        const file = files[0];
+
+        try {
+            const { parseDocumentFile } = await import('../services/documentParser');
+            const text = await parseDocumentFile(file);
+            if (text) {
+                setCampaignFocusDoc(text); // Overwrite or could append if we wanted multiple
+            }
+        } catch (err: any) {
+            alert(err.message || "Failed to upload document");
+        } finally {
+            setIsUploadingFocusDoc(false);
+            if (focusDocInputRef.current) focusDocInputRef.current.value = '';
+        }
     };
 
     const handleBatchScheduleCampaign = async (items: CampaignItem[]) => {
@@ -775,6 +803,34 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                 className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[80px]"
                                             />
                                         </div>
+
+                                        {/* STRATEGIC FOCUS DOCUMENT */}
+                                        <div>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-xs font-bold text-brand-muted uppercase">Strategic Focus Document (Optional)</label>
+                                                <input
+                                                    type="file"
+                                                    ref={focusDocInputRef}
+                                                    onChange={handleFocusDocUpload}
+                                                    accept=".pdf,.txt,.md"
+                                                    className="hidden"
+                                                />
+                                                <button
+                                                    onClick={() => focusDocInputRef.current?.click()}
+                                                    disabled={isUploadingFocusDoc}
+                                                    className="text-[10px] text-brand-accent hover:underline flex items-center gap-1"
+                                                >
+                                                    {isUploadingFocusDoc ? 'Uploading...' : 'Upload PDF/Text'}
+                                                </button>
+                                            </div>
+                                            <textarea
+                                                value={campaignFocusDoc}
+                                                onChange={e => setCampaignFocusDoc(e.target.value)}
+                                                placeholder="Paste strategy text here or upload a document. The AI will prioritize this over general knowledge base."
+                                                className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[100px]"
+                                            />
+                                        </div>
+
                                     </>
                                 )}
 

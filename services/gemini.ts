@@ -209,16 +209,19 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
       INSTRUCTIONS: Make it funny, relatable, and use reference images as templates.
       `;
     } else {
+
+        const isStructuredTemplate = params.templateType && params.templateType !== 'Campaign'; // Campaign Launch is usually visual-first, others are layout-first.
+
         systemPrompt = `
         You are an expert 3D graphic designer for ${brandName}, a leading Web3 company.
         TASK: Create a professional social media graphic for: "${params.prompt}"
         ${templateInstruction}
         BRANDING:
         ${effectiveReferenceImageId ? `
-        - ⛔ CRITICAL COLOR OVERRIDE: 
-        - IGNORE the default brand palette.
-        - You MUST extract and use the exact color palette from the provided reference image.
-        - The goal is to make the new image look like it belongs to the SAME EXACT series as the reference image.
+        - 🎨 COLOR HARMONY:
+        - Priority: Use the Reference Image's palette as the primary driver.
+        - Flexibility: You may blend these colors with the default brand palette IF it enhances the composition.
+        - Goal: A cohesive visual identity that feels like a natural evolution of the reference.
         ` : `
         - ⛔ CRITICAL COLOR ENFORCEMENT:
           - PRIMARY PALETTE: ${colorPalette}.
@@ -241,14 +244,22 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - Valid approaches: Abstract 3D art, minimalist typography, clean data visualization, or cinematic scenes.
           - The goal is a high-end brand asset, not a text document.
           ${effectiveReferenceImageId ? `
-          - ⛔ CRITICAL STRUCTURAL & COLOR & FONT RULE: A Single Reference Image has been provided. 
-          - You MUST clone this image's exact composition, camera angle, lighting, AND COLOR GRADING.
-          - The output must match the reference image's color palette exactly.
-          - ⛔ TYPOGRAPHY CLONING: You must analyze the font in the reference image (Serif/Sans/Display, Weight, Kerning) and use a visually identical match.
-          - Do not mistakenly use a generic font if the reference uses a customized or specific verified font style.
-          - Do NOT create a new design from scratch. 
-          - Use the reference image as a rigid 3D scene template.
-          - The output must look like a direct variation of the reference image.
+          ${isStructuredTemplate ? `
+          - 🏗️ STRUCTURAL CLONE MODE (TEMPLATE ACTIVE):
+          - A Specific Layout Template ("${params.templateType}") is active.
+          - CRITICAL: You MUST preserve the exact layout, camera angle, and composition of the Reference Image.
+          - LOGO/TITLE PLACEMENT: Keep them exactly where they are in the reference.
+          - ACTION: Only swap the *content* (text/central subject) to match the new prompt: "${params.prompt}".
+          - DO NOT reinvent the wheel. The user wants this exact format, just updated details.
+          ` : `
+          - 🟢 CREATIVE HARMONY MODE (ART DIRECTION):
+          - Use the Reference Image as a STYLE ANCHOR, not a rigid template.
+          - EXTRACT: The lighting, color palette, texture, and "vibe" of the reference.
+          - IGNORE: The exact subject matter or composition of the reference if it conflicts with the new prompt.
+          - GOAL: Create a NEW, UNIQUE image that looks like it belongs in the same art gallery as the reference.
+          - INNOVATE: Reinterpret the shapes and layout to best suit the prompt: "${params.prompt}".
+          - KEY: Same Soul, New Body.
+          `}
           ` : ''}
       `;
     }
@@ -376,7 +387,7 @@ export const generateTweet = async (
     const systemInstruction = `
     You are the Social Media Lead for ${brandName}.
     
-    TASK: Write a single, engaging tweet (CONCISE and MINIMAL, up to 280 chars) about: "${topic}".
+    TASK: Write a single, engaging tweet about: "${topic}".
     TONE: ${tone}
     
     ${examples}
@@ -384,11 +395,14 @@ export const generateTweet = async (
     ${kb}
     
     INSTRUCTIONS:
-    - STRUCTURE: Start with a compelling HOOK. End with a clear Call-To-Action (CTA).
-    - If style examples are provided, strictly follow their formatting (spacing, emojis, capitalization).
-    - If Knowledge Base info is relevant to the topic, ensure accuracy.
-    - STRICTLY NO HASHTAGS.
-    - CRITICAL: Minimize text as much as possible. Summarize context unless explicitly told otherwise.
+    - LENGTH: Write a substantial, high-value tweet. Use the character limit (280) effectively to provide detail and depth. Do NOT be overly minimal.
+    - STRUCTURE: 
+        - Start with a strong HOOK.
+        - Use multiple line breaks (whitespace) to create vertical spacing and readability.
+        - Use bullet points or lists if explaining concepts.
+        - End with a clear Call-To-Action (CTA).
+    - HASHTAGS: STRICTLY FORBIDDEN. Do not use them.
+    - FORMATTING: Be creative with the layout. Make it look professional and structured.
     `;
 
     try {
@@ -467,7 +481,8 @@ export const generateCampaignDrafts = async (
     brandName: string,
     brandConfig: BrandConfig,
     count: number,
-    contentPlan?: any // OPTIONAL: Smart Plan
+    contentPlan?: any, // OPTIONAL: Smart Plan
+    focusContent?: string // NEW: Optional Focus Document
 ): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -501,8 +516,11 @@ export const generateCampaignDrafts = async (
         
         CONTENT PLAN ITEMS:
         ${planItems}
+
+        ${focusContent ? `STRATEGIC FOCUS DOCUMENT (PRIORITIZE THIS CONTEXT): ${focusContent}` : ''}
         
         CRITICAL: 
+
         - You MUST generate exactly one tweet per ITEM.
         - The order must match the plan (Item 1 = Tweet 1).
         - If an Item has a URL, you MUST include it naturally in the tweet (unless instructed otherwise).
@@ -524,6 +542,7 @@ export const generateCampaignDrafts = async (
         } else {
             taskInstruction = `
             TASK: Write ${count} distinct tweets about the THEME: "${theme}" for ${brandName}.
+            ${focusContent ? `STRATEGIC FOCUS DOCUMENT (PRIORITIZE THIS CONTEXT): ${focusContent}` : ''}
             `;
         }
     }
@@ -543,13 +562,17 @@ export const generateCampaignDrafts = async (
     - First line MUST be "THEME_COLOR: [Hex Code]" (e.g. THEME_COLOR: #FF5733). Choose a color that matches the vibe of the campaign theme.
     - Then separate each tweet clearly with "---".
     - Do not number the tweets.
-    - Keep each tweet CONCISE and MINIMAL (max 280 characters).
-    - STRUCTURE: Start with a COMPULSORY TEMPLATE TAG in brackets, then the hook.
-      Example: "[Event] Join us for the..." or "[Speaker Quote] As our CEO said..."
-      Choose the best visual template from this list: ${allTemplates}. If none fit perfectly, use [Campaign Launch].
+    - LENGTH & STYLE: Write longer, high-value tweets. Use the full 280 character limit to add depth.
+    - STRUCTURE: 
+        - Start with a COMPULSORY TEMPLATE TAG in brackets (e.g. [Event]).
+        - Follow with a strong Hook.
+        - Use multiple line breaks for readability (3-4 lines).
+        - Use bullet points if useful.
+        - End with a CTA.
+    - Choose the best visual template from: ${allTemplates}. If none fit, use [Campaign Launch].
     - Mimic the style of the examples provided.
     - STRICTLY NO HASHTAGS (unless explicitly requested in specific instructions).
-    - CRITICAL: Minimize text as much as possible. Summarize unless told not to.
+    - FORMATTING: Be creative. Avoid dense blocks of text.
     `;
 
     try {
@@ -576,7 +599,8 @@ export const generateCampaignStrategy = async (
     activeCampaigns: string[],
     brandName: string,
     brandConfig: BrandConfig,
-    brainContext: string = "" // NEW
+    brainContext: string = "", // NEW
+    focusContent: string = "" // NEW
 ): Promise<CampaignStrategy> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -604,6 +628,8 @@ export const generateCampaignStrategy = async (
     
     BRAND KNOWLEDGE:
     ${kb}
+
+    ${focusContent ? `PRIMARY STRATEGIC FOCUS DOCUMENT (OVERRIDES GENERAL KNOWLEDGE): \n${focusContent}` : ''}
 
     TONE EXAMPLES:
     ${examples}
@@ -697,8 +723,8 @@ export const generateTrendReaction = async (
         Output: A single, punchy tweet (max 280 chars).
         Strategy: Explicitly mention ${brandName} or its products. Connect the news ("${trend.headline}") to our specific value proposition defined in the Knowledge Base.
         Structure: Start with a HOOK. End with a CTA.
+        Style: Use line breaks and clear formatting.
         STRICTLY NO HASHTAGS.
-        CRITICAL: Minimize text as much as possible. Summarize context.
         `;
     } else {
         outputGuidance = `

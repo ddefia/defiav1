@@ -4,7 +4,7 @@ import { BrandConfig, BrandColor, ReferenceImage } from '../types';
 import { Button } from './Button';
 import { getBrandDefault } from '../services/storage';
 // @ts-ignore
-import * as pdfjsLib from 'pdfjs-dist';
+
 
 interface BrandKitProps {
   config: BrandConfig;
@@ -141,6 +141,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
     });
   };
 
+
   const handleKBUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -148,62 +149,55 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
     setIsUploadingKB(true);
     const file = files[0]; // Process one for now
 
-    if (file.size > 1024 * 1024) { // 1MB Limit for PDFs
-      alert("File is too large. Please upload documents under 1MB.");
-      setIsUploadingKB(false);
-      if (kbFileInputRef.current) kbFileInputRef.current.value = '';
-      return;
-    }
+    // Dynamically import the parser to avoid issues if the service isn't fully ready or circular deps
+    // varying on how the bundler handles it, but standard import is fine usually.
+    // For now we assume standard import at top of file, but let's add it if missing?
+    // Actually, I will just call the function. I need to make sure it's imported though.
+    // Wait, I need to add the import statement first.
+    // But since replace_file_content works on chunks, I will do the body replacement first
+    // then adding the import in a separate step or I can just use a multi_replace if I want to be safe.
+    // But let's assume I'll do it in two steps or combine if closer. 
+    // They are far apart (imports vs function).
+    // So I will just replace this function body first.
 
     try {
-      let text = "";
+      // @ts-ignore - we will add the import in the next tool call or assume it's available? 
+      // No, that's risky. I will use multi_replace to do both.
+      // Wait, I can't use multi_replace for separate chunks easily if I am using `replace_file_content` right now.
+      // I will just return the new body here, and rely on the fact that I will add the import in a second call.
+      // Actually, let's just do it cleanly. 
+      // I'll skip this tool call and use multi_replace_file_content instead to do both at once.
+      // Ah, I am already committed to this tool call. I will just proceed with the function body replacement.
+      // And I will assume I will add `import { parseDocumentFile } from '../services/documentParser';` at the top.
 
-      if (file.type === "application/pdf") {
-        const arrayBuffer = await file.arrayBuffer();
+      const { parseDocumentFile } = await import('../services/documentParser');
 
-        // Use the resolved lib reference
-        // @ts-ignore
-        const lib = (pdfjsLib as any).default || pdfjsLib;
-        const loadingTask = lib.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
+      try {
+        const text = await parseDocumentFile(file);
 
-        let fullText = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items.map((item: any) => item.str).join(' ');
-          fullText.push(pageText);
-        }
-        text = `[SOURCE: ${file.name}]\n` + fullText.join('\n\n');
-      } else {
-        // Assume text/markdown/json
-        text = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => resolve(ev.target?.result as string);
-          reader.readAsText(file);
-        });
-        text = `[SOURCE: ${file.name}]\n` + text;
-      }
-
-      if (text) {
-        if (text.length > 50000) {
-          if (!window.confirm("This document contains a lot of text (>50k chars). It may use up your storage. Continue?")) {
-            return;
+        if (text) {
+          if (text.length > 50000) {
+            if (!window.confirm("This document contains a lot of text (>50k chars). It may use up your storage. Continue?")) {
+              return;
+            }
           }
+          onChange({
+            ...config,
+            knowledgeBase: [...(config.knowledgeBase || []), text]
+          });
         }
-        onChange({
-          ...config,
-          knowledgeBase: [...(config.knowledgeBase || []), text]
-        });
+      } catch (err: any) {
+        console.error("Failed to parse file", err);
+        alert(err.message || "Failed to read document.");
       }
     } catch (err) {
-      console.error("Failed to parse file", err);
-      alert("Failed to read document. Please ensure it is a valid PDF or Text file.");
+      console.error("Import failed", err);
     } finally {
       setIsUploadingKB(false);
       if (kbFileInputRef.current) kbFileInputRef.current.value = '';
     }
   };
+
 
   // --- Examples ---
   const addExample = () => {
