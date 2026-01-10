@@ -204,9 +204,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     // --- FULL PAGE EXECUTION VIEW ---
     if (configuringTask) {
         return (
-            <div className="w-full h-full bg-gray-50/50 -m-4 p-8 animate-fadeIn flex flex-col">
-                {/* Header */}
-                <div className="flex items-center gap-4 mb-8">
+            <div className="w-full h-full bg-gray-50/50 -m-4 p-8 animate-fadeIn flex flex-col overflow-y-auto">
+                {/* Header Navigation */}
+                <div className="flex items-center gap-4 mb-6">
                     <button
                         onClick={() => setConfiguringTask(null)}
                         className="p-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors shadow-sm text-gray-500"
@@ -214,65 +214,75 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     </button>
                     <div>
-                        <h2 className="text-2xl font-display font-bold text-brand-text">Configure Action</h2>
-                        <p className="text-sm text-brand-textSecondary">Fine-tune how the AI executes this strategic intent.</p>
+                        <h2 className="text-xl font-display font-bold text-brand-text">Strategy Execution</h2>
+                        <p className="text-xs text-brand-textSecondary">Configure and launch this action.</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl">
-                    {/* LEFT COL: CONTEXT */}
-                    <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm">
-                            <div className="flex items-center gap-2 mb-4">
+                {/* WIDE HERO: STRATEGY CONTEXT */}
+                <div className="bg-white border border-brand-border rounded-xl p-8 shadow-sm mb-8 animate-slideDown shrink-0">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8">
+                        <div className="flex-1 max-w-4xl">
+                            <div className="flex items-center gap-3 mb-4">
                                 {getTypeBadge(configuringTask.type)}
-                                <span className="text-xs font-bold text-brand-muted uppercase tracking-wider">Strategy Context</span>
+                                <span className="h-px w-8 bg-gray-200"></span>
+                                <span className="text-xs font-bold text-brand-muted uppercase tracking-wider">Strategic Intent</span>
                             </div>
-                            <h3 className="text-lg font-bold text-brand-text mb-2 leading-tight">{configuringTask.title}</h3>
-                            <p className="text-sm text-brand-textSecondary leading-relaxed mb-6">
+                            <h3 className="text-3xl font-display font-bold text-brand-text mb-4 leading-tight tracking-tight">{configuringTask.title}</h3>
+                            <p className="text-lg text-brand-textSecondary leading-relaxed">
                                 {configuringTask.description}
                             </p>
+                        </div>
+                    </div>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-bold text-brand-muted uppercase block mb-1">AI Reasoning</label>
-                                    <div className="text-xs bg-gray-50 p-3 rounded border border-gray-100 text-gray-700 leading-relaxed">
-                                        {configuringTask.reasoning}
-                                    </div>
-                                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 border-t border-gray-100 pt-8">
+                        {/* REASONING */}
+                        <div>
+                            <label className="flex items-center gap-2 text-xs font-bold text-brand-text uppercase tracking-wider mb-4">
+                                <span className="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
+                                AI Reasoning
+                            </label>
+                            <div className="bg-brand-accent PO-5 rounded-xl border border-brand-accent/10 text-brand-text leading-relaxed text-base p-6 bg-brand-accent/5">
+                                {configuringTask.reasoning}
                             </div>
+                        </div>
 
-                            {/* DATA SIGNALS (PROOF) */}
-                            {configuringTask.contextData && configuringTask.contextData.length > 0 && (
-                                <div className="border-t border-gray-100 pt-3">
-                                    <label className="text-[10px] font-bold text-brand-muted uppercase block mb-2">Data Signals (Proof)</label>
-                                    <div className="space-y-2">
-                                        {configuringTask.contextData.map((data, idx) => (
-                                            <div key={idx} className="flex items-start gap-2 text-xs bg-indigo-50/50 p-2 rounded border border-indigo-50">
-                                                <div className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${data.relevance >= 8 ? 'bg-indigo-500' : 'bg-indigo-300'}`}></div>
-                                                <div>
-                                                    <div className="font-bold text-gray-700">{data.headline}</div>
-                                                    <div className="text-[10px] text-gray-500 flex items-center gap-1">
-                                                        <span className="uppercase tracking-wider font-bold">{data.type}</span>
-                                                        <span>•</span>
-                                                        <span>{data.source}</span>
-                                                    </div>
+                        {/* PROOF */}
+                        <div>
+                            <label className="flex items-center gap-2 text-xs font-bold text-brand-text uppercase tracking-wider mb-4">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                Data Signals (Proof)
+                            </label>
+                            {configuringTask.contextData && configuringTask.contextData.length > 0 ? (
+                                <div className="space-y-3">
+                                    {configuringTask.contextData.map((data, idx) => (
+                                        <div key={idx} className="flex items-start gap-4 bg-indigo-50/50 p-4 rounded-xl border border-indigo-50/50 hover:border-indigo-100 transition-colors">
+                                            <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${data.relevance >= 8 ? 'bg-indigo-500 shadow-sm shadow-indigo-300' : 'bg-indigo-300'}`}></div>
+                                            <div>
+                                                <div className="font-bold text-gray-800 text-sm mb-1">{data.headline}</div>
+                                                <div className="text-xs text-gray-500 flex items-center gap-2 font-medium">
+                                                    <span className="uppercase tracking-wider text-indigo-600/80 text-[10px]">{data.type}</span>
+                                                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                                    <span>{data.source}</span>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                        </div>
+                                    ))}
                                 </div>
+                            ) : (
+                                <div className="text-sm text-brand-muted italic py-2">No specific data signals cited by AI.</div>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* RIGHT COL: CONFIGURATION */}
-                <div className="lg:col-span-2 space-y-6">
+                {/* CONFIGURATION SECTION */}
+                <div className="space-y-6 max-w-5xl mx-auto w-full pb-12">
                     <div className="bg-white border border-brand-border rounded-xl shadow-sm overflow-hidden">
                         <div className="p-6 border-b border-brand-border bg-gray-50/30 flex justify-between items-center">
                             <h3 className="font-bold text-brand-text flex items-center gap-2">
                                 <span className="flex items-center justify-center w-6 h-6 rounded bg-brand-accent/10 text-brand-accent text-sm">1</span>
-                                Content Generation
+                                Configuration & Execution
                             </h3>
                             {/* Toggle */}
                             <div className="flex items-center gap-3">
@@ -455,7 +465,6 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     </div>
                 </div>
             </div>
-
         )
     }
 
@@ -468,10 +477,6 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></div>
                         <span className="text-xs font-bold text-brand-text uppercase tracking-wider">AI Command Center</span>
-                    </div>
-                    <div className="h-4 w-px bg-brand-border"></div>
-                    <div className="text-[10px] text-brand-textSecondary">
-                        Last Scan: <span className="font-mono text-brand-text">{lastScan?.toLocaleTimeString()}</span>
                     </div>
                 </div>
                 <Button
@@ -553,5 +558,4 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         </div>
     )
 }
-
 
