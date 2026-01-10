@@ -36,7 +36,7 @@ export interface GenerateImageParams {
   aspectRatio: AspectRatio;
   brandConfig: BrandConfig;
   brandName?: string; // Optional context for the model
-  selectedReferenceImage?: string; // Specific reference image to use
+  selectedReferenceImages?: string[]; // UPDATED: Specific reference images to use (Multi-Select)
   templateType?: string; // Type of template (Partnership, etc.)
   negativePrompt?: string; // Things to avoid in the image
 }
@@ -84,6 +84,8 @@ export interface StrategyTask {
   contextData?: TaskContextSource[]; // New: Evidence for the task
   reasoningSteps?: string[]; // New: Step-by-step logic chain
   sourceLogId?: string; // New: Link to the BrainLog that created this
+  suggestedVisualTemplate?: string; // New: AI suggested graphic template
+  suggestedReferenceIds?: string[]; // New: AI suggested reference images
 }
 
 export interface TaskContextSource {

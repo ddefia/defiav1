@@ -38,7 +38,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     const [configuringTask, setConfiguringTask] = useState<StrategyTask | null>(null);
     const [includeGraphic, setIncludeGraphic] = useState(true); // New Toggle
     const [selectedTemplate, setSelectedTemplate] = useState<string>('Campaign Launch');
-    const [selectedRefImage, setSelectedRefImage] = useState<string>('');
+    const [selectedRefImages, setSelectedRefImages] = useState<string[]>([]); // New: Multi-Select
     const [executionMode, setExecutionMode] = useState<'Creative' | 'Structure'>('Creative');
 
     const performAudit = async () => {
@@ -99,11 +99,25 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         // Enter Execution View
         setConfiguringTask(task);
 
-        // Smart Defaults
+        // Smart Defaults & Auto-Selection
         setIncludeGraphic(task.type !== 'REPLY'); // Replies usually text-only
-        setSelectedTemplate('Campaign Launch');
-        if (brandConfig.referenceImages?.length > 0) {
-            setSelectedRefImage(brandConfig.referenceImages[0].id);
+
+        // 1. Template: Use AI suggestion or fallback
+        if (task.suggestedVisualTemplate) {
+            setSelectedTemplate(task.suggestedVisualTemplate);
+        } else {
+            setSelectedTemplate('Campaign Launch');
+        }
+
+        // 2. References: Use AI suggestion or fallback to first available
+        if (task.suggestedReferenceIds && task.suggestedReferenceIds.length > 0) {
+            setSelectedRefImages(task.suggestedReferenceIds);
+        } else if (brandConfig.referenceImages?.length > 0) {
+            // Default to none selected so user can choose, or maybe just the first one?
+            // Let's default to empty to encourage "Smart" selection or manual choice
+            setSelectedRefImages([]);
+        } else {
+            setSelectedRefImages([]);
         }
     };
 
@@ -129,7 +143,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     brandConfig: brandConfig,
                     brandName: brandName,
                     templateType: selectedTemplate,
-                    selectedReferenceImage: selectedRefImage
+                    selectedReferenceImages: selectedRefImages // Pass Array
                 });
             }
 
@@ -325,18 +339,60 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Reference Image</label>
-                                            <select
-                                                value={selectedRefImage}
-                                                onChange={(e) => setSelectedRefImage(e.target.value)}
-                                                className="w-full text-sm p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-brand-accent shadow-sm"
-                                            >
-                                                <option value="">Auto-Select Best Match</option>
-                                                {brandConfig.referenceImages?.map(img => (
-                                                    <option key={img.id} value={img.id}>Ref: {img.id.substring(0, 8)}...</option>
-                                                ))}
-                                            </select>
-                                            <p className="text-[10px] text-gray-500">The style/vibe source for the generation.</p>
+                                            <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Reference Images (Multi-Select)</label>
+
+                                            {brandConfig.referenceImages && brandConfig.referenceImages.length > 0 ? (
+                                                <div className="grid grid-cols-4 gap-2">
+                                                    {brandConfig.referenceImages.map((img) => {
+                                                        const isSelected = selectedRefImages.includes(img.id);
+                                                        return (
+                                                            <div
+                                                                key={img.id}
+                                                                onClick={() => {
+                                                                    if (isSelected) {
+                                                                        setSelectedRefImages(prev => prev.filter(id => id !== img.id));
+                                                                    } else {
+                                                                        setSelectedRefImages(prev => [...prev, img.id]);
+                                                                    }
+                                                                }}
+                                                                className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all relative group ${isSelected ? 'border-brand-accent ring-2 ring-brand-accent/20' : 'border-transparent hover:border-brand-border'}`}
+                                                            >
+                                                                <img src={img.url || img.data} className="w-full h-full object-cover" />
+
+                                                                {/* Selected Indicator */}
+                                                                {isSelected && (
+                                                                    <div className="absolute inset-0 bg-brand-accent/20 flex items-center justify-center">
+                                                                        <div className="bg-white rounded-full p-0.5 shadow-sm">
+                                                                            <svg className="w-3 h-3 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Hover Name Tooltip */}
+                                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm p-1 translate-y-full group-hover:translate-y-0 transition-transform duration-200">
+                                                                    <p className="text-[9px] text-white font-medium truncate text-center">{img.name}</p>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg text-center">
+                                                    <p className="text-[10px] text-gray-500">No reference images found in Brand Kit.</p>
+                                                </div>
+                                            )}
+
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-[10px] text-gray-500">Select multiple to blend styles.</p>
+                                                {selectedRefImages.length > 0 && (
+                                                    <button
+                                                        onClick={() => setSelectedRefImages([])}
+                                                        className="text-[10px] text-red-500 hover:text-red-600 font-medium"
+                                                    >
+                                                        Clear Selection ({selectedRefImages.length})
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 

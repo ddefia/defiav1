@@ -141,18 +141,18 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     const brandName = params.brandName || "Web3";
     const isMeme = brandName === 'Meme';
 
-    // Logic: If a specific image is selected, use it.
+    // Logic: If specific images are selected, use them.
     // If NOT, but a Template is selected that has linked images, PICK ONE randomly.
     // This enforces "Strict Mode" for that specific style (e.g. Dark) instead of mixing Dark + Light.
-    let effectiveReferenceImageId = params.selectedReferenceImage;
+    let effectiveReferenceImageIds = params.selectedReferenceImages || [];
 
-    if (!effectiveReferenceImageId && params.templateType && params.brandConfig.graphicTemplates) {
+    if (effectiveReferenceImageIds.length === 0 && params.templateType && params.brandConfig.graphicTemplates) {
         const tmpl = params.brandConfig.graphicTemplates.find(t => t.id === params.templateType || t.label === params.templateType);
         if (tmpl && tmpl.referenceImageIds && tmpl.referenceImageIds.length > 0) {
             // Randomly select one to ensure distinct style adherence
             const randomIndex = Math.floor(Math.random() * tmpl.referenceImageIds.length);
-            effectiveReferenceImageId = tmpl.referenceImageIds[randomIndex];
-            console.log(`[Template Strict Mode] Selected Ref Image: ${effectiveReferenceImageId} from Template: ${tmpl.label}`);
+            effectiveReferenceImageIds = [tmpl.referenceImageIds[randomIndex]];
+            console.log(`[Template Strict Mode] Selected Ref Image: ${effectiveReferenceImageIds[0]} from Template: ${tmpl.label}`);
         }
     }
 
@@ -217,11 +217,11 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         TASK: Create a professional social media graphic for: "${params.prompt}"
         ${templateInstruction}
         BRANDING:
-        ${effectiveReferenceImageId ? `
+        ${effectiveReferenceImageIds.length > 0 ? `
         - 🎨 COLOR HARMONY:
-        - Priority: Use the Reference Image's palette as the primary driver.
+        - Priority: Use the Reference Images' palette as the primary driver.
         - Flexibility: You may blend these colors with the default brand palette IF it enhances the composition.
-        - Goal: A cohesive visual identity that feels like a natural evolution of the reference.
+        - Goal: A cohesive visual identity that feels like a natural evolution of the references.
         ` : `
         - ⛔ CRITICAL COLOR ENFORCEMENT:
           - PRIMARY PALETTE: ${colorPalette}.
@@ -243,17 +243,17 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - Focus on creating a professional, high-end visual composition that represents the concept.
           - Valid approaches: Abstract 3D art, minimalist typography, clean data visualization, or cinematic scenes.
           - The goal is a high-end brand asset, not a text document.
-          ${effectiveReferenceImageId ? `
+          ${effectiveReferenceImageIds.length > 0 ? `
           ${isStructuredTemplate ? `
           - 🏗️ STRUCTURAL CLONE MODE (TEMPLATE ACTIVE):
           - A Specific Layout Template ("${params.templateType}") is active.
-          - CRITICAL: You MUST preserve the exact layout, camera angle, and composition of the Reference Image.
+          - CRITICAL: You MUST preserve the exact layout, camera angle, and composition of the Reference Image(s).
           - LOGO/TITLE PLACEMENT: Keep them exactly where they are in the reference.
           - ACTION: Only swap the *content* (text/central subject) to match the new prompt: "${params.prompt}".
           - DO NOT reinvent the wheel. The user wants this exact format, just updated details.
           ` : `
           - 🟢 CREATIVE HARMONY MODE (ART DIRECTION):
-          - Use the Reference Image as a STYLE ANCHOR, not a rigid template.
+          - Use the Reference Image(s) as a STYLE ANCHOR, not a rigid template.
           - EXTRACT: The lighting, color palette, texture, and "vibe" of the reference.
           - IGNORE: The exact subject matter or composition of the reference if it conflicts with the new prompt.
           - GOAL: Create a NEW, UNIQUE image that looks like it belongs in the same art gallery as the reference.
@@ -285,12 +285,8 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     // Process Images (Async)
     try {
         if (params.brandConfig && params.brandConfig.referenceImages) {
-            // Updated: Use the effective ID calculated at the start
-            let targetImageIds: string[] = [];
-
-            if (effectiveReferenceImageId) {
-                targetImageIds = [effectiveReferenceImageId];
-            }
+            // Updated: Use the effective IDs calculated at the start
+            let targetImageIds: string[] = effectiveReferenceImageIds;
 
             // If no specific images targetted, LIMIT to top 3 to prevent payload explosion/timeout
             const sourceImages = targetImageIds.length > 0
@@ -1200,6 +1196,7 @@ export const generateStrategicAnalysis = async (
     TASK:
     1. First, write a "Strategic Analysis" paragraph (3-4 sentences). Analyze the input data, identify relationships (e.g. "Calendar is empty BUT trending topic X is relevant"), and define the high-level strategy for this session.
     2. Then, propose exactly 3-5 high-impact tasks based on that analysis.
+    3. For each task, suggest the most appropriate 'Visual Template' (e.g. use 'Partnership' for collabs, 'Campaign Launch' for big news). If unsure, use 'Campaign Launch'.
     
     OUTPUT JSON FORMAT:
     {
@@ -1217,7 +1214,9 @@ export const generateStrategicAnalysis = async (
                 "contextData": [
                     { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 9 },
                     { "type": "MENTION", "source": "User @user", "headline": "Asked about staking", "relevance": 10 }
-                ]
+                ],
+                "suggestedVisualTemplate": "Campaign Launch" | "Partnership" | "Event",
+                "suggestedReferenceIds": ["ref-123"]
             }
         ]
     }
