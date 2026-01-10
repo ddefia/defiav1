@@ -686,10 +686,10 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
             {/* WIZARD VIEW */}
             {viewMode === 'wizard' && (
-                <div className="flex flex-col lg:flex-row gap-8 animate-fadeIn">
+                <div className="w-full animate-fadeIn transition-all duration-500">
 
-                    {/* LEFT PANEL: CONTROLS */}
-                    <div className="w-full lg:w-[400px] space-y-6">
+                    {/* WIZARD CONTAINER */}
+                    <div className={`mx-auto space-y-6 transition-all duration-500 ${campaignStep === 1 ? 'max-w-xl' : 'max-w-7xl'}`}>
 
                         {/* Stepper */}
                         <div className="flex items-center justify-between px-2 bg-white p-4 rounded-xl border border-brand-border shadow-sm">
@@ -1038,7 +1038,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                                     {campaignItems.map((item, idx) => (
                                         <div key={item.id} className={`group bg-white border rounded-xl overflow-hidden transition-all duration-300 ${item.isApproved ? 'border-brand-border shadow-sm hover:shadow-md hover:border-brand-accent/30' : 'border-gray-100 opacity-60 grayscale-[0.5]'}`}>
                                             <div className="p-1 pl-4 bg-gray-50 border-b border-brand-border/50 flex justify-between items-center">
@@ -1057,19 +1057,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                 </div>
                                             </div>
 
-                                            <div className="p-5 flex gap-6">
+                                            <div className="p-5 flex gap-6 h-[280px]">
                                                 {/* CONTENT */}
-                                                <div className="flex-1">
+                                                <div className="flex-1 flex flex-col h-full">
                                                     <textarea
                                                         value={item.tweet}
                                                         onChange={(e) => handleUpdateDraft(item.id, e.target.value)}
-                                                        className="w-full h-full min-h-[100px] bg-transparent border-none p-0 text-brand-text text-base resize-none focus:ring-0 leading-relaxed placeholder-gray-300 font-medium"
+                                                        className="w-full flex-1 bg-transparent border-none p-0 text-brand-text text-base resize-none focus:ring-0 leading-relaxed placeholder-gray-300 font-medium"
                                                         placeholder="Draft content..."
                                                     />
                                                 </div>
 
                                                 {/* SETTINGS SIDEBAR */}
-                                                <div className="w-[180px] shrink-0 space-y-4 pt-1">
+                                                <div className="w-[180px] shrink-0 space-y-4 pt-1 flex flex-col justify-between">
                                                     <div>
                                                         <label className="text-[9px] font-bold text-brand-muted uppercase block mb-1">Visual Template</label>
                                                         <select
