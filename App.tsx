@@ -533,6 +533,7 @@ const App: React.FC = () => {
                         onUpdateEvents={setCalendarEvents}
                         initialIntent={campaignIntent}
                         onClearIntent={() => setCampaignIntent(null)}
+                        recentPosts={socialMetrics?.recentPosts || []}
                     />
                 )}
 

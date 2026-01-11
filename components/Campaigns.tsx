@@ -16,6 +16,7 @@ interface CampaignsProps {
     onUpdateEvents: (events: CalendarEvent[]) => void;
     initialIntent?: { type: 'theme' | 'diverse', theme: string } | null;
     onClearIntent?: () => void;
+    recentPosts?: any[]; // New Prop
 }
 
 export const Campaigns: React.FC<CampaignsProps> = ({
@@ -24,7 +25,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     events,
     onUpdateEvents,
     initialIntent,
-    onClearIntent
+    onClearIntent,
+    recentPosts = [] // New Prop with default
 }) => {
     // View State: 'list' | 'wizard'
     const [viewMode, setViewMode] = useState<'list' | 'wizard'>('list');

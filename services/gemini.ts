@@ -485,7 +485,8 @@ export const generateCampaignDrafts = async (
     brandConfig: BrandConfig,
     count: number,
     contentPlan?: any, // OPTIONAL: Smart Plan
-    focusContent?: string // NEW: Optional Focus Document
+    focusContent?: string, // NEW: Optional Focus Document
+    recentPosts: any[] = [] // NEW: Analytics History
 ): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -497,10 +498,20 @@ export const generateCampaignDrafts = async (
         ? `KNOWLEDGE BASE:\n${brandConfig.knowledgeBase.join('\n\n')}`
         : "";
 
-    // Build list of valid templates for AI to choose from
     const standardTemplates = ['Partnership', 'Campaign Launch', 'Giveaway', 'Event', 'Speaker Quote'];
     const customTemplates = (brandConfig.graphicTemplates || []).map(t => t.label);
     const allTemplates = [...standardTemplates, ...customTemplates].join(', ');
+
+    // Filter for High Engagement Posts (>10 likes or top 20%) to show AI what works
+    const winningPosts = recentPosts
+        .filter(p => p.likes > 5)
+        .slice(0, 3)
+        .map(p => `"${p.content}" (${p.likes} likes)`)
+        .join('\n');
+
+    const recentContext = winningPosts.length > 0
+        ? `RECENT HIGH-PERFORMING CONTENT (MIMIC THIS TONE/SUCCESS):\n${winningPosts}`
+        : "";
 
     let taskInstruction = '';
 
@@ -576,6 +587,8 @@ export const generateCampaignDrafts = async (
     
     ${examples}
     
+    ${recentContext}
+
     ${kb}
 
     BRAND PROTOCOLS:
