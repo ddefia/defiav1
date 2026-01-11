@@ -131,6 +131,8 @@ export interface SocialPost {
   retweets: number;
   impressions: number;
   engagementRate: number;
+  url?: string; // Link to actual tweet
+  mediaUrl?: string; // Thumbnail/Image
 }
 
 export interface Mention {

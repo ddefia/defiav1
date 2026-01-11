@@ -195,7 +195,16 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                         {metrics?.recentPosts.slice(0, 5).map(post => (
                             <tr key={post.id} className="hover:bg-brand-surfaceHighlight/50 transition-colors group">
                                 <td className="px-6 py-4">
-                                    <p className="font-medium text-brand-text line-clamp-1 max-w-md group-hover:text-brand-accent transition-colors">{post.content}</p>
+                                    <div className="flex items-center gap-3">
+                                        {post.mediaUrl && (
+                                            <div className="w-10 h-10 rounded-md bg-gray-100 bg-cover bg-center flex-shrink-0 border border-brand-border" style={{ backgroundImage: `url(${post.mediaUrl})` }}></div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <a href={post.url} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-text line-clamp-1 max-w-xs hover:text-brand-accent transition-colors hover:underline decoration-brand-accent/50">
+                                                {post.content}
+                                            </a>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 text-right font-mono text-brand-textSecondary">{post.impressions.toLocaleString()}</td>
                                 <td className="px-6 py-4 text-right">
