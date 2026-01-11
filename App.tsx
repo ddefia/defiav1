@@ -60,6 +60,7 @@ const App: React.FC = () => {
 
     // Calendar State
     const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+    const [historyEvents, setHistoryEvents] = useState<CalendarEvent[]>([]); // NEW: Read-only history
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [itemToSchedule, setItemToSchedule] = useState<{ content: string, image?: string, campaignName?: string } | null>(null);
     const [scheduleDate, setScheduleDate] = useState('');
@@ -109,6 +110,14 @@ const App: React.FC = () => {
     useEffect(() => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
         setStrategyTasks(loadStrategyTasks(selectedBrand)); // Load Tasks
+
+        // Load History asynchronously
+        import('./services/storage').then(({ fetchBrainHistoryEvents }) => {
+            fetchBrainHistoryEvents(selectedBrand).then(events => {
+                setHistoryEvents(events);
+                console.log(`📅 Loaded ${events.length} historical events for calendar.`);
+            });
+        });
 
         // Listen for background sync updates
         const handleSyncUpdate = (e: Event) => {
@@ -606,7 +615,7 @@ const App: React.FC = () => {
                     <div className="w-full max-w-7xl mx-auto">
                         <ContentCalendar
                             brandName={selectedBrand}
-                            events={calendarEvents}
+                            events={[...calendarEvents, ...historyEvents]}
                             onDeleteEvent={handleDeleteEvent}
                             onAddEvent={handleDayClick}
                             onMoveEvent={handleMoveEvent}

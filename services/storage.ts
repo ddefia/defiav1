@@ -419,3 +419,31 @@ export const saveStudioState = (brandName: string, state: any): void => {
         console.error("Failed to save studio state", e);
     }
 };
+
+// --- HISTORY EVENTS (READ-ONLY) ---
+
+export const fetchBrainHistoryEvents = async (brandName: string): Promise<CalendarEvent[]> => {
+    try {
+        const { data } = await supabase
+            .from('brain_memory')
+            .select('id, content, created_at, metadata')
+            .eq('brand_id', brandName)
+            .order('created_at', { ascending: false })
+            .limit(100);
+
+        if (!data) return [];
+
+        return data.map((item: any) => ({
+            id: `history-${item.id}`,
+            date: new Date(item.created_at || Date.now()).toISOString().split('T')[0],
+            content: item.content,
+            platform: 'Twitter', // Default for now, could be dynamic from metadata
+            status: 'published',
+            campaignName: 'History',
+            image: item.metadata?.mediaUrl || undefined // Map optional media
+        }));
+    } catch (e) {
+        console.warn("Failed to fetch history events", e);
+        return [];
+    }
+};
