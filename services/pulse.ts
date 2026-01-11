@@ -1,5 +1,7 @@
 
 import { TrendItem } from "../types";
+import { getSupabase } from './supabaseClient';
+
 
 // Real-time market data fetching
 
@@ -182,5 +184,52 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
     return items;
 
     return items;
+};
+
+// --- DEEP BRAIN CONTEXT (RAG/SUPABASE) ---
+export const getBrainContext = async (brandName: string): Promise<{ context: string, strategyCount: number, memoryCount: number }> => {
+    const supabase = getSupabase();
+    if (!supabase) return { context: "", strategyCount: 0, memoryCount: 0 };
+
+    try {
+        console.log(`[Pulse] Fetching Deep Context for ${brandName}...`);
+
+        // 1. Fetch Strategy Docs (Goals/Mandates)
+        const { data: strategies } = await supabase
+            .from('strategy_docs')
+            .select('title, content, category')
+            .eq('brand_id', brandName)
+            .order('created_at', { ascending: false }) // Prioritize Newest Mandates
+            .limit(3);
+
+        // 2. Fetch Top Performing Past Tweets (Memory)
+        // Note: metrics is jsonb, so we cast to compare. Or just sort by created_at for now if simple.
+        // Doing a simple "Recent" fetch for now as 'metrics->likes' sorting might tricky without index in raw SQL setup.
+        const { data: memories } = await supabase
+            .from('brand_memory')
+            .select('content, metrics, created_at')
+            .eq('brand_id', brandName)
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        let context = "";
+
+        if (strategies && strategies.length > 0) {
+            context += `STRATEGIC DOCS:\n${strategies.map((s: any) => `- [${s.category}] ${s.title}: ${s.content.substring(0, 200)}...`).join('\n')}\n\n`;
+        }
+
+        if (memories && memories.length > 0) {
+            context += `RECENT HIGH-PERFORMANCE MEMORY:\n${memories.map((m: any) => `- (${new Date(m.created_at).toLocaleDateString()}) "${m.content.substring(0, 50)}..." [Likes: ${m.metrics?.likes || 0}]`).join('\n')}`;
+        }
+
+        return {
+            context,
+            strategyCount: strategies?.length || 0,
+            memoryCount: memories?.length || 0
+        };
+    } catch (e) {
+        console.warn("[Pulse] Brain Context Fetch Failed:", e);
+        return { context: "", strategyCount: 0, memoryCount: 0 };
+    }
 };
 

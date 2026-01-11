@@ -21,6 +21,9 @@ export interface BrandConfig {
   referenceImages: ReferenceImage[];
   tweetExamples: string[]; // List of "Gold Standard" tweets for style
   knowledgeBase: string[]; // List of text content (docs/whitepapers)
+  voiceGuidelines?: string; // New: Tone/Voice instructions (e.g. "Formal, Trustworthy")
+  targetAudience?: string; // New: Who is this for? (e.g. "Institutions")
+  bannedPhrases?: string[]; // New: Words to never use
   graphicTemplates?: {
     id: string;
     label: string;

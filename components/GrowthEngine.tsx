@@ -3,7 +3,8 @@ import { CampaignLog, GrowthInput, ComputedMetrics, GrowthReport, SocialMetrics,
 import { computeGrowthMetrics, getSocialMetrics, fetchSocialMetrics, getHandle } from '../services/analytics';
 import { getIntegrationConfig } from '../config/integrations';
 import { generateGrowthReport, generateStrategicAnalysis } from '../services/gemini';
-import { getCreator, getCreatorTimeSeries, getCreatorPosts, fetchMarketPulse } from '../services/pulse';
+import { getCreator, getCreatorTimeSeries, getCreatorPosts, fetchMarketPulse, getBrainContext } from '../services/pulse';
+
 import { Button } from './Button';
 import { StrategyBrain } from './StrategyBrain';
 import { SocialActivityFeed } from './SocialActivityFeed';
@@ -219,6 +220,9 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             // 12/29 FIX: Fetch Real Trends for Brain Context
             const trends = await fetchMarketPulse(brandName);
 
+            // 1/10 FIX: Fetch Deep Context (Supabase)
+            const { context: ragContext } = await getBrainContext(brandName);
+
             const newTasks = await generateStrategicAnalysis(
                 brandName,
                 calendarEvents,
@@ -226,7 +230,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                 brandConfig,
                 aiReport,
                 mentions,
-                "", // RAG Context
+                ragContext, // RAG Context (Now Live)
                 signals // LIVE WAR ROOM SIGNALS
             );
             onUpdateTasks(newTasks);

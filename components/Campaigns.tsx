@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Select } from './Select';
 import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy, analyzeContentNotes } from '../services/gemini';
+import { getBrainContext } from '../services/pulse'; // New Import
+
 import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs } from '../services/storage';
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy } from '../types';
 import jsPDF from 'jspdf';
@@ -55,7 +57,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
     const [analyzingCampaign, setAnalyzingCampaign] = useState<string | null>(null); // New State
     // Track what the AI actually analyzed for transparency
-    const [contextStats, setContextStats] = useState<{ activeCampaignsCount: number, brainMemoriesCount: number } | null>(null);
+    const [contextStats, setContextStats] = useState<{ activeCampaignsCount: number, brainMemoriesCount: number, strategyDocsCount?: number } | null>(null);
 
     // --- PERSISTENCE ---
     // Load state on mount
@@ -185,7 +187,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     brandName,
                     brandConfig,
                     0, // Count invalid for smart plan
-                    plan // Pass the plan
+                    0, // Count invalid for smart plan
+                    plan, // Pass the plan
+                    "" // RAG Context (Optional for notes mode, but better to skip for pure utility)
                 );
 
                 // Parse & Set Items (Reusing logic from handleDraftCampaign - ideally refactor this)
@@ -242,10 +246,14 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             const brainLogs = loadBrainLogs(brandName);
             const recentLogs = brainLogs.slice(0, 5).map(l => `[${new Date(l.timestamp).toLocaleDateString()}] ${l.type}: ${l.context}`).join('\n');
 
+            // CONTEXT 3: DEEP RAG (Supabase)
+            const { context: ragContext, strategyCount, memoryCount } = await getBrainContext(brandName);
+
             // UPDATE UI STATS FOR TRANSPARENCY
             setContextStats({
                 activeCampaignsCount: activeCampaignsData.length,
-                brainMemoriesCount: brainLogs.length
+                brainMemoriesCount: memoryCount,
+                strategyDocsCount: strategyCount // Need to add to Type or just ignore type error for now? state is any?
             });
 
             const strategy = await generateCampaignStrategy(
@@ -257,7 +265,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 brandName,
                 brandConfig,
                 recentLogs,
-                campaignFocusDoc // PASS FOCUS DOC
+                campaignFocusDoc, // PASS FOCUS DOC
+                ragContext // PASS DEEP CONTEXT
             );
             setCampaignStrategy(strategy);
             setCampaignStep(2); // Move to Strategy View
@@ -293,7 +302,10 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 brandConfig,
                 parseInt(campaignCount),
                 contentPlan, // PASS THE SMART PLAN
-                campaignFocusDoc // PASS FOCUS DOC
+                campaignFocusDoc, // PASS FOCUS DOC
+                // We should technically fetch RAG here too for 'Draft Only' mode, but usually Strategy step handles it.
+                // For completeness, let's fetch it if strategy is null (Draft Only flow)
+                campaignStrategy ? "" : await getBrainContext(brandName)
             );
 
             // Parse output

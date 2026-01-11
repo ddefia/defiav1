@@ -8,6 +8,8 @@ import { runMarketScan } from '../services/ingestion';
 import { searchContext, buildContextBlock, logDecision } from '../services/rag';
 import { loadBrainLogs } from '../services/storage';
 import { Button } from './Button';
+import { ManageStrategy } from './ManageStrategy';
+import { BrainMemory } from './BrainMemory'; // New Import
 
 interface StrategyBrainProps {
     brandName: string;
@@ -38,6 +40,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     const [configuringTask, setConfiguringTask] = useState<StrategyTask | null>(null);
     const [generatedDraft, setGeneratedDraft] = useState<string>(''); // New: Draft Text
     const [showGraphicConfig, setShowGraphicConfig] = useState(false); // New: Show/Hide Graphic UI
+    const [showStrategyManager, setShowStrategyManager] = useState(false); // New: Modal State
+    const [showMemoryBank, setShowMemoryBank] = useState(false); // New: Memory State
 
     // Graphic State
     const [selectedTemplate, setSelectedTemplate] = useState<string>('Campaign Launch');
@@ -502,6 +506,18 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                         <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-orange-500 animate-pulse' : 'bg-emerald-500'}`}></div>
                         <span className="text-xs font-bold text-brand-text uppercase tracking-wider">AI Command Center</span>
                     </div>
+                    <button
+                        onClick={() => setShowMemoryBank(true)}
+                        className="text-[10px] font-bold text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 px-3 py-1 rounded-full transition-colors flex items-center gap-1"
+                    >
+                        <span>📜</span> View Memory
+                    </button>
+                    <button
+                        onClick={() => setShowStrategyManager(true)}
+                        className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 px-3 py-1 rounded-full transition-colors flex items-center gap-1"
+                    >
+                        <span>🧠</span> Manage Brain
+                    </button>
                 </div>
                 <Button
                     onClick={performAudit}
@@ -579,7 +595,22 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     </div>
                 ))}
             </div>
+
+            {/* MODAL */}
+            {showStrategyManager && (
+                <ManageStrategy
+                    brandName={brandName}
+                    onClose={() => setShowStrategyManager(false)}
+                />
+            )}
+
+            {showMemoryBank && (
+                <BrainMemory
+                    brandName={brandName}
+                    onClose={() => setShowMemoryBank(false)}
+                />
+            )}
         </div>
     )
 }
-
+```
