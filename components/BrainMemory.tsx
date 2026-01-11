@@ -33,7 +33,7 @@ export const BrainMemory: React.FC<BrainMemoryProps> = ({ brandName, onClose }) 
         if (!supabase) return;
 
         const { data } = await supabase
-            .from('brand_memory')
+            .from('brain_memory')
             .select('*')
             .eq('brand_id', brandName)
             .order('created_at', { ascending: false })

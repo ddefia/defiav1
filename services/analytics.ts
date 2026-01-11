@@ -5,9 +5,9 @@ import { getIntegrationConfig } from "../config/integrations";
 /**
  * APIFY INTEGRATION
  */
-const DEFAULT_APIFY_TOKEN = import.meta.env.VITE_APIFY_API_TOKEN || '';
+const DEFAULT_APIFY_TOKEN = process.env.VITE_APIFY_API_TOKEN || (import.meta as any).env?.VITE_APIFY_API_TOKEN || '';
 // Ensure APIFY token is present; if missing, operations will fallback to cache.
-if (!import.meta.env.VITE_APIFY_API_TOKEN) {
+if (!DEFAULT_APIFY_TOKEN) {
     console.warn('[Apify] VITE_APIFY_API_TOKEN is not set. Social metrics will rely on cache or fallback data.');
 }
 

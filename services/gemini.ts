@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource } from "../types";
 import { saveBrainLog } from "./storage";
-import { supabase, matchBrainMemory } from "./supabase"; // Add Supabase
+import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
 
 /**
  * Helper to generate embeddings for RAG.
@@ -24,13 +24,6 @@ export const getEmbedding = async (text: string): Promise<number[]> => {
     }
 }
 
-// ... (rest of file)
-
-    } catch (error) {
-    console.error("Campaign generation error", error);
-    return { content: "Error generating campaign drafts.", thinking: "Generation Failed." };
-}
-}
 
 /**
  * HELPER: Analyze reference images to extract style directions.
@@ -515,7 +508,7 @@ export const generateCampaignDrafts = async (
     try {
         // 1. Generate embedding for the current campaign theme/concept
         const queryText = `Campaign Theme: ${theme}. Strategic Focus: ${focusContent || "General Brand Awareness"}. Brand: ${brandName}`;
-        const queryEmbedding = await generateEmbedding(queryText);
+        const queryEmbedding = await getEmbedding(queryText);
 
         if (queryEmbedding.length > 0) {
             // 2. Query Supabase for similar past insights/posts

@@ -63,7 +63,7 @@ export const ingestTwitterHistory = async (handles: string[]) => {
     console.log(`[Ingestion] Starting Deep Social Ingestion for: ${handles.join(', ')}`);
     const results = [];
     const ACTOR_TWEETS = '61RPP7dywgiy0JPD0';
-    const APIFY_TOKEN = import.meta.env.VITE_APIFY_API_TOKEN;
+    const APIFY_TOKEN = process.env.VITE_APIFY_API_TOKEN || (import.meta as any).env?.VITE_APIFY_API_TOKEN;
 
     if (!APIFY_TOKEN) {
         throw new Error("Missing APIFY Token");

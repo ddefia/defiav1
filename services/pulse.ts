@@ -24,7 +24,7 @@ const runApifyActor = async (actorId: string, input: any, token: string) => {
 };
 
 const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
-    const token = import.meta.env.VITE_LUNARCRUSH_API_KEY;
+    const token = process.env.VITE_LUNARCRUSH_API_KEY || (import.meta as any).env?.VITE_LUNARCRUSH_API_KEY;
     if (!token) return [];
 
     try {
@@ -94,7 +94,7 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
 
 // --- LunarCrush Creator Endpoints (Proxy to Backend) ---
 
-const PROXY_BASE = import.meta.env.VITE_API_BASE_URL || '/api/lunarcrush';
+const PROXY_BASE = process.env.VITE_API_BASE_URL || (import.meta as any).env?.VITE_API_BASE_URL || '/api/lunarcrush';
 
 export const getCreator = async (screenName: string): Promise<any> => {
     try {
@@ -206,7 +206,7 @@ export const getBrainContext = async (brandName: string): Promise<{ context: str
         // Note: metrics is jsonb, so we cast to compare. Or just sort by created_at for now if simple.
         // Doing a simple "Recent" fetch for now as 'metrics->likes' sorting might tricky without index in raw SQL setup.
         const { data: memories } = await supabase
-            .from('brand_memory')
+            .from('brain_memory')
             .select('content, metrics, created_at')
             .eq('brand_id', brandName)
             .order('created_at', { ascending: false })
