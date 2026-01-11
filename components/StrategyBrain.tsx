@@ -613,4 +613,3 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         </div>
     )
 }
-```

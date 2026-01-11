@@ -1,5 +1,45 @@
 [
   {
+    "id": "1768150803141",
+    "timestamp": "2026-01-11T17:00:03.141Z",
+    "action": "ERROR",
+    "reason": "Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.",
+    "brandId": "meme",
+    "status": "pending"
+  },
+  {
+    "id": "1768150803140",
+    "timestamp": "2026-01-11T17:00:03.140Z",
+    "action": "ERROR",
+    "reason": "Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.",
+    "brandId": "defia",
+    "status": "pending"
+  },
+  {
+    "id": "1768150803139",
+    "timestamp": "2026-01-11T17:00:03.139Z",
+    "action": "ERROR",
+    "reason": "Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.",
+    "brandId": "lazai",
+    "status": "pending"
+  },
+  {
+    "id": "1768150803138",
+    "timestamp": "2026-01-11T17:00:03.138Z",
+    "action": "ERROR",
+    "reason": "Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.",
+    "brandId": "netswap",
+    "status": "pending"
+  },
+  {
+    "id": "1768150803135",
+    "timestamp": "2026-01-11T17:00:03.136Z",
+    "action": "ERROR",
+    "reason": "Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.",
+    "brandId": "enki",
+    "status": "pending"
+  },
+  {
     "id": "1766967309155",
     "timestamp": "2025-12-29T00:15:09.155Z",
     "action": "ERROR",
@@ -354,46 +394,6 @@
   {
     "id": "1766963703850",
     "timestamp": "2025-12-28T23:15:03.850Z",
-    "action": "ERROR",
-    "reason": "response.text is not a function",
-    "brandId": "enki",
-    "status": "pending"
-  },
-  {
-    "id": "1766961908460",
-    "timestamp": "2025-12-28T22:45:08.460Z",
-    "action": "ERROR",
-    "reason": "response.text is not a function",
-    "brandId": "meme",
-    "status": "pending"
-  },
-  {
-    "id": "1766961907131",
-    "timestamp": "2025-12-28T22:45:07.131Z",
-    "action": "ERROR",
-    "reason": "response.text is not a function",
-    "brandId": "defia",
-    "status": "pending"
-  },
-  {
-    "id": "1766961905737",
-    "timestamp": "2025-12-28T22:45:05.737Z",
-    "action": "ERROR",
-    "reason": "response.text is not a function",
-    "brandId": "lazai",
-    "status": "pending"
-  },
-  {
-    "id": "1766961904259",
-    "timestamp": "2025-12-28T22:45:04.259Z",
-    "action": "ERROR",
-    "reason": "response.text is not a function",
-    "brandId": "netswap",
-    "status": "pending"
-  },
-  {
-    "id": "1766961902937",
-    "timestamp": "2025-12-28T22:45:02.937Z",
     "action": "ERROR",
     "reason": "response.text is not a function",
     "brandId": "enki",

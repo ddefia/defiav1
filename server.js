@@ -213,11 +213,16 @@ app.get('/api/social-metrics/:brand', (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`\n🚀 Backend Proxy running at http://localhost:${PORT}`);
-    console.log(`   - Endpoint: POST /api/generate-image`);
-    console.log(`   - Auth: Parsing service-account.json...`);
+// Only start server if NOT running in Vercel (Vercel handles the server via 'api' folder)
+if (process.env.VERCEL !== '1') {
+    app.listen(PORT, () => {
+        console.log(`\n🚀 Backend Proxy running at http://localhost:${PORT}`);
+        console.log(`   - Endpoint: POST /api/generate-image`);
+        console.log(`   - Auth: Parsing service-account.json...`);
 
-    // Start Autonomous Agent
-    startAgent();
-});
+        // Start Autonomous Agent
+        startAgent();
+    });
+}
+
+export default app;

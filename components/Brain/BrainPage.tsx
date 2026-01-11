@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrainLog, StrategyTask, CampaignStrategy, GrowthReport } from '../../types';
 import { loadBrainLogs } from '../../services/storage';
+import { ManageStrategy } from '../ManageStrategy';
+import { BrainMemory } from '../BrainMemory';
 
 interface BrainPageProps {
     brandName: string;
@@ -9,6 +11,8 @@ interface BrainPageProps {
 export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
     const [logs, setLogs] = useState<BrainLog[]>([]);
     const [selectedLog, setSelectedLog] = useState<BrainLog | null>(null);
+    const [showStrategyManager, setShowStrategyManager] = useState(false);
+    const [showMemoryBank, setShowMemoryBank] = useState(false);
 
     useEffect(() => {
         setLogs(loadBrainLogs(brandName));
@@ -119,21 +123,25 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
 
             {/* LEFT: STREAM */}
             <div className="w-1/3 min-w-[350px] border-r border-brand-border flex flex-col h-full bg-white">
-                <div className="p-4 border-b border-brand-border bg-white sticky top-0 z-10 flex justify-between items-center">
+                <div className="p-4 border-b border-brand-border bg-white sticky top-0 z-10 flex justify-between items-center gap-2">
                     <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                         Neural Stream
                     </h2>
-                    <button
-                        onClick={() => {
-                            localStorage.removeItem('defia_brain_logs');
-                            setLogs([]);
-                            setSelectedLog(null);
-                        }}
-                        className="text-[10px] text-gray-400 hover:text-red-500 font-mono hover:bg-red-50 px-2 py-1 rounded transition-colors"
-                    >
-                        CLEAR MEMORY
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setShowMemoryBank(true)}
+                            className="text-[10px] text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+                        >
+                            📜 Memory
+                        </button>
+                        <button
+                            onClick={() => setShowStrategyManager(true)}
+                            className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 px-2 py-1 rounded transition-colors"
+                        >
+                            🧠 Manage
+                        </button>
+                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {logs.map(log => (
@@ -205,6 +213,19 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
                     </div>
                 )}
             </div>
+            {showStrategyManager && (
+                <ManageStrategy
+                    brandName={brandName}
+                    onClose={() => setShowStrategyManager(false)}
+                />
+            )}
+
+            {showMemoryBank && (
+                <BrainMemory
+                    brandName={brandName}
+                    onClose={() => setShowMemoryBank(false)}
+                />
+            )}
         </div>
     );
 };
