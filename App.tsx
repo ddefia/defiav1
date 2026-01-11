@@ -5,6 +5,7 @@ import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './servi
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
 import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog } from './services/storage';
+import { migrateToCloud } from './services/migration'; // Import migration
 import { Button } from './components/Button';
 import { Select } from './components/Select';
 import { BrandKit } from './components/BrandKit';
@@ -25,6 +26,22 @@ const App: React.FC = () => {
     const [hasKey, setHasKey] = useState<boolean>(!!process.env.API_KEY);
     const [checkingKey, setCheckingKey] = useState<boolean>(true);
     const [isConnecting, setIsConnecting] = useState<boolean>(false);
+
+    // --- AUTOMATIC BRAIN SYNC (BACKGROUND) ---
+    useEffect(() => {
+        const syncBrain = async () => {
+            console.log("🧠 Brain Sync: Initiating background sync...");
+            const result = await migrateToCloud();
+            if (result.success) {
+                console.log(`🧠 Brain Sync: Complete. Migrated ${result.report.brands} brands, ${result.report.tasks} tasks.`);
+            } else {
+                console.warn("🧠 Brain Sync: Failed (Non-critical)", result.error);
+            }
+        };
+        // Delay slightly to prioritize UI render
+        const timer = setTimeout(syncBrain, 3000);
+        return () => clearTimeout(timer);
+    }, []);
 
     // App Navigation State
     const [appSection, setAppSection] = useState<string>('dashboard'); // Default to dashboard
@@ -481,18 +498,18 @@ const App: React.FC = () => {
                 )}
 
                 {/* SECTION: DASHBOARD */}
-                {appSection === 'dashboard' && selectedBrand && profiles[selectedBrand] && (
+                {appSection === 'dashboard' && selectedBrand && (
                     <Dashboard
                         brandName={selectedBrand}
+                        brandConfig={profiles[selectedBrand]}
                         calendarEvents={calendarEvents}
                         socialMetrics={socialMetrics}
                         strategyTasks={strategyTasks}
                         chainMetrics={chainMetrics}
-                        systemLogs={systemLogs} // Pass logs to Dashboard
-                        isServerOnline={isServerOnline}
-                        onNavigate={setAppSection}
-                        onQuickAction={() => { }} // Placeholder
-                        growthReport={growthReport} // Pass recent report
+                        socialSignals={socialSignals} // Pass signals
+                        systemLogs={systemLogs}
+                        growthReport={growthReport}
+                        onNavigate={(section) => setAppSection(section)}
                     />
                 )}
 

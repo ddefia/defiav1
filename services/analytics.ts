@@ -24,7 +24,7 @@ export const getHandle = (brandName: string) => {
 /**
  * Helper to run an Apify Actor and wait for results
  */
-const runApifyActor = async (actorId: string, input: any, token: string) => {
+export const runApifyActor = async (actorId: string, input: any, token: string) => {
     try {
         // 1. Start Execution
         // Increased wait time to 90s to avoid timeouts on cold starts

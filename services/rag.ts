@@ -1,6 +1,6 @@
-
-import { supabase } from './supabaseClient';
-import { generateEmbedding } from './gemini';
+import { getEmbedding } from './gemini';
+import { saveBrainLog, loadBrainLogs } from './storage'; // Local Fallback
+import { supabase } from './supabase'; // Cloud
 
 export interface RAGContext {
     id: number;
@@ -19,7 +19,7 @@ export const ingestContext = async (content: string, source: string, metadata: a
     if (!content || content.length < 5) return;
 
     // 1. Generate Embedding
-    const embedding = await generateEmbedding(content);
+    const embedding = await getEmbedding(content);
     if (!embedding || embedding.length === 0) {
         console.warn("Skipping ingestion: No embedding generated.");
         return;
@@ -28,7 +28,7 @@ export const ingestContext = async (content: string, source: string, metadata: a
     // 2. Deduplication Check
     // We don't want to store the exact same text twice.
     const { data: existing } = await supabase
-        .from('marketing_context')
+        .from('brain_memory') // ALIGNED WITH SCHEMA
         .select('id')
         .eq('content', content)
         .limit(1);
@@ -41,11 +41,11 @@ export const ingestContext = async (content: string, source: string, metadata: a
 
     // 3. Store in Supabase
     const { error } = await supabase
-        .from('marketing_context')
+        .from('brain_memory')
         .insert({
             content,
             source,
-            metadata,
+            metadata: { ...metadata, source }, // Ensure source is in metadata too
             embedding
         });
 
@@ -66,11 +66,11 @@ export const logDecision = async (action: string, reasoning: string) => {
 
 export const searchContext = async (query: string, limit: number = 3): Promise<RAGContext[]> => {
     // 1. Embed Query
-    const embedding = await generateEmbedding(query);
+    const embedding = await getEmbedding(query);
     if (!embedding || embedding.length === 0) return [];
 
-    // 2. RPC call for cosine similarity
-    const { data, error } = await supabase.rpc('match_marketing_context', {
+    // 2. RPC call for cosine similarity (MATCHES DB SCHEMA)
+    const { data, error } = await supabase.rpc('match_brain_memory', {
         query_embedding: embedding,
         match_threshold: 0.7, // Only relevant matches
         match_count: limit

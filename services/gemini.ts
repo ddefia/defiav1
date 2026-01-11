@@ -1,29 +1,36 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource } from "../types";
 import { saveBrainLog } from "./storage";
+import { supabase, matchBrainMemory } from "./supabase"; // Add Supabase
 
 /**
  * Helper to generate embeddings for RAG.
  */
-export const generateEmbedding = async (text: string): Promise<number[]> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const getEmbedding = async (text: string): Promise<number[]> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY });
     try {
         const result = await ai.models.embedContent({
             model: "text-embedding-004",
-            contents: { parts: [{ text }] }
+            contents: [{ parts: [{ text }] }]
         });
 
         if (result.embeddings && result.embeddings.length > 0 && result.embeddings[0].values) {
             return result.embeddings[0].values;
         }
-
         return [];
     } catch (e) {
-        console.error("Embedding generation failed", e);
+        console.error("Embedding Error", e);
         return [];
     }
-};
+}
+
+// ... (rest of file)
+
+    } catch (error) {
+    console.error("Campaign generation error", error);
+    return { content: "Error generating campaign drafts.", thinking: "Generation Failed." };
+}
+}
 
 /**
  * HELPER: Analyze reference images to extract style directions.
@@ -487,7 +494,7 @@ export const generateCampaignDrafts = async (
     contentPlan?: any, // OPTIONAL: Smart Plan
     focusContent?: string, // NEW: Optional Focus Document
     recentPosts: any[] = [] // NEW: Analytics History
-): Promise<string> => {
+): Promise<{ content: string, thinking: string }> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const examples = brandConfig.tweetExamples.length > 0
@@ -503,6 +510,33 @@ export const generateCampaignDrafts = async (
     const allTemplates = [...standardTemplates, ...customTemplates].join(', ');
 
     // Filter for High Engagement Posts (>10 likes or top 20%) to show AI what works
+    // --- RAG: RETRIEVE BRAIN MEMORY ---
+    let ragContext = "";
+    try {
+        // 1. Generate embedding for the current campaign theme/concept
+        const queryText = `Campaign Theme: ${theme}. Strategic Focus: ${focusContent || "General Brand Awareness"}. Brand: ${brandName}`;
+        const queryEmbedding = await generateEmbedding(queryText);
+
+        if (queryEmbedding.length > 0) {
+            // 2. Query Supabase for similar past insights/posts
+            // Note: searchBrainMemory expects (brandId, embedding, threshold, limit)
+            const memories = await searchBrainMemory(brandName, queryEmbedding, 0.7, 5);
+
+            if (memories && memories.length > 0) {
+                const memoryList = memories.map((m: any) => `- ${m.content} (Success Factor: ${m.metadata?.engagementRate || "N/A"}%)`).join("\n");
+                ragContext = `
+[BRAIN MEMORY - PAST PERFORMANCE INSIGHTS]
+The following acts as your long-term memory of what has worked well for this brand previously. Use these insights to guide your style and tone, but do not copy them directly.
+${memoryList}
+[END MEMORY]
+`;
+                console.log("🧠 Brain RAG: Injected", memories.length, "memories into prompt.");
+            }
+        }
+    } catch (err) {
+        console.warn("🧠 Brain RAG: Failed to retrieve memory", err);
+    }
+
     const winningPosts = recentPosts
         .filter(p => p.likes > 5)
         .slice(0, 3)
@@ -628,10 +662,13 @@ export const generateCampaignDrafts = async (
             contents: `Generate the campaign draft now.`,
             config: { systemInstruction: systemInstruction }
         });
-        return response.text || "";
+        return {
+            content: response.text || "Failed to generate drafts.",
+            thinking: "No thinking trace available."
+        };
     } catch (error) {
         console.error("Campaign generation error", error);
-        throw error;
+        return { content: "Error generating campaign drafts.", thinking: "Generation Failed." };
     }
 }
 
@@ -894,6 +931,7 @@ export const generateBusinessConnections = async (
             contents: "Generate business connections.",
             config: { systemInstruction: systemInstruction }
         });
+
         return response.text || "Unable to generate ideas.";
     } catch (e) {
         console.error("Business connection generation failed", e);

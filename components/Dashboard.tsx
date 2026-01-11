@@ -1,19 +1,19 @@
 import React, { useMemo } from 'react';
-import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport } from '../types';
-import { loadPulseCache } from '../services/storage';
+import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals } from '../types';
 import { calculateDefiaScore } from '../services/scoring';
+import { ingestTwitterHistory } from '../services/ingestion'; // Correct Import Placement
 
 interface DashboardProps {
     brandName: string;
+    brandConfig: BrandConfig;
     calendarEvents: CalendarEvent[];
     socialMetrics: SocialMetrics | null;
     strategyTasks: StrategyTask[];
     chainMetrics: ComputedMetrics | null;
-    systemLogs?: string[];
-    isServerOnline?: boolean;
+    socialSignals: SocialSignals;
+    systemLogs: string[];
     growthReport?: GrowthReport | null;
     onNavigate: (section: string) => void;
-    onQuickAction: (action: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -23,8 +23,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     strategyTasks,
     chainMetrics,
     systemLogs = [],
-    // Force Update 12/29
-    isServerOnline = false,
     growthReport,
     onNavigate
 }) => {
@@ -38,6 +36,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     // --- UI Helper Components ---
 
+    const handleIngestHistory = async () => {
+        const confirmed = window.confirm("Ingest full Twitter history for Enki, Netswap, Metis, Laza? This may take 30s.");
+        if (!confirmed) return;
+
+        try {
+            alert("Starting Ingestion... check console for progress.");
+            const accounts = ['EnkiProtocol', 'NetswapOfficial', 'MetisL2', 'LazaNetwork'];
+            const results = await ingestTwitterHistory(accounts);
+            console.log("Ingestion Results:", results);
+            alert(`Ingestion Complete! Scanned ${results.length} accounts.`);
+        } catch (e) {
+            console.error(e);
+            alert("Ingestion Failed.");
+        }
+    };
+
     const TopBar = () => (
         <div className="flex items-center justify-between mb-6">
             <div>
@@ -45,6 +59,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <p className="text-sm text-brand-textSecondary">Overview of your brand's performance</p>
             </div>
             <div className="flex items-center gap-4">
+                {/* Ingest Button */}
+                <button
+                    onClick={handleIngestHistory}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+                >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                    Ingest History
+                </button>
+
                 {/* Search */}
                 <div className="relative group">
                     <svg className="w-4 h-4 absolute left-3 top-2.5 text-brand-muted group-hover:text-brand-textSecondary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -147,17 +170,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    <button
-                        onClick={() => onNavigate('pulse')}
-                        className="bg-brand-surface border border-brand-border text-brand-text px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-brand-surfaceHighlight hover:border-brand-accent/30 transition-all flex items-center gap-3 shadow-sm group"
-                    >
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-error opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-error"></span>
-                        </span>
-                        Live Pulse
-                        <svg className="w-4 h-4 text-brand-muted group-hover:text-brand-text transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => onNavigate('pulse')}
+                            className="bg-brand-surface border border-brand-border text-brand-text px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-brand-surfaceHighlight hover:border-brand-accent/30 transition-all flex items-center gap-3 shadow-sm group"
+                        >
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-error opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-error"></span>
+                            </span>
+                            Live Pulse
+                            <svg className="w-4 h-4 text-brand-muted group-hover:text-brand-text transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 

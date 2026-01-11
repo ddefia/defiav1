@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { Select } from './Select';
+import ReactMarkdown from 'react-markdown';
 import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy, analyzeContentNotes } from '../services/gemini';
 import { getBrainContext } from '../services/pulse'; // New Import
 
@@ -51,6 +52,13 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const focusDocInputRef = useRef<HTMLInputElement>(null);
 
     const [campaignColor, setCampaignColor] = useState<string>('#4F46E5'); // Default Indigo
+    const [activeTab, setActiveTab] = useState<'wizard' | 'list'>('list');
+    const [wizardStep, setWizardStep] = useState(1);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedStrategy, setGeneratedStrategy] = useState<any>(null); // Store content plan
+    const [draftContext, setDraftContext] = useState<string>(""); // Store AI Thinking
+
+    // Quick Mode State
     const [campaignCount, setCampaignCount] = useState<string>('3');
     const [campaignStartDate, setCampaignStartDate] = useState<string>('');
     const [isDraftingCampaign, setIsDraftingCampaign] = useState<boolean>(false);
@@ -184,18 +192,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 setCampaignTheme(planTheme);
 
                 // Immediately Generate Drafts
-                const draftsText = await generateCampaignDrafts(
+                const result = await generateCampaignDrafts(
                     planTheme,
                     brandName,
                     brandConfig,
                     0, // Count invalid for smart plan
-                    0, // Count invalid for smart plan
                     plan, // Pass the plan
-                    "" // RAG Context (Optional for notes mode, but better to skip for pure utility)
+                    "", // Focus Content (none)
+                    [] // Recent Posts (none for notes mode)
                 );
 
+                setDraftContext(result.thinking); // Capture thinking
+
                 // Parse & Set Items (Reusing logic from handleDraftCampaign - ideally refactor this)
-                let textToParse = draftsText;
+                let textToParse = result.content;
                 const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
                 if (colorMatch) {
                     setCampaignColor(colorMatch[1]);
@@ -266,9 +276,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 activeContext,
                 brandName,
                 brandConfig,
-                recentLogs,
-                campaignFocusDoc, // PASS FOCUS DOC
-                ragContext // PASS DEEP CONTEXT
+                recentLogs, // History
+                campaignFocusDoc, // Focus Doc
+                ragContext // Deep Context from Supabase
             );
             setCampaignStrategy(strategy);
             setCampaignStep(2); // Move to Strategy View
@@ -298,28 +308,31 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 ? `${themeToSend}. STRATEGY CONTEXT: Audience: ${campaignStrategy.targetAudience}. Messages: ${campaignStrategy.keyMessaging.join(', ')}.`
                 : themeToSend;
 
-            const draftsText = await generateCampaignDrafts(
+            // GENERATION CALL
+            const result = await generateCampaignDrafts(
                 enhancedTheme,
                 brandName,
                 brandConfig,
                 parseInt(campaignCount),
-                contentPlan, // PASS THE SMART PLAN
-                campaignFocusDoc, // PASS FOCUS DOC
-                // We should technically fetch RAG here too for 'Draft Only' mode, but usually Strategy step handles it.
-                // For completeness, let's fetch it if strategy is null (Draft Only flow)
-                campaignStrategy ? "" : await getBrainContext(brandName)
+                undefined, // No content plan for quick mode
+                campaignFocusDoc, // Pass Focus Doc
+                recentPosts
             );
 
-            // Parse output
-            let textToParse = draftsText;
-            const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
+            setDraftContext(result.thinking); // 🧠 Set Brain Thinking Logic
 
+            let textToParse = result.content;
+
+            // Extract Theme Color if AI Suggests one
+            const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
             if (colorMatch) {
                 setCampaignColor(colorMatch[1]);
                 textToParse = textToParse.replace(colorMatch[0], '').trim();
             }
 
-            const splitDrafts = textToParse.split(/---/).map(t => t.trim()).filter(t => t.length > 0);
+            const splitDrafts = textToParse.split(/---/)
+                .map(d => d.trim())
+                .filter(d => d.length > 0);
 
             const items: CampaignItem[] = splitDrafts.map((txt, i) => {
                 // Extract Template Tag if present (e.g., "[Event] Tweet content...")
@@ -945,6 +958,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-gray-100 pt-8">
                                     {/* AUDIENCE & MESSAGING */}
+                                    {/* AI THINKING BOX */}
+                                    {draftContext && (
+                                        <div className="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 animate-fadeIn">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">🧠</div>
+                                                <h3 className="text-xs font-bold text-indigo-800 uppercase tracking-widest">Brain Logic</h3>
+                                            </div>
+                                            <div className="prose prose-sm max-w-none text-indigo-900/80 text-xs">
+                                                <ReactMarkdown>{draftContext}</ReactMarkdown>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* GENERATED DRAFTS LIST */}
                                     <div className="space-y-6">
                                         <div>
                                             <label className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 block">Target Audience</label>
