@@ -1,0 +1,301 @@
+{
+  "type": "tweet",
+  "id": "2009693790240682360",
+  "url": "https://x.com/ENKIProtocol/status/2009693790240682360",
+  "twitterUrl": "https://twitter.com/ENKIProtocol/status/2009693790240682360",
+  "text": "Most DeFi breaks when incentives end.\n\nENKI is built to hold up after the hype.\n\n🔸 No fragile mechanics.\n🔸 No short-term tricks.\n🔸 Just durable design aligned with @MetisL2\n\nExplore ENKI → https://t.co/IA4AcRATFM https://t.co/u9fRmOkeEH",
+  "fullText": "Most DeFi breaks when incentives end.\n\nENKI is built to hold up after the hype.\n\n🔸 No fragile mechanics.\n🔸 No short-term tricks.\n🔸 Just durable design aligned with @MetisL2\n\nExplore ENKI → https://t.co/IA4AcRATFM https://t.co/u9fRmOkeEH",
+  "source": "Twitter Web App",
+  "retweetCount": 0,
+  "replyCount": 1,
+  "likeCount": 3,
+  "quoteCount": 1,
+  "viewCount": 300,
+  "createdAt": "Fri Jan 09 18:28:32 +0000 2026",
+  "lang": "en",
+  "bookmarkCount": 0,
+  "isReply": false,
+  "conversationId": "2009693790240682360",
+  "possiblySensitive": false,
+  "isPinned": false,
+  "author": {
+    "type": "user",
+    "userName": "ENKIProtocol",
+    "url": "https://x.com/ENKIProtocol",
+    "twitterUrl": "https://twitter.com/ENKIProtocol",
+    "id": "1678392376207785985",
+    "name": "ENKI",
+    "isVerified": false,
+    "isBlueVerified": true,
+    "profilePicture": "https://pbs.twimg.com/profile_images/1680936130592780288/4OgyjKgt_normal.jpg",
+    "coverPicture": "https://pbs.twimg.com/profile_banners/1678392376207785985/1727027698",
+    "description": "First LST protocol on @MetisL2 and all of Layer 2 🥇\n\nSeamlessly Stake Metis, Earn Rewards, and Embrace DeFi with ENKI Protocol 🌿\n\nhttps://t.co/FDSfHSg4OQ",
+    "location": "",
+    "followers": 92726,
+    "following": 111,
+    "status": "",
+    "canDm": true,
+    "canMediaTag": true,
+    "createdAt": "Mon Jul 10 13:15:10 +0000 2023",
+    "entities": {
+      "description": {
+        "urls": [
+          {
+            "display_url": "linktr.ee/enkixyz",
+            "expanded_url": "https://linktr.ee/enkixyz",
+            "url": "https://t.co/FDSfHSg4OQ",
+            "indices": [
+              130,
+              153
+            ]
+          }
+        ]
+      }
+    },
+    "fastFollowersCount": 0,
+    "favouritesCount": 2843,
+    "hasCustomTimelines": false,
+    "isTranslator": false,
+    "mediaCount": 421,
+    "statusesCount": 1929,
+    "withheldInCountries": [],
+    "affiliatesHighlightedLabel": {},
+    "possiblySensitive": false,
+    "pinnedTweetIds": [
+      "1993828939660406936"
+    ]
+  },
+  "extendedEntities": {
+    "media": [
+      {
+        "display_url": "pic.x.com/u9fRmOkeEH",
+        "expanded_url": "https://x.com/ENKIProtocol/status/2009693790240682360/photo/1",
+        "id_str": "2009692968332963840",
+        "indices": [
+          213,
+          236
+        ],
+        "media_key": "3_2009692968332963840",
+        "media_url_https": "https://pbs.twimg.com/media/G-PdG10WMAA4iIE.jpg",
+        "type": "photo",
+        "url": "https://t.co/u9fRmOkeEH",
+        "ext_media_availability": {
+          "status": "Available"
+        },
+        "features": {
+          "large": {
+            "faces": []
+          },
+          "medium": {
+            "faces": []
+          },
+          "small": {
+            "faces": []
+          },
+          "orig": {
+            "faces": []
+          }
+        },
+        "sizes": {
+          "large": {
+            "h": 725,
+            "w": 1307,
+            "resize": "fit"
+          },
+          "medium": {
+            "h": 666,
+            "w": 1200,
+            "resize": "fit"
+          },
+          "small": {
+            "h": 377,
+            "w": 680,
+            "resize": "fit"
+          },
+          "thumb": {
+            "h": 150,
+            "w": 150,
+            "resize": "crop"
+          }
+        },
+        "original_info": {
+          "height": 725,
+          "width": 1307,
+          "focus_rects": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1295,
+              "h": 725
+            },
+            {
+              "x": 0,
+              "y": 0,
+              "w": 725,
+              "h": 725
+            },
+            {
+              "x": 40,
+              "y": 0,
+              "w": 636,
+              "h": 725
+            },
+            {
+              "x": 177,
+              "y": 0,
+              "w": 363,
+              "h": 725
+            },
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1307,
+              "h": 725
+            }
+          ]
+        },
+        "allow_download_status": {
+          "allow_download": true
+        },
+        "media_results": {
+          "result": {
+            "media_key": "3_2009692968332963840"
+          }
+        }
+      }
+    ]
+  },
+  "card": {},
+  "place": {},
+  "entities": {
+    "hashtags": [],
+    "media": [
+      {
+        "display_url": "pic.x.com/u9fRmOkeEH",
+        "expanded_url": "https://x.com/ENKIProtocol/status/2009693790240682360/photo/1",
+        "id_str": "2009692968332963840",
+        "indices": [
+          213,
+          236
+        ],
+        "media_key": "3_2009692968332963840",
+        "media_url_https": "https://pbs.twimg.com/media/G-PdG10WMAA4iIE.jpg",
+        "type": "photo",
+        "url": "https://t.co/u9fRmOkeEH",
+        "ext_media_availability": {
+          "status": "Available"
+        },
+        "features": {
+          "large": {
+            "faces": []
+          },
+          "medium": {
+            "faces": []
+          },
+          "small": {
+            "faces": []
+          },
+          "orig": {
+            "faces": []
+          }
+        },
+        "sizes": {
+          "large": {
+            "h": 725,
+            "w": 1307,
+            "resize": "fit"
+          },
+          "medium": {
+            "h": 666,
+            "w": 1200,
+            "resize": "fit"
+          },
+          "small": {
+            "h": 377,
+            "w": 680,
+            "resize": "fit"
+          },
+          "thumb": {
+            "h": 150,
+            "w": 150,
+            "resize": "crop"
+          }
+        },
+        "original_info": {
+          "height": 725,
+          "width": 1307,
+          "focus_rects": [
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1295,
+              "h": 725
+            },
+            {
+              "x": 0,
+              "y": 0,
+              "w": 725,
+              "h": 725
+            },
+            {
+              "x": 40,
+              "y": 0,
+              "w": 636,
+              "h": 725
+            },
+            {
+              "x": 177,
+              "y": 0,
+              "w": 363,
+              "h": 725
+            },
+            {
+              "x": 0,
+              "y": 0,
+              "w": 1307,
+              "h": 725
+            }
+          ]
+        },
+        "allow_download_status": {
+          "allow_download": true
+        },
+        "media_results": {
+          "result": {
+            "media_key": "3_2009692968332963840"
+          }
+        }
+      }
+    ],
+    "symbols": [],
+    "timestamps": [],
+    "urls": [
+      {
+        "display_url": "enkixyz.com",
+        "expanded_url": "http://enkixyz.com",
+        "url": "https://t.co/IA4AcRATFM",
+        "indices": [
+          189,
+          212
+        ]
+      }
+    ],
+    "user_mentions": [
+      {
+        "id_str": "1290738140219572225",
+        "name": "Metis🌿",
+        "screen_name": "MetisL2",
+        "indices": [
+          164,
+          172
+        ]
+      }
+    ]
+  },
+  "isRetweet": false,
+  "isQuote": false,
+  "media": [
+    "https://pbs.twimg.com/media/G-PdG10WMAA4iIE.jpg"
+  ],
+  "isConversationControlled": false
+}

@@ -247,41 +247,40 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
 
         if (tweetItems && tweetItems.length > 0) {
             realRecentPosts = tweetItems.map((item: any) => {
-                // HANDLE RETWEETS: Use the original tweet for stats/media if it's an RT
-                const source = item.retweeted_status || item;
+                // HANDLE RETWEETS & CAMELCASE KEYS
+                const source = item.retweeted_status || item.retweetedStatus || item;
 
-                let likes = source.favorite_count || source.likes || 0;
-                let comments = source.reply_count || source.replies || 0;
-                let retweets = source.retweet_count || source.retweets || 0;
-                let views = source.view_count || source.views || 0;
+                // Support both snake_case (standard API) and camelCase (new Apify actor)
+                const likes = source.favorite_count || source.likeCount || source.likes || 0;
+                const comments = source.reply_count || source.replyCount || source.replies || 0;
+                const retweets = source.retweet_count || source.retweetCount || source.retweets || 0;
+                const views = source.view_count || source.viewCount || source.views || 0;
 
-                // Randomize fallback impressions slightly (±20%) so it doesn't look like "fake" repeating data
-                const baseImpressions = realFollowers * 0.15;
-                const randomFactor = 0.8 + (Math.random() * 0.4);
-                const derivedImpressions = Math.floor(baseImpressions * randomFactor);
-
-                const impressions = views > 0 ? views : derivedImpressions;
-
-                // IF STATS ARE ZERO (Common with Retweets/API limits), ESTIMATE THEM based on impressions
-                if (likes === 0 && retweets === 0) {
-                    const estRate = 0.03 + (Math.random() * 0.02); // 3-5% engagement
-                    likes = Math.floor(impressions * estRate);
-                    retweets = Math.floor(likes * 0.3);
-                    comments = Math.floor(likes * 0.1);
-                }
+                // Fallback for impressions if view_count is missing (common)
+                const impressions = views > 0 ? views : Math.floor(realFollowers * 0.15);
 
                 const engagementRate = realFollowers > 0
                     ? ((likes + comments + retweets) / realFollowers) * 100
                     : 0;
 
+                // Handle Media (both snake_case and camelCase paths)
+                const mediaObj = source.entities?.media?.[0] || source.extended_entities?.media?.[0] || source.extendedEntities?.media?.[0];
+                const mediaUrl = mediaObj?.media_url_https || mediaObj?.mediaUrlHttps;
 
-                const mediaUrl = source.entities?.media?.[0]?.media_url_https || source.extended_entities?.media?.[0]?.media_url_https;
-                const tweetUrl = `https://twitter.com/${item.user?.screen_name || 'user'}/status/${item.id_str || item.id}`;
+                // Handle Author/ScreenName
+                const screenName = item.user?.screen_name || item.author?.userName || 'user';
+                const tweetId = item.id_str || item.id;
+                const tweetUrl = `https://twitter.com/${screenName}/status/${tweetId}`;
+
+                // Parse Date (Handle 'created_at' and 'createdAt')
+                const rawDate = item.created_at || item.createdAt;
+                const dateDisplay = rawDate ? new Date(rawDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "Recent";
+                const textContent = item.full_text || item.fullText || item.text || "Media Post";
 
                 return {
-                    id: item.id_str || item.id || Math.random().toString(),
-                    content: item.full_text || item.text || "Media Post",
-                    date: item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "Recent",
+                    id: tweetId || Math.random().toString(),
+                    content: textContent,
+                    date: dateDisplay,
                     likes,
                     comments,
                     retweets,
