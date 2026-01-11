@@ -25,7 +25,7 @@ export const KNOWN_INTEGRATIONS: Record<string, IntegrationConfig> = {
             retentionQueryId: '3339236' // Placeholder: Enki Retention
         },
         apify: {
-            twitterHandle: 'ENKIProtocol'
+            twitterHandle: 'enkiprotocol'
         }
     },
     'Netswap': {

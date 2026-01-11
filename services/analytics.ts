@@ -247,10 +247,13 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
 
         if (tweetItems && tweetItems.length > 0) {
             realRecentPosts = tweetItems.map((item: any) => {
-                const likes = item.favorite_count || item.likes || 0;
-                const comments = item.reply_count || item.replies || 0;
-                const retweets = item.retweet_count || item.retweets || 0;
-                const views = item.view_count || item.views || 0;
+                // HANDLE RETWEETS: Use the original tweet for stats/media if it's an RT
+                const source = item.retweeted_status || item;
+
+                const likes = source.favorite_count || source.likes || 0;
+                const comments = source.reply_count || source.replies || 0;
+                const retweets = source.retweet_count || source.retweets || 0;
+                const views = source.view_count || source.views || 0;
 
                 // Randomize fallback impressions slightly (±20%) so it doesn't look like "fake" repeating data
                 const baseImpressions = realFollowers * 0.15;
@@ -264,7 +267,7 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
                     : 0;
 
 
-                const mediaUrl = item.entities?.media?.[0]?.media_url_https || item.extended_entities?.media?.[0]?.media_url_https;
+                const mediaUrl = source.entities?.media?.[0]?.media_url_https || source.extended_entities?.media?.[0]?.media_url_https;
                 const tweetUrl = `https://twitter.com/${item.user?.screen_name || 'user'}/status/${item.id_str || item.id}`;
 
                 return {
