@@ -58,6 +58,8 @@ export const runMarketScan = async (brandName: string, campaigns: CampaignLog[] 
  * Fetches historical tweets for specific handles and ingests them into Brain Memory.
  */
 import { runApifyActor } from './analytics';
+import { loadBrandProfiles, saveBrandProfiles, fetchBrainHistoryEvents } from './storage';
+import { ReferenceImage, BrandConfig } from '../types';
 
 export const ingestTwitterHistory = async (handles: string[]) => {
     console.log(`[Ingestion] Starting Deep Social Ingestion for: ${handles.join(', ')}`);
@@ -129,6 +131,50 @@ export const ingestTwitterHistory = async (handles: string[]) => {
                         // INGEST
                         await ingestContext(content, `Twitter/@${handle}`, metadata, brandId);
                         ingestedCount++;
+
+                        // --- AUTO-SAVE HIGH QUALITY IMAGES TO BRAND KIT ---
+                        // Criteria: Has Media + Decent Engagement (Rate > 1% OR > 50 Likes)
+                        if (mediaUrl && (engagementRate > 1.0 || likes > 50)) {
+                            // De-duplicate check happens inside brands
+                            try {
+                                const profiles = loadBrandProfiles();
+                                const config = profiles[brandId];
+
+                                if (config) {
+                                    const existingImages = config.referenceImages || [];
+                                    // Check if we already have this image (by ID check or naive check)
+                                    // We'll use a simple "Source ID" check effectively stored as ID
+                                    const alreadySaved = existingImages.some(img => img.id === `tweet-${id}`);
+
+                                    if (!alreadySaved) {
+                                        console.log(`[Ingestion] Auto-saving Tweet Image to Brand Kit: ${id}`);
+
+                                        // Fetch and Convert
+                                        const imgRes = await fetch(mediaUrl);
+                                        const blob = await imgRes.blob();
+                                        const base64 = await new Promise<string>((resolve) => {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => resolve(reader.result as string);
+                                            reader.readAsDataURL(blob);
+                                        });
+
+                                        const newRefImage: ReferenceImage = {
+                                            id: `tweet-${id}`,
+                                            url: mediaUrl,
+                                            data: base64,
+                                            name: `Tweet ${date.substring(0, 10)}`
+                                        };
+
+                                        // Update and Save
+                                        config.referenceImages = [...existingImages, newRefImage];
+                                        profiles[brandId] = config;
+                                        saveBrandProfiles(profiles);
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn("Failed to auto-save tweet image", err);
+                            }
+                        }
                     }
                 }
             }
@@ -141,4 +187,69 @@ export const ingestTwitterHistory = async (handles: string[]) => {
     }
 
     return results;
+};
+
+/**
+ * BACKFILL: Sync History Images to Reference Images
+ * Scans all "History" events for a brand and adds any images found to the Brand Kit.
+ */
+export const syncHistoryToReferenceImages = async (brandName: string) => {
+    console.log(`[Ingestion] Syncing history images for ${brandName}...`);
+    try {
+        const events = await fetchBrainHistoryEvents(brandName);
+        const profiles = loadBrandProfiles();
+        const config = profiles[brandName];
+        let addedCount = 0;
+
+        if (config) {
+            const existingImages = config.referenceImages || [];
+
+            for (const event of events) {
+                // Must have image + be from history
+                if (event.image && event.id.startsWith('history-')) {
+                    const tweetId = event.id.replace('history-', '');
+                    const refId = `tweet-${tweetId}`;
+
+                    // Use existing check logic
+                    const alreadySaved = existingImages.some(img => img.id === refId);
+
+                    if (!alreadySaved) {
+                        try {
+                            // Fetch and Convert
+                            const imgRes = await fetch(event.image);
+                            const blob = await imgRes.blob();
+                            const base64 = await new Promise<string>((resolve) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result as string);
+                                reader.readAsDataURL(blob);
+                            });
+
+                            const newRefImage: ReferenceImage = {
+                                id: refId,
+                                url: event.image,
+                                data: base64,
+                                name: `History ${event.date}`
+                            };
+
+                            existingImages.push(newRefImage);
+                            addedCount++;
+                        } catch (e) {
+                            console.warn(`Failed to process history image ${event.id}`, e);
+                        }
+                    }
+                }
+            }
+
+            if (addedCount > 0) {
+                config.referenceImages = existingImages;
+                profiles[brandName] = config;
+                saveBrandProfiles(profiles);
+                console.log(`[Ingestion] Added ${addedCount} historical images to Brand Kit.`);
+            }
+        }
+        return addedCount;
+    } catch (e) {
+        console.error("Failed to sync history images", e);
+        throw e;
+    }
 };

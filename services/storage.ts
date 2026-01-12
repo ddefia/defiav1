@@ -164,10 +164,13 @@ const mergeWithDefaults = (storedData: any): Record<string, BrandConfig> => {
     return merged;
 };
 
-export const saveBrandProfiles = (profiles: Record<string, BrandConfig>): void => {
+export const saveBrandProfiles = (profiles: Record<string, BrandConfig>, suppressEvent = false): void => {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
         setLocalTimestamp(STORAGE_KEY, Date.now());
+        if (!suppressEvent) {
+            dispatchStorageEvent(STORAGE_EVENTS.BRAND_UPDATE, {});
+        }
         saveToCloud(STORAGE_KEY, profiles);
     } catch (e) {
         console.error("Failed to save brand profiles", e);

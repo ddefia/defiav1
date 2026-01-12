@@ -1501,7 +1501,7 @@ export const analyzeBrandKit = async (text: string): Promise<string> => {
     const systemInstruction = `
     You are a Creative Director for a top-tier design agency.
     
-    TASK: Analyze the provided Brand Kit text and distill it into a concise "Visual Identity Guide" for 3D/Digital Artists.
+    TASK: Analyze the provided Brand Kit text and distill it into a comprehensive "Visual Identity Guide" for 3D/Digital Artists.
     
     INPUT TEXT:
     ${truncatedText}
@@ -1509,15 +1509,17 @@ export const analyzeBrandKit = async (text: string): Promise<string> => {
     INSTRUCTIONS:
     - IGNORE: Mission statements, typography details (fonts are not used in image gen), and logo spacing rules.
     - EXTRACT & SUMMARIZE:
-        1. COLOR USAGE: How should colors be applied? (e.g. "Dark backgrounds only", "Use gradients", "Minimalist white").
-        2. COMPOSITION: Preferred layouts? (e.g. "Centred assignments", "Asymmetrical", "Negative space").
-        3. LIGHTING/MOOD: (e.g. "Neon cyber", "Soft daylight", "Studio lighting").
-        4. TEXTURE/MATERIAL: (e.g. "Glass", "Matte", "Metallic", "Grainy").
-        5. DO NOTS: What is explicitly forbidden visually?
+        1. CORE AESTHETIC: What is the overall vibe? (e.g. "Futuristic Minimalist", "Organic & Warm").
+        2. COLOR USAGE: How should colors be applied? (e.g. "Dark backgrounds only", "Use gradients", "Minimalist white"). Be specific about primary vs accent usage.
+        3. COMPOSITION & LAYOUT: Preferred layouts? (e.g. "Centred assignments", "Asymmetrical", "Negative space", "Bento grids").
+        4. LIGHTING/MOOD: (e.g. "Neon cyber", "Soft daylight", "Studio lighting", "Dramatic shadows").
+        5. SHAPES & FORMS: What kind of geometry is used? (e.g. "Rounded corners", "Sharp angles", "Fluid blobs").
+        6. TEXTURE/MATERIAL: (e.g. "Glass", "Matte", "Metallic", "Grainy", "Paper").
+        7. DO NOTS: What is explicitly forbidden visually? (e.g. "No drop shadows", "No real photos").
     
     OUTPUT FORMAT:
-    - Bullet points only.
-    - Extremely concise.
+    - Structured Bullet points.
+    - Capture Nuance: If the brand kit specifies distinct styles for different contexts, include them.
     - Focus ONLY on visual descriptors that a prompt engineer would use.
     `;
 

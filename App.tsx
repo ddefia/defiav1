@@ -103,7 +103,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (Object.keys(profiles).length > 0) {
-            saveBrandProfiles(profiles);
+            saveBrandProfiles(profiles, true);
         }
     }, [profiles]);
 
@@ -127,7 +127,18 @@ const App: React.FC = () => {
         };
 
         window.addEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
-        return () => window.removeEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
+
+        // Listen for Brand Updates (e.g. Ingestion saving images)
+        const handleBrandUpdate = () => {
+            console.log("Live Sync: Reloading brand profiles");
+            setProfiles(loadBrandProfiles());
+        };
+        window.addEventListener(STORAGE_EVENTS.BRAND_UPDATE, handleBrandUpdate);
+
+        return () => {
+            window.removeEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
+            window.removeEventListener(STORAGE_EVENTS.BRAND_UPDATE, handleBrandUpdate);
+        };
     }, [selectedBrand]);
 
     // NEW: Robust Auto-Save for Calendar
