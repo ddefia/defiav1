@@ -111,12 +111,10 @@ const App: React.FC = () => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
         setStrategyTasks(loadStrategyTasks(selectedBrand)); // Load Tasks
 
-        // Load History asynchronously
-        import('./services/storage').then(({ fetchBrainHistoryEvents }) => {
-            fetchBrainHistoryEvents(selectedBrand).then(events => {
-                setHistoryEvents(events);
-                console.log(`📅 Loaded ${events.length} historical events for calendar.`);
-            });
+        // Load History (Static)
+        fetchBrainHistoryEvents(selectedBrand).then(events => {
+            setHistoryEvents(events);
+            console.log(`📅 Loaded ${events.length} historical events for calendar.`);
         });
 
         // Listen for background sync updates
