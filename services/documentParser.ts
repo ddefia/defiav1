@@ -16,8 +16,9 @@ if (typeof window !== 'undefined') {
 }
 
 export const parseDocumentFile = async (file: File): Promise<string> => {
-    if (file.size > 1024 * 1024) { // 1MB Limit for PDFs
-        throw new Error("File is too large. Please upload documents under 1MB.");
+    const MAX_SIZE = 30 * 1024 * 1024; // 30MB Limit
+    if (file.size > MAX_SIZE) {
+        throw new Error(`File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Please upload documents under 30MB.`);
     }
 
     let text = "";
