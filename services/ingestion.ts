@@ -108,8 +108,18 @@ export const ingestTwitterHistory = async (handles: string[]) => {
                             engagementRate: parseFloat(engagementRate.toFixed(2))
                         };
 
+                        // Map handle to Brand ID
+                        const brandMap: Record<string, string> = {
+                            'EnkiProtocol': 'ENKI Protocol',
+                            'NetswapOfficial': 'Netswap',
+                            'MetisL2': 'Metis',
+                            'LazAINetwork': 'LazAI',
+                            'LazaNetwork': 'LazAI'
+                        };
+                        const brandId = brandMap[handle] || handle;
+
                         // INGEST
-                        await ingestContext(content, `Twitter/@${handle}`, metadata);
+                        await ingestContext(content, `Twitter/@${handle}`, metadata, brandId);
                         ingestedCount++;
                     }
                 }

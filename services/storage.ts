@@ -444,15 +444,21 @@ export const fetchBrainHistoryEvents = async (brandName: string): Promise<Calend
 
         if (!data) return [];
 
-        return data.map((item: any) => ({
-            id: `history-${item.id}`,
-            date: new Date(item.created_at || Date.now()).toISOString().split('T')[0],
-            content: item.content,
-            platform: 'Twitter', // Default for now, could be dynamic from metadata
-            status: 'published',
-            campaignName: 'History',
-            image: item.metadata?.mediaUrl || undefined // Map optional media
-        }));
+        return data.map((item: any) => {
+            // Prefer original tweet date from metadata, fallback to ingestion time
+            const originDate = item.metadata?.date ? new Date(item.metadata.date) : new Date(item.created_at);
+            const dateStr = !isNaN(originDate.getTime()) ? originDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+            return {
+                id: `history-${item.id}`,
+                date: dateStr,
+                content: item.content,
+                platform: 'Twitter',
+                status: 'published',
+                campaignName: 'History',
+                image: item.metadata?.mediaUrl || undefined
+            };
+        });
     } catch (e) {
         console.warn("Failed to fetch history events", e);
         return [];

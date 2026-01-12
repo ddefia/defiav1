@@ -15,15 +15,19 @@ export interface RAGContext {
  * "The Memory Layer"
  */
 
-export const ingestContext = async (content: string, source: string, metadata: any = {}) => {
+export const ingestContext = async (content: string, source: string, metadata: any = {}, brandId?: string) => {
     if (!content || content.length < 5) return;
 
     // 1. Generate Embedding
-    const embedding = await getEmbedding(content);
-    if (!embedding || embedding.length === 0) {
-        console.warn("Skipping ingestion: No embedding generated.");
-        return;
+    let embedding: number[] | null = null;
+    try {
+        embedding = await getEmbedding(content);
+    } catch (e) {
+        console.warn(`[RAG] Embedding failed for "${content.substring(0, 15)}...". Saving without vector.`);
+        embedding = null;
     }
+
+    if (embedding && embedding.length === 0) embedding = null;
 
     // 2. Deduplication Check
     // We don't want to store the exact same text twice.
@@ -43,8 +47,9 @@ export const ingestContext = async (content: string, source: string, metadata: a
     const { error } = await supabase
         .from('brain_memory')
         .insert({
+            brand_id: brandId, // Optional, can be null
             content,
-            source,
+            memory_type: source, // Map 'source' to 'memory_type' column
             metadata: { ...metadata, source }, // Ensure source is in metadata too
             embedding
         });

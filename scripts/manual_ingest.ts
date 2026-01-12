@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 const run = async () => {
     console.log("🚀 Starting Manual Ingestion...");
 
-    const accounts = ['LazAINetwork'];
+    const accounts = ['EnkiProtocol', 'NetswapOfficial', 'MetisL2', 'LazAINetwork'];
 
     try {
         const results = await ingestTwitterHistory(accounts);
