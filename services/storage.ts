@@ -424,10 +424,21 @@ export const saveStudioState = (brandName: string, state: any): void => {
 
 export const fetchBrainHistoryEvents = async (brandName: string): Promise<CalendarEvent[]> => {
     try {
+        // Map UI Brand Names to Twitter Handles (DB keys)
+        const brandMapping: Record<string, string> = {
+            'ENKI Protocol': 'EnkiProtocol',
+            'Netswap': 'NetswapOfficial',
+            'Metis': 'MetisL2',
+            'LazAI': 'LazAINetwork',
+            'Defia': 'DefiaLabs' // Assuming Defia might need one, optional
+        };
+
+        const dbBrandId = brandMapping[brandName] || brandName;
+
         const { data } = await supabase
             .from('brain_memory')
             .select('id, content, created_at, metadata')
-            .eq('brand_id', brandName)
+            .eq('brand_id', dbBrandId)
             .order('created_at', { ascending: false })
             .limit(100);
 
