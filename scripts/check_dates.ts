@@ -5,32 +5,30 @@ import 'dotenv/config';
 const supabase = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!);
 
 const run = async () => {
-    console.log("Checking Dates for 'Netswap'...");
+    console.log("Checking Dates for 'Metis'...");
 
-    // We expect 'Netswap' because fix_brand_map.ts set it.
-    const { data } = await supabase
+    const { data: dataMetis } = await supabase
         .from('brain_memory')
-        .select('brand_id, metadata')
-        .eq('brand_id', 'Netswap');
+        .select('brand_id, metadata, content')
+        .eq('brand_id', 'Metis');
 
-    if (!data || data.length === 0) {
-        console.log("No tweets found for 'Netswap'. Checking 'NetswapOfficial'...");
-        const { data: data2 } = await supabase
+    if (dataMetis && dataMetis.length > 0) {
+        console.log(`Found ${dataMetis.length} tweets for 'Metis'.`);
+        dataMetis.slice(0, 10).forEach(d => {
+            console.log(`[Metis] Date: ${d.metadata?.date}`);
+        });
+    } else {
+        console.log("No tweets for 'Metis'. Checking 'MetisL2'...");
+        const { data: dataMetisL2 } = await supabase
             .from('brain_memory')
             .select('brand_id, metadata')
-            .eq('brand_id', 'NetswapOfficial');
+            .eq('brand_id', 'MetisL2');
 
-        if (data2 && data2.length > 0) {
-            console.log(`Found ${data2.length} for 'NetswapOfficial' (Mapping issue?)`);
+        if (dataMetisL2 && dataMetisL2.length > 0) {
+            console.log(`Found ${dataMetisL2.length} for 'MetisL2'. Needs fix.`);
         } else {
-            console.log("No tweets found for either ID.");
+            console.log("No tweets found for Metis or MetisL2.");
         }
-        return;
     }
-
-    console.log(`Found ${data.length} tweets for 'Netswap'.`);
-    data.forEach(d => {
-        console.log(`Date: ${d.metadata?.date}`);
-    });
 };
 run();
