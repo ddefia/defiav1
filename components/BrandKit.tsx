@@ -4,6 +4,11 @@ import { BrandConfig, BrandColor, ReferenceImage } from '../types';
 import { Button } from './Button';
 import { getBrandDefault } from '../services/storage';
 // @ts-ignore
+import { analyzeBrandKit } from '../services/gemini';
+import { parseDocumentFile } from '../services/documentParser';
+import * as pdfjsLib from 'pdfjs-dist';
+
+
 
 
 interface BrandKitProps {
@@ -21,6 +26,9 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
   const [newKBEntry, setNewKBEntry] = useState('');
   const [isAddingKB, setIsAddingKB] = useState(false);
   const [isUploadingKB, setIsUploadingKB] = useState(false);
+  const [isAnalyzingKit, setIsAnalyzingKit] = useState(false);
+  const kitFileInputRef = useRef<HTMLInputElement>(null);
+
 
   // Template State
   const [newTemplateName, setNewTemplateName] = useState('');
@@ -142,56 +150,58 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
   };
 
 
+
+  const handleIdentityAnalysis = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsAnalyzingKit(true);
+    const file = files[0];
+
+    try {
+      const text = await parseDocumentFile(file);
+      if (text) {
+        const summary = await analyzeBrandKit(text);
+        onChange({
+          ...config,
+          visualIdentity: summary
+        });
+        alert("Visual Identity Extracted Successfully!");
+      }
+    } catch (err: any) {
+      console.error("Analysis failed", err);
+      alert(err.message || "Failed to analyze document.");
+    } finally {
+      setIsAnalyzingKit(false);
+      if (kitFileInputRef.current) kitFileInputRef.current.value = '';
+    }
+  };
+
   const handleKBUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploadingKB(true);
-    const file = files[0]; // Process one for now
-
-    // Dynamically import the parser to avoid issues if the service isn't fully ready or circular deps
-    // varying on how the bundler handles it, but standard import is fine usually.
-    // For now we assume standard import at top of file, but let's add it if missing?
-    // Actually, I will just call the function. I need to make sure it's imported though.
-    // Wait, I need to add the import statement first.
-    // But since replace_file_content works on chunks, I will do the body replacement first
-    // then adding the import in a separate step or I can just use a multi_replace if I want to be safe.
-    // But let's assume I'll do it in two steps or combine if closer. 
-    // They are far apart (imports vs function).
-    // So I will just replace this function body first.
+    const file = files[0];
 
     try {
-      // @ts-ignore - we will add the import in the next tool call or assume it's available? 
-      // No, that's risky. I will use multi_replace to do both.
-      // Wait, I can't use multi_replace for separate chunks easily if I am using `replace_file_content` right now.
-      // I will just return the new body here, and rely on the fact that I will add the import in a second call.
-      // Actually, let's just do it cleanly. 
-      // I'll skip this tool call and use multi_replace_file_content instead to do both at once.
-      // Ah, I am already committed to this tool call. I will just proceed with the function body replacement.
-      // And I will assume I will add `import { parseDocumentFile } from '../services/documentParser';` at the top.
-
       const { parseDocumentFile } = await import('../services/documentParser');
+      const text = await parseDocumentFile(file);
 
-      try {
-        const text = await parseDocumentFile(file);
-
-        if (text) {
-          if (text.length > 50000) {
-            if (!window.confirm("This document contains a lot of text (>50k chars). It may use up your storage. Continue?")) {
-              return;
-            }
+      if (text) {
+        if (text.length > 50000) {
+          if (!window.confirm("This document contains a lot of text (>50k chars). It may use up your storage. Continue?")) {
+            return;
           }
-          onChange({
-            ...config,
-            knowledgeBase: [...(config.knowledgeBase || []), text]
-          });
         }
-      } catch (err: any) {
-        console.error("Failed to parse file", err);
-        alert(err.message || "Failed to read document.");
+        onChange({
+          ...config,
+          knowledgeBase: [...(config.knowledgeBase || []), text]
+        });
       }
-    } catch (err) {
-      console.error("Import failed", err);
+    } catch (err: any) {
+      console.error("Failed to parse file", err);
+      alert(err.message || "Failed to read document.");
     } finally {
       setIsUploadingKB(false);
       if (kbFileInputRef.current) kbFileInputRef.current.value = '';
@@ -402,8 +412,58 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
           </div>
         </div>
       </div>
+
+
+      {/* 0.5 VISUAL IDENTITY (NEW) */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Visual Identity System</h3>
+          <div className="flex gap-2">
+            <input
+              type="file"
+              ref={kitFileInputRef}
+              onChange={handleIdentityAnalysis}
+              accept=".pdf"
+              className="hidden"
+            />
+            <button
+              onClick={() => kitFileInputRef.current?.click()}
+              disabled={isAnalyzingKit}
+              className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded flex items-center gap-1"
+            >
+              {isAnalyzingKit ? (
+                <>
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  analyzing...
+                </>
+              ) : (
+                '+ Upload Brand Kit PDF'
+              )}
+            </button>
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-400 mb-2">Upload your Brand PDF (Max 25 pages) to automatically extract a visual style guide.</p>
+
+        <div className="relative">
+          <textarea
+            value={config.visualIdentity || ''}
+            onChange={(e) => onChange({ ...config, visualIdentity: e.target.value })}
+            placeholder="Upload a PDF to generate this guide automatically... or paste your own style rules."
+            className="w-full h-40 bg-gray-900 border border-gray-700 text-gray-200 p-3 rounded-lg text-xs font-mono focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+          />
+          {!config.visualIdentity && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-xs text-gray-600 italic">No visual identity guide active.</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-brand-border"></div>
+
       <div>
         <div className="flex items-center justify-between mb-4">
+
           <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Knowledge Base (Documents)</h3>
           <div className="flex gap-2">
             <input
@@ -695,11 +755,13 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         <Button onClick={handleRestoreDefaults} variant="outline" className="w-full text-xs h-8 opacity-50 hover:opacity-100">Restore Defaults</Button>
       </div>
 
-      {viewingImage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setViewingImage(null)}>
-          <img src={viewingImage} className="max-w-full max-h-[90vh] rounded" />
-        </div>
-      )}
-    </div>
+      {
+        viewingImage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setViewingImage(null)}>
+            <img src={viewingImage} className="max-w-full max-h-[90vh] rounded" />
+          </div>
+        )
+      }
+    </div >
   );
 };

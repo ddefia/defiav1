@@ -140,6 +140,8 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     const colorPalette = params.brandConfig.colors.map(c => `${c.name} (${c.hex})`).join(', ');
     const brandName = params.brandName || "Web3";
     const isMeme = brandName === 'Meme';
+    const visualIdentity = params.brandConfig.visualIdentity ? `VISUAL IDENTITY GUIDELINES (FROM PDF):\n${params.brandConfig.visualIdentity}` : "";
+
 
     // Logic: If specific images are selected, use them.
     // If NOT, but a Template is selected that has linked images, PICK ONE randomly.
@@ -227,22 +229,29 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - RULE: You must use these EXACT Hex Codes. Do not shift the hue or saturation.
           - BANNED: Do not add random accent colors (e.g. no random oranges/greens if not in palette). Keep it monochromatic to the brand if needed.
         `}
-        - Style: PROFESSIONAL, HIGH-END, PREMIUM, Glassmorphism, Ethereal, Geometric.
+        ${visualIdentity && !isMeme ? `
+        - 📐 VISUAL IDENTITY SYSTEM (STRICT ADHERENCE REQUIRED):
+        ${visualIdentity}
+        - APPLY the above rules for composition, lighting, and texture.
+        ` : ''}
+    }
+    - Style: PROFESSIONAL, HIGH - END, PREMIUM, Glassmorphism, Ethereal, Geometric.
+
         - Typography: Minimal.
         INSTRUCTIONS:
-        - Analyze tweet sentiment.
+    - Analyze tweet sentiment.
         - ${visualOverride}
         ${negativeInstruction}
-        - ADAPT the visual style of the reference images provided.
+    - ADAPT the visual style of the reference images provided.
         - ALWAYS give a professional image approach.
-        - TEXT RULES: 
-          - ⛔ CRITICAL: NEVER copy-paste the prompt/tweet text onto the image.
+        - TEXT RULES:
+    - ⛔ CRITICAL: NEVER copy - paste the prompt / tweet text onto the image.
           - ⛔ NO Paragraphs or long sentences.
-          - ✅ Use text SPARINGLY. Only use a short title or key stat if necessary.
-          - Focus on creating a professional, high-end visual composition that represents the concept.
+          - ✅ Use text SPARINGLY.Only use a short title or key stat if necessary.
+          - Focus on creating a professional, high - end visual composition that represents the concept.
           - Valid approaches: Abstract 3D art, minimalist typography, clean data visualization, or cinematic scenes.
-          - The goal is a high-end brand asset, not a text document.
-          ${effectiveReferenceImageIds.length > 0 ? `
+          - The goal is a high - end brand asset, not a text document.
+        ${effectiveReferenceImageIds.length > 0 ? `
           ${isStructuredTemplate ? `
           - 🏗️ STRUCTURAL CLONE MODE (TEMPLATE ACTIVE):
           - A Specific Layout Template ("${params.templateType}") is active.
@@ -259,8 +268,9 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - INNOVATE: Do NOT just reskin the reference. Build something new.
           - KEY: Same Soul, New Body.
           `}
-          ` : ''}
-      `;
+          ` : ''
+            }
+    `;
     }
 
     const parts: any[] = [{ text: systemPrompt }];
@@ -346,7 +356,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         // @ts-ignore
         if (imagePart && imagePart.inlineData) {
             // @ts-ignore
-            return `data:${imagePart.inlineData.mimeType || 'image/png'};base64,${imagePart.inlineData.data}`;
+            return `data:${imagePart.inlineData.mimeType || 'image/png'}; base64, ${imagePart.inlineData.data} `;
         }
 
         throw new Error("No image data returned from Gemini.");
@@ -369,11 +379,11 @@ export const generateTweet = async (
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const examples = brandConfig.tweetExamples.length > 0
-        ? `STYLE EXAMPLES (MIMIC THIS STYLE):\n${brandConfig.tweetExamples.map(t => `- ${t}`).join('\n')}`
+        ? `STYLE EXAMPLES(MIMIC THIS STYLE): \n${brandConfig.tweetExamples.map(t => `- ${t}`).join('\n')} `
         : "";
 
     const kb = brandConfig.knowledgeBase.length > 0
-        ? `KNOWLEDGE BASE (USE THIS CONTEXT):\n${brandConfig.knowledgeBase.join('\n\n')}`
+        ? `KNOWLEDGE BASE(USE THIS CONTEXT): \n${brandConfig.knowledgeBase.join('\n\n')} `
         : "";
 
     const isNoTagBrand = ['netswap', 'enki'].includes(brandName.toLowerCase());
@@ -382,29 +392,29 @@ export const generateTweet = async (
     // --- ENTERPRISE PROTOCOL ENFORCEMENT ---
     const voice = brandConfig.voiceGuidelines || "Narrative Authority: Insightful, grounded. Speak to mechanics, not just features.";
     const banned = brandConfig.bannedPhrases && brandConfig.bannedPhrases.length > 0
-        ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')}`
+        ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')} `
         : "Avoid corporate fluff (e.g. 'We are excited to announce'). Avoid 'Delve', 'Tapestry', 'Game changer'.";
 
     const systemInstruction = `
     You are the Social Media Lead for ${brandName}.
-    
-    TASK: Write a single, engaging tweet about: "${topic}".
-    TONE: ${tone} (Guideline: ${voice})
+
+        TASK: Write a single, engaging tweet about: "${topic}".
+            TONE: ${tone} (Guideline: ${voice})
     
     ${examples}
     
     ${kb}
-    
+
     INSTRUCTIONS:
     - ${banned}
-    - LENGTH: Write a substantial, high-value tweet (max 280 chars).
-    - GOLDEN RULE: Insight > Hype. Don't just sell, explain the *implication*.
-    - STRUCTURE: 
-        - Start with a clear Insight or Aphorism (e.g. "Ownership is not a feature. It's a right.").
+    - LENGTH: Write a substantial, high - value tweet(max 280 chars).
+    - GOLDEN RULE: Insight > Hype.Don't just sell, explain the *implication*.
+        - STRUCTURE:
+    - Start with a clear Insight or Aphorism(e.g. "Ownership is not a feature. It's a right.").
         - Use vertical spacing to let ideas breathe.
-        - Explain WHY this matters using logic or economics.
-        - End with a clear Call-To-Action (CTA).
-    - HASHTAGS: STRICTLY FORBIDDEN. Do not use them.
+    - Explain WHY this matters using logic or economics.
+    - End with a clear Call - To - Action(CTA).
+    - HASHTAGS: STRICTLY FORBIDDEN.Do not use them.
     - FORMATTING: Clean, professional, minimal emojis.
     `;
 
@@ -432,30 +442,30 @@ export const analyzeContentNotes = async (notes: string, brandName: string): Pro
 
     const systemInstruction = `
     You are a Content Strategy Expert for ${brandName}.
-    
-    TASK: Analyze the provided RAW NOTES and structure them into a concrete Campaign Plan.
-    
-    INPUT:
+
+        TASK: Analyze the provided RAW NOTES and structure them into a concrete Campaign Plan.
+
+            INPUT:
     ${notes}
-    
+
     INSTRUCTIONS:
-    1. EXTRACT discrete content items. Look for links, specific topic requests, or event mentions.
+    1. EXTRACT discrete content items.Look for links, specific topic requests, or event mentions.
     2. IGNORE general conversation filler.
-    3. IDENTIFY global rules (e.g. "No GMs", "Don't use emojis").
-    4. For each item, capture specific instructions (e.g. "Credit the interviewer").
+    3. IDENTIFY global rules(e.g. "No GMs", "Don't use emojis").
+    4. For each item, capture specific instructions(e.g. "Credit the interviewer").
     
     OUTPUT JSON FORMAT:
     {
         "theme": "A short, summarized theme title based on the content (e.g. 'January Updates Mix')",
-        "globalInstructions": ["Rule 1", "Rule 2"],
-        "items": [
-            {
-                "type": "Tweet" | "Thread" | "Announcement",
-                "topic": "Brief topic summary",
-                "specificInstruction": "The specific constraint or instruction for this exact post",
-                "url": "extracted link or null"
-            }
-        ]
+            "globalInstructions": ["Rule 1", "Rule 2"],
+                "items": [
+                    {
+                        "type": "Tweet" | "Thread" | "Announcement",
+                        "topic": "Brief topic summary",
+                        "specificInstruction": "The specific constraint or instruction for this exact post",
+                        "url": "extracted link or null"
+                    }
+                ]
     }
     `;
 
@@ -491,11 +501,11 @@ export const generateCampaignDrafts = async (
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const examples = brandConfig.tweetExamples.length > 0
-        ? `STYLE EXAMPLES (COPY THIS VIBE EXACTLY):\n${brandConfig.tweetExamples.slice(0, 5).map(t => `- ${t}`).join('\n')}`
+        ? `STYLE EXAMPLES(COPY THIS VIBE EXACTLY): \n${brandConfig.tweetExamples.slice(0, 5).map(t => `- ${t}`).join('\n')} `
         : "";
 
     const kb = brandConfig.knowledgeBase.length > 0
-        ? `KNOWLEDGE BASE:\n${brandConfig.knowledgeBase.join('\n\n')}`
+        ? `KNOWLEDGE BASE: \n${brandConfig.knowledgeBase.join('\n\n')} `
         : "";
 
     const standardTemplates = ['Partnership', 'Campaign Launch', 'Giveaway', 'Event', 'Speaker Quote'];
@@ -507,7 +517,7 @@ export const generateCampaignDrafts = async (
     let ragContext = "";
     try {
         // 1. Generate embedding for the current campaign theme/concept
-        const queryText = `Campaign Theme: ${theme}. Strategic Focus: ${focusContent || "General Brand Awareness"}. Brand: ${brandName}`;
+        const queryText = `Campaign Theme: ${theme}. Strategic Focus: ${focusContent || "General Brand Awareness"}.Brand: ${brandName} `;
         const queryEmbedding = await getEmbedding(queryText);
 
         if (queryEmbedding.length > 0) {
@@ -518,10 +528,10 @@ export const generateCampaignDrafts = async (
             if (memories && memories.length > 0) {
                 const memoryList = memories.map((m: any) => `- ${m.content} (Success Factor: ${m.metadata?.engagementRate || "N/A"}%)`).join("\n");
                 ragContext = `
-[BRAIN MEMORY - PAST PERFORMANCE INSIGHTS]
-The following acts as your long-term memory of what has worked well for this brand previously. Use these insights to guide your style and tone, but do not copy them directly.
-${memoryList}
-[END MEMORY]
+    [BRAIN MEMORY - PAST PERFORMANCE INSIGHTS]
+The following acts as your long - term memory of what has worked well for this brand previously.Use these insights to guide your style and tone, but do not copy them directly.
+        ${memoryList}
+    [END MEMORY]
 `;
                 console.log("🧠 Brain RAG: Injected", memories.length, "memories into prompt.");
             }
@@ -533,11 +543,11 @@ ${memoryList}
     const winningPosts = recentPosts
         .filter(p => p.likes > 5)
         .slice(0, 3)
-        .map(p => `"${p.content}" (${p.likes} likes)`)
+        .map(p => `"${p.content}"(${p.likes} likes)`)
         .join('\n');
 
     const recentContext = winningPosts.length > 0
-        ? `RECENT HIGH-PERFORMING CONTENT (MIMIC THIS TONE/SUCCESS):\n${winningPosts}`
+        ? `RECENT HIGH - PERFORMING CONTENT(MIMIC THIS TONE / SUCCESS): \n${winningPosts} `
         : "";
 
     let taskInstruction = '';
@@ -545,14 +555,14 @@ ${memoryList}
     if (contentPlan && contentPlan.items && contentPlan.items.length > 0) {
         // SMART MODE: Generate based on specific items
         const planItems = contentPlan.items.map((item: any, i: number) =>
-            `ITEM ${i + 1}: Type: ${item.type}. Topic: ${item.topic}. URL: ${item.url || 'None'}. Instruction: ${item.specificInstruction}`
+            `ITEM ${i + 1}: Type: ${item.type}.Topic: ${item.topic}.URL: ${item.url || 'None'}.Instruction: ${item.specificInstruction} `
         ).join('\n');
 
-        const rules = contentPlan.globalInstructions ? `GLOBAL RULES: ${contentPlan.globalInstructions.join(', ')}` : "";
+        const rules = contentPlan.globalInstructions ? `GLOBAL RULES: ${contentPlan.globalInstructions.join(', ')} ` : "";
 
         taskInstruction = `
-        TASK: Write exactly ${contentPlan.items.length} tweets based on the following CONTENT PLAN.
-        
+    TASK: Write exactly ${contentPlan.items.length} tweets based on the following CONTENT PLAN.
+
         ${rules}
         
         CONTENT PLAN ITEMS:
@@ -561,12 +571,12 @@ ${memoryList}
         ${focusContent ? `STRATEGIC FOCUS DOCUMENT (PRIORITIZE THIS CONTEXT): ${focusContent}` : ''}
 
         ${ragContext ? `LONG TERM STRATEGY MANDATES (FROM DB): \n${ragContext}` : ''}
-        
-        CRITICAL: 
-        - You MUST generate exactly one tweet per ITEM.
-        - The order must match the plan (Item 1 = Tweet 1).
-        - If an Item has a URL, you MUST include it naturally in the tweet (unless instructed otherwise).
-        - If an Item says "Credit interviewer", ensure you tag/mention relevant parties.
+
+    CRITICAL:
+    - You MUST generate exactly one tweet per ITEM.
+        - The order must match the plan(Item 1 = Tweet 1).
+        - If an Item has a URL, you MUST include it naturally in the tweet(unless instructed otherwise).
+        - If an Item says "Credit interviewer", ensure you tag / mention relevant parties.
         `;
     } else {
         // LEGACY MODE
@@ -574,19 +584,20 @@ ${memoryList}
 
         if (isDiverse) {
             taskInstruction = `
-            TASK: Write ${count} distinct tweets covering a DIVERSE MIX of topics for ${brandName}.
+    TASK: Write ${count} distinct tweets covering a DIVERSE MIX of topics for ${brandName}.
             
             TOPIC GUIDANCE:
-            - Do NOT stick to a single theme.
-            - Ensure the mix includes: 1 educational tweet, 1 community/engagement tweet, 1 market/industry insight, 1 product feature highlight.
+        - Do NOT stick to a single theme.
+            - Ensure the mix includes: 1 educational tweet, 1 community / engagement tweet, 1 market / industry insight, 1 product feature highlight.
             - Make them feel like a natural, varied week of content.
             `;
         } else {
             taskInstruction = `
-            TASK: Write ${count} distinct tweets about the THEME: "${theme}" for ${brandName}.
-            ${focusContent ? `STRATEGIC FOCUS DOCUMENT (PRIORITIZE THIS CONTEXT): ${focusContent}` : ''}
+    TASK: Write ${count} distinct tweets about the THEME: "${theme}" for ${brandName}.
+        ${focusContent ? `STRATEGIC FOCUS DOCUMENT (PRIORITIZE THIS CONTEXT): ${focusContent}` : ''
+                }
             ${ragContext ? `LONG TERM STRATEGY MANDATES (FROM DB): \n${ragContext}` : ''}
-            `;
+`;
         }
     }
 
@@ -600,11 +611,11 @@ ${memoryList}
         : defaults;
 
     const bannedInstruction = banned.length > 0
-        ? `\n    1. **BANNED PHRASES (STRICTLY FORBIDDEN)**: Do NOT use these words/phrases: ${banned.map(b => `"${b}"`).join(', ')}.`
+        ? `\n    1. ** BANNED PHRASES(STRICTLY FORBIDDEN) **: Do NOT use these words / phrases: ${banned.map(b => `"${b}"`).join(', ')}.`
         : "";
 
     // Audience context
-    const audience = brandConfig.targetAudience ? `TARGET AUDIENCE: ${brandConfig.targetAudience}` : "";
+    const audience = brandConfig.targetAudience ? `TARGET AUDIENCE: ${brandConfig.targetAudience} ` : "";
 
 
     const systemInstruction = `
@@ -622,31 +633,31 @@ ${memoryList}
     ${audience}
     VOICE GUIDELINES: "${voice}"
     
-    CRITICAL STYLE RULES (DO NOT IGNORE):
+    CRITICAL STYLE RULES(DO NOT IGNORE):
     ${bannedInstruction}
-    2. **INSIGHT FIRST**: Do NOT start with a generic "hook". Start with a defining statement, a contradiction, or a clear insight. (e.g. "Alpha is temporary. Substance compounds.").
-    3. **PROOF + USAGE**: Anchor every claim in REALITY. Mention specific mechanics, economic shifts, or data. Avoid abstract hype.
-    4. **SUBSTANCE**: The reader is smart. Respect their intelligence. Explain *structural* advantages, not just marketing keywords.
-    5. **FORMATTING**: 
-       - Use line breaks to let ideas breathe.
-       - Max 2 sentences per paragraph.
-       - Use specific numbers/stats if available.
+2. ** INSIGHT FIRST **: Do NOT start with a generic "hook".Start with a defining statement, a contradiction, or a clear insight. (e.g. "Alpha is temporary. Substance compounds.").
+    3. ** PROOF + USAGE **: Anchor every claim in REALITY.Mention specific mechanics, economic shifts, or data.Avoid abstract hype.
+    4. ** SUBSTANCE **: The reader is smart.Respect their intelligence.Explain * structural * advantages, not just marketing keywords.
+    5. ** FORMATTING **:
+- Use line breaks to let ideas breathe.
+- Max 2 sentences per paragraph.
+       - Use specific numbers / stats if available.
 
     FORMATTING OUTPUT:
-    - First line MUST be "THEME_COLOR: [Hex Code]" (e.g. THEME_COLOR: #FF5733). Choose a color that matches the vibe.
+- First line MUST be "THEME_COLOR: [Hex Code]"(e.g.THEME_COLOR: #FF5733).Choose a color that matches the vibe.
     - Then separate each tweet clearly with "---".
-    - Do not number the tweets (e.g. "Tweet 1").
-    - STRUCTURE PER TWEET: 
-        - Start with a COMPULSORY TEMPLATE TAG in brackets (e.g. [Event]).
+    - Do not number the tweets(e.g. "Tweet 1").
+    - STRUCTURE PER TWEET:
+- Start with a COMPULSORY TEMPLATE TAG in brackets(e.g. [Event]).
         - [New Line]
-        - The Insight/Statement (No emojis at start).
+    - The Insight / Statement(No emojis at start).
         - [New Line]
-        - The Body (CRITICAL: 2-3 sentences of value-dense content. Connect the specific topic to the broader economic/tech reality.).
+        - The Body(CRITICAL: 2 - 3 sentences of value - dense content.Connect the specific topic to the broader economic / tech reality.).
         - [New Line]
-        - The CTA / URL.
-    - Choose the best visual template from: ${allTemplates}. If none fit, use [Campaign Launch].
-    - STRICTLY NO HASHTAGS (unless explicitly requested).
-    - OUTPUT LENGTH: Each tweet must be substantial, not just a one-liner.
+            - The CTA / URL.
+    - Choose the best visual template from: ${allTemplates}. If none fit, use[Campaign Launch].
+- STRICTLY NO HASHTAGS(unless explicitly requested).
+    - OUTPUT LENGTH: Each tweet must be substantial, not just a one - liner.
     `;
 
     try {
@@ -691,22 +702,22 @@ export const generateCampaignStrategy = async (
 
     // --- ENTERPRISE PROTOCOL ENFORCEMENT ---
     const voice = brandConfig.voiceGuidelines || "Strategic, Professional, Market-Leading.";
-    const audienceProtocol = brandConfig.targetAudience ? `TARGET AUDIENCE PROTOCOL: ${brandConfig.targetAudience}` : "";
-    const bannedProtocol = brandConfig.bannedPhrases ? `BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')}` : "";
+    const audienceProtocol = brandConfig.targetAudience ? `TARGET AUDIENCE PROTOCOL: ${brandConfig.targetAudience} ` : "";
+    const bannedProtocol = brandConfig.bannedPhrases ? `BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')} ` : "";
 
     const systemInstruction = `
     You are the Chief Marketing Officer for ${brandName}.
     
     CAMPAIGN CONTEXT:
     - Goal: ${goal}
-    - Theme / Topic: ${theme}
-    - Platforms: ${platforms.join(', ')}
-    - Situation / Context: ${userContext || "None provided"}
+- Theme / Topic: ${theme}
+- Platforms: ${platforms.join(', ')}
+- Situation / Context: ${userContext || "None provided"}
     
-    ACTIVE CAMPAIGNS & CONTENT (Analyze for synergy / conflicts):
+    ACTIVE CAMPAIGNS & CONTENT(Analyze for synergy / conflicts):
     ${activeCampaignsList}
 
-    MARKETING BRAIN MEMORY (Recent decisions / insights):
+    MARKETING BRAIN MEMORY(Recent decisions / insights):
     ${brainContext || "No recent context."}
     
     BRAND KNOWLEDGE:
@@ -716,13 +727,13 @@ export const generateCampaignStrategy = async (
 
     BRAND PROTOCOLS:
     ${audienceProtocol}
-    VOICE: ${voice}
+VOICE: ${voice}
     ${bannedProtocol}
 
     TONE EXAMPLES:
     ${examples}
 
-    TASK:
+TASK:
     Develop a comprehensive campaign strategy brief.
     - Analyze the target audience for this specific theme.
     - Consider the "Situation" provided to tailor the messaging.
@@ -730,25 +741,25 @@ export const generateCampaignStrategy = async (
     - Define 3 key messaging pillars.
     - Outline a strategy for each selected platform.
     - Provide realistic result estimates based on a standard micro - campaign.
-    - **CRITICAL**: For every key decision, explicitly optional "rationale" citing which 'Strategy Doc' or 'Brain Memory' influenced it. (e.g. "Focusing on DeFi Gaming because: 'Q1 Goal: Capture Gamer Share'").
+    - ** CRITICAL **: For every key decision, explicitly optional "rationale" citing which 'Strategy Doc' or 'Brain Memory' influenced it. (e.g. "Focusing on DeFi Gaming because: 'Q1 Goal: Capture Gamer Share'").
 
     OUTPUT FORMAT(JSON):
-    {
-        "targetAudience": "Detailed description of who we are targeting.",
+{
+    "targetAudience": "Detailed description of who we are targeting.",
         "strategicRationale": "Short explanation of WHY this audience/theme was chosen based on Brain Memory/Goals.",
-        "keyMessaging": ["Message 1", "Message 2", "Message 3"],
+            "keyMessaging": ["Message 1", "Message 2", "Message 3"],
                 "channelStrategy": [
                     { "channel": "Twitter", "focus": "Viral threads", "rationale": "High engage..." },
                     { "channel": "LinkedIn", "focus": "Thought leadership", "rationale": "B2B..." }
                 ],
                     "contentMix": "One sentence description of the content variety (e.g. 30% educational, 20% memes...)",
                         "estimatedResults": {
-            "impressions": "10k - 50k",
-                "engagement": "2% - 5%",
-                    "conversions": "50+ Leads"
-        }
+        "impressions": "10k - 50k",
+            "engagement": "2% - 5%",
+                "conversions": "50+ Leads"
     }
-    `;
+}
+`;
 
     try {
         const response = await ai.models.generateContent({
@@ -810,18 +821,18 @@ export const generateTrendReaction = async (
     let outputGuidance = "";
     if (type === 'Tweet') {
         outputGuidance = `
-    Output: A single, punchy tweet(max 280 chars).
-        Strategy: Explicitly mention ${brandName} or its products.Connect the news("${trend.headline}") to our specific value proposition defined in the Knowledge Base.
-            Structure: Start with a HOOK.End with a CTA.
-                Style: Use line breaks and clear formatting.
+Output: A single, punchy tweet(max 280 chars).
+    Strategy: Explicitly mention ${brandName} or its products.Connect the news("${trend.headline}") to our specific value proposition defined in the Knowledge Base.
+        Structure: Start with a HOOK.End with a CTA.
+            Style: Use line breaks and clear formatting.
         STRICTLY NO HASHTAGS.
         `;
     } else {
         outputGuidance = `
-    Output: A short, funny text caption or concept for a meme.
-        Strategy: Use internet humor to react to("${trend.headline}").Make it relatable to holders of ${brandName}.
+Output: A short, funny text caption or concept for a meme.
+    Strategy: Use internet humor to react to("${trend.headline}").Make it relatable to holders of ${brandName}.
         ${hashtagInstruction}
-    `;
+`;
     }
 
     // --- ENTERPRISE PROTOCOL ENFORCEMENT ---
@@ -832,9 +843,9 @@ export const generateTrendReaction = async (
     You are the Real - time Newsroom Manager for ${brandName}.
     
     TRENDING NEWS:
-        Headline: ${trend.headline}
-    Summary: ${trend.summary}
-    Source: ${trend.source}
+    Headline: ${trend.headline}
+Summary: ${trend.summary}
+Source: ${trend.source}
     WHY IT MATTERS: ${trend.relevanceReason}
     
     ${kb}
@@ -842,13 +853,13 @@ export const generateTrendReaction = async (
     ${examples}
 
     BRAND PROTOCOLS:
-    VOICE: ${voice}
+VOICE: ${voice}
     ${banned}
 
-    TASK:
+TASK:
     Generate a ${type} reaction to this trend.
-        ${outputGuidance}
-    `;
+    ${outputGuidance}
+`;
 
     try {
         const response = await ai.models.generateContent({
@@ -907,16 +918,16 @@ export const generateBusinessConnections = async (
     For the top 3 most relevant trends provided above, generate specific, actionable business opportunities.
     
     CRITICAL INSTRUCTIONS:
-    1. ** Direct Correlation **: explicitly explain HOW this trend affects ${brandName}.
-    2. ** Actionable Strategy **: Suggest a concrete marketing angle, partnership idea, or product feature emphasis.
+1. ** Direct Correlation **: explicitly explain HOW this trend affects ${brandName}.
+2. ** Actionable Strategy **: Suggest a concrete marketing angle, partnership idea, or product feature emphasis.
     3. ** Tone **: Executive, insightful, and growth - oriented.
     
     OUTPUT FORMAT(Markdown):
     ###[Trend Name]
     ** Relevance:** [Why this matters to ${brandName}]
-        ** Strategy:** [Specific action we should take]
-            ** Content Angle:** [What we should post / write about]
-                `;
+    ** Strategy:** [Specific action we should take]
+        ** Content Angle:** [What we should post / write about]
+            `;
 
     try {
         const response = await ai.models.generateContent({
@@ -961,30 +972,30 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
         const systemInstruction = `
         You are an expert Brand Identity Analyst and AI Researcher.
 
-        TASK:
+    TASK:
         Analyze the company "${brandName}" located at "${url}".
         Since you cannot browse the live web, use your internal knowledge base to infer their brand identity, visual style, and value proposition.
         
         If the brand is unknown or fictitious, HALLUCINATE a plausible, professional Web3 brand identity based on the name and URL structure.
         
         OUTPUT FORMAT(JSON):
-    {
-        "colors": [
-            { "id": "c1", "name": "Primary", "hex": "#HEX" },
-            { "id": "c2", "name": "Secondary", "hex": "#HEX" },
-            { "id": "c3", "name": "Accent", "hex": "#HEX" }
+{
+    "colors": [
+        { "id": "c1", "name": "Primary", "hex": "#HEX" },
+        { "id": "c2", "name": "Secondary", "hex": "#HEX" },
+        { "id": "c3", "name": "Accent", "hex": "#HEX" }
+    ],
+        "knowledgeBase": [
+            "Fact 1 about what they do.",
+            "Fact 2 about their products.",
+            "Fact 3 about their target audience."
         ],
-            "knowledgeBase": [
-                "Fact 1 about what they do.",
-                "Fact 2 about their products.",
-                "Fact 3 about their target audience."
-            ],
-                "tweetExamples": [
-                    "Example tweet 1 (reflecting their tone).",
-                    "Example tweet 2."
-                ]
-    }
-    `;
+            "tweetExamples": [
+                "Example tweet 1 (reflecting their tone).",
+                "Example tweet 2."
+            ]
+}
+`;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
@@ -1029,23 +1040,23 @@ export const generateSmartReply = async (
     const systemInstruction = `
     You are the Social Media Manager for ${brandName}.
 
-        CONTEXT:
-        - We are replying to a user: @${postAuthor}
-    - They said: "${postText}"
-        - Current Market Mood: ${stance} (Score: ${sentimentScore}/100)
+    CONTEXT:
+    - We are replying to a user: @${postAuthor}
+- They said: "${postText}"
+    - Current Market Mood: ${stance} (Score: ${sentimentScore}/100)
 
-    TASK:
+TASK:
     Draft a short, engaging reply(under 280 chars).Keep it professional and minimized.
 
-        GUIDELINES:
-    - If the user is FUDding, be polite but correct them with facts.
+    GUIDELINES:
+- If the user is FUDding, be polite but correct them with facts.
     - If the user is Hype / Alpha, amplify the energy.
     - If the mood is checking is Bearish, be reassuring.
     - Use the brand's tone from examples below.
     
     TONE EXAMPLES:
     ${brandConfig.tweetExamples.slice(0, 2).map(t => `- ${t}`).join('\n')}
-    `;
+`;
 
     try {
         const response = await ai.models.generateContent({
@@ -1088,13 +1099,13 @@ export const generateGrowthReport = async (
 
     if (metrics) {
         onChainSection = `
-    ON - CHAIN DATA:
-    - Total TVL Change: $${metrics.tvlChange.toLocaleString()}
-    - Total Volume: $${metrics.totalVolume.toLocaleString()}
-    - Net New Wallets: ${metrics.netNewWallets}
-    - Active Wallets: ${metrics.activeWallets}
-    - Retention Rate: ${metrics.retentionRate.toFixed(1)}%
-        `;
+ON - CHAIN DATA:
+- Total TVL Change: $${metrics.tvlChange.toLocaleString()}
+- Total Volume: $${metrics.totalVolume.toLocaleString()}
+- Net New Wallets: ${metrics.netNewWallets}
+- Active Wallets: ${metrics.activeWallets}
+- Retention Rate: ${metrics.retentionRate.toFixed(1)}%
+    `;
     }
 
     // Safety check for campaigns
@@ -1103,29 +1114,29 @@ export const generateGrowthReport = async (
     const campaignsData = safeCampaigns.map(c => {
         const m = metrics?.campaignPerformance.find(p => p.campaignId === c.id);
         return `
-        - Campaign: "${c.name}"(${c.channel})
-    Budget: $${c.budget}
+    - Campaign: "${c.name}"(${c.channel})
+Budget: $${c.budget}
       ${m ? `CPA: $${m.cpa}
       Lift Multiplier: ${m.lift.toFixed(1)}x
       Whales Acquired: ${m.whalesAcquired}
       ROI: ${m.roi.toFixed(1)}x` : 'Attribution: Unavailable'
             }
-    `;
+`;
     }).join('\n');
 
     let socialData = "No social data available.";
     if (socialMetrics) {
         socialData = `
-    Followers: ${socialMetrics.totalFollowers}
+Followers: ${socialMetrics.totalFollowers}
       Engagement Rate: ${socialMetrics.engagementRate}% (Vs Last Week: ${socialMetrics.comparison.engagementChange > 0 ? '+' : ''}${socialMetrics.comparison.engagementChange}%)
       Top Recent Post: "${socialMetrics.recentPosts[0]?.content}"(Likes: ${socialMetrics.recentPosts[0]?.likes}, Comments: ${socialMetrics.recentPosts[0]?.comments})
-        `;
+    `;
     }
 
     const systemInstruction = `
   You are the Head of Growth for a Web3 Protocol.You are analyzing available data to produce a strategic brief.
 
-        ${onChainSection}
+    ${onChainSection}
   
   SOCIAL DATA:
   ${socialData}
@@ -1133,19 +1144,19 @@ export const generateGrowthReport = async (
   CAMPAIGN CONTEXT:
   ${campaignsData}
 
-    TASK:
+TASK:
   Generate a strictly data - driven strategic brief.
   If on - chain data is missing, base your recommendations entirely on social engagement, content performance, and brand sentiment.
   
   OUTPUT FORMAT(JSON):
-    {
-        "executiveSummary": "A concise, investor-grade paragraph summarizing the growth health. ${metrics ? 'Correlate social buzz with on-chain volume.' : 'Focus on community sentiment and engagement trends.'}",
-            "tacticalPlan": "Specific, actionable next steps based on the data.",
-                "strategicPlan": [
-                    { "action": "KILL" | "DOUBLE_DOWN" | "OPTIMIZE", "subject": "Campaign Name or Content Strategy", "reasoning": "1 sentence data-backed reason." }
-                ]
-    }
-    `;
+{
+    "executiveSummary": "A concise, investor-grade paragraph summarizing the growth health. ${metrics ? 'Correlate social buzz with on-chain volume.' : 'Focus on community sentiment and engagement trends.'}",
+        "tacticalPlan": "Specific, actionable next steps based on the data.",
+            "strategicPlan": [
+                { "action": "KILL" | "DOUBLE_DOWN" | "OPTIMIZE", "subject": "Campaign Name or Content Strategy", "reasoning": "1 sentence data-backed reason." }
+            ]
+}
+`;
 
     try {
         const response = await ai.models.generateContent({
@@ -1214,17 +1225,17 @@ export const generateStrategicAnalysis = async (
     // War Room Context
     const warRoomContext = signals ? `
     WAR ROOM INTELLIGENCE:
-    - Sentiment Score: ${signals.sentimentScore}/100 (${signals.sentimentTrend})
-        - Active Narratives: ${signals.activeNarratives.join(', ')}
+- Sentiment Score: ${signals.sentimentScore}/100 (${signals.sentimentTrend})
+    - Active Narratives: ${signals.activeNarratives.join(', ')}
 
-    ` : "";
+` : "";
 
     // Cognitive Loop (Short Term Memory)
     const memoryContext = recentLogs.length > 0 ? `
     SHORT TERM MEMORY(Your Recent Decisions):
     ${recentLogs.slice(0, 5).map(l => `- [${l.type}] ${new Date(l.timestamp).toLocaleTimeString()}: ${l.context}`).join('\n')}
 
-    INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If you just reacted to a trend, look for replies.If you just posted, check for engagement.
+INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If you just reacted to a trend, look for replies.If you just posted, check for engagement.
     ` : "SHORT TERM MEMORY: Empty (Fresh Start).";
 
     // 1. Analyze Calendar (Content Machine)
@@ -1246,9 +1257,9 @@ export const generateStrategicAnalysis = async (
     if (growthReport) {
         reportContext = `
         PERFORMANCE DATA(Use this to optimize tasks):
-    - Executive Summary: ${growthReport.executiveSummary}
-    - Strategic Directives: ${growthReport.strategicPlan.map(p => `${p.action}: ${p.subject}`).join(' | ')}
-    `;
+- Executive Summary: ${growthReport.executiveSummary}
+- Strategic Directives: ${growthReport.strategicPlan.map(p => `${p.action}: ${p.subject}`).join(' | ')}
+`;
     }
 
     const systemInstruction = `
@@ -1269,65 +1280,65 @@ export const generateStrategicAnalysis = async (
         }
 
     ROLE 1: THE NEWSROOM(Trend Jacking)
-        - Monitor 'Market Trends' for any news specifically matching our brand keywords or high - impact sector news.
+    - Monitor 'Market Trends' for any news specifically matching our brand keywords or high - impact sector news.
     - If a match is found, create a 'REACTION' task.
 
-        ROLE 2: THE COMMUNITY MANAGER(Auto - Reply)
-            - Review 'Incoming Mentions'.
+    ROLE 2: THE COMMUNITY MANAGER(Auto - Reply)
+        - Review 'Incoming Mentions'.
     - If a mention requires a response(question, praise, FUD), create a 'REPLY' task.
     - Ignore spam.
 
-        ROLE 3: THE CONTENT MACHINE(Evergreen)
-            - Review 'Upcoming Schedule'.
+    ROLE 3: THE CONTENT MACHINE(Evergreen)
+        - Review 'Upcoming Schedule'.
     - If there are fewer than 3 items scheduled for the next 7 days, create 'EVERGREEN' tasks to fill the gaps.
     - Topics: Educational, Brand Values, Feature Highlights(from Knowledge Base).
     - CRITICAL: In 'contextData', cite { "type": "CALENDAR", "source": "Schedule Audit", "headline": "Content Gap Identified", "relevance": 10 }.
 
-    CONTEXT:
-    - Upcoming Schedule:
+CONTEXT:
+- Upcoming Schedule:
     ${existingSchedule || "NO CONTENT SCHEDULED (Active Content Machine needed)."}
 
-    - Market Trends:
+- Market Trends:
     ${trendSummaries || "No major trends detected."}
 
-    - Incoming Mentions:
+- Incoming Mentions:
     ${mentionSummaries || "No new mentions."}
 
-    - Brand Context:
+- Brand Context:
     ${kb}
 
     ${reportContext}
 
-    TASK:
-    1. First, write a "Strategic Analysis" paragraph(3 - 4 sentences).Analyze the input data, identify relationships(e.g. "Calendar is empty BUT trending topic X is relevant"), and define the high - level strategy for this session.
+TASK:
+1. First, write a "Strategic Analysis" paragraph(3 - 4 sentences).Analyze the input data, identify relationships(e.g. "Calendar is empty BUT trending topic X is relevant"), and define the high - level strategy for this session.
     2. Then, propose exactly 3 - 5 high - impact tasks based on that analysis.
     3. For each task, suggest the most appropriate 'Visual Template'(e.g.use 'Partnership' for collabs, 'Campaign Launch' for big news).If unsure, use 'Campaign Launch'.
     
     OUTPUT JSON FORMAT:
-    {
-        "thoughts": "Strategic analysis text here...",
-            "tasks": [
-                {
-                    "id": "unique_string",
-                    "type": "GAP_FILL" | "TREND_JACK" | "CAMPAIGN_IDEA" | "COMMUNITY" | "REACTION" | "REPLY" | "EVERGREEN",
-                    "title": "Short Task Title",
-                    "description": "One sentence explanation.",
-                    "reasoning": "Why this is important now (Summary).",
-                    "reasoningSteps": ["Step 1: Analyzed trend X", "Step 2: Identified gap Y", "Step 3: Determined action Z"],
-                    "impactScore": number(1 - 10),
-                    "executionPrompt": "Instruction...",
-                    "contextData": [
-                        { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 9 },
-                        { "type": "MENTION", "source": "User @user", "headline": "Asked about staking", "relevance": 10 }
-                    ],
-                    "suggestedVisualTemplate": "Campaign Launch" | "Partnership" | "Event",
-                    "suggestedReferenceIds": ["ref-123"]
-                }
-            ]
-    }
+{
+    "thoughts": "Strategic analysis text here...",
+        "tasks": [
+            {
+                "id": "unique_string",
+                "type": "GAP_FILL" | "TREND_JACK" | "CAMPAIGN_IDEA" | "COMMUNITY" | "REACTION" | "REPLY" | "EVERGREEN",
+                "title": "Short Task Title",
+                "description": "One sentence explanation.",
+                "reasoning": "Why this is important now (Summary).",
+                "reasoningSteps": ["Step 1: Analyzed trend X", "Step 2: Identified gap Y", "Step 3: Determined action Z"],
+                "impactScore": number(1 - 10),
+                "executionPrompt": "Instruction...",
+                "contextData": [
+                    { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 9 },
+                    { "type": "MENTION", "source": "User @user", "headline": "Asked about staking", "relevance": 10 }
+                ],
+                "suggestedVisualTemplate": "Campaign Launch" | "Partnership" | "Event",
+                "suggestedReferenceIds": ["ref-123"]
+            }
+        ]
+}
 
-    CRITICAL:
-    - 'contextData' must cite REAL inputs from the provided 'Market Trends', 'Incoming Mentions', or 'System Memory'. 
+CRITICAL:
+- 'contextData' must cite REAL inputs from the provided 'Market Trends', 'Incoming Mentions', or 'System Memory'. 
     - You MUST include at least 1 item in 'contextData' for every task to prove why it was generated.
     - Do NOT hallucinate sources.If you use a trend, cite the specific headline.
     - 'reasoningSteps' should show your logic chain.
@@ -1353,21 +1364,21 @@ export const generateStrategicAnalysis = async (
             type: 'STRATEGY',
             brandId: brandName,
             context: `
-    [SOURCE: CALENDAR_AUDIT]
+[SOURCE: CALENDAR_AUDIT]
 Scan Depth: ${eventsNextWeek.length} items found.
-        ${existingSchedule || "No records found."}
+    ${existingSchedule || "No records found."}
 
-    [SOURCE: LIVE_MARKET_TRENDS]
+[SOURCE: LIVE_MARKET_TRENDS]
 Scan Depth: ${trends.length} active signals.
-        ${trendSummaries || "No signals detected."}
+    ${trendSummaries || "No signals detected."}
 
-    [SOURCE: COMMUNITY_MENTIONS]
+[SOURCE: COMMUNITY_MENTIONS]
 Scan Depth: ${mentions.length} interactions.
-        ${mentionSummaries || "No recent activity."}
+    ${mentionSummaries || "No recent activity."}
 
-    [SOURCE: SYSTEM_MEMORY]
+[SOURCE: SYSTEM_MEMORY]
 ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." : "Memory initialized."}
-    `.trim(),
+`.trim(),
             systemPrompt: systemInstruction,
             userPrompt: "Perform the audit and generate tasks.",
             rawOutput: response.text || "",
@@ -1473,5 +1484,53 @@ export const classifyImage = async (imageUrl: string, categories: string[]): Pro
     } catch (e) {
         console.error("Classification failed", e);
         return null;
+    }
+};
+
+/**
+ * ANALYZE BRAND KIT PDF
+ * Extracts visual style guidelines from raw PDF text.
+ */
+export const analyzeBrandKit = async (text: string): Promise<string> => {
+    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Truncate if too long (Gemini 2.0 has big context, but let's be safe/efficient)
+    const truncatedText = text.substring(0, 50000);
+
+    const systemInstruction = `
+    You are a Creative Director for a top-tier design agency.
+    
+    TASK: Analyze the provided Brand Kit text and distill it into a concise "Visual Identity Guide" for 3D/Digital Artists.
+    
+    INPUT TEXT:
+    ${truncatedText}
+    
+    INSTRUCTIONS:
+    - IGNORE: Mission statements, typography details (fonts are not used in image gen), and logo spacing rules.
+    - EXTRACT & SUMMARIZE:
+        1. COLOR USAGE: How should colors be applied? (e.g. "Dark backgrounds only", "Use gradients", "Minimalist white").
+        2. COMPOSITION: Preferred layouts? (e.g. "Centred assignments", "Asymmetrical", "Negative space").
+        3. LIGHTING/MOOD: (e.g. "Neon cyber", "Soft daylight", "Studio lighting").
+        4. TEXTURE/MATERIAL: (e.g. "Glass", "Matte", "Metallic", "Grainy").
+        5. DO NOTS: What is explicitly forbidden visually?
+    
+    OUTPUT FORMAT:
+    - Bullet points only.
+    - Extremely concise.
+    - Focus ONLY on visual descriptors that a prompt engineer would use.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{ role: 'user', parts: [{ text: "Analyze this brand kit." }] }],
+            config: { systemInstruction: systemInstruction }
+        });
+
+        return response.text?.trim() || "Failed to analyze brand kit.";
+    } catch (e) {
+        console.error("Brand Kit Analysis Failed", e);
+        throw e;
     }
 };

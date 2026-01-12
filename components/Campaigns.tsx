@@ -297,72 +297,81 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         setCampaignItems([]);
 
         const themeToSend = campaignType === 'diverse' ? 'DIVERSE_MIX_MODE' : campaignTheme;
+        const totalCount = parseInt(campaignCount);
+        const BATCH_SIZE = 10;
 
         try {
-            // Pass strategy context to drafting if available (enhancing the prompt)
-            // For now, we use the existing function but ideally we'd pass the strategy object too.
-            // We'll rely on the theme being descriptive enough or update the service later.
-            // But to make it effective now, we can append the strategy summary to the theme string temporarily
-            // so the LLM sees it in the prompt without changing the function signature yet.
-            const enhancedTheme = campaignStrategy
-                ? `${themeToSend}. STRATEGY CONTEXT: Audience: ${campaignStrategy.targetAudience}. Messages: ${campaignStrategy.keyMessaging.join(', ')}.`
-                : themeToSend;
+            const allItems: CampaignItem[] = [];
+            const batches = Math.ceil(totalCount / BATCH_SIZE);
 
-            // GENERATION CALL
-            const result = await generateCampaignDrafts(
-                enhancedTheme,
-                brandName,
-                brandConfig,
-                parseInt(campaignCount),
-                undefined, // No content plan for quick mode
-                campaignFocusDoc, // Pass Focus Doc
-                recentPosts
-            );
+            for (let b = 0; b < batches; b++) {
+                const countForBatch = Math.min(BATCH_SIZE, totalCount - (b * BATCH_SIZE));
+                const batchLabel = `Batch ${b + 1}/${batches}`;
+                console.log(`Generating ${batchLabel}...`);
 
-            setDraftContext(result.thinking); // 🧠 Set Brain Thinking Logic
+                // Pass strategy context to drafting if available
+                const enhancedTheme = campaignStrategy
+                    ? `${themeToSend}. STRATEGY CONTEXT: Audience: ${campaignStrategy.targetAudience}. Messages: ${campaignStrategy.keyMessaging.join(', ')}.`
+                    : themeToSend;
 
-            let textToParse = result.content;
+                // GENERATION CALL
+                const result = await generateCampaignDrafts(
+                    enhancedTheme,
+                    brandName,
+                    brandConfig,
+                    countForBatch,
+                    undefined, // No content plan for quick mode
+                    campaignFocusDoc, // Pass Focus Doc
+                    recentPosts
+                );
 
-            // Extract Theme Color if AI Suggests one
-            const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
-            if (colorMatch) {
-                setCampaignColor(colorMatch[1]);
-                textToParse = textToParse.replace(colorMatch[0], '').trim();
-            }
+                if (b === 0) setDraftContext(result.thinking); // 🧠 Set Brain Thinking Logic from first batch
 
-            const splitDrafts = textToParse.split(/---/)
-                .map(d => d.trim())
-                .filter(d => d.length > 0);
+                let textToParse = result.content;
 
-            const items: CampaignItem[] = splitDrafts.map((txt, i) => {
-                // Extract Template Tag if present (e.g., "[Event] Tweet content...")
-                let tweetContent = txt;
-                let detectedTemplate = campaignTemplate; // Fallback to global setting
-
-                const templateMatch = txt.match(/^\[(.*?)\]/);
-                if (templateMatch) {
-                    detectedTemplate = templateMatch[1];
-                    tweetContent = txt.replace(templateMatch[0], '').trim();
+                // Extract Theme Color if AI Suggests one (only from first batch)
+                if (b === 0) {
+                    const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
+                    if (colorMatch) {
+                        setCampaignColor(colorMatch[1]);
+                        textToParse = textToParse.replace(colorMatch[0], '').trim();
+                    }
                 }
 
-                // If Smart Plan, try to match link from plan item to the tweet if not present (though prompt asks for it)
-                // For now, we trust the prompt generation.
+                const splitDrafts = textToParse.split(/---/)
+                    .map(d => d.trim())
+                    .filter(d => d.length > 0);
 
-                return {
-                    id: `draft-${Date.now()}-${i}`,
-                    tweet: tweetContent,
-                    isApproved: true,
-                    status: 'draft',
-                    images: [],
-                    campaignColor: colorMatch ? colorMatch[1] : campaignColor,
-                    template: detectedTemplate
-                };
-            });
+                const batchItems: CampaignItem[] = splitDrafts.map((txt, i) => {
+                    let tweetContent = txt;
+                    let detectedTemplate = campaignTemplate;
 
-            setCampaignItems(items);
+                    const templateMatch = txt.match(/^\[(.*?)\]/);
+                    if (templateMatch) {
+                        detectedTemplate = templateMatch[1];
+                        tweetContent = txt.replace(templateMatch[0], '').trim();
+                    }
+
+                    return {
+                        id: `draft-${Date.now()}-${b}-${i}`,
+                        tweet: tweetContent,
+                        isApproved: true,
+                        status: 'draft',
+                        images: [],
+                        campaignColor: campaignColor,
+                        template: detectedTemplate
+                    };
+                });
+
+                allItems.push(...batchItems);
+                // Update specific items state progressively so user sees progress
+                setCampaignItems(prev => [...prev, ...batchItems]);
+            }
+
             setCampaignStep(3); // Move to Review
         } catch (err) {
             setError("Failed to draft campaign.");
+            console.error(err);
         } finally {
             setIsDraftingCampaign(false);
         }
@@ -391,23 +400,32 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         setIsBatchProcessing(true);
         setCampaignItems(prev => prev.map(item => item.isApproved ? { ...item, status: 'pending' } : item));
 
-        for (const item of approvedItems) {
-            setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'generating' } : p));
-            try {
-                const promises = [
-                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined }),
-                    generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined })
-                ];
-                const images = await Promise.all(promises);
-                setCampaignItems(prev => prev.map(p => p.id === item.id ? {
-                    ...p,
-                    status: 'completed',
-                    images: images,
-                    selectedImageIndex: 0
-                } : p));
-            } catch (err) {
-                setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'error' } : p));
-            }
+        // Chunking for Image Generation (Concurrency: 3 items = 6 images at a time)
+        const CHUNK_SIZE = 3;
+        for (let i = 0; i < approvedItems.length; i += CHUNK_SIZE) {
+            const chunk = approvedItems.slice(i, i + CHUNK_SIZE);
+
+            await Promise.all(chunk.map(async (item) => {
+                setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'generating' } : p));
+                try {
+                    const promises = [
+                        generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined }),
+                        generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined })
+                    ];
+                    // Add slight random delay to stagger start times
+                    await new Promise(r => setTimeout(r, Math.random() * 1000));
+
+                    const images = await Promise.all(promises);
+                    setCampaignItems(prev => prev.map(p => p.id === item.id ? {
+                        ...p,
+                        status: 'completed',
+                        images: images,
+                        selectedImageIndex: 0
+                    } : p));
+                } catch (err) {
+                    setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'error' } : p));
+                }
+            }));
         }
         setIsBatchProcessing(false);
     };
@@ -862,7 +880,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 )}
 
                                 {campaignType !== 'notes' && (
-                                    <Select label="Tweet Count" value={campaignCount} onChange={e => setCampaignCount(e.target.value)} options={[{ value: '3', label: '3 Tweets' }, { value: '5', label: '5 Tweets' }, { value: '7', label: '7 Tweets' }]} />
+                                    <Select label="Tweet Count" value={campaignCount} onChange={e => setCampaignCount(e.target.value)} options={[{ value: '3', label: '3 Tweets' }, { value: '5', label: '5 Tweets' }, { value: '7', label: '7 Tweets' }, { value: '50', label: '50 Tweets (Mega Batch)' }]} />
                                 )}
 
                                 <div className="space-y-4 pt-4 border-t border-brand-border">
