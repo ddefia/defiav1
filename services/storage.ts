@@ -435,20 +435,38 @@ export const fetchBrainHistoryEvents = async (brandName: string): Promise<Calend
             .from('brain_memory')
             .select('id, content, created_at, metadata')
             .eq('brand_id', dbBrandId)
+            // Revert to broad query, let client filter handle specific logic
             .order('created_at', { ascending: false })
-            .limit(100);
+            .limit(500); // Check 500 items to bypass log spam
 
         if (!data) return [];
 
-        return data.map((item: any) => {
+        // WHITELIST FILTER: Only show actual Tweets / Social History
+        // This ignores all migration logs and other system noise
+        const validData = data.filter((item: any) => {
+            const isSocial = item.metadata?.type === 'social_history';
+            const isTweet = (item.content || "").toString().startsWith('Tweet by');
+            return isSocial || isTweet;
+        });
+
+        return validData.map((item: any) => {
             // Prefer original tweet date from metadata, fallback to ingestion time
             const originDate = item.metadata?.date ? new Date(item.metadata.date) : new Date(item.created_at);
+            // Ensure we don't have valid tweets showing up on the "migration date" (Jan 12) if they have real dates
             const dateStr = !isNaN(originDate.getTime()) ? originDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+            // Improved Content Mapping
+            let displayContent = item.content;
+            if (item.content.startsWith('Tweet by @')) {
+                // Clean up the prefix for display
+                displayContent = item.content.split(': "')[1]?.slice(0, -1) || item.content;
+            }
 
             return {
                 id: `history-${item.id}`,
                 date: dateStr,
-                content: item.content,
+                title: displayContent.substring(0, 50) + (displayContent.length > 50 ? '...' : ''), // Map to title for Calendar
+                content: displayContent,
                 platform: 'Twitter',
                 status: 'published',
                 campaignName: 'History',
