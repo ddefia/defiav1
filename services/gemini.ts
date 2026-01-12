@@ -1425,3 +1425,53 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
 function growthScore(report: GrowthReport): string {
     return report.executiveSummary;
 }
+/**
+ * CLASSIFIER: Categorizes an image into a specific template bucket.
+ */
+export const classifyImage = async (imageUrl: string, categories: string[]): Promise<string | null> => {
+    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const ai = new GoogleGenAI({ apiKey });
+
+    try {
+        // Fetch Base64
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+        const cleanBase64 = base64.split(',')[1];
+        const mimeType = blob.type || 'image/png';
+
+        const prompt = `
+        Analyze this image and classify it into exactly ONE of the following categories:
+        ${categories.map(c => `- "${c}"`).join('\n')}
+        
+        INSTRUCTIONS:
+        - Analyze the layout, composition, and content.
+        - Return ONLY the exact category name from the list above.
+        - If it doesn't fit well, pick the closest one.
+        - Do not output any other text or markdown.
+        `;
+
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [
+                { inlineData: { mimeType, data: cleanBase64 } },
+                { text: prompt }
+            ]
+        });
+
+        const text = result.text?.trim() || "";
+        // Clean up quotes or extra spaces
+        const cleanText = text.replace(/['"]/g, '').trim();
+
+        // Verify it matches a known category (fuzzy logic or exact)
+        const match = categories.find(c => c.toLowerCase() === cleanText.toLowerCase());
+        return match || cleanText; // Return what AI said if exact match fails, might be useful
+    } catch (e) {
+        console.error("Classification failed", e);
+        return null;
+    }
+};

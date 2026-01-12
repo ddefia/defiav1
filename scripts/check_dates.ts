@@ -15,7 +15,9 @@ const run = async () => {
     if (dataMetis && dataMetis.length > 0) {
         console.log(`Found ${dataMetis.length} tweets for 'Metis'.`);
         dataMetis.slice(0, 10).forEach(d => {
-            console.log(`[Metis] Date: ${d.metadata?.date}`);
+            const hasMedia = d.metadata?.mediaUrl ? 'No' : 'No';
+            const mediaPreview = d.metadata?.mediaUrl ? `(IMG: ${d.metadata.mediaUrl.substring(0, 20)}...)` : 'No Image';
+            console.log(`[Metis] Date: ${d.metadata?.date} | Media: ${mediaPreview}`);
         });
     } else {
         console.log("No tweets for 'Metis'. Checking 'MetisL2'...");

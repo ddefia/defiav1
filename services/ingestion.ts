@@ -96,6 +96,13 @@ export const ingestTwitterHistory = async (handles: string[]) => {
                     const views = item.view_count || item.viewCount || 0;
                     const engagementRate = ((likes + retweets + replies) / (item.user?.followers_count || 1000)) * 100;
 
+                    // Extract Media
+                    const mediaUrl = item.entities?.media?.[0]?.media_url_https
+                        || item.extended_entities?.media?.[0]?.media_url_https
+                        || item.media?.[0]?.media_url_https
+                        || (item.media && item.media.length > 0 ? item.media[0].media_url_https : null)
+                        || null;
+
                     if (text && text.length > 20) {
                         const content = `Tweet by @${handle}: "${text}"`;
                         const metadata = {
@@ -104,6 +111,7 @@ export const ingestTwitterHistory = async (handles: string[]) => {
                             handle,
                             tweetId: id,
                             date,
+                            mediaUrl, // Store image URL
                             stats: { likes, retweets, replies, views },
                             engagementRate: parseFloat(engagementRate.toFixed(2))
                         };
