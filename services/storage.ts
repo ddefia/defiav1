@@ -424,16 +424,9 @@ export const saveStudioState = (brandName: string, state: any): void => {
 
 export const fetchBrainHistoryEvents = async (brandName: string): Promise<CalendarEvent[]> => {
     try {
-        // Map UI Brand Names to Twitter Handles (DB keys)
-        const brandMapping: Record<string, string> = {
-            'ENKI Protocol': 'EnkiProtocol',
-            'Netswap': 'NetswapOfficial',
-            'Metis': 'MetisL2',
-            'LazAI': 'LazAINetwork',
-            'Defia': 'DefiaLabs' // Assuming Defia might need one, optional
-        };
-
-        const dbBrandId = brandMapping[brandName] || brandName;
+        // Data is stored with the UI Brand Name (e.g. 'Netswap', 'ENKI Protocol')
+        // So we query directly with brandName.
+        const dbBrandId = brandName;
 
         const { data } = await supabase
             .from('brain_memory')
