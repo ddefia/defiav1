@@ -450,7 +450,8 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 export const editWeb3Graphic = async (
     imageBase64: string,
     prompt: string,
-    brandConfig?: BrandConfig
+    brandConfig?: BrandConfig,
+    aspectRatio: string = '1:1'
 ): Promise<string> => {
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
@@ -473,13 +474,14 @@ export const editWeb3Graphic = async (
 
     GUIDELINES:
     - PRESERVE the main subject, composition, and layout of the original image as much as possible.
+    - PRESERVE ASPECT RATIO: The output must strictly follow the ${aspectRatio} format.
     - ONLY apply the requested change (e.g. change color, remove object, change background).
     - If the user asks to "change style", then you can be more creative with the composition.
     - Maintain high quality, professional "Web3/Tech" aesthetic unless instructed otherwise.
     `;
 
     try {
-        console.log("Editing image with gemini-2.0-flash (Simulated Edit)...");
+        console.log(`Editing image with gemini-2.0-flash (Simulated Edit) | Target Ratio: ${aspectRatio}...`);
 
         // CLEANUP: Previous code called Flash then ignored it.
         // We will attempt to use the Image model directly if supported, or fallback to text if image-to-image is not available on this key.
@@ -497,7 +499,7 @@ export const editWeb3Graphic = async (
             config: {
                 // @ts-ignore
                 imageConfig: {
-                    aspectRatio: '1:1',
+                    aspectRatio: aspectRatio,
                     imageSize: '1024x1024'
                 }
             },

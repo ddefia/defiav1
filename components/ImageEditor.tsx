@@ -1,0 +1,300 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Button } from './Button';
+import { editWeb3Graphic } from '../services/gemini';
+import { fetchBrainHistoryEvents } from '../services/storage';
+import { BrandConfig, CalendarEvent } from '../types';
+
+interface ImageEditorProps {
+    brandConfig?: BrandConfig;
+    brandName?: string;
+}
+
+export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName = '' }) => {
+    // State
+    const [originalImage, setOriginalImage] = useState<string | null>(null);
+    const [editedImage, setEditedImage] = useState<string | null>(null);
+    const [prompt, setPrompt] = useState<string>('');
+    const [isProcessing, setIsProcessing] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+    const [history, setHistory] = useState<CalendarEvent[]>([]);
+    const [aspectRatio, setAspectRatio] = useState<string>('1:1');
+
+    // API Info
+    const currentModel = "Gemini 2.0 Flash (Instruction) + Imagen 3 (Generation)";
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (brandName) {
+            loadHistory();
+        }
+    }, [brandName]);
+
+    const loadHistory = async () => {
+        if (!brandName) return;
+        try {
+            const events = await fetchBrainHistoryEvents(brandName);
+
+            // CRASH FIX: Ensure events is an array before filtering
+            if (!Array.isArray(events)) {
+                console.warn("History events is not an array:", events);
+                setHistory([]);
+                return;
+            }
+
+            // Filter for events with images (ensure image is a string and not empty)
+            const imageEvents = events.filter(e => e && e.image && typeof e.image === 'string' && e.image.length > 5);
+            setHistory(imageEvents);
+        } catch (e) {
+            console.error("Failed to load history", e);
+            setHistory([]); // Safely default to empty
+        }
+    };
+
+    // Handlers
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+        try {
+            const base64 = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
+
+            // Detect Aspect Ratio
+            const img = new Image();
+            img.onload = () => {
+                const ratio = img.width / img.height;
+                // Simple buckets for Imagen 3
+                let finalRatio = '1:1';
+                if (ratio > 1.4) finalRatio = '16:9';
+                else if (ratio < 0.7) finalRatio = '9:16';
+                else if (ratio > 1.1) finalRatio = '4:3';
+                else if (ratio < 0.9) finalRatio = '3:4';
+
+                console.log(`Examples: Detected Image Ratio: ${ratio.toFixed(2)} -> buketed to ${finalRatio}`);
+                setAspectRatio(finalRatio);
+            };
+            img.src = base64;
+
+            setOriginalImage(base64);
+            setEditedImage(null); // Reset edited image on new upload
+            setError(null);
+        } catch (err) {
+            console.error("Upload failed", err);
+            setError("Failed to upload image.");
+        }
+    };
+
+    const handleEdit = async () => {
+        if (!originalImage || !prompt) return;
+
+        setIsProcessing(true);
+        setError(null);
+
+        try {
+            // Call the service
+            const result = await editWeb3Graphic(originalImage, prompt, brandConfig, aspectRatio);
+            setEditedImage(result);
+        } catch (err: any) {
+            console.error("Edit failed", err);
+            setError(err.message || "Failed to edit image.");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleDownload = (imageUrl: string) => {
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `edited-image-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleClear = () => {
+        setOriginalImage(null);
+        setEditedImage(null);
+        setPrompt('');
+        setError(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    return (
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-6 animate-fadeIn h-full flex flex-col">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-display font-bold text-brand-text">AI Image Editor</h1>
+                    <p className="text-brand-muted">Upload an image and use magic prompts to edit it.</p>
+                </div>
+                {originalImage && (
+                    <Button onClick={handleClear} variant="secondary">Start Over</Button>
+                )}
+            </div>
+
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 h-full min-h-[500px]">
+
+                {/* LEFT PANEL: CONTROLS */}
+                <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm flex flex-col gap-6 h-fit">
+
+                    {/* Upload Section */}
+                    {!originalImage ? (
+                        <div
+                            className="border-2 border-dashed border-gray-200 rounded-xl p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors h-64"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileUpload}
+                                accept="image/*"
+                                className="hidden"
+                            />
+                            <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-500 mb-4">
+                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            </div>
+                            <span className="font-bold text-gray-700">Click to Upload Image</span>
+                            <span className="text-xs text-gray-400 mt-2">JPG, PNG supported</span>
+                        </div>
+                    ) : (
+                        <div className="relative group rounded-xl overflow-hidden shadow-sm border border-brand-border">
+                            <img src={originalImage} className="w-full h-auto max-h-64 object-cover" alt="Original" />
+                            <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">Original</div>
+                        </div>
+                    )}
+
+                    {/* Edit Controls */}
+                    {originalImage && (
+                        <div className="space-y-4 animate-fadeIn">
+                            <div>
+                                <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Magic Instruction</label>
+                                <textarea
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    placeholder="e.g. Change the background to a cyberpunk city, make the logo neon blue..."
+                                    className="w-full bg-gray-50 border border-brand-border rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-brand-accent outline-none resize-none h-32 transition-all"
+                                />
+                            </div>
+
+                            <Button
+                                onClick={handleEdit}
+                                isLoading={isProcessing}
+                                disabled={!prompt}
+                                className="w-full py-4 shadow-lg shadow-indigo-500/20"
+                            >
+                                ✨ Magic Edit
+                            </Button>
+
+                            {error && (
+                                <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-lg">
+                                    {error}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* RIGHT PANEL: PREVIEW */}
+                <div className="lg:col-span-2 flex flex-col gap-6">
+                    <div className="bg-gray-50/50 border border-brand-border rounded-xl p-8 flex items-center justify-center relative min-h-[400px] flex-1">
+
+                        <div className="absolute top-4 right-4 bg-white/80 backdrop-blur border border-brand-border px-3 py-1.5 rounded-full text-[10px] font-bold text-brand-muted flex items-center gap-1.5 shadow-sm">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            Running on {currentModel}
+                        </div>
+
+                        {!editedImage && !isProcessing && (
+                            <div className="text-center opacity-40">
+                                <div className="w-20 h-20 mx-auto bg-gray-200 rounded-full flex items-center justify-center text-4xl mb-4">🪄</div>
+                                <h3 className="font-bold text-lg text-gray-500">Ready to Magic</h3>
+                                <p className="text-sm text-gray-400">Upload an image and enter a prompt to see the result here.</p>
+                            </div>
+                        )}
+
+                        {isProcessing && (
+                            <div className="text-center animate-pulse">
+                                <div className="w-16 h-16 mx-auto border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+                                <h3 className="font-bold text-lg text-indigo-600">Generating Magic...</h3>
+                                <p className="text-sm text-gray-400">This might take a few seconds.</p>
+                            </div>
+                        )}
+
+                        {editedImage && !isProcessing && (
+                            <div className="animate-fadeIn w-full h-full flex flex-col items-center">
+                                <div className="relative rounded-lg overflow-hidden shadow-2xl border border-white/20 max-h-[600px]">
+                                    <img src={editedImage} className="max-w-full max-h-[600px] object-contain" alt="Edited Result" />
+                                </div>
+                                <div className="mt-8 flex gap-4">
+                                    <Button onClick={() => handleDownload(editedImage)} className="shadow-xl">
+                                        Download Result
+                                    </Button>
+                                    <Button onClick={() => { setOriginalImage(editedImage); setEditedImage(null); setPrompt(''); }} variant="secondary">
+                                        Use as New Base
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* HISTORY GALLERY */}
+                    {history.length > 0 && (
+                        <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm">
+                            <h3 className="text-sm font-bold text-brand-muted uppercase tracking-wider mb-4">
+                                History for {brandName || 'Brand'}
+                            </h3>
+                            <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                                {history.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => {
+                                            if (item.image) {
+                                                // Simplified: Just set current image to this history URL.
+                                                // If cross-origin becomes an issue for the canvas editing later, we'll need a proxy, 
+                                                // but for "Image Editor" flow (multimodal), providing the URL or base64 usually works if supported.
+                                                // Warning: editWeb3Graphic expects base64. 
+                                                // The image element will load the URL. We might need to fetch blob in handleFileUpload-like manner if we want to be safe, 
+                                                // but let's try setting it as originalImage first. 
+                                                // If 'editWeb3Graphic' logic checks for "data:", it handles base64. If it's a URL, we need to convert.
+                                                // Let's optimize: fetch blob and convert on click.
+                                                setOriginalImage(item.image); // Set immediately for UI
+
+                                                // Async fetch for internal data processing if needed
+                                                // (Ideally we do this processing inside editWeb3Graphic or before setting for consistency)
+                                                // BUT 'editWeb3Graphic' takes base64. 
+                                                // Let's modify handleEdit to handle URL too? Or convert here.
+                                                // Converting HERE is better UX control.
+                                                if (item.image.startsWith('http')) {
+                                                    fetch(item.image)
+                                                        .then(res => res.blob())
+                                                        .then(blob => {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => setOriginalImage(reader.result as string);
+                                                            reader.readAsDataURL(blob);
+                                                        })
+                                                        .catch(e => console.error("Failed to load history image", e));
+                                                }
+
+                                                setEditedImage(null);
+                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                            }
+                                        }}
+                                        className="min-w-[120px] w-[120px] aspect-square rounded-lg border border-brand-border cursor-pointer hover:border-brand-accent hover:shadow-md transition-all relative group overflow-hidden"
+                                    >
+                                        <img src={item.image} className="w-full h-full object-cover" loading="lazy" />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                            <span className="text-[10px] font-bold text-white bg-black/50 px-2 py-1 rounded">Edit This</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
