@@ -1,13 +1,71 @@
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport } from "../types";
 import { saveBrainLog } from "./storage";
 import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
 
+// Global constant defined in vite.config.ts
+// Global constant removed
+
+
+
+// --- API KEY HELPER ---
+// --- API KEY HELPER ---
+const getApiKey = (): string => {
+    // 1. Check Build-Time Injections (Vite 'define' replacements)
+    // We try/catch these because if Vite replaces them, they become strings.
+    // If not, 'process' might be undefined, which we catch.
+    try {
+        // @ts-ignore
+        if (process.env.API_KEY) return process.env.API_KEY;
+    } catch (e) { }
+
+    try {
+        // @ts-ignore
+        if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
+    } catch (e) { }
+
+    // 2. Check Standard Vite Envs
+    const metaEnv = (import.meta as any).env;
+    if (metaEnv) {
+        if (metaEnv.VITE_GEMINI_API_KEY) return metaEnv.VITE_GEMINI_API_KEY;
+        if (metaEnv.GEMINI_API_KEY) return metaEnv.GEMINI_API_KEY;
+    }
+
+    // 3. Fallback to Local Storage (User Settings)
+    if (typeof window !== 'undefined') {
+        try {
+            const stored = localStorage.getItem('defia_integrations_v1');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (parsed.geminiKey) return parsed.geminiKey;
+            }
+        } catch (e) { }
+    }
+
+    console.warn("⚠️ API Key Missing! Check Vercel Env Vars or Settings.");
+    return "";
+};
+
+// --- THINKING EVENT BUS ---
+const dispatchThinking = (message: string, detail?: any) => {
+    try {
+        if (typeof window !== 'undefined') {
+            const event = new CustomEvent('defia-thinking', { detail: { message, detail, timestamp: Date.now() } });
+            window.dispatchEvent(event);
+        }
+    } catch (e) {
+        // Ignore if no window (e.g. server side)
+    }
+};
+
 /**
+
  * Helper to generate embeddings for RAG.
  */
 export const getEmbedding = async (text: string): Promise<number[]> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY });
+    const apiKey = getApiKey();
+    if (!apiKey) console.error("MISSING API KEY in getEmbedding");
+    const ai = new GoogleGenAI({ apiKey });
     try {
         const result = await ai.models.embedContent({
             model: "text-embedding-004",
@@ -54,8 +112,8 @@ const getBase64FromUrl = async (url: string): Promise<string> => {
 const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<string> => {
     if (!images || images.length === 0) return "";
 
-    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     // Limits consistency to first 3 images to avoid token overload
     // Prioritize images with data, then url
@@ -133,8 +191,14 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
  * This bypasses the client-side SDK limitation for Imagen 3.
  */
 export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<string> => {
+    dispatchThinking(`🎨 Generating Graphic for: "${params.prompt}"`, { template: params.templateType, style: params.artPrompt });
+
     // Robust Key Loading
-    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        console.error("FATAL: No API Key found.");
+        throw new Error("API Key is missing. Check Vercel Env Vars.");
+    }
     const ai = new GoogleGenAI({ apiKey });
 
     const colorPalette = params.brandConfig.colors.map(c => `${c.name} (${c.hex})`).join(', ');
@@ -297,10 +361,23 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
             // Updated: Use the effective IDs calculated at the start
             let targetImageIds: string[] = effectiveReferenceImageIds;
 
-            // If no specific images targetted, LIMIT to top 3 to prevent payload explosion/timeout
-            const sourceImages = targetImageIds.length > 0
-                ? params.brandConfig.referenceImages.filter(img => targetImageIds.includes(img.id))
-                : params.brandConfig.referenceImages.slice(0, 3);
+            // If no specific images targetted, use RANDOM 3 from the collection for variety
+            // This ensures history images (which are at the end) get used too.
+            const allImages = params.brandConfig.referenceImages;
+            let sourceImages: ReferenceImage[] = [];
+
+            if (targetImageIds.length > 0) {
+                sourceImages = allImages.filter(img => targetImageIds.includes(img.id));
+            } else {
+                // Fisher-Yates Shuffle to pick distinct random images
+                const shuffled = [...allImages];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                sourceImages = shuffled.slice(0, 3);
+                if (sourceImages.length > 0) console.log(`[Auto-Ref] Selected 3 random images for style: ${sourceImages.map(i => i.name).join(', ')}`);
+            }
 
             const imageParts = await Promise.all(sourceImages.map(async (img) => {
                 let finalData = img.data;
@@ -368,6 +445,98 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 };
 
 /**
+ * EDIT Image using Multimodal Prompting (Image + Text -> New Image)
+ */
+export const editWeb3Graphic = async (
+    imageBase64: string,
+    prompt: string,
+    brandConfig?: BrandConfig
+): Promise<string> => {
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Prepare Image Part
+    const mimeMatch = imageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+    const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
+
+    const imagePart = {
+        inlineData: {
+            mimeType: mimeType,
+            data: cleanBase64
+        }
+    };
+
+    const systemPrompt = `
+    TASK: Edit this image based on the user's instruction.
+    INSTRUCTION: "${prompt}"
+
+    GUIDELINES:
+    - PRESERVE the main subject, composition, and layout of the original image as much as possible.
+    - ONLY apply the requested change (e.g. change color, remove object, change background).
+    - If the user asks to "change style", then you can be more creative with the composition.
+    - Maintain high quality, professional "Web3/Tech" aesthetic unless instructed otherwise.
+    `;
+
+    try {
+        console.log("Editing image with gemini-2.0-flash...");
+
+        // Use Gemini 2.0 Flash for speed/multimodal handling
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [
+                imagePart,
+                { text: systemPrompt }
+            ]
+        });
+
+        // NOTE: Gemini 2.0 Flash returns TEXT by default unless specifically asked for image ?? 
+        // WAIT: Gemini 2.0 Flash is text-to-text/image-to-text. It DOES NOT generate images directly yet in all expected ways via this SDK call without proper tools or specific model targeting.
+        // HOWEVER: For "Editing", typically we need to use an Image Generation model like Imagen 3 (via proxy) that supports "Image Prompting" or we use a specialized endpoint.
+        // AS A FALLBACK for the "Prototyping" phase (since we might not have full img-to-img API access directly in this environment):
+        // We will try to use the SAME `gemini-3-pro-image-preview` but pass the image as input if supported.
+
+        // Re-attempt with Image Generation Model approach
+        const generationPromise = ai.models.generateContent({
+            model: 'gemini-3-pro-image-preview',
+            // @ts-ignore
+            contents: { parts: [imagePart, { text: systemPrompt }] },
+            config: {
+                // @ts-ignore
+                imageConfig: {
+                    aspectRatio: '1:1', // Default, maybe infer?
+                    imageSize: '1024x1024'
+                }
+            },
+        });
+
+        const result = await generationPromise as any;
+        const responseParts = result.candidates?.[0]?.content?.parts;
+        const resultImagePart = responseParts?.[0];
+
+        // @ts-ignore
+        if (resultImagePart && resultImagePart.inlineData) {
+            // @ts-ignore
+            return `data:${resultImagePart.inlineData.mimeType || 'image/png'}; base64, ${resultImagePart.inlineData.data} `;
+        }
+
+        // If we got text back instead of image (error case):
+        if (result.response && result.response.text) {
+            throw new Error("Model returned text instead of image: " + result.response.text());
+        }
+
+        throw new Error("No image returned from edit.");
+
+    } catch (error: any) {
+        console.error("Gemini Edit Error:", error);
+        // Fallback Mock for UI testing if API fails (so user can see flow)
+        // throw error; 
+        // FOR DEV: Rethrow real error
+        throw new Error("Image Editing Not Supported by current API Key/Model configuration. " + error.message);
+    }
+};
+
+/**
  * Generates a tweet based on topic, using Brand Knowledge Base and Style Examples.
  */
 export const generateTweet = async (
@@ -376,46 +545,59 @@ export const generateTweet = async (
     brandConfig: BrandConfig,
     tone: string = 'Professional'
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    dispatchThinking(`🐦 Generating Tweet for: "${topic}"`, { tone, brand: brandName });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     const examples = brandConfig.tweetExamples.length > 0
-        ? `STYLE EXAMPLES(MIMIC THIS STYLE): \n${brandConfig.tweetExamples.map(t => `- ${t}`).join('\n')} `
+        ? `STYLE REFERENCE (MIMIC THIS VOICE/PACE/LENGTH): \n${brandConfig.tweetExamples.map(t => `- ${t}`).join('\n')} `
         : "";
 
     const kb = brandConfig.knowledgeBase.length > 0
-        ? `KNOWLEDGE BASE(USE THIS CONTEXT): \n${brandConfig.knowledgeBase.join('\n\n')} `
+        ? `KNOWLEDGE BASE (THE ABSOLUTE SOURCE OF TRUTH): \n${brandConfig.knowledgeBase.join('\n\n')} `
         : "";
 
     const isNoTagBrand = ['netswap', 'enki'].includes(brandName.toLowerCase());
-    const hashtagInstruction = isNoTagBrand ? "- Do NOT use any hashtags." : "- Use 1-2 relevant hashtags.";
 
     // --- ENTERPRISE PROTOCOL ENFORCEMENT ---
-    const voice = brandConfig.voiceGuidelines || "Narrative Authority: Insightful, grounded. Speak to mechanics, not just features.";
+    const voice = brandConfig.voiceGuidelines || "Narrative Authority: Insightful, grounded, and high-signal. Speak to mechanics, not just features.";
     const banned = brandConfig.bannedPhrases && brandConfig.bannedPhrases.length > 0
         ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')} `
-        : "Avoid corporate fluff (e.g. 'We are excited to announce'). Avoid 'Delve', 'Tapestry', 'Game changer'.";
+        : "Avoid corporate fluff (e.g. 'We are excited to announce', 'Thrilled to share'). Avoid 'Delve', 'Tapestry', 'Game changer', 'Unleash'.";
 
     const systemInstruction = `
-    You are the Social Media Lead for ${brandName}.
+    You are an Elite Crypto Content Creator for ${brandName}.
+    You are known for high-signal, zero-fluff content that respects the reader's intelligence.
 
-        TASK: Write a single, engaging tweet about: "${topic}".
-            TONE: ${tone} (Guideline: ${voice})
+    TASK: Write a single, high-quality tweet about: "${topic}".
+    
+    TONE: ${tone} (Guideline: ${voice})
     
     ${examples}
     
     ${kb}
 
+    CRITICAL RULES:
+    1. **PRIORITIZE KNOWLEDGE BASE**: If the Knowledge Base contains specific facts, terminology, or goals, you MUST use them. They override general knowledge.
+    2. **NO CORPORATE SPEAK**: If it sounds like a press release, delete it. Write like a human expert.
+    3. **FORMATTING**: Use short paragraphs. Use visual spacing.
+    4. **CONTENT GOAL**: If the topic implies a goal (e.g. "launch"), the tweet must drive that action.
+
     INSTRUCTIONS:
     - ${banned}
-    - LENGTH: Write a substantial, high - value tweet(max 280 chars).
-    - GOLDEN RULE: Insight > Hype.Don't just sell, explain the *implication*.
-        - STRUCTURE:
-    - Start with a clear Insight or Aphorism(e.g. "Ownership is not a feature. It's a right.").
-        - Use vertical spacing to let ideas breathe.
-    - Explain WHY this matters using logic or economics.
-    - End with a clear Call - To - Action(CTA).
-    - HASHTAGS: STRICTLY FORBIDDEN.Do not use them.
-    - FORMATTING: Clean, professional, minimal emojis.
+    - LENGTH: Max 280 chars.
+    - **INTENT RECOGNITION**:
+        - If input is a KEYWORD (e.g. "Interop"): Write a deep insight about that concept.
+        - If input is an ANNOUNCEMENT: Write a hype-building but grounded post.
+    
+    STRICT STRUCTURE (Must include all 3 parts separated by empty lines):
+    1. HOOK: A punchy, 1-sentence insight, question, or claim. (e.g. "Ownership is not a feature. It's a right.")
+    2. BODY: 1-2 short sentences explaining the "Why" or mechanics.
+    3. CTA: A clear, short directive. (e.g. "Deploy here." or "Read the docs.")
+
+    FORMATTING REQUIREMENTS:
+    - YOU MUST use double line breaks (\\n\\n) between sections.
+    - NO HASHTAGS (unless explicitly requested or critical for the narrative).
     `;
 
     try {
@@ -438,7 +620,9 @@ export const generateTweet = async (
  * SMART CAMPAIGN: Analyzes raw notes to create a structured content plan.
  */
 export const analyzeContentNotes = async (notes: string, brandName: string): Promise<any> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    dispatchThinking(`📝 Analyzing Content Notes`, { notesLength: notes.length });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     const systemInstruction = `
     You are a Content Strategy Expert for ${brandName}.
@@ -497,43 +681,35 @@ export const generateCampaignDrafts = async (
     contentPlan?: any, // OPTIONAL: Smart Plan
     focusContent?: string, // NEW: Optional Focus Document
     recentPosts: any[] = [] // NEW: Analytics History
-): Promise<{ content: string, thinking: string }> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+): Promise<{ drafts: any[], thinking: string, themeColor?: string, systemPrompt?: string }> => {
+    dispatchThinking(`🚀 Drafting Campaign: "${theme}"`, { count, focus: focusContent ? 'Yes' : 'No' });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
+    // FORMATTING: STRICTLY FORBID COPYING, BUT ENCOURAGE STYLE MIMICRY
     const examples = brandConfig.tweetExamples.length > 0
-        ? `STYLE EXAMPLES(COPY THIS VIBE EXACTLY): \n${brandConfig.tweetExamples.slice(0, 5).map(t => `- ${t}`).join('\n')} `
+        ? `STYLE DNA (VIBE CHECK ONLY - DO NOT COPY): \n${brandConfig.tweetExamples.slice(0, 5).map(t => `- ${t}`).join('\n')} `
         : "";
 
     const kb = brandConfig.knowledgeBase.length > 0
-        ? `KNOWLEDGE BASE: \n${brandConfig.knowledgeBase.join('\n\n')} `
+        ? `CORE KNOWLEDGE (SOURCE OF TRUTH): \n${brandConfig.knowledgeBase.join('\n\n')} `
         : "";
 
     const standardTemplates = ['Partnership', 'Campaign Launch', 'Giveaway', 'Event', 'Speaker Quote'];
     const customTemplates = (brandConfig.graphicTemplates || []).map(t => t.label);
     const allTemplates = [...standardTemplates, ...customTemplates].join(', ');
 
-    // Filter for High Engagement Posts (>10 likes or top 20%) to show AI what works
     // --- RAG: RETRIEVE BRAIN MEMORY ---
     let ragContext = "";
     try {
-        // 1. Generate embedding for the current campaign theme/concept
         const queryText = `Campaign Theme: ${theme}. Strategic Focus: ${focusContent || "General Brand Awareness"}.Brand: ${brandName} `;
         const queryEmbedding = await getEmbedding(queryText);
-
         if (queryEmbedding.length > 0) {
-            // 2. Query Supabase for similar past insights/posts
-            // Note: searchBrainMemory expects (brandId, embedding, threshold, limit)
             const memories = await searchBrainMemory(brandName, queryEmbedding, 0.7, 5);
-
             if (memories && memories.length > 0) {
-                const memoryList = memories.map((m: any) => `- ${m.content} (Success Factor: ${m.metadata?.engagementRate || "N/A"}%)`).join("\n");
-                ragContext = `
-    [BRAIN MEMORY - PAST PERFORMANCE INSIGHTS]
-The following acts as your long - term memory of what has worked well for this brand previously.Use these insights to guide your style and tone, but do not copy them directly.
-        ${memoryList}
-    [END MEMORY]
-`;
-                console.log("🧠 Brain RAG: Injected", memories.length, "memories into prompt.");
+                dispatchThinking(`🧠 Brain Retrieval: Found ${memories.length} relevant memories.`, memories.map((m: any) => m.content));
+                const memoryList = memories.map((m: any) => `- ${m.content}`).join("\n");
+                ragContext = `[NARRATIVE HISTORY - BUILD ON THIS]:\n${memoryList}`;
             }
         }
     } catch (err) {
@@ -543,138 +719,122 @@ The following acts as your long - term memory of what has worked well for this b
     const winningPosts = recentPosts
         .filter(p => p.likes > 5)
         .slice(0, 3)
-        .map(p => `"${p.content}"(${p.likes} likes)`)
-        .join('\n');
+        .map(p => `"${p.content}"`).join('\n');
 
     const recentContext = winningPosts.length > 0
-        ? `RECENT HIGH - PERFORMING CONTENT(MIMIC THIS TONE / SUCCESS): \n${winningPosts} `
+        ? `RECENT PROVEN HITS (MATCH THIS ENERGY): \n${winningPosts} `
         : "";
 
     let taskInstruction = '';
 
+    // SMART MODE OR LEGACY MODE
     if (contentPlan && contentPlan.items && contentPlan.items.length > 0) {
-        // SMART MODE: Generate based on specific items
         const planItems = contentPlan.items.map((item: any, i: number) =>
-            `ITEM ${i + 1}: Type: ${item.type}.Topic: ${item.topic}.URL: ${item.url || 'None'}.Instruction: ${item.specificInstruction} `
+            `ITEM ${i + 1}: Type: ${item.type}. Topic: ${item.topic}. URL: ${item.url || 'None'}. Instruction: ${item.specificInstruction} `
         ).join('\n');
 
         const rules = contentPlan.globalInstructions ? `GLOBAL RULES: ${contentPlan.globalInstructions.join(', ')} ` : "";
 
         taskInstruction = `
-    TASK: Write exactly ${contentPlan.items.length} tweets based on the following CONTENT PLAN.
-
-        ${rules}
-        
-        CONTENT PLAN ITEMS:
-        ${planItems}
-
-        ${focusContent ? `STRATEGIC FOCUS DOCUMENT (PRIORITIZE THIS CONTEXT): ${focusContent}` : ''}
-
-        ${ragContext ? `LONG TERM STRATEGY MANDATES (FROM DB): \n${ragContext}` : ''}
-
-    CRITICAL:
-    - You MUST generate exactly one tweet per ITEM.
-        - The order must match the plan(Item 1 = Tweet 1).
-        - If an Item has a URL, you MUST include it naturally in the tweet(unless instructed otherwise).
-        - If an Item says "Credit interviewer", ensure you tag / mention relevant parties.
-        `;
+    TASK: Execute this Content Plan strictly.
+    TARGET COUNT: ${count}.
+    
+    PLAN:
+    ${planItems}
+    
+    ${rules}
+    `;
     } else {
-        // LEGACY MODE
-        const isDiverse = theme === 'DIVERSE_MIX_MODE';
-
-        if (isDiverse) {
-            taskInstruction = `
-    TASK: Write ${count} distinct tweets covering a DIVERSE MIX of topics for ${brandName}.
-            
-            TOPIC GUIDANCE:
-        - Do NOT stick to a single theme.
-            - Ensure the mix includes: 1 educational tweet, 1 community / engagement tweet, 1 market / industry insight, 1 product feature highlight.
-            - Make them feel like a natural, varied week of content.
-            `;
-        } else {
-            taskInstruction = `
-    TASK: Write ${count} distinct tweets about the THEME: "${theme}" for ${brandName}.
-        ${focusContent ? `STRATEGIC FOCUS DOCUMENT (PRIORITIZE THIS CONTEXT): ${focusContent}` : ''
-                }
-            ${ragContext ? `LONG TERM STRATEGY MANDATES (FROM DB): \n${ragContext}` : ''}
-`;
-        }
+        taskInstruction = `
+    TASK: Generate ${count} strategic tweets about "${theme}".
+    STRATEGY: Align with the Roadmap and Documents below.
+    INTENT RECOGNITION: If "${theme}" is a broad topic, treat this as a request for a "Masterclass Campaign" - deep diving into every aspect of the topic.
+    `;
     }
 
-    // --- ENTERPRISE PROTOCOL ENFORCEMENT ---
-    const voice = brandConfig.voiceGuidelines || "Narrative Authority: Insightful, grounded, and forward-looking. Speak to the mechanics of value, not just features.";
+    const voice = brandConfig.voiceGuidelines || "Narrative Authority: Insightful, grounded, and forward-looking. Speak to mechanics, not just features.";
 
-    // Default Banned Phrases if none provided (to keep some safety)
-    const defaults = ["We are excited to announce", "Revolutionizing", "Game changer", "In the rapidly evolving landscape", "Delve", "Tapestry"];
-    const banned = (brandConfig.bannedPhrases && brandConfig.bannedPhrases.length > 0)
-        ? [...brandConfig.bannedPhrases, ...defaults]
-        : defaults;
+    const defaults = ["We are excited to announce", "Revolutionizing", "Game changer", "In the rapidly evolving landscape", "Delve", "Tapestry", "Hone in", "Unleash", "Thrilled"];
+    const banned = (brandConfig.bannedPhrases && brandConfig.bannedPhrases.length > 0) ? [...brandConfig.bannedPhrases, ...defaults] : defaults;
+    const bannedInstruction = banned.length > 0 ? `BANNED (INSTANT FAIL IF USED): ${banned.join(', ')}.` : "";
 
-    const bannedInstruction = banned.length > 0
-        ? `\n    1. ** BANNED PHRASES(STRICTLY FORBIDDEN) **: Do NOT use these words / phrases: ${banned.map(b => `"${b}"`).join(', ')}.`
-        : "";
-
-    // Audience context
-    const audience = brandConfig.targetAudience ? `TARGET AUDIENCE: ${brandConfig.targetAudience} ` : "";
-
+    const audience = brandConfig.targetAudience ? `AUDIENCE: ${brandConfig.targetAudience} ` : "";
 
     const systemInstruction = `
-    You are the Social Media Lead for ${brandName}.
+    You are a World-Class Crypto Narrative Designer for ${brandName}.
+    
+    OBJECTIVE:
+    Write ${count} tweets that are:
+    1. **STRATEGIC**: Strictly aligned with the "Strategic Focus Document" and "Core Knowledge".
+    2. **REASONED**: Every tweet must have a clear "Why". Connecting it to a roadmap goal.
+    3. **HIGH-SIGNAL**: Use dense, insightful language. "Alpha" > "Marketing".
+    4. **FORMATTED**: Perfect vertical spacing, clean hooks, no walls of text.
 
-    ${taskInstruction}
-    
-    ${examples}
-    
-    ${recentContext}
+    INPUT DATA (HIERARCHY OF TRUTH):
+    1. [HIGHEST PRIORITY] STRATEGIC FOCUS DOCUMENT: ${focusContent || "None Provided"} (If this exists, it OVERRIDES everything).
+    2. CORE KNOWLEDGE BASE: ${brandConfig.knowledgeBase.length > 0 ? "See below." : "None."}
+    3. BRAIN MEMORY: ${ragContext ? "See below" : "None"}
+    4. GENERAL KNOWLEDGE
 
     ${kb}
 
-    BRAND PROTOCOLS:
-    ${audience}
-    VOICE GUIDELINES: "${voice}"
+    ${ragContext}
     
-    CRITICAL STYLE RULES(DO NOT IGNORE):
-    ${bannedInstruction}
-2. ** INSIGHT FIRST **: Do NOT start with a generic "hook".Start with a defining statement, a contradiction, or a clear insight. (e.g. "Alpha is temporary. Substance compounds.").
-    3. ** PROOF + USAGE **: Anchor every claim in REALITY.Mention specific mechanics, economic shifts, or data.Avoid abstract hype.
-    4. ** SUBSTANCE **: The reader is smart.Respect their intelligence.Explain * structural * advantages, not just marketing keywords.
-    5. ** FORMATTING **:
-- Use line breaks to let ideas breathe.
-- Max 2 sentences per paragraph.
-       - Use specific numbers / stats if available.
+    STYLE REFERENCES (DO NOT COPY TEXT, MIMIC THE VIBE):
+    ${examples}
+    ${recentContext}
 
-    FORMATTING OUTPUT:
-- First line MUST be "THEME_COLOR: [Hex Code]"(e.g.THEME_COLOR: #FF5733).Choose a color that matches the vibe.
-    - Then separate each tweet clearly with "---".
-    - Do not number the tweets(e.g. "Tweet 1").
-    - STRUCTURE PER TWEET:
-- Start with a COMPULSORY TEMPLATE TAG in brackets(e.g. [Event]).
-        - [New Line]
-    - The Insight / Statement(No emojis at start).
-        - [New Line]
-        - The Body(CRITICAL: 2 - 3 sentences of value - dense content.Connect the specific topic to the broader economic / tech reality.).
-        - [New Line]
-            - The CTA / URL.
-    - Choose the best visual template from: ${allTemplates}. If none fit, use[Campaign Launch].
-- STRICTLY NO HASHTAGS(unless explicitly requested).
-    - OUTPUT LENGTH: Each tweet must be substantial, not just a one - liner.
+    PROTOCOL:
+    ${audience}
+    VOICE: "${voice}"
+    ${bannedInstruction}
+
+    EXECUTION GUIDELINES:
+    1. **UNPREDICTABLE FLOW**: Mix up the structure (Short / List / Quote / Contrarian).
+    2. **SUBSTANCE**: Cite the "Strategic Focus Document" or "Core Knowledge" where possible.
+    3. **NO FLUFF**: If a sentence doesn't add value, remove it.
+    4. **FORMATTING**: Use '\\n' for line breaks inside the JSON string to make it readable.
+
+    OUTPUT FORMAT (JSON ONLY):
+    Output a RAW JSON object.
+    
+    {
+        "themeColor": "#HEXCODE",
+        "drafts": [
+            {
+                "tweet": "Tweet content...\\n\\nUse line breaks for spacing.",
+                "template": "One of: ${allTemplates}",
+                "reasoning": "EXPLICITLY cite the source doc or goal this tweet advances (e.g. 'Aligns with Roadmap Q3 goal mentioned in Focus Doc')."
+            }
+        ]
+    }
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: `Generate the campaign draft now.`,
-            config: { systemInstruction: systemInstruction }
+            contents: `Generate ${count} strategic tweets aligned with the docs.`,
+            config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json"
+            }
         });
+
+        dispatchThinking(`✅ Campaign Drafts Generated`);
+        const text = response.text || "{}";
+        const json = JSON.parse(text);
+
         return {
-            content: response.text || "Failed to generate drafts.",
-            thinking: "No thinking trace available."
+            drafts: json.drafts || [],
+            themeColor: json.themeColor,
+            thinking: "JSON Generation Successful",
+            systemPrompt: systemInstruction // 🧠 EXPOSE THE PROMPT
         };
     } catch (error) {
         console.error("Campaign generation error", error);
-        return { content: "Error generating campaign drafts.", thinking: "Generation Failed." };
+        return { drafts: [], thinking: "Generation Failed.", systemPrompt: "Error" };
     }
-}
+};
 
 /**
  * STRATEGY: Generates a full marketing campaign brief.
@@ -687,10 +847,20 @@ export const generateCampaignStrategy = async (
     activeCampaigns: string[],
     brandName: string,
     brandConfig: BrandConfig,
-    brainContext: string = "", // NEW
-    focusContent: string = "" // NEW
+    brainContext: string = "", // NEW (History)
+    focusContent: string = "", // NEW (User Doc)
+    ragContext: string = "" // NEW (Deep Search)
 ): Promise<CampaignStrategy> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    // SYSTEM THINKING
+    dispatchThinking("Generating Campaign Strategy", {
+        theme,
+        hasContext: !!userContext,
+        hasBrainHistory: !!brainContext,
+        hasDeepContext: !!ragContext
+    });
 
     const kb = brandConfig.knowledgeBase.join('\n');
     const examples = brandConfig.tweetExamples.slice(0, 3).join('\n');
@@ -707,18 +877,23 @@ export const generateCampaignStrategy = async (
 
     const systemInstruction = `
     You are the Chief Marketing Officer for ${brandName}.
+    You are a strategic genius known for precision, ROI-focus, and clarity.
+    
     
     CAMPAIGN CONTEXT:
     - Goal: ${goal}
-- Theme / Topic: ${theme}
-- Platforms: ${platforms.join(', ')}
-- Situation / Context: ${userContext || "None provided"}
+    - Theme / Topic: ${theme}
+    - Platforms: ${platforms.join(', ')}
+    - Situation / Context: ${userContext || "None provided"}
     
-    ACTIVE CAMPAIGNS & CONTENT(Analyze for synergy / conflicts):
+    ACTIVE CAMPAIGNS & CONTENT (Analyze for synergy / conflicts):
     ${activeCampaignsList}
 
-    MARKETING BRAIN MEMORY(Recent decisions / insights):
+    MARKETING BRAIN MEMORY (Recent decisions / insights):
     ${brainContext || "No recent context."}
+
+    DEEP KNOWLEDGE BASE (Strategic Docs & Best Performers):
+    ${ragContext || "No deep context found."}
     
     BRAND KNOWLEDGE:
     ${kb}
@@ -727,7 +902,7 @@ export const generateCampaignStrategy = async (
 
     BRAND PROTOCOLS:
     ${audienceProtocol}
-VOICE: ${voice}
+    VOICE: ${voice} (Do not deviate).
     ${bannedProtocol}
 
     TONE EXAMPLES:
@@ -805,7 +980,8 @@ export const generateTrendReaction = async (
     brandConfig: BrandConfig,
     type: 'Tweet' | 'Meme'
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     const examples = brandConfig.tweetExamples.length > 0
         ? `STYLE EXAMPLES: \n${brandConfig.tweetExamples.slice(0, 2).map(t => `- ${t}`).join('\n')} `
@@ -821,18 +997,18 @@ export const generateTrendReaction = async (
     let outputGuidance = "";
     if (type === 'Tweet') {
         outputGuidance = `
-Output: A single, punchy tweet(max 280 chars).
-    Strategy: Explicitly mention ${brandName} or its products.Connect the news("${trend.headline}") to our specific value proposition defined in the Knowledge Base.
-        Structure: Start with a HOOK.End with a CTA.
-            Style: Use line breaks and clear formatting.
-        STRICTLY NO HASHTAGS.
+    Output: A single, high-impact tweet based on the trend.
+    Strategy: Explicitly connect the news ("${trend.headline}") to ${brandName}'s value proposition (from Knowledge Base).
+    Structure: Hook -> Insight -> Soft CTA.
+    Style: Minimalist, confident, no hashtags.
+    Formatting: Use line breaks.
         `;
     } else {
         outputGuidance = `
-Output: A short, funny text caption or concept for a meme.
-    Strategy: Use internet humor to react to("${trend.headline}").Make it relatable to holders of ${brandName}.
-        ${hashtagInstruction}
-`;
+    Output: A short, funny text caption or concept for a meme.
+    Strategy: Use internet humor to react to ("${trend.headline}"). Make it relatable to holders of ${brandName}.
+    ${hashtagInstruction}
+    `;
     }
 
     // --- ENTERPRISE PROTOCOL ENFORCEMENT ---
@@ -896,7 +1072,8 @@ export const generateBusinessConnections = async (
     brandName: string,
     brandConfig: BrandConfig
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     // Filter top 10 trends for prompt
     const topTrends = trends.slice(0, 10).map(t => `- ${t.headline}: ${t.summary} `).join('\n');
@@ -944,7 +1121,8 @@ export const generateBusinessConnections = async (
 };
 
 export const generateIdeas = async (brandName: string): Promise<string[]> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash-exp',
@@ -963,11 +1141,12 @@ export const generateIdeas = async (brandName: string): Promise<string[]> => {
  * AI RESEARCH: Scrapes (Simulated) and infers brand identity from URL/Name.
  */
 export const researchBrandIdentity = async (brandName: string, url: string): Promise<BrandConfig> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     // Use Gemini if available for high-quality hallucination
     try {
-        if (!process.env.API_KEY) throw new Error("No API Key");
+        if (!getApiKey()) throw new Error("No API Key");
 
         const systemInstruction = `
         You are an expert Brand Identity Analyst and AI Researcher.
@@ -1032,7 +1211,8 @@ export const generateSmartReply = async (
     brandName: string,
     brandConfig: BrandConfig
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     // Determine stance based on 'War Room' sentiment
     const stance = sentimentScore > 60 ? "BULLISH/CONFIDENT" : sentimentScore < 40 ? "DEFENSIVE/REASSURING" : "NEUTRAL/PROFESSIONAL";
@@ -1093,7 +1273,9 @@ export const generateGrowthReport = async (
     campaigns: CampaignLog[],
     socialMetrics?: SocialMetrics
 ): Promise<GrowthReport> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    dispatchThinking(`📊 Generating Growth Report`, { hasOnChain: !!metrics, hasSocial: !!socialMetrics });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     let onChainSection = "ON-CHAIN DATA: Not connected / Unavailable. Focus analysis on social strategy.";
 
@@ -1220,7 +1402,9 @@ export const generateStrategicAnalysis = async (
     signals?: SocialSignals, // New: War Room Context
     recentLogs: BrainLog[] = [] // New: Cognitive Loop (Short Term Memory)
 ): Promise<StrategyTask[]> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    dispatchThinking(`🤖 Generating Strategic Analysis (Gaia)`, { brand: brandName, trendCount: trends.length });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
 
     // War Room Context
     const warRoomContext = signals ? `
@@ -1440,7 +1624,7 @@ function growthScore(report: GrowthReport): string {
  * CLASSIFIER: Categorizes an image into a specific template bucket.
  */
 export const classifyImage = async (imageUrl: string, categories: string[]): Promise<string | null> => {
-    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
     try {
@@ -1492,7 +1676,7 @@ export const classifyImage = async (imageUrl: string, categories: string[]): Pro
  * Extracts visual style guidelines from raw PDF text.
  */
 export const analyzeBrandKit = async (text: string): Promise<string> => {
-    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
     // Truncate if too long (Gemini 2.0 has big context, but let's be safe/efficient)
@@ -1535,4 +1719,157 @@ export const analyzeBrandKit = async (text: string): Promise<string> => {
         console.error("Brand Kit Analysis Failed", e);
         throw e;
     }
+};
+
+// --- UNIFIED MARKETING BRAIN LOGIC ---
+
+/**
+ * STEP 1: UNDERSTANDING (The Analyst)
+ * Analyzes the raw context (Trends, Docs, Goals) and outputs a Strategic Analysis.
+ */
+export const analyzeMarketContext = async (context: BrainContext): Promise<AnalysisReport> => {
+    dispatchThinking("🧠 Brain Phase 1: Analyzing Market Context...");
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt = `
+    ROLE: Chief Marketing Analyst.
+    
+    INPUT DATA:
+    - OBJECTIVE: "${context.userObjective}"
+    - TRENDS: ${context.marketState.trends.slice(0, 5).map(t => t.headline).join(', ')}
+    - PERFORMANCE: ${context.marketState.analytics ? `Top Post: ${context.marketState.analytics.topPost}` : 'No Data'}
+    - KNOWLEDGE: ${context.memory.ragDocs.join('\n').slice(0, 500)}... (truncated)
+
+    TASK: Analyze the situation.
+    1. Identify the core "Market Vibe" (Bearish/Bullish/Hype/Quiet).
+    2. Spot opportunities to insert the brand narrative.
+    3. Define a "Strategic Angle" (e.g. "Contrarian take on the current hype").
+
+    OUTPUT JSON:
+    {
+        "summary": "Brief 1-line market summary.",
+        "keyThemes": ["Theme A", "Theme B"],
+        "opportunities": ["Opp 1", "Opp 2"],
+        "risks": ["Risk 1"],
+        "strategicAngle": "The specific narrative angle we should take."
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        });
+        return JSON.parse(response.text || "{}");
+    } catch (e) {
+        console.error("Brain Phase 1 Failed", e);
+        return {
+            summary: "Analysis failed",
+            keyThemes: [],
+            opportunities: [],
+            risks: [],
+            strategicAngle: "General Brand Update"
+        };
+    }
+};
+
+/**
+ * STEP 2: PLANNING (The Strategist)
+ * Takes the Analysis and decides WHAT to do (The Action Plan).
+ */
+export const formulateStrategy = async (context: BrainContext, analysis: AnalysisReport): Promise<ActionPlan> => {
+    dispatchThinking("🧠 Brain Phase 2: Formulating Action Plan...", { angle: analysis.strategicAngle });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt = `
+    ROLE: Chief Marketing Strategist.
+    CONTEXT: ${analysis.summary}
+    STRATEGIC ANGLE: ${analysis.strategicAngle}
+    OBJECTIVE: ${context.userObjective}
+
+    TASK: Create a concrete Action Plan to execute this strategy.
+    
+    GUIDELINES:
+    - If the objective is specific (e.g. "Write a thread"), plan just that.
+    - If broad (e.g. "Grow awareness"), plan a mix (Tweet + Reply).
+    
+    OUTPUT JSON:
+    {
+        "actions": [
+            {
+                "type": "TWEET" | "THREAD" | "CAMPAIGN",
+                "topic": "Specific topic",
+                "goal": "What does this specific piece achieve?",
+                "instructions": "Specific constraints for the writer (e.g. 'Use the 3-part structure')"
+            }
+        ]
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        });
+        const result = JSON.parse(response.text || "{}");
+        return { analysis, actions: result.actions || [] };
+
+    } catch (e) {
+        console.error("Brain Phase 2 Failed", e);
+        return { analysis, actions: [] };
+    }
+};
+
+/**
+ * STEP 3: EXECUTION (The Creator) - MASTER FUNCTION
+ * Orchestrates the full loop.
+ */
+export const executeMarketingAction = async (context: BrainContext): Promise<MarketingAction[]> => {
+    // 1. ANALYZE
+    const analysis = await analyzeMarketContext(context);
+
+    // 2. PLAN
+    const plan = await formulateStrategy(context, analysis);
+
+    const results: MarketingAction[] = [];
+
+    // 3. EXECUTE
+    for (const action of plan.actions) {
+        dispatchThinking(`🧠 Brain Phase 3: Executing ${action.type}...`, { topic: action.topic });
+
+        // Dynamic Delegation based on Action Type
+        let content;
+        if (action.type === 'TWEET' || action.type === 'REPLY') {
+            // Re-use our "Deep Dive" tweet generator but with enhanced context
+            // TODO: In future, pass the specific "action.instructions" as a new param?
+            // For now, we rely on the topic carrying the instruction.
+            const enhancedTopic = `${action.topic}. GOAL: ${action.goal}. INSTRUCTION: ${action.instructions}`;
+
+            content = await generateTweet(
+                enhancedTopic,
+                'Enki', // TODO: Get from context.brand
+                context.brand,
+                "Professional"
+            );
+        } else if (action.type === 'CAMPAIGN') {
+            // Use Campaign generator
+            const res = await generateCampaignDrafts(action.topic, 'Enki', context.brand, 3);
+            content = res.drafts;
+        } else {
+            content = "Unsupported Action Type";
+        }
+
+        results.push({
+            type: action.type as any,
+            topic: action.topic,
+            goal: action.goal,
+            content: content
+        });
+    }
+
+    return results;
 };
