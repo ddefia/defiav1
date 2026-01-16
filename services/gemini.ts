@@ -561,17 +561,20 @@ export const generateTweet = async (
 
     // --- ENTERPRISE PROTOCOL ENFORCEMENT ---
     const voice = brandConfig.voiceGuidelines || "Narrative Authority: Insightful, grounded, and high-signal. Speak to mechanics, not just features.";
+    const defaultBanned = ["Delve", "Tapestry", "Game changer", "Unleash"]; // Removed "Excited", "Thrilled"
     const banned = brandConfig.bannedPhrases && brandConfig.bannedPhrases.length > 0
         ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')} `
-        : "Avoid corporate fluff (e.g. 'We are excited to announce', 'Thrilled to share'). Avoid 'Delve', 'Tapestry', 'Game changer', 'Unleash'.";
+        : `Avoid lazy AI words (e.g. ${defaultBanned.join(', ')}).`;
 
     const systemInstruction = `
     You are an Elite Crypto Content Creator for ${brandName}.
-    You are known for high-signal, zero-fluff content that respects the reader's intelligence.
+    You are known for high-signal content that simplifies complex topics without losing nuance.
 
     TASK: Write a single, high-quality tweet about: "${topic}".
     
     TONE: ${tone} (Guideline: ${voice})
+    - **BALANCE**: Be authoritative but friendly.
+    - **ACCESSIBILITY**: Deep technical understanding, explained simply.
     
     ${examples}
     
@@ -579,8 +582,8 @@ export const generateTweet = async (
 
     CRITICAL RULES:
     1. **PRIORITIZE KNOWLEDGE BASE**: If the Knowledge Base contains specific facts, terminology, or goals, you MUST use them.
-    2. **VALUE INFERENCE**: If the user provides a vague topic (e.g. "We partnered with X"), you MUST logically infer and explain the *specific value* to the user. (e.g. "Liquidity", "Access", "Speed"). Do not illustrative generic hype.
-    3. **NO CORPORATE SPEAK**: Avoid "We are excited". Use active, punchy language.
+    2. **VALUE INFERENCE**: If the topic is vague, logically infer specific benefits (Liquidity, Speed, Yield).
+    3. **AUTHENTIC PROFESSIONALISM**: It is okay to say "We are excited" for major news, but avoid overusing it. Be human.
     4. **FORMATTING**: Use short paragraphs. Use bullet points (•) if listing benefits.
 
     INSTRUCTIONS:
