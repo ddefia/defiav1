@@ -750,8 +750,25 @@ export const generateCampaignDrafts = async (
     ${rules}
     `;
     } else {
+        const isCampaign = count >= 3;
         taskInstruction = `
     TASK: Generate ${count} strategic tweets about "${theme}".
+    
+    ${isCampaign ? `
+    🚨 **CAMPAIGN MODE: NARRATIVE ARC REQUIRED** 🚨
+    Do NOT generate ${count} unconnected tweets.
+    You MUST create a cohesive **Story Arc** that moves the user from "Unaware" to "Convicted".
+    
+    **REQUIRED SAMPLE FLOW (Adapt as needed):**
+    1. **THE HOOK/PROBLEM**: High-level vision. Identifying the industry pain point.
+    2. **THE SOLUTION/MECHANIC**: How "${brandName}" solves it. Deep dive into the tech of "${theme}".
+    3. **THE VALUE/PAYOFF**: What does the user get? (Yield? Security? Speed?). *Infer value if not explicit.*
+    4. **SOCIAL PROOF/MOMENTUM**: Why is this happening NOW?
+    5. **THE CLOSER**: Hard CTA. Recap and convert.
+    
+    *Ensure each tweet stands alone but contributes to this wider narrative.*
+    ` : ''}
+
     STRATEGY: Align with the Roadmap and Documents below.
     INTENT RECOGNITION: If "${theme}" is a broad topic, treat this as a request for a "Masterclass Campaign" - deep diving into every aspect of the topic.
     `;
