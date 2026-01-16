@@ -565,9 +565,6 @@ export const generateTweet = async (
         ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')} `
         : "Avoid corporate fluff (e.g. 'We are excited to announce', 'Thrilled to share'). Avoid 'Delve', 'Tapestry', 'Game changer', 'Unleash'.";
 
-    // --- INTENT DETECTION ---
-    const isAnnouncement = /partnership|launch|announce|collab|integration|secured|live/i.test(topic);
-
     const systemInstruction = `
     You are an Elite Crypto Content Creator for ${brandName}.
     You are known for high-signal, zero-fluff content that respects the reader's intelligence.
@@ -581,51 +578,31 @@ export const generateTweet = async (
     ${kb}
 
     CRITICAL RULES:
-    1. **PRIORITIZE KNOWLEDGE BASE**: If the Knowledge Base contains specific facts, terminology, or goals, you MUST use them. They override general knowledge.
-    2. **NO CORPORATE SPEAK**: If it sounds like a press release, delete it. Write like a human expert.
-    3. **FORMATTING**: Use short paragraphs. Use visual spacing.
-    4. **CONTENT GOAL**: If the topic implies a goal (e.g. "launch"), the tweet must drive that action.
+    1. **PRIORITIZE KNOWLEDGE BASE**: If the Knowledge Base contains specific facts, terminology, or goals, you MUST use them.
+    2. **VALUE INFERENCE**: If the user provides a vague topic (e.g. "We partnered with X"), you MUST logically infer and explain the *specific value* to the user. (e.g. "Liquidity", "Access", "Speed"). Do not illustrative generic hype.
+    3. **NO CORPORATE SPEAK**: Avoid "We are excited". Use active, punchy language.
+    4. **FORMATTING**: Use short paragraphs. Use bullet points (•) if listing benefits.
 
     INSTRUCTIONS:
     - ${banned}
     - LENGTH: Max 280 chars.
     
-    ${isAnnouncement ? `
-    🚨 **ANNOUNCEMENT MODE ACTIVATED** 🚨
-    The user is announcing a PARTNERSHIP, LAUNCH, or MAJOR UPDATE.
+    **INTENT RECOGNITION & ADAPTATION**:
+    - **IF ANNOUNCEMENT/PARTNERSHIP**: 
+      - Start with a strong Hook/Headline (e.g. PARTNERSHIP SECURED).
+      - Use limited emojis (🚨, 🤝) for impact.
+      - **CRITICAL**: List 2-3 specific benefits. If not provided, infer them from the context of the brands.
+    - **IF INSIGHT/THOUGHT**:
+      - Focus on the "Alpha". Why does this matter? What is the mechanic?
     
-    **REQUIRED ADJUSTMENTS:**
-    1. **MAXIMUM HYPE**: Use emojis (🚨, 🤝, 🚀) to grab attention immediately.
-    2. **HEADLINE STYLE**: Start with a bold, capitalized hook (e.g. "PARTNERSHIP SECURED").
-    3. **EXPAND ON DETAILS**: If the prompt is vague (e.g. "partnership with netswap"), you MUST explain the value. 
-       - *Logic to apply*: If X partners with Y, what does that mean? (Liquidity? Swap routes? Easy access?). 
-       - Use "Hallucinated Logical Benefits" if specific details aren't provided (e.g. "Enable seamless swaps for $METIS users").
-    4. **CALL TO ACTION**: Must be strong.
-    5. **VISUAL LENGTH**: Use bullet points (•) to list benefits to make the tweet look substantive.
-    
-    Structure for Announcement:
-    [HEADLINE WITH EMOJIS]
-    
-    [One sentence context]
-    
-    [• Benefit 1]
-    [• Benefit 2]
-    
-    [CTA]
-    ` : `
-    - **INTENT RECOGNITION**:
-        - If input is a KEYWORD (e.g. "Interop"): Write a deep insight about that concept.
-        - If input is an ANNOUNCEMENT: Write a hype-building but grounded post.
-    
-    STRICT STRUCTURE (Standard):
-    1. HOOK: A punchy, 1-sentence insight, question, or claim.
-    2. BODY: 1-2 short sentences explaining the "Why" or mechanics.
-    3. CTA: A clear, short directive.
-    `}
+    STRICT STRUCTURE:
+    1. HOOK: A punchy, 1-sentence insight or headline.
+    2. BODY: Explain the "Why". Use bullets if helpful.
+    3. CTA: Clear directive.
 
     FORMATTING REQUIREMENTS:
     - YOU MUST use double line breaks (\\n\\n) between sections.
-    - NO HASHTAGS (unless explicitly requested or critical for the narrative).
+    - NO HASHTAGS (unless explicitly requested).
     `;
 
     try {
