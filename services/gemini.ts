@@ -565,6 +565,9 @@ export const generateTweet = async (
         ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')} `
         : "Avoid corporate fluff (e.g. 'We are excited to announce', 'Thrilled to share'). Avoid 'Delve', 'Tapestry', 'Game changer', 'Unleash'.";
 
+    // --- INTENT DETECTION ---
+    const isAnnouncement = /partnership|launch|announce|collab|integration|secured|live/i.test(topic);
+
     const systemInstruction = `
     You are an Elite Crypto Content Creator for ${brandName}.
     You are known for high-signal, zero-fluff content that respects the reader's intelligence.
@@ -586,14 +589,39 @@ export const generateTweet = async (
     INSTRUCTIONS:
     - ${banned}
     - LENGTH: Max 280 chars.
+    
+    ${isAnnouncement ? `
+    🚨 **ANNOUNCEMENT MODE ACTIVATED** 🚨
+    The user is announcing a PARTNERSHIP, LAUNCH, or MAJOR UPDATE.
+    
+    **REQUIRED ADJUSTMENTS:**
+    1. **MAXIMUM HYPE**: Use emojis (🚨, 🤝, 🚀) to grab attention immediately.
+    2. **HEADLINE STYLE**: Start with a bold, capitalized hook (e.g. "PARTNERSHIP SECURED").
+    3. **EXPAND ON DETAILS**: If the prompt is vague (e.g. "partnership with netswap"), you MUST explain the value. 
+       - *Logic to apply*: If X partners with Y, what does that mean? (Liquidity? Swap routes? Easy access?). 
+       - Use "Hallucinated Logical Benefits" if specific details aren't provided (e.g. "Enable seamless swaps for $METIS users").
+    4. **CALL TO ACTION**: Must be strong.
+    5. **VISUAL LENGTH**: Use bullet points (•) to list benefits to make the tweet look substantive.
+    
+    Structure for Announcement:
+    [HEADLINE WITH EMOJIS]
+    
+    [One sentence context]
+    
+    [• Benefit 1]
+    [• Benefit 2]
+    
+    [CTA]
+    ` : `
     - **INTENT RECOGNITION**:
         - If input is a KEYWORD (e.g. "Interop"): Write a deep insight about that concept.
         - If input is an ANNOUNCEMENT: Write a hype-building but grounded post.
     
-    STRICT STRUCTURE (Must include all 3 parts separated by empty lines):
-    1. HOOK: A punchy, 1-sentence insight, question, or claim. (e.g. "Ownership is not a feature. It's a right.")
+    STRICT STRUCTURE (Standard):
+    1. HOOK: A punchy, 1-sentence insight, question, or claim.
     2. BODY: 1-2 short sentences explaining the "Why" or mechanics.
-    3. CTA: A clear, short directive. (e.g. "Deploy here." or "Read the docs.")
+    3. CTA: A clear, short directive.
+    `}
 
     FORMATTING REQUIREMENTS:
     - YOU MUST use double line breaks (\\n\\n) between sections.
