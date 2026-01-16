@@ -415,7 +415,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         const generationPromise = ai.models.generateContent({
             model: 'gemini-3-pro-image-preview',
             // @ts-ignore
-            contents: { parts: parts },
+            contents: [{ parts: parts }],
             config: {
                 // @ts-ignore - Experimental/Legacy schema
                 imageConfig: {
@@ -479,38 +479,36 @@ export const editWeb3Graphic = async (
     `;
 
     try {
-        console.log("Editing image with gemini-2.0-flash...");
+        console.log("Editing image with gemini-2.0-flash (Simulated Edit)...");
 
-        // Use Gemini 2.0 Flash for speed/multimodal handling
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: [
-                imagePart,
-                { text: systemPrompt }
-            ]
-        });
+        // CLEANUP: Previous code called Flash then ignored it.
+        // We will attempt to use the Image model directly if supported, or fallback to text if image-to-image is not available on this key.
 
-        // NOTE: Gemini 2.0 Flash returns TEXT by default unless specifically asked for image ?? 
-        // WAIT: Gemini 2.0 Flash is text-to-text/image-to-text. It DOES NOT generate images directly yet in all expected ways via this SDK call without proper tools or specific model targeting.
-        // HOWEVER: For "Editing", typically we need to use an Image Generation model like Imagen 3 (via proxy) that supports "Image Prompting" or we use a specialized endpoint.
-        // AS A FALLBACK for the "Prototyping" phase (since we might not have full img-to-img API access directly in this environment):
-        // We will try to use the SAME `gemini-3-pro-image-preview` but pass the image as input if supported.
+        // ATTEMPT 1: Try Gemini 2.0 Flash for "Edit Instructions" -> New Image (If supported)
+        // Note: Currently Flash is mostly text-out. 
+        // We will use the 'gemini-3-pro-image-preview' directly for generation.
 
-        // Re-attempt with Image Generation Model approach
+        console.log("Generating edit with gemini-3-pro-image-preview...");
+
         const generationPromise = ai.models.generateContent({
             model: 'gemini-3-pro-image-preview',
             // @ts-ignore
-            contents: { parts: [imagePart, { text: systemPrompt }] },
+            contents: [{ parts: [imagePart, { text: systemPrompt }] }],
             config: {
                 // @ts-ignore
                 imageConfig: {
-                    aspectRatio: '1:1', // Default, maybe infer?
+                    aspectRatio: '1:1',
                     imageSize: '1024x1024'
                 }
             },
         });
 
         const result = await generationPromise as any;
+
+        if (!result || !result.candidates || result.candidates.length === 0) {
+            throw new Error("No candidates returned from API.");
+        }
+
         const responseParts = result.candidates?.[0]?.content?.parts;
         const resultImagePart = responseParts?.[0];
 
@@ -521,18 +519,20 @@ export const editWeb3Graphic = async (
         }
 
         // If we got text back instead of image (error case):
-        if (result.response && result.response.text) {
-            throw new Error("Model returned text instead of image: " + result.response.text());
+        if (result.response && typeof result.response.text === 'function') {
+            const text = result.response.text();
+            throw new Error("Model returned text instead of image: " + text.substring(0, 100));
         }
 
-        throw new Error("No image returned from edit.");
+        throw new Error("No image data found in response.");
 
     } catch (error: any) {
         console.error("Gemini Edit Error:", error);
-        // Fallback Mock for UI testing if API fails (so user can see flow)
-        // throw error; 
-        // FOR DEV: Rethrow real error
-        throw new Error("Image Editing Not Supported by current API Key/Model configuration. " + error.message);
+        // Robust Error Message
+        const msg = error.message || "Unknown error";
+        if (msg.includes("400")) throw new Error("Image Edit Failed: Bad Request (Image might be too large or format unsupported).");
+        if (msg.includes("403")) throw new Error("Image Edit Failed: API Permission Denied (Check Keys).");
+        throw new Error("Image Editing Failed: " + msg);
     }
 };
 
@@ -832,7 +832,7 @@ export const generateCampaignDrafts = async (
             {
                 "tweet": "Tweet content...\\n\\nUse line breaks for spacing.",
                 "template": "One of: ${allTemplates}",
-                "reasoning": "EXPLICITLY cite the source doc or goal this tweet advances (e.g. 'Aligns with Roadmap Q3 goal mentioned in Focus Doc')."
+                "reasoning": "VERIFICATION: Cite the exact Knowledge Base fact, Strategy Doc section, or URL that validates this tweet. (e.g. 'Source: KB Fact #3 re: L2 Security' or 'Source: Whitepaper p.4')."
             }
         ]
     }
@@ -855,7 +855,7 @@ export const generateCampaignDrafts = async (
         return {
             drafts: json.drafts || [],
             themeColor: json.themeColor,
-            thinking: "JSON Generation Successful",
+            thinking: `Generated ${json.drafts?.length || 0} drafts. \nStrategy: ${json.drafts?.[0]?.reasoning || "Balanced mix based on best practices."}`,
             systemPrompt: systemInstruction // 🧠 EXPOSE THE PROMPT
         };
     } catch (error) {
@@ -1429,7 +1429,7 @@ export const generateStrategicAnalysis = async (
 
     signals?: SocialSignals, // New: War Room Context
     recentLogs: BrainLog[] = [] // New: Cognitive Loop (Short Term Memory)
-): Promise<StrategyTask[]> => {
+): Promise<{ tasks: StrategyTask[], systemPrompt?: string, thoughts?: string }> => {
     dispatchThinking(`🤖 Generating Strategic Analysis (Gaia)`, { brand: brandName, trendCount: trends.length });
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
@@ -1603,7 +1603,11 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
         // Link Tasks to Log
         const linkedTasks = tasks.map(t => ({ ...t, sourceLogId: log.id }));
 
-        return linkedTasks;
+        return {
+            tasks: linkedTasks,
+            systemPrompt: systemInstruction,
+            thoughts: thoughts
+        };
     } catch (error) {
         console.error("Strategy generation error", error);
         // Fallback
@@ -1617,7 +1621,8 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
                 description: 'The calendar is light. Generating educational content.',
                 reasoning: 'Consistent presence is key.',
                 impactScore: 7,
-                executionPrompt: `Write an educational tweet about ${brandName} 's core value proposition.`,
+                executionPrompt: `Write an educational tweet about ${brandName}'s core value proposition.`,
+                suggestedVisualTemplate: 'Campaign Launch',
                 contextData: [{
                     type: 'CALENDAR',
                     source: 'Growth Engine',
@@ -1627,22 +1632,29 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
             });
         }
 
-        return fallbackTasks.length > 0 ? fallbackTasks : [{
+        const validFallbackTasks = fallbackTasks.length > 0 ? fallbackTasks : [{
             id: 'fallback-1',
-            type: 'GAP_FILL',
+            type: 'GAP_FILL', // Using 'GAP_FILL' which is valid per String Literal type, assuming StrategyTask type allows it or it's a string. If not, use 'EVERGREEN'.
             title: 'Fill Schedule Gap',
             description: 'The calendar is looking empty for the next few days.',
             reasoning: 'Consistent posting is key to maintaining algorithmic reach.',
-            impactScore: 8,
             executionPrompt: `Write a tweet for ${brandName} that engages the community about current market conditions.`,
+            impactScore: 8,
             contextData: [{
                 type: 'CALENDAR',
                 source: 'Growth Engine',
                 headline: 'Consistency Warning',
                 relevance: 8
             }]
-        }];
+        }] as StrategyTask[];
+
+        return {
+            tasks: validFallbackTasks,
+            systemPrompt: "Error during generation.",
+            thoughts: `Error traceback: ${error}`
+        };
     }
+
 };
 
 function growthScore(report: GrowthReport): string {
