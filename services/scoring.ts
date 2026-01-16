@@ -22,9 +22,10 @@ export interface DefiaScore {
 export const calculateDefiaScore = (
     social: SocialMetrics | null,
     chain: ComputedMetrics | null,
-    tasks: StrategyTask[]
+    tasks: StrategyTask[] | null | undefined
 ): DefiaScore => {
 
+    const safeTasks = Array.isArray(tasks) ? tasks : [];
     let socialScore = 0; // Max 50 (or 80 if chain missing)
     let chainScore = 0; // Max 30
     let strategyScore = 0; // Max 20
@@ -87,8 +88,8 @@ export const calculateDefiaScore = (
     // --- 3. STRATEGY SCORE (Velocity) ---
     // Based on tasks active/completed
     // Max 20 points. Each high impact task = 4 points.
-    const activeTasks = tasks.length;
-    const highImpactTasks = tasks.filter(t => t.impactScore >= 7).length;
+    const activeTasks = safeTasks.length;
+    const highImpactTasks = safeTasks.filter(t => t.impactScore >= 7).length;
 
     strategyScore = Math.min((highImpactTasks * 4) + (activeTasks * 1), 20);
 
