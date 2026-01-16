@@ -761,7 +761,10 @@ export const generateCampaignDrafts = async (
     
     **REQUIRED SAMPLE FLOW (Adapt as needed):**
     1. **THE HOOK/PROBLEM**: High-level vision. Identifying the industry pain point.
-    2. **THE SOLUTION/MECHANIC**: How "${brandName}" solves it. Deep dive into the tech of "${theme}".
+    2. **THE SOLUTION/MECHANIC**: How "${brandName}" solves it. 
+       - **CRITICAL**: You MUST Explain the MECHANISM using the "CORE KNOWLEDGE BASE". 
+       - Do NOT just say it "works". Explain HOW (e.g. "By separating execution from consensus...").
+       - Use "Alpha" level details. No surface-level marketing fluff.
     3. **THE VALUE/PAYOFF**: What does the user get? (Yield? Security? Speed?). *Infer value if not explicit.*
     4. **SOCIAL PROOF/MOMENTUM**: Why is this happening NOW?
     5. **THE CLOSER**: Hard CTA. Recap and convert.
