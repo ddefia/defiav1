@@ -914,160 +914,129 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
           ))}
         </div>
 
-        {/* CLASSIFICATION & DETAILS MODAL */}
+        {/* CLASSIFICATION & DETAILS MODAL (COMPACT) */}
         {classifyingImageId && (() => {
           const img = config.referenceImages.find(i => i.id === classifyingImageId);
           if (!img) return null;
 
           return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200" onClick={() => setClassifyingImageId(null)}>
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setClassifyingImageId(null)}>
               <div
-                className="bg-white rounded-2xl w-full max-w-4xl h-[80vh] flex overflow-hidden shadow-2xl ring-1 ring-white/10"
+                className="bg-white rounded-xl w-full max-w-md shadow-2xl ring-1 ring-black/5 overflow-hidden flex flex-col max-h-[90vh]"
                 onClick={e => e.stopPropagation()}
               >
 
-                {/* LEFT: IMAGE PREVIEW */}
-                <div className="w-1/2 bg-gray-900 flex items-center justify-center p-8 relative group">
-                  <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
-                  <img
-                    src={img.data || img.url}
-                    className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
-                    alt="Preview"
-                  />
-                  <div className="absolute bottom-4 left-4 text-xs text-brand-muted font-mono bg-black/50 px-2 py-1 rounded">
-                    ID: {img.id.slice(0, 8)}
+                {/* Header: Thumbnail + Rename */}
+                <div className="p-4 border-b border-gray-100 flex gap-4 items-center bg-gray-50/50">
+                  <div className="w-16 h-16 shrink-0 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
+                    <img src={img.data || img.url} className="w-full h-full object-cover" alt="Thumb" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5 block">Filename</label>
+                    <input
+                      type="text"
+                      value={img.name}
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        onChange({
+                          ...config,
+                          referenceImages: config.referenceImages.map(i => i.id === img.id ? { ...i, name: newName } : i)
+                        });
+                      }}
+                      className="w-full text-sm font-bold text-gray-900 bg-transparent border-none p-0 focus:ring-0 truncate"
+                    />
+                    <p className="text-[10px] text-gray-400 font-mono mt-0.5">{img.id.slice(0, 8)}</p>
                   </div>
                 </div>
 
-                {/* RIGHT: CONTROLS */}
-                <div className="w-1/2 flex flex-col bg-white">
+                {/* Content: Linked Templates */}
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                  <h3 className="text-xs font-bold text-gray-900 mb-2 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
+                    Linked Templates
+                  </h3>
 
-                  {/* Header */}
-                  <div className="p-6 border-b border-gray-100">
-                    <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-1 block">Filename</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={img.name}
-                        onChange={(e) => {
-                          const newName = e.target.value;
-                          onChange({
-                            ...config,
-                            referenceImages: config.referenceImages.map(i => i.id === img.id ? { ...i, name: newName } : i)
-                          });
-                        }}
-                        className="flex-1 text-lg font-bold text-gray-900 border-b border-transparent hover:border-gray-300 focus:border-brand-accent focus:outline-none transition-colors bg-transparent"
-                      />
-                    </div>
-                  </div>
+                  <div className="space-y-1.5 mb-6">
+                    {(config.graphicTemplates || []).length === 0 && (
+                      <p className="text-xs text-gray-400 italic">No templates created yet.</p>
+                    )}
 
-                  {/* Content */}
-                  <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-
-                    {/* LINKED TEMPLATES */}
-                    <div className="mb-8">
-                      <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
-                        Linked Templates
-                      </h3>
-                      <p className="text-xs text-gray-500 mb-4">
-                        Select which templates use this image as a style reference.
-                      </p>
-
-                      <div className="space-y-2">
-                        {(config.graphicTemplates || []).length === 0 && (
-                          <p className="text-xs text-gray-400 italic">No templates created yet.</p>
-                        )}
-
-                        {(config.graphicTemplates || []).map(tmpl => {
-                          const isLinked = tmpl.referenceImageIds?.includes(img.id);
-                          return (
-                            <div
-                              key={tmpl.id}
-                              onClick={() => toggleImageLink(tmpl.id, img.id)}
-                              className={`
-                                  flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all
+                    {(config.graphicTemplates || []).map(tmpl => {
+                      const isLinked = tmpl.referenceImageIds?.includes(img.id);
+                      return (
+                        <div
+                          key={tmpl.id}
+                          onClick={() => toggleImageLink(tmpl.id, img.id)}
+                          className={`
+                                  flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-all
                                   ${isLinked
-                                  ? 'border-brand-accent bg-brand-accent/5 shadow-sm'
-                                  : 'border-gray-100 hover:border-brand-accent/30 hover:bg-gray-50'
-                                }
+                              ? 'border-brand-accent bg-brand-accent/5'
+                              : 'border-gray-100 hover:border-brand-accent/30 hover:bg-gray-50'
+                            }
                                 `}
-                            >
-                              <div>
-                                <div className={`text-sm font-medium ${isLinked ? 'text-brand-accent' : 'text-gray-700'}`}>{tmpl.label}</div>
-                                <div className="text-[10px] text-gray-400">{tmpl.category || 'Uncategorized'}</div>
-                              </div>
-
-                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${isLinked ? 'bg-brand-accent border-brand-accent text-white' : 'border-gray-300 text-transparent'}`}>
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* QUICK ACTIONS */}
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-900 mb-3">Quick Actions</h3>
-                      {!isCreatingQuick ? (
-                        <button
-                          onClick={() => {
-                            setLinkingImageId(img.id); // Re-use this state for the quick create logic
-                            setIsCreatingQuick(true);
-                          }}
-                          className="w-full py-3 border border-dashed border-gray-300 rounded-xl text-xs font-bold text-gray-500 hover:text-brand-accent hover:border-brand-accent hover:bg-brand-accent/5 transition-all flex items-center justify-center gap-2"
                         >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                          Create New Template from this Image
-                        </button>
-                      ) : (
-                        <div className="bg-gray-50 border border-brand-accent/20 rounded-xl p-4 animate-in fade-in zoom-in-95">
-                          <h4 className="text-xs font-bold text-brand-accent uppercase mb-3">New Template</h4>
-                          <div className="space-y-3">
-                            <input
-                              value={quickTmplName}
-                              onChange={e => setQuickTmplName(e.target.value)}
-                              placeholder="Template Name"
-                              className="w-full text-sm p-2 rounded border border-gray-200 focus:border-brand-accent outline-none"
-                              autoFocus
-                            />
-                            <textarea
-                              value={quickTmplPrompt}
-                              onChange={e => setQuickTmplPrompt(e.target.value)}
-                              placeholder="Style Prompt..."
-                              className="w-full text-sm p-2 rounded border border-gray-200 focus:border-brand-accent outline-none h-16 resize-none"
-                            />
-                            <div className="flex justify-end gap-2">
-                              <button onClick={() => setIsCreatingQuick(false)} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-200 rounded">Cancel</button>
-                              <Button onClick={() => {
-                                setLinkingImageId(img.id); // Ensure set
-                                createQuickTemplate();
-                              }} className="text-xs h-7 py-0">Create</Button>
-                            </div>
+                          <span className={`text-xs font-medium ${isLinked ? 'text-brand-accent' : 'text-gray-700'}`}>{tmpl.label}</span>
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${isLinked ? 'bg-brand-accent border-brand-accent text-white' : 'border-gray-300 text-transparent'}`}>
+                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                           </div>
                         </div>
-                      )}
-                    </div>
-
+                      );
+                    })}
                   </div>
 
-                  {/* Footer */}
-                  <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <button
-                      onClick={(e) => {
-                        if (confirm("Delete this image?")) {
-                          removeImage(e, img.id);
-                          setClassifyingImageId(null);
-                        }
-                      }}
-                      className="text-xs text-red-500 hover:text-red-700 font-medium px-3 py-2 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      Delete Image
-                    </button>
-                    <Button onClick={() => setClassifyingImageId(null)}>Done</Button>
+                  {/* Quick Actions (Create Template) */}
+                  <div className="border-t border-gray-100 pt-4">
+                    {!isCreatingQuick ? (
+                      <button
+                        onClick={() => {
+                          setLinkingImageId(img.id);
+                          setIsCreatingQuick(true);
+                        }}
+                        className="w-full py-2 border border-dashed border-gray-300 rounded-lg text-xs font-medium text-gray-500 hover:text-brand-accent hover:border-brand-accent hover:bg-brand-accent/5 transition-all text-center"
+                      >
+                        + Create Template from this Image
+                      </button>
+                    ) : (
+                      <div className="bg-gray-50 border border-brand-accent/20 rounded-lg p-3 animate-in fade-in zoom-in-95">
+                        <input
+                          value={quickTmplName}
+                          onChange={e => setQuickTmplName(e.target.value)}
+                          placeholder="New Template Name"
+                          className="w-full text-xs p-2 rounded border border-gray-200 focus:border-brand-accent outline-none mb-2"
+                          autoFocus
+                        />
+                        <textarea
+                          value={quickTmplPrompt}
+                          onChange={e => setQuickTmplPrompt(e.target.value)}
+                          placeholder="Style Prompt..."
+                          className="w-full text-xs p-2 rounded border border-gray-200 focus:border-brand-accent outline-none h-12 resize-none mb-2"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => setIsCreatingQuick(false)} className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-200 rounded">Cancel</button>
+                          <Button onClick={() => {
+                            setLinkingImageId(img.id);
+                            createQuickTemplate();
+                          }} className="text-xs h-6 py-0 px-3">Create</Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </div>
 
+                {/* Footer */}
+                <div className="p-3 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
+                  <button
+                    onClick={(e) => {
+                      if (confirm("Delete this image?")) {
+                        removeImage(e, img.id);
+                        setClassifyingImageId(null);
+                      }
+                    }}
+                    className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 hover:bg-red-50 rounded transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <Button onClick={() => setClassifyingImageId(null)} className="h-8 text-xs">Done</Button>
                 </div>
 
               </div>
@@ -1075,144 +1044,144 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
           );
         })()}
 
-        <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 transition-all duration-500 overflow-hidden ${!viewingImage && config.referenceImages.length > 15 ? 'max-h-[300px] overflow-y-auto pr-1' : ''}`}>
 
-          {/* Link Modal */}
-          {linkingImageId && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-all duration-300" onClick={() => setLinkingImageId(null)}>
-              <div className="bg-white rounded-2xl p-6 w-[480px] shadow-2xl border border-white/20 ring-1 ring-black/5 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
 
-                <div className="mb-4">
-                  <h3 className="font-display font-semibold text-xl text-gray-900">Link Image to Template</h3>
-                  <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-                    Select which templates should use this image as a <span className="font-medium text-brand-accent">Strict Style Anchor</span>.
-                    The AI will mimic this image's layout and vibe.
-                  </p>
-                </div>
+        {/* Link Modal */}
+        {linkingImageId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-all duration-300" onClick={() => setLinkingImageId(null)}>
+            <div className="bg-white rounded-2xl p-6 w-[480px] shadow-2xl border border-white/20 ring-1 ring-black/5 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
 
-                <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-2 scrollbar-hide">
-                  {/* Create New Toggle */}
-                  {!isCreatingQuick ? (
-                    <button
-                      onClick={() => setIsCreatingQuick(true)}
-                      className="w-full py-3 px-4 text-sm font-medium text-brand-accent bg-brand-accent/5 border border-brand-accent/20 rounded-xl hover:bg-brand-accent/10 hover:border-brand-accent/40 transition-all flex items-center justify-center gap-2 group"
-                    >
-                      <div className="bg-brand-accent text-white rounded-full p-0.5 group-hover:scale-110 transition-transform">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-                      </div>
-                      Create New Template from this Image
-                    </button>
-                  ) : (
-                    <div className="bg-gray-50/50 p-4 rounded-xl border border-brand-accent/20 space-y-3 shadow-inner ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-200">
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1 block">Template Name</label>
-                        <input
-                          value={quickTmplName}
-                          onChange={e => setQuickTmplName(e.target.value)}
-                          placeholder="e.g. Neon Dark Mode"
-                          className="w-full text-sm p-2.5 rounded-lg border border-gray-200 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none transition-all"
-                          autoFocus
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1 block">Style Prompt</label>
-                        <textarea
-                          value={quickTmplPrompt}
-                          onChange={e => setQuickTmplPrompt(e.target.value)}
-                          placeholder="Describe the style (e.g. Dark background, glassy textures, vibrant accents...)"
-                          className="w-full text-sm p-2.5 rounded-lg border border-gray-200 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none transition-all h-20 resize-none"
-                        />
-                      </div>
-                      <div className="flex gap-2 justify-end pt-1">
-                        <button onClick={() => setIsCreatingQuick(false)} className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">Cancel</button>
-                        <Button onClick={createQuickTemplate} className="text-xs h-8 py-0" disabled={!quickTmplName || !quickTmplPrompt}>Save & Link</Button>
-                      </div>
+              <div className="mb-4">
+                <h3 className="font-display font-semibold text-xl text-gray-900">Link Image to Template</h3>
+                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                  Select which templates should use this image as a <span className="font-medium text-brand-accent">Strict Style Anchor</span>.
+                  The AI will mimic this image's layout and vibe.
+                </p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-2 scrollbar-hide">
+                {/* Create New Toggle */}
+                {!isCreatingQuick ? (
+                  <button
+                    onClick={() => setIsCreatingQuick(true)}
+                    className="w-full py-3 px-4 text-sm font-medium text-brand-accent bg-brand-accent/5 border border-brand-accent/20 rounded-xl hover:bg-brand-accent/10 hover:border-brand-accent/40 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <div className="bg-brand-accent text-white rounded-full p-0.5 group-hover:scale-110 transition-transform">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+                    </div>
+                    Create New Template from this Image
+                  </button>
+                ) : (
+                  <div className="bg-gray-50/50 p-4 rounded-xl border border-brand-accent/20 space-y-3 shadow-inner ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-200">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1 block">Template Name</label>
+                      <input
+                        value={quickTmplName}
+                        onChange={e => setQuickTmplName(e.target.value)}
+                        placeholder="e.g. Neon Dark Mode"
+                        className="w-full text-sm p-2.5 rounded-lg border border-gray-200 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none transition-all"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1 block">Style Prompt</label>
+                      <textarea
+                        value={quickTmplPrompt}
+                        onChange={e => setQuickTmplPrompt(e.target.value)}
+                        placeholder="Describe the style (e.g. Dark background, glassy textures, vibrant accents...)"
+                        className="w-full text-sm p-2.5 rounded-lg border border-gray-200 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none transition-all h-20 resize-none"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end pt-1">
+                      <button onClick={() => setIsCreatingQuick(false)} className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">Cancel</button>
+                      <Button onClick={createQuickTemplate} className="text-xs h-8 py-0" disabled={!quickTmplName || !quickTmplPrompt}>Save & Link</Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2 pt-2">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">Existing Templates</h4>
+
+                  {(config.graphicTemplates || []).length === 0 && !isCreatingQuick && (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-xl bg-gray-50/50">
+                      <p className="text-sm text-gray-400">No templates found.</p>
                     </div>
                   )}
 
-                  <div className="space-y-2 pt-2">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">Existing Templates</h4>
-
-                    {(config.graphicTemplates || []).length === 0 && !isCreatingQuick && (
-                      <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-xl bg-gray-50/50">
-                        <p className="text-sm text-gray-400">No templates found.</p>
-                      </div>
-                    )}
-
-                    {(config.graphicTemplates || []).map(tmpl => {
-                      const isLinked = tmpl.referenceImageIds?.includes(linkingImageId);
-                      return (
-                        <div
-                          key={tmpl.id}
-                          onClick={() => toggleImageLink(tmpl.id, linkingImageId)}
-                          className={`
+                  {(config.graphicTemplates || []).map(tmpl => {
+                    const isLinked = tmpl.referenceImageIds?.includes(linkingImageId);
+                    return (
+                      <div
+                        key={tmpl.id}
+                        onClick={() => toggleImageLink(tmpl.id, linkingImageId)}
+                        className={`
                             relative px-4 py-3.5 rounded-xl border transition-all duration-200 cursor-pointer flex items-center justify-between group
                             ${isLinked
-                              ? 'border-brand-accent bg-brand-accent/5 shadow-sm ring-1 ring-brand-accent/20'
-                              : 'border-gray-100 hover:border-brand-accent/30 hover:bg-gray-50 hover:shadow-sm'
-                            }
+                            ? 'border-brand-accent bg-brand-accent/5 shadow-sm ring-1 ring-brand-accent/20'
+                            : 'border-gray-100 hover:border-brand-accent/30 hover:bg-gray-50 hover:shadow-sm'
+                          }
                           `}
-                        >
-                          <div className="flex flex-col">
-                            <span className={`text-sm font-medium ${isLinked ? 'text-brand-accent' : 'text-gray-700 group-hover:text-gray-900'}`}>{tmpl.label}</span>
-                            <span className="text-[10px] text-gray-400 line-clamp-1">{tmpl.prompt}</span>
-                          </div>
+                      >
+                        <div className="flex flex-col">
+                          <span className={`text-sm font-medium ${isLinked ? 'text-brand-accent' : 'text-gray-700 group-hover:text-gray-900'}`}>{tmpl.label}</span>
+                          <span className="text-[10px] text-gray-400 line-clamp-1">{tmpl.prompt}</span>
+                        </div>
 
-                          <div className={`
+                        <div className={`
                              w-5 h-5 rounded-full flex items-center justify-center border transition-all
                              ${isLinked ? 'bg-brand-accent border-brand-accent text-white scale-100' : 'border-gray-300 text-transparent scale-90 group-hover:scale-100 group-hover:border-brand-accent/50'}
                           `}>
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                          </div>
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-6 mt-2 border-t border-gray-100">
-                  <Button onClick={() => setLinkingImageId(null)} variant="secondary" className="w-full sm:w-auto">Done</Button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Show More Button */}
-          {config.referenceImages.length > 15 && (
-            <div className="mt-3 flex justify-center sticky bottom-0 z-10">
-              <button
-                onClick={() => setViewingImage(viewingImage === 'ALL' ? null : 'ALL')}
-                className="text-xs text-brand-muted hover:text-brand-text bg-white border border-brand-border px-4 py-2 rounded-full shadow-sm flex items-center gap-2 transition-all hover:shadow-md"
-              >
-                {viewingImage === 'ALL' ? (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" /></svg>
-                    Collapse Gallery
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                    Show All {config.referenceImages.length} Images
-                  </>
-                )}
-              </button>
+              <div className="flex justify-end pt-6 mt-2 border-t border-gray-100">
+                <Button onClick={() => setLinkingImageId(null)} variant="secondary" className="w-full sm:w-auto">Done</Button>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Footer Actions */}
-        <div className="pt-6 mt-4 border-t border-brand-border/50 flex gap-3">
-          <Button onClick={handleCopyConfig} variant="secondary" className="flex-1 text-xs h-9 bg-gray-100 hover:bg-gray-200 text-gray-700 border-0">{copyStatus === 'copied' ? '✓ Copied JSON' : 'Copy Config JSON'}</Button>
-          <Button onClick={handleRestoreDefaults} variant="outline" className="text-xs h-9 text-red-500 hover:text-red-600 hover:bg-red-50 border-0 shadow-none">Restore Defaults</Button>
-        </div>
+        {/* Show More Button */}
+        {config.referenceImages.length > 15 && (
+          <div className="mt-3 flex justify-center sticky bottom-0 z-10">
+            <button
+              onClick={() => setViewingImage(viewingImage === 'ALL' ? null : 'ALL')}
+              className="text-xs text-brand-muted hover:text-brand-text bg-white border border-brand-border px-4 py-2 rounded-full shadow-sm flex items-center gap-2 transition-all hover:shadow-md"
+            >
+              {viewingImage === 'ALL' ? (
+                <>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" /></svg>
+                  Collapse Gallery
+                </>
+              ) : (
+                <>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                  Show All {config.referenceImages.length} Images
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
 
-        {
-          viewingImage && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setViewingImage(null)}>
-              <img src={viewingImage} className="max-w-full max-h-[90vh] rounded" />
-            </div>
-          )
-        }
-      </div >
-      );
+      {/* Footer Actions */}
+      <div className="pt-6 mt-4 border-t border-brand-border/50 flex gap-3">
+        <Button onClick={handleCopyConfig} variant="secondary" className="flex-1 text-xs h-9 bg-gray-100 hover:bg-gray-200 text-gray-700 border-0">{copyStatus === 'copied' ? '✓ Copied JSON' : 'Copy Config JSON'}</Button>
+        <Button onClick={handleRestoreDefaults} variant="outline" className="text-xs h-9 text-red-500 hover:text-red-600 hover:bg-red-50 border-0 shadow-none">Restore Defaults</Button>
+      </div>
+
+      {
+        viewingImage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setViewingImage(null)}>
+            <img src={viewingImage} className="max-w-full max-h-[90vh] rounded" />
+          </div>
+        )
+      }
+    </div >
+  );
 };
