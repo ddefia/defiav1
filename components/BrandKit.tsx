@@ -811,13 +811,10 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
           <Button onClick={addColor} variant="secondary" className="px-3 py-1 text-xs h-8" disabled={!newColorName}>Add</Button>
         </div>
       </div>
-
-      <div className="border-t border-brand-border"></div>
-
       {/* 5. IMAGES */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Reference Images ({config.referenceImages.length})</h3>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider pl-1">Reference Images ({config.referenceImages.length})</h3>
 
           <div className="flex gap-2">
             <button
@@ -861,13 +858,19 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
                 onChange({ ...config, referenceImages: newImages });
                 alert(`Classified ${updatedCount} images successfully!`);
               }}
-              className="text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded flex items-center gap-1"
+              className="text-xs font-medium text-brand-accent hover:text-white bg-white hover:bg-brand-accent border border-brand-accent/20 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm"
             >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
               Auto-Classify
             </button>
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" multiple className="hidden" />
-            <button onClick={() => fileInputRef.current?.click()} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">+ Upload</button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="text-xs font-medium text-white bg-black hover:bg-gray-800 px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1 transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+              Upload
+            </button>
           </div>
         </div>
 
@@ -1032,9 +1035,9 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
       </div>
 
       {/* Footer Actions */}
-      <div className="pt-6 border-t border-brand-border space-y-2">
-        <Button onClick={handleCopyConfig} variant="secondary" className="w-full text-xs h-8">{copyStatus === 'copied' ? 'Copied JSON!' : 'Copy Config JSON'}</Button>
-        <Button onClick={handleRestoreDefaults} variant="outline" className="w-full text-xs h-8 opacity-50 hover:opacity-100">Restore Defaults</Button>
+      <div className="pt-6 mt-4 border-t border-brand-border/50 flex gap-3">
+        <Button onClick={handleCopyConfig} variant="secondary" className="flex-1 text-xs h-9 bg-gray-100 hover:bg-gray-200 text-gray-700 border-0">{copyStatus === 'copied' ? '✓ Copied JSON' : 'Copy Config JSON'}</Button>
+        <Button onClick={handleRestoreDefaults} variant="outline" className="text-xs h-9 text-red-500 hover:text-red-600 hover:bg-red-50 border-0 shadow-none">Restore Defaults</Button>
       </div>
 
       {
