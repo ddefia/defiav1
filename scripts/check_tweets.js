@@ -18,7 +18,7 @@ async function checkTweetCount() {
     const { count, error } = await supabase
         .from('brain_memory')
         .select('*', { count: 'exact', head: true })
-        .eq('brand_id', 'metis');
+        .eq('brand_id', 'Metis');
 
     if (error) {
         console.error("❌ Error fetching count:", error.message);
@@ -30,7 +30,7 @@ async function checkTweetCount() {
     const { data, error: dataError } = await supabase
         .from('brain_memory')
         .select('created_at, content, metadata')
-        .eq('brand_id', 'metis')
+        .eq('brand_id', 'Metis')
         .limit(5);
 
     if (data && data.length > 0) {

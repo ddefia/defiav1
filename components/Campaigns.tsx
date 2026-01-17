@@ -314,9 +314,18 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 setBatchProgress(`Drafting ${batchLabel} (${allItems.length} generated so far)...`);
 
                 // Pass strategy context to drafting if available
-                const enhancedTheme = campaignStrategy
-                    ? `${themeToSend}. STRATEGY CONTEXT: Audience: ${campaignStrategy.targetAudience}. Messages: ${campaignStrategy.keyMessaging.join(', ')}.`
-                    : themeToSend;
+                const enhancedTheme = themeToSend;
+
+                // Create a "Strategy Document" from the object to force strict adherence
+                const strategyDoc = campaignStrategy ? `
+                GENERATED CAMPAIGN STRATEGY (STRICTLY ADHERE TO THIS):
+                Target Audience: ${campaignStrategy.targetAudience}
+                Strategic Rationale: ${campaignStrategy.strategicRationale}
+                Key Messaging Pillars:
+                ${campaignStrategy.keyMessaging.map(m => `- ${m}`).join('\n')}
+                ` : "";
+
+                const effectiveFocusContent = `${campaignFocusDoc}\n\n${strategyDoc}`.trim();
 
                 // GENERATION CALL
                 const result = await generateCampaignDrafts(
@@ -325,7 +334,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     brandConfig,
                     countForBatch,
                     undefined, // No content plan for quick mode
-                    campaignFocusDoc, // Pass Focus Doc
+                    effectiveFocusContent, // Pass Strategy as Focus Doc
                     recentPosts
                 );
 

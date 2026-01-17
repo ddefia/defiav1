@@ -580,19 +580,21 @@ export const generateTweet = async (
 
     INSTRUCTIONS:
     - ${banned}
-    - LENGTH: Max 280 chars.
+    - LENGTH: Optimal ~280 chars, but prioritize DEPTH. Do NOT sacrifice detail for brevity.
     
     **INTENT RECOGNITION & ADAPTATION**:
     - **IF ANNOUNCEMENT/PARTNERSHIP**: 
       - Start with a strong Hook/Headline (e.g. PARTNERSHIP SECURED).
       - Use limited emojis (🚨, 🤝) for impact.
       - **CRITICAL**: List 2-3 specific benefits. If not provided, infer them from the context of the brands.
+      - **STORYTELLING**: Do not just announce. Explain the "Journey" that led here.
     - **IF INSIGHT/THOUGHT**:
       - Focus on the "Alpha". Why does this matter? What is the mechanic?
+      - **DEEP DIVE**: Explain the technical nuance. Assume the reader is smart.
     
     STRICT STRUCTURE:
     1. HOOK: A punchy, 1-sentence insight or headline.
-    2. BODY: Explain the "Why". Use bullets if helpful.
+    2. BODY: Explain the "Why" in detail. Use bullets if helpful. MAKE IT DENSE.
     3. CTA: Clear directive.
 
     FORMATTING REQUIREMENTS:
@@ -788,7 +790,8 @@ export const generateCampaignDrafts = async (
     1. **STRATEGIC**: Strictly aligned with the "Strategic Focus Document" and "Core Knowledge".
     2. **REASONED**: Every tweet must have a clear "Why". Connecting it to a roadmap goal.
     3. **HIGH-SIGNAL**: Use dense, insightful language. "Alpha" > "Marketing".
-    4. **FORMATTED**: Perfect vertical spacing, clean hooks, no walls of text.
+    4. **FORMATTED**: Perfect vertical spacing, clean hooks.
+    5. **DETAILED**: Do NOT be brief. Be COMPREHENSIVE. Use the full character limit to explain the nuance.
 
     INPUT DATA (HIERARCHY OF TRUTH):
     1. [HIGHEST PRIORITY] STRATEGIC FOCUS DOCUMENT: ${focusContent || "None Provided"} (If this exists, it OVERRIDES everything).
@@ -835,7 +838,7 @@ export const generateCampaignDrafts = async (
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: `Generate ${count} strategic tweets aligned with the docs. NO HASHTAGS.`,
+            contents: taskInstruction,
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json"

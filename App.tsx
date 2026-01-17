@@ -20,6 +20,7 @@ import { BrainPage } from './components/Brain/BrainPage'; // Import BrainPage
 import { ContentStudio } from './components/ContentStudio'; // Import ContentStudio
 import { ImageEditor } from './components/ImageEditor'; // Import ImageEditor
 import { Sidebar } from './components/Sidebar';
+import { Settings } from './components/Settings'; // Import Settings
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals } from './types';
 
 
@@ -635,16 +636,15 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {/* SECTION: BRAND KIT */}
-                {appSection === 'profile' && selectedBrand && profiles[selectedBrand] && (
-                    <div className="w-full max-w-5xl mx-auto">
-                        <BrandKit
-                            brandName={selectedBrand}
-                            config={profiles[selectedBrand]}
-                            onChange={handleUpdateCurrentBrandConfig}
-                        />
-                    </div>
+                {/* SECTION: SETTINGS (Replaces 'profile') */}
+                {appSection === 'settings' && selectedBrand && profiles[selectedBrand] && (
+                    <Settings
+                        brandName={selectedBrand}
+                        config={profiles[selectedBrand]}
+                        onChange={handleUpdateCurrentBrandConfig}
+                    />
                 )}
+
 
                 {appSection === 'calendar' && selectedBrand && (
                     <div className="w-full max-w-7xl mx-auto">

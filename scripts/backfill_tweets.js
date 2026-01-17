@@ -1,6 +1,4 @@
 import 'dotenv/config';
-// import fetch from 'node-fetch'; // Built-in fetch used
-
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
@@ -13,13 +11,13 @@ const APIFY_TOKEN = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TO
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
-// BRANDS TO SYNC
-const TARGET_BRANDS = {
-    'metis': 'MetisL2',
-    'lazai': 'LazAINetwork',
-    'defia': 'DefiaLabs',
-    'netswap': 'netswapofficial',
-    'enki': 'ENKIProtocol'
+// BRANDS TO SYNC (Use validated IDs)
+const BRAND_MAPPING = {
+    'metis': { id: 'Metis', handle: 'MetisL2' },
+    'lazai': { id: 'LazAI', handle: 'LazAINetwork' },
+    'defia': { id: 'Defia', handle: 'DefiaLabs' },
+    'netswap': { id: 'Netswap', handle: 'netswapofficial' },
+    'enki': { id: 'ENKI Protocol', handle: 'ENKIProtocol' }
 };
 
 // INIT SUPABASE
@@ -35,25 +33,28 @@ if (!APIFY_TOKEN) {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function backfill() {
-    console.log("🚀 Starting Deep Backfill Engine...");
+    console.log("🚀 Starting Deep Backfill Engine (Fresh Fetch)...");
 
     if (!supabase) console.warn("⚠️  No Supabase credentials found. Saving to JSON only.");
 
-    for (const [key, handle] of Object.entries(TARGET_BRANDS)) {
-        console.log(`\n📥 Fetching history for: ${key} (@${handle})`);
+    // for (const [fileKey, config] of Object.entries(BRAND_MAPPING)) {
+    const fileKey = 'metis';
+    const config = BRAND_MAPPING['metis'];
+    {
+        console.log(`\n📥 Fetching history for: ${fileKey} (@${config.handle}) -> DB ID: ${config.id}`);
 
         try {
             // 1. CALL APIFY (Twitter Scraper)
+            console.log("   > Contacting Apify...");
             const run = await fetch(`https://api.apify.com/v2/acts/61RPP7dywgiy0JPD0/runs?token=${APIFY_TOKEN}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    // "searchTerms": [`from:${handle}`], // DEPRECATED: Causes low/no results
-                    "twitterHandles": [handle],
-                    "maxItems": 100,
+                    "searchTerms": [`from:${config.handle}`],
+                    "maxItems": 20, // Lower fetch for test
                     "sort": "Latest",
                     "tweetLanguage": "en",
-                    "author": handle,
+                    // "author": config.handle,
                     "proxy": { "useApifyProxy": true }
                 })
             }).then(r => r.json());
@@ -73,57 +74,71 @@ async function backfill() {
             }
 
             if (status === 'FAILED' || status === 'ABORTED') {
-                console.error(`\n❌ Scrape failed for ${handle} (Status: ${status})`);
-                continue;
+                console.error(`\n❌ Scrape failed for ${config.handle} (Status: ${status})`);
+                return; // Was continue
             }
 
             // Fetch Items
             const items = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}`).then(r => r.json());
 
-            // Check for "User not found" error in the first item (Apify sometimes returns this as an item)
+            // Check for "User not found" error
             if (items.length > 0 && items[0].error && items[0].code === 'C017') {
-                console.error(`\n❌ User not found: ${handle}. Please verify the handle.`);
-                continue;
+                console.error(`\n❌ User not found: ${config.handle}. Please verify the handle.`);
+                return; // Was continue
             }
 
             console.log(`\n   ✅ Retrieved ${items.length} tweets.`);
 
             // 2. SAVE TO CACHE (JSON)
-            const cachePath = path.join(CACHE_DIR, `history_${key}.json`);
+            const cachePath = path.join(CACHE_DIR, `history_${fileKey}.json`);
             fs.writeFileSync(cachePath, JSON.stringify(items, null, 2));
             console.log(`   > Saved backup to ${cachePath}`);
 
             // 3. PUSH TO SUPABASE
             if (supabase) {
-                const rows = items.map(item => ({
-                    brand_id: key,
-                    platform: 'twitter',
-                    external_id: item.id_str || item.id,
-                    content: item.full_text || item.text,
-                    author: item.user?.screen_name || handle,
-                    created_at: item.created_at,
-                    metrics: {
-                        likes: item.favorite_count || 0,
-                        retweets: item.retweet_count || 0,
-                        replies: item.reply_count || 0,
-                        views: item.view_count || 0,
-                        media_urls: item.media ? item.media.map(m => m.media_url_https || m.url) : [] // Capture Images
-                    }
-                }));
+                const rows = items.map(item => {
+                    // Mapping for Apify V2 JSON (camelCase)
+                    const mediaUrls = item.media ? item.media.map(m => m.media_url_https || m.url) : [];
+                    const createdAt = item.createdAt || item.created_at || new Date().toISOString();
+                    const content = item.fullText || item.text || item.content || "";
 
+                    return {
+                        // id: Let DB generate UUID
+                        brand_id: config.id, // Use Proper Case ID
+                        memory_type: 'tweet',
+                        content: content,
+                        created_at: createdAt,
+                        metadata: {
+                            external_id: item.id || item.id_str,
+                            platform: 'twitter',
+                            author: item.author?.userName || item.author?.name || config.handle,
+                            metrics: {
+                                likes: item.likeCount || item.favorite_count || 0,
+                                retweets: item.retweetCount || item.retweet_count || 0,
+                                replies: item.replyCount || item.reply_count || 0,
+                                views: item.viewCount || item.view_count || 0,
+                                media_urls: mediaUrls
+                            },
+                            mediaUrl: mediaUrls[0], // For storage.ts compatibility
+                            date: createdAt
+                        }
+                    };
+                }).filter(r => r.content.length > 0);
+
+                // Insert into 'brain_memory' (not 'brand_memory')
                 const { error } = await supabase
-                    .from('brand_memory')
-                    .upsert(rows, { onConflict: 'brand_id,external_id' });
+                    .from('brain_memory')
+                    .insert(rows);
 
                 if (error) {
                     console.error(`   ❌ DB Insert Error:`, error.message);
                 } else {
-                    console.log(`   > Synced ${rows.length} rows to 'brand_memory' table.`);
+                    console.log(`   > Synced ${rows.length} rows to 'brain_memory' table.`);
                 }
             }
 
         } catch (e) {
-            console.error(`\n❌ Error processing ${key}:`, e);
+            console.error(`\n❌ Error processing ${fileKey}:`, e);
         }
     }
     console.log("\n✨ Backfill Complete.");

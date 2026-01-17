@@ -259,6 +259,7 @@ export interface GrowthReport {
 
 export interface CampaignStrategy {
   targetAudience: string;
+  strategicRationale: string; // Added to match Usage
   keyMessaging: string[];
   channelStrategy: { channel: string; focus: string; rationale: string }[];
   contentMix: string;

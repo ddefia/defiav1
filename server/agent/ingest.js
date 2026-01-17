@@ -136,6 +136,22 @@ export const updateAllBrands = async (apiKey) => {
 
     console.log("[Agent/Ingest] Starting Daily Social Sync for all brands...");
 
+    // Initialize Supabase (Server-side)
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+    // We try to use supabase if available, otherwise just cache
+    // Dynamic import to avoid issues if sdk is missing in some envs
+    let supabase = null;
+    if (supabaseUrl && supabaseKey) {
+        try {
+            const { createClient } = await import('@supabase/supabase-js');
+            supabase = createClient(supabaseUrl, supabaseKey);
+        } catch (e) {
+            console.warn("[Agent/Ingest] Supabase SDK not found, skipping DB sync.");
+        }
+    }
+
     let results = {};
     if (fs.existsSync(CACHE_FILE)) {
         try {
@@ -156,9 +172,8 @@ export const updateAllBrands = async (apiKey) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    // "searchTerms": [`from:${handle}`],
                     "twitterHandles": [handle],
-                    "maxItems": 5,
+                    "maxItems": 5, // Keep low for hourly check
                     "sort": "Latest",
                     "tweetLanguage": "en",
                     "author": handle,
@@ -180,6 +195,7 @@ export const updateAllBrands = async (apiKey) => {
                     const user = tweet.user || tweet.author || {};
                     const followers = user.followers_count || user.followers || 0;
 
+                    // Update Cache
                     if (followers > 0) {
                         results[key] = {
                             totalFollowers: followers,
@@ -195,11 +211,52 @@ export const updateAllBrands = async (apiKey) => {
                             }))
                         };
                         console.log(`   > Success: ${followers} followers found for ${key}.`);
-                    } else {
-                        console.warn(`   > Warning: Zero followers found for ${key}. Keeping existing cache.`);
                     }
+
+                    // SYNC TO BRAIN_MEMORY (If Supabase is active)
+                    if (supabase) {
+                        let newCount = 0;
+                        for (const item of items) {
+                            const tweetId = item.id_str || item.id;
+                            // Check existence
+                            const { data: exist } = await supabase
+                                .from('brain_memory')
+                                .select('id')
+                                .eq('brand_id', key)
+                                .contains('metadata', { external_id: tweetId })
+                                .limit(1);
+
+                            if (!exist || exist.length === 0) {
+                                // Insert
+                                const content = item.full_text || item.text || item.caption;
+                                if (!content) continue;
+
+                                await supabase.from('brain_memory').insert({
+                                    brand_id: key,
+                                    content: content,
+                                    memory_type: 'social_history',
+                                    metadata: {
+                                        external_id: tweetId,
+                                        author: item.user?.screen_name || handle,
+                                        date: item.created_at,
+                                        metrics: {
+                                            likes: item.favorite_count || 0,
+                                            retweets: item.retweet_count || 0,
+                                            replies: item.reply_count || 0,
+                                            views: item.view_count || 0,
+                                            media_urls: item.media ? item.media.map(m => m.media_url_https || m.url) : []
+                                        },
+                                        mediaUrl: (item.media && item.media.length > 0) ? (item.media[0].media_url_https || item.media[0].url) : null
+                                    }
+                                });
+                                newCount++;
+                            }
+                        }
+                        console.log(`   > [DB Sync] Added ${newCount} new tweets to brain_memory.`);
+                    }
+
                 } else {
-                    console.log(`   > No tweets found for ${key}, cannot determine followers.`);
+                    console.log(`   > No tweets found for ${key}.`);
                 }
             } else {
                 console.warn(`[Agent/Ingest] Failed run for ${key}:`, JSON.stringify(runData));
