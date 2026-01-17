@@ -377,637 +377,636 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
   };
 
   const handleRenameImage = (e: React.MouseEvent, id: string, currentName: string) => {
-    const handleRenameImage = (e: React.MouseEvent, id: string, currentName: string) => {
-      e.stopPropagation();
-      const newName = window.prompt("Rename Reference Image:", currentName);
-      if (newName && newName.trim() !== "") {
-        onChange({
-          ...config,
-          referenceImages: config.referenceImages.map(img =>
-            img.id === id ? { ...img, name: newName.trim() } : img
-          )
-        });
-      }
-    };
-
-    const handleLinkImage = (e: React.MouseEvent, imgId: string) => {
-      e.stopPropagation();
-      setLinkingImageId(imgId);
-    };
-
-    const toggleImageLink = (tmplId: string, imgId: string) => {
-      const tmpl = config.graphicTemplates?.find(t => t.id === tmplId);
-      if (!tmpl) return;
-
-      const currentLinks = tmpl.referenceImageIds || [];
-      const isLinked = currentLinks.includes(imgId);
-
-      let newLinks: string[];
-      if (isLinked) {
-        newLinks = currentLinks.filter(id => id !== imgId);
-      } else {
-        newLinks = [...currentLinks, imgId];
-      }
-
+    e.stopPropagation();
+    const newName = window.prompt("Rename Reference Image:", currentName);
+    if (newName && newName.trim() !== "") {
       onChange({
         ...config,
-        graphicTemplates: (config.graphicTemplates || []).map(t =>
-          t.id === tmplId ? { ...t, referenceImageIds: newLinks } : t
+        referenceImages: config.referenceImages.map(img =>
+          img.id === id ? { ...img, name: newName.trim() } : img
         )
       });
+    }
+  };
+
+  const handleLinkImage = (e: React.MouseEvent, imgId: string) => {
+    e.stopPropagation();
+    setLinkingImageId(imgId);
+  };
+
+  const toggleImageLink = (tmplId: string, imgId: string) => {
+    const tmpl = config.graphicTemplates?.find(t => t.id === tmplId);
+    if (!tmpl) return;
+
+    const currentLinks = tmpl.referenceImageIds || [];
+    const isLinked = currentLinks.includes(imgId);
+
+    let newLinks: string[];
+    if (isLinked) {
+      newLinks = currentLinks.filter(id => id !== imgId);
+    } else {
+      newLinks = [...currentLinks, imgId];
+    }
+
+    onChange({
+      ...config,
+      graphicTemplates: (config.graphicTemplates || []).map(t =>
+        t.id === tmplId ? { ...t, referenceImageIds: newLinks } : t
+      )
+    });
+  };
+
+  const createQuickTemplate = () => {
+    if (!quickTmplName || !quickTmplPrompt || !linkingImageId) return;
+
+    const newTmpl = {
+      id: `tmpl-${Date.now()}`,
+      label: quickTmplName,
+      prompt: quickTmplPrompt,
+      category: 'Quick Create',
+      referenceImageIds: [linkingImageId] // Automatically link!
     };
 
-    const createQuickTemplate = () => {
-      if (!quickTmplName || !quickTmplPrompt || !linkingImageId) return;
+    onChange({
+      ...config,
+      graphicTemplates: [...(config.graphicTemplates || []), newTmpl]
+    });
 
-      const newTmpl = {
-        id: `tmpl-${Date.now()}`,
-        label: quickTmplName,
-        prompt: quickTmplPrompt,
-        category: 'Quick Create',
-        referenceImageIds: [linkingImageId] // Automatically link!
-      };
+    // Reset and Close Modal
+    setQuickTmplName('');
+    setQuickTmplPrompt('');
+    setIsCreatingQuick(false);
+    setLinkingImageId(null);
+  };
 
-      onChange({
-        ...config,
-        graphicTemplates: [...(config.graphicTemplates || []), newTmpl]
-      });
+  // --- Meta ---
+  const handleRestoreDefaults = () => {
+    if (window.confirm(`Restore defaults for ${brandName}?`)) {
+      const defaults = getBrandDefault(brandName);
+      if (defaults) onChange(defaults);
+    }
+  };
 
-      // Reset and Close Modal
-      setQuickTmplName('');
-      setQuickTmplPrompt('');
-      setIsCreatingQuick(false);
-      setLinkingImageId(null);
-    };
+  const handleCopyConfig = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+      setCopyStatus('copied');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    } catch (err) { }
+  };
 
-    // --- Meta ---
-    const handleRestoreDefaults = () => {
-      if (window.confirm(`Restore defaults for ${brandName}?`)) {
-        const defaults = getBrandDefault(brandName);
-        if (defaults) onChange(defaults);
-      }
-    };
+  return (
+    <div className="space-y-8 pb-10">
 
-    const handleCopyConfig = async () => {
-      try {
-        await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
-        setCopyStatus('copied');
-        setTimeout(() => setCopyStatus('idle'), 2000);
-      } catch (err) { }
-    };
+      {/* 0. BRAND VOICE & PROTOCOLS (NEW) */}
+      <div className="bg-brand-surface border border-brand-border rounded-xl p-5 shadow-sm">
+        <h3 className="text-sm font-display font-medium text-brand-text uppercase tracking-wider mb-4 flex items-center gap-2">
+          <svg className="w-4 h-4 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+          Brand Voice & Protocols
+        </h3>
 
-    return (
-      <div className="space-y-8 pb-10">
-
-        {/* 0. BRAND VOICE & PROTOCOLS (NEW) */}
-        <div className="bg-brand-surface border border-brand-border rounded-xl p-5 shadow-sm">
-          <h3 className="text-sm font-display font-medium text-brand-text uppercase tracking-wider mb-4 flex items-center gap-2">
-            <svg className="w-4 h-4 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-            Brand Voice & Protocols
-          </h3>
-
-          <div className="space-y-4">
-            {/* Voice Guidelines */}
-            <div>
-              <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Voice Guidelines</label>
-              <textarea
-                value={config.voiceGuidelines || ''}
-                onChange={(e) => onChange({ ...config, voiceGuidelines: e.target.value })}
-                placeholder="e.g. Professional, Authoritative, Institutional. Avoid slang. Use clean, concise language."
-                className="w-full h-20 bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
-              />
-              <p className="text-[10px] text-gray-400 mt-1">Defines how the AI writes. Defaults to "Professional" if left empty.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Target Audience */}
-              <div>
-                <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Target Audience</label>
-                <input
-                  type="text"
-                  value={config.targetAudience || ''}
-                  onChange={(e) => onChange({ ...config, targetAudience: e.target.value })}
-                  placeholder="e.g. Institutional Investors, Pension Funds"
-                  className="w-full bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
-                />
-              </div>
-
-              {/* Banned Phrases (Simple CSV for now) */}
-              <div>
-                <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Banned Phrases (Comma Separated)</label>
-                <input
-                  type="text"
-                  value={(config.bannedPhrases || []).join(', ')}
-                  onChange={(e) => onChange({ ...config, bannedPhrases: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                  placeholder="e.g. Moon, LFG, WAGMI, Pump"
-                  className="w-full bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
-                />
-                <p className="text-[10px] text-gray-400 mt-1">Words the AI is strictly forbidden from using.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-        {/* 0.5 VISUAL IDENTITY (NEW) */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Visual Identity System</h3>
-            <div className="flex gap-2">
-              <input
-                type="file"
-                ref={kitFileInputRef}
-                onChange={handleIdentityAnalysis}
-                accept=".pdf"
-                className="hidden"
-              />
-              <button
-                onClick={() => kitFileInputRef.current?.click()}
-                disabled={isAnalyzingKit}
-                className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded flex items-center gap-1"
-              >
-                {isAnalyzingKit ? (
-                  <>
-                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    analyzing...
-                  </>
-                ) : (
-                  '+ Upload Brand Kit PDF'
-                )}
-              </button>
-            </div>
-          </div>
-          <p className="text-[10px] text-gray-400 mb-2">Upload your Brand PDF (Max 25 pages) to automatically extract a visual style guide.</p>
-
-          <div className="relative">
+        <div className="space-y-4">
+          {/* Voice Guidelines */}
+          <div>
+            <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Voice Guidelines</label>
             <textarea
-              value={config.visualIdentity || ''}
-              onChange={(e) => onChange({ ...config, visualIdentity: e.target.value })}
-              placeholder="Upload a PDF to generate this guide automatically... or paste your own style rules."
-              className="w-full h-40 bg-gray-900 border border-gray-700 text-gray-200 p-3 rounded-lg text-xs font-mono focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+              value={config.voiceGuidelines || ''}
+              onChange={(e) => onChange({ ...config, voiceGuidelines: e.target.value })}
+              placeholder="e.g. Professional, Authoritative, Institutional. Avoid slang. Use clean, concise language."
+              className="w-full h-20 bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
             />
-            {!config.visualIdentity && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-xs text-gray-600 italic">No visual identity guide active.</span>
-              </div>
-            )}
+            <p className="text-[10px] text-gray-400 mt-1">Defines how the AI writes. Defaults to "Professional" if left empty.</p>
           </div>
-        </div>
 
-        <div className="border-t border-brand-border"></div>
-
-        <div>
-          <div className="flex items-center justify-between mb-4">
-
-            <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Knowledge Base (Documents)</h3>
-            <div className="flex gap-2">
-              <input
-                type="file"
-                ref={kbFileInputRef}
-                onChange={handleKBUpload}
-                accept=".pdf,.txt,.md,.json"
-                className="hidden"
-              />
-              <button
-                onClick={() => kbFileInputRef.current?.click()}
-                disabled={isUploadingKB}
-                className="text-xs text-brand-muted hover:text-brand-text border border-brand-border px-2 py-1 rounded flex items-center gap-1"
-              >
-                {isUploadingKB ? (
-                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                ) : (
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                )}
-                Upload PDF/Text
-              </button>
-              <button onClick={() => setIsAddingKB(!isAddingKB)} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
-                {isAddingKB ? 'Cancel' : '+ Add Text'}
-              </button>
-            </div>
-          </div>
-          {isAddingKB && (
-            <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-brand-border">
-              <textarea
-                value={newKBEntry}
-                onChange={e => setNewKBEntry(e.target.value)}
-                placeholder="Paste whitepaper text, roadmap details, or partnership info..."
-                className="w-full h-32 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent mb-2"
-              />
-              <Button onClick={addKB} className="text-xs h-8 py-0 px-4">Save Document</Button>
-            </div>
-          )}
-          <div className="space-y-2">
-            {(config.knowledgeBase || []).map((doc, idx) => (
-              <div key={idx} className="bg-white border border-brand-border rounded-lg p-3 group shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 bg-gray-100 rounded text-gray-500">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </div>
-                  <p className="text-xs text-brand-text font-medium truncate w-[200px]">{doc.split('\n')[0].substring(0, 30)}...</p>
-                </div>
-                <p className="text-[10px] text-brand-muted line-clamp-2 pl-7">{doc.substring(0, 150)}</p>
-                <div className="flex justify-between items-center mt-2 pl-7">
-                  <span className="text-[10px] text-brand-muted font-mono">{doc.length.toLocaleString()} chars</span>
-                  <button onClick={() => removeKB(idx)} className="text-[10px] text-red-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Remove</button>
-                </div>
-              </div>
-            ))}
-            {(!config.knowledgeBase || config.knowledgeBase.length === 0) && !isAddingKB && (
-              <div className="text-xs text-brand-muted italic bg-gray-50 p-4 rounded text-center border border-dashed border-gray-300">
-                No documents added. Upload a PDF or add text to give the AI writer context about your protocol.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="border-t border-brand-border"></div>
-
-        {/* 2. STYLE EXAMPLES */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Tweet Style Guide</h3>
-            <button onClick={() => setIsAddingExample(!isAddingExample)} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
-              {isAddingExample ? 'Cancel' : '+ Add Example'}
-            </button>
-          </div>
-          {isAddingExample && (
-            <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-brand-border">
-              <textarea
-                value={newExample}
-                onChange={e => setNewExample(e.target.value)}
-                placeholder="Paste a perfect example tweet here..."
-                className="w-full h-20 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent mb-2"
-              />
-              <Button onClick={addExample} className="text-xs h-8 py-0 px-4">Save Example</Button>
-            </div>
-          )}
-          <div className="space-y-2">
-            {(config.tweetExamples || []).map((ex, idx) => (
-              <div key={idx} className="bg-white border border-brand-border rounded-lg p-3 flex justify-between items-start group shadow-sm">
-                <p className="text-xs text-brand-text whitespace-pre-wrap">{ex}</p>
-                <button onClick={() => removeExample(idx)} className="ml-2 text-[10px] text-red-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
-              </div>
-            ))}
-            {(!config.tweetExamples || config.tweetExamples.length === 0) && !isAddingExample && (
-              <div className="text-xs text-brand-muted italic">No examples added. The AI will use generic style.</div>
-            )}
-          </div>
-        </div>
-
-        <div className="border-t border-brand-border"></div>
-
-        {/* 3. GRAPHIC TEMPLATES */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Custom Graphic Templates</h3>
-            <button onClick={() => {
-              setIsAddingTemplate(!isAddingTemplate);
-              if (isAddingTemplate) {
-                setEditingTemplateId(null);
-                setNewTemplateName('');
-                setNewTemplatePrompt('');
-                setNewTemplateCategory('');
-                setNewTemplateImageIds([]);
-              }
-            }} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
-              {isAddingTemplate ? 'Cancel' : '+ Add Template'}
-            </button>
-          </div>
-          {isAddingTemplate && (
-            <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-brand-border space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Target Audience */}
+            <div>
+              <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Target Audience</label>
               <input
                 type="text"
-                value={newTemplateName}
-                onChange={e => setNewTemplateName(e.target.value)}
-                placeholder="Template Name (e.g. My Newsletter)"
+                value={config.targetAudience || ''}
+                onChange={(e) => onChange({ ...config, targetAudience: e.target.value })}
+                placeholder="e.g. Institutional Investors, Pension Funds"
+                className="w-full bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
+              />
+            </div>
+
+            {/* Banned Phrases (Simple CSV for now) */}
+            <div>
+              <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Banned Phrases (Comma Separated)</label>
+              <input
+                type="text"
+                value={(config.bannedPhrases || []).join(', ')}
+                onChange={(e) => onChange({ ...config, bannedPhrases: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                placeholder="e.g. Moon, LFG, WAGMI, Pump"
+                className="w-full bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Words the AI is strictly forbidden from using.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      {/* 0.5 VISUAL IDENTITY (NEW) */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Visual Identity System</h3>
+          <div className="flex gap-2">
+            <input
+              type="file"
+              ref={kitFileInputRef}
+              onChange={handleIdentityAnalysis}
+              accept=".pdf"
+              className="hidden"
+            />
+            <button
+              onClick={() => kitFileInputRef.current?.click()}
+              disabled={isAnalyzingKit}
+              className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded flex items-center gap-1"
+            >
+              {isAnalyzingKit ? (
+                <>
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  analyzing...
+                </>
+              ) : (
+                '+ Upload Brand Kit PDF'
+              )}
+            </button>
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-400 mb-2">Upload your Brand PDF (Max 25 pages) to automatically extract a visual style guide.</p>
+
+        <div className="relative">
+          <textarea
+            value={config.visualIdentity || ''}
+            onChange={(e) => onChange({ ...config, visualIdentity: e.target.value })}
+            placeholder="Upload a PDF to generate this guide automatically... or paste your own style rules."
+            className="w-full h-40 bg-gray-900 border border-gray-700 text-gray-200 p-3 rounded-lg text-xs font-mono focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+          />
+          {!config.visualIdentity && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-xs text-gray-600 italic">No visual identity guide active.</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-brand-border"></div>
+
+      <div>
+        <div className="flex items-center justify-between mb-4">
+
+          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Knowledge Base (Documents)</h3>
+          <div className="flex gap-2">
+            <input
+              type="file"
+              ref={kbFileInputRef}
+              onChange={handleKBUpload}
+              accept=".pdf,.txt,.md,.json"
+              className="hidden"
+            />
+            <button
+              onClick={() => kbFileInputRef.current?.click()}
+              disabled={isUploadingKB}
+              className="text-xs text-brand-muted hover:text-brand-text border border-brand-border px-2 py-1 rounded flex items-center gap-1"
+            >
+              {isUploadingKB ? (
+                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              ) : (
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+              )}
+              Upload PDF/Text
+            </button>
+            <button onClick={() => setIsAddingKB(!isAddingKB)} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
+              {isAddingKB ? 'Cancel' : '+ Add Text'}
+            </button>
+          </div>
+        </div>
+        {isAddingKB && (
+          <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-brand-border">
+            <textarea
+              value={newKBEntry}
+              onChange={e => setNewKBEntry(e.target.value)}
+              placeholder="Paste whitepaper text, roadmap details, or partnership info..."
+              className="w-full h-32 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent mb-2"
+            />
+            <Button onClick={addKB} className="text-xs h-8 py-0 px-4">Save Document</Button>
+          </div>
+        )}
+        <div className="space-y-2">
+          {(config.knowledgeBase || []).map((doc, idx) => (
+            <div key={idx} className="bg-white border border-brand-border rounded-lg p-3 group shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 bg-gray-100 rounded text-gray-500">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                <p className="text-xs text-brand-text font-medium truncate w-[200px]">{doc.split('\n')[0].substring(0, 30)}...</p>
+              </div>
+              <p className="text-[10px] text-brand-muted line-clamp-2 pl-7">{doc.substring(0, 150)}</p>
+              <div className="flex justify-between items-center mt-2 pl-7">
+                <span className="text-[10px] text-brand-muted font-mono">{doc.length.toLocaleString()} chars</span>
+                <button onClick={() => removeKB(idx)} className="text-[10px] text-red-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Remove</button>
+              </div>
+            </div>
+          ))}
+          {(!config.knowledgeBase || config.knowledgeBase.length === 0) && !isAddingKB && (
+            <div className="text-xs text-brand-muted italic bg-gray-50 p-4 rounded text-center border border-dashed border-gray-300">
+              No documents added. Upload a PDF or add text to give the AI writer context about your protocol.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-brand-border"></div>
+
+      {/* 2. STYLE EXAMPLES */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Tweet Style Guide</h3>
+          <button onClick={() => setIsAddingExample(!isAddingExample)} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
+            {isAddingExample ? 'Cancel' : '+ Add Example'}
+          </button>
+        </div>
+        {isAddingExample && (
+          <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-brand-border">
+            <textarea
+              value={newExample}
+              onChange={e => setNewExample(e.target.value)}
+              placeholder="Paste a perfect example tweet here..."
+              className="w-full h-20 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent mb-2"
+            />
+            <Button onClick={addExample} className="text-xs h-8 py-0 px-4">Save Example</Button>
+          </div>
+        )}
+        <div className="space-y-2">
+          {(config.tweetExamples || []).map((ex, idx) => (
+            <div key={idx} className="bg-white border border-brand-border rounded-lg p-3 flex justify-between items-start group shadow-sm">
+              <p className="text-xs text-brand-text whitespace-pre-wrap">{ex}</p>
+              <button onClick={() => removeExample(idx)} className="ml-2 text-[10px] text-red-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Delete</button>
+            </div>
+          ))}
+          {(!config.tweetExamples || config.tweetExamples.length === 0) && !isAddingExample && (
+            <div className="text-xs text-brand-muted italic">No examples added. The AI will use generic style.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-brand-border"></div>
+
+      {/* 3. GRAPHIC TEMPLATES */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Custom Graphic Templates</h3>
+          <button onClick={() => {
+            setIsAddingTemplate(!isAddingTemplate);
+            if (isAddingTemplate) {
+              setEditingTemplateId(null);
+              setNewTemplateName('');
+              setNewTemplatePrompt('');
+              setNewTemplateCategory('');
+              setNewTemplateImageIds([]);
+            }
+          }} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
+            {isAddingTemplate ? 'Cancel' : '+ Add Template'}
+          </button>
+        </div>
+        {isAddingTemplate && (
+          <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-brand-border space-y-2">
+            <input
+              type="text"
+              value={newTemplateName}
+              onChange={e => setNewTemplateName(e.target.value)}
+              placeholder="Template Name (e.g. My Newsletter)"
+              className="w-full bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
+            />
+            <textarea
+              value={newTemplatePrompt}
+              onChange={e => setNewTemplatePrompt(e.target.value)}
+              placeholder="AI Instruction: Describe the layout, composition, and style..."
+              className="w-full h-20 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
+            />
+
+            {/* Category Support with Suggestions */}
+            <div className="relative">
+              <input
+                type="text"
+                list="category-suggestions"
+                value={newTemplateCategory}
+                onChange={e => setNewTemplateCategory(e.target.value)}
+                placeholder="Category (e.g. Giveaway, Campaign - Optional)"
                 className="w-full bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
               />
-              <textarea
-                value={newTemplatePrompt}
-                onChange={e => setNewTemplatePrompt(e.target.value)}
-                placeholder="AI Instruction: Describe the layout, composition, and style..."
-                className="w-full h-20 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
-              />
+              <datalist id="category-suggestions">
+                <option value="Giveaway" />
+                <option value="Announcement" />
+                <option value="Campaign" />
+                <option value="Community" />
+                <option value="Meme" />
+              </datalist>
+            </div>
 
-              {/* Category Support with Suggestions */}
-              <div className="relative">
-                <input
-                  type="text"
-                  list="category-suggestions"
-                  value={newTemplateCategory}
-                  onChange={e => setNewTemplateCategory(e.target.value)}
-                  placeholder="Category (e.g. Giveaway, Campaign - Optional)"
-                  className="w-full bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
-                />
-                <datalist id="category-suggestions">
-                  <option value="Giveaway" />
-                  <option value="Announcement" />
-                  <option value="Campaign" />
-                  <option value="Community" />
-                  <option value="Meme" />
-                </datalist>
+            {/* Image Link Selector (Multi-Select) */}
+            <div>
+              <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">Link Reference Images (Style Anchors)</label>
+              <div className="bg-white border border-brand-border rounded p-2 max-h-32 overflow-y-auto space-y-1">
+                {config.referenceImages.length === 0 && <span className="text-xs text-brand-muted italic">No images uploaded.</span>}
+                {config.referenceImages.map(img => (
+                  <label key={img.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={newTemplateImageIds.includes(img.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setNewTemplateImageIds(prev => [...prev, img.id]);
+                        } else {
+                          setNewTemplateImageIds(prev => prev.filter(id => id !== img.id));
+                        }
+                      }}
+                      className="rounded border-brand-border text-brand-accent focus:ring-brand-accent h-3 w-3"
+                    />
+                    <span className="text-xs text-brand-text truncate">{img.name}</span>
+                  </label>
+                ))}
               </div>
+              <p className="text-[10px] text-brand-muted mt-1">Select one or more images to anchor the style.</p>
+            </div>
 
-              {/* Image Link Selector (Multi-Select) */}
-              <div>
-                <label className="text-[10px] font-bold text-brand-muted uppercase mb-1 block">Link Reference Images (Style Anchors)</label>
-                <div className="bg-white border border-brand-border rounded p-2 max-h-32 overflow-y-auto space-y-1">
-                  {config.referenceImages.length === 0 && <span className="text-xs text-brand-muted italic">No images uploaded.</span>}
-                  {config.referenceImages.map(img => (
-                    <label key={img.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={newTemplateImageIds.includes(img.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setNewTemplateImageIds(prev => [...prev, img.id]);
-                          } else {
-                            setNewTemplateImageIds(prev => prev.filter(id => id !== img.id));
-                          }
-                        }}
-                        className="rounded border-brand-border text-brand-accent focus:ring-brand-accent h-3 w-3"
-                      />
-                      <span className="text-xs text-brand-text truncate">{img.name}</span>
-                    </label>
+            <Button onClick={addTemplate} className="text-xs h-8 py-0 px-4" disabled={!newTemplateName || !newTemplatePrompt}>
+              {editingTemplateId ? 'Save Changes' : 'Save Template'}
+            </Button>
+          </div>
+        )}
+        <div className="space-y-2">
+
+          {/* Grouped Display */}
+          {(() => {
+            const templates = config.graphicTemplates || [];
+            if (templates.length === 0 && !isAddingTemplate) {
+              return <div className="text-xs text-brand-muted italic">No custom templates. Add one to define reusable styles.</div>;
+            }
+
+            // Group By Category
+            const grouped: Record<string, typeof templates> = {};
+            templates.forEach(t => {
+              const cat = t.category || 'Uncategorized';
+              if (!grouped[cat]) grouped[cat] = [];
+              grouped[cat].push(t);
+            });
+
+            return Object.entries(grouped).map(([category, items]) => (
+              <div key={category} className="mb-4">
+                {category !== 'Uncategorized' && (
+                  <div className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-2 ml-1">
+                    {category}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {items.map(tmpl => (
+                    <div key={tmpl.id} className={`bg-white border rounded-lg p-3 flex justify-between items-start group shadow-sm transition-colors ${editingTemplateId === tmpl.id ? 'border-brand-accent ring-1 ring-brand-accent bg-brand-accent/5' : 'border-brand-border'}`}>
+                      <div>
+                        <div className="text-xs font-bold text-brand-text mb-1">{tmpl.label}</div>
+                        <p className="text-[10px] text-brand-muted line-clamp-2">{tmpl.prompt}</p>
+                        {tmpl.category && <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-500">{tmpl.category}</span>}
+                      </div>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => startEditingTemplate(tmpl)} className="text-[10px] text-brand-accent hover:text-brand-text font-medium">Edit</button>
+                        <button onClick={() => removeTemplate(tmpl.id)} className="text-[10px] text-red-500 hover:text-red-600">Delete</button>
+                      </div>
+                    </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-brand-muted mt-1">Select one or more images to anchor the style.</p>
               </div>
-
-              <Button onClick={addTemplate} className="text-xs h-8 py-0 px-4" disabled={!newTemplateName || !newTemplatePrompt}>
-                {editingTemplateId ? 'Save Changes' : 'Save Template'}
-              </Button>
-            </div>
+            ));
+          })()}
+          {(!config.graphicTemplates || config.graphicTemplates.length === 0) && !isAddingTemplate && (
+            <div className="text-xs text-brand-muted italic">No custom templates. Add one to define reusable styles.</div>
           )}
-          <div className="space-y-2">
+        </div>
+      </div>
 
-            {/* Grouped Display */}
-            {(() => {
-              const templates = config.graphicTemplates || [];
-              if (templates.length === 0 && !isAddingTemplate) {
-                return <div className="text-xs text-brand-muted italic">No custom templates. Add one to define reusable styles.</div>;
-              }
+      <div className="border-t border-brand-border"></div>
 
-              // Group By Category
-              const grouped: Record<string, typeof templates> = {};
-              templates.forEach(t => {
-                const cat = t.category || 'Uncategorized';
-                if (!grouped[cat]) grouped[cat] = [];
-                grouped[cat].push(t);
-              });
+      {/* 4. COLORS */}
+      <div>
+        <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider mb-4">Brand Colors</h3>
+        <div className="grid grid-cols-1 gap-2 mb-4">
+          {config.colors.map(color => (
+            <div key={color.id} className="flex items-center justify-between bg-white p-2 rounded-lg border border-brand-border shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded border border-brand-border" style={{ backgroundColor: color.hex }} />
+                <span className="text-xs text-brand-text font-medium">{color.name} <span className="text-brand-muted font-normal ml-1">{color.hex}</span></span>
+              </div>
+              <button onClick={() => removeColor(color.id)} className="text-brand-muted hover:text-red-500">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input type="color" value={newColorHex} onChange={(e) => setNewColorHex(e.target.value)} className="w-8 h-8 rounded bg-transparent cursor-pointer border border-brand-border" />
+          <input type="text" value={newColorName} onChange={(e) => setNewColorName(e.target.value)} placeholder="Color Name" className="flex-1 bg-white border border-brand-border rounded px-2 text-xs text-brand-text" />
+          <Button onClick={addColor} variant="secondary" className="px-3 py-1 text-xs h-8" disabled={!newColorName}>Add</Button>
+        </div>
+      </div>
 
-              return Object.entries(grouped).map(([category, items]) => (
-                <div key={category} className="mb-4">
-                  {category !== 'Uncategorized' && (
-                    <div className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-2 ml-1">
-                      {category}
-                    </div>
-                  )}
+      <div className="border-t border-brand-border"></div>
 
-                  <div className="space-y-2">
-                    {items.map(tmpl => (
-                      <div key={tmpl.id} className={`bg-white border rounded-lg p-3 flex justify-between items-start group shadow-sm transition-colors ${editingTemplateId === tmpl.id ? 'border-brand-accent ring-1 ring-brand-accent bg-brand-accent/5' : 'border-brand-border'}`}>
-                        <div>
-                          <div className="text-xs font-bold text-brand-text mb-1">{tmpl.label}</div>
-                          <p className="text-[10px] text-brand-muted line-clamp-2">{tmpl.prompt}</p>
-                          {tmpl.category && <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-500">{tmpl.category}</span>}
-                        </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEditingTemplate(tmpl)} className="text-[10px] text-brand-accent hover:text-brand-text font-medium">Edit</button>
-                          <button onClick={() => removeTemplate(tmpl.id)} className="text-[10px] text-red-500 hover:text-red-600">Delete</button>
-                        </div>
-                      </div>
+      {/* 5. IMAGES */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Reference Images ({config.referenceImages.length})</h3>
+
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                const historyImages = config.referenceImages.filter(img => img.name.startsWith('History:') && !img.name.includes('['));
+                if (historyImages.length === 0) {
+                  alert("No unclassified history images found.");
+                  return;
+                }
+                if (!confirm(`Classify ${historyImages.length} images? This might take a minute.`)) return;
+
+                // Import dynamically to avoid circular dep issues if any
+                const { classifyImage } = await import('../services/gemini');
+
+                // Get categories
+                const categories = config.graphicTemplates?.map(t => t.label) || [];
+                if (categories.length === 0) categories.push('Tweet', 'Announcement', 'Meme', 'Infographic');
+
+                let updatedCount = 0;
+                const newImages = [...config.referenceImages];
+
+                for (const img of historyImages) {
+                  // Find index
+                  const idx = newImages.findIndex(i => i.id === img.id);
+                  if (idx === -1) continue;
+
+                  try {
+                    const category = await classifyImage(img.url || "", categories);
+                    if (category) {
+                      newImages[idx] = {
+                        ...newImages[idx],
+                        name: `[${category}] ${img.name.replace('History: ', '')}`
+                      };
+                      updatedCount++;
+                    }
+                  } catch (e) {
+                    console.error("Failed to classify", img.id);
+                  }
+                }
+
+                onChange({ ...config, referenceImages: newImages });
+                alert(`Classified ${updatedCount} images successfully!`);
+              }}
+              className="text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded flex items-center gap-1"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+              Auto-Classify
+            </button>
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" multiple className="hidden" />
+            <button onClick={() => fileInputRef.current?.click()} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">+ Upload</button>
+          </div>
+        </div>
+
+        {/* Collapsible Grid */}
+        <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 transition-all duration-500 overflow-hidden ${!viewingImage && config.referenceImages.length > 15 ? 'max-h-[300px] overflow-y-auto pr-1' : ''}`}>
+          {config.referenceImages.slice(0, viewingImage === 'ALL' ? undefined : 15).map(img => (
+            <div key={img.id} className="relative aspect-square rounded bg-gray-100 cursor-pointer overflow-hidden border border-brand-border group shadow-sm transition-transform hover:scale-105" onClick={() => setViewingImage(img.data || img.url)}>
+              <img src={img.data || img.url} alt={img.name} className="w-full h-full object-cover" loading="lazy" />
+
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
+                <div className="flex justify-between items-start">
+                  {/* Link Indicator */}
+                  <div className="flex gap-1 flex-wrap max-w-[70%]">
+                    {(config.graphicTemplates || []).filter(t => t.referenceImageIds?.includes(img.id)).map(t => (
+                      <span key={t.id} className="text-[8px] bg-brand-accent text-white px-1.5 py-0.5 rounded shadow-sm truncate max-w-full">
+                        {t.label}
+                      </span>
                     ))}
                   </div>
-                </div>
-              ));
-            })()}
-            {(!config.graphicTemplates || config.graphicTemplates.length === 0) && !isAddingTemplate && (
-              <div className="text-xs text-brand-muted italic">No custom templates. Add one to define reusable styles.</div>
-            )}
-          </div>
-        </div>
 
-        <div className="border-t border-brand-border"></div>
-
-        {/* 4. COLORS */}
-        <div>
-          <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider mb-4">Brand Colors</h3>
-          <div className="grid grid-cols-1 gap-2 mb-4">
-            {config.colors.map(color => (
-              <div key={color.id} className="flex items-center justify-between bg-white p-2 rounded-lg border border-brand-border shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded border border-brand-border" style={{ backgroundColor: color.hex }} />
-                  <span className="text-xs text-brand-text font-medium">{color.name} <span className="text-brand-muted font-normal ml-1">{color.hex}</span></span>
-                </div>
-                <button onClick={() => removeColor(color.id)} className="text-brand-muted hover:text-red-500">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input type="color" value={newColorHex} onChange={(e) => setNewColorHex(e.target.value)} className="w-8 h-8 rounded bg-transparent cursor-pointer border border-brand-border" />
-            <input type="text" value={newColorName} onChange={(e) => setNewColorName(e.target.value)} placeholder="Color Name" className="flex-1 bg-white border border-brand-border rounded px-2 text-xs text-brand-text" />
-            <Button onClick={addColor} variant="secondary" className="px-3 py-1 text-xs h-8" disabled={!newColorName}>Add</Button>
-          </div>
-        </div>
-
-        <div className="border-t border-brand-border"></div>
-
-        {/* 5. IMAGES */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">Reference Images ({config.referenceImages.length})</h3>
-
-            <div className="flex gap-2">
-              <button
-                onClick={async () => {
-                  const historyImages = config.referenceImages.filter(img => img.name.startsWith('History:') && !img.name.includes('['));
-                  if (historyImages.length === 0) {
-                    alert("No unclassified history images found.");
-                    return;
-                  }
-                  if (!confirm(`Classify ${historyImages.length} images? This might take a minute.`)) return;
-
-                  // Import dynamically to avoid circular dep issues if any
-                  const { classifyImage } = await import('../services/gemini');
-
-                  // Get categories
-                  const categories = config.graphicTemplates?.map(t => t.label) || [];
-                  if (categories.length === 0) categories.push('Tweet', 'Announcement', 'Meme', 'Infographic');
-
-                  let updatedCount = 0;
-                  const newImages = [...config.referenceImages];
-
-                  for (const img of historyImages) {
-                    // Find index
-                    const idx = newImages.findIndex(i => i.id === img.id);
-                    if (idx === -1) continue;
-
-                    try {
-                      const category = await classifyImage(img.url || "", categories);
-                      if (category) {
-                        newImages[idx] = {
-                          ...newImages[idx],
-                          name: `[${category}] ${img.name.replace('History: ', '')}`
-                        };
-                        updatedCount++;
-                      }
-                    } catch (e) {
-                      console.error("Failed to classify", img.id);
-                    }
-                  }
-
-                  onChange({ ...config, referenceImages: newImages });
-                  alert(`Classified ${updatedCount} images successfully!`);
-                }}
-                className="text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded flex items-center gap-1"
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-                Auto-Classify
-              </button>
-              <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" multiple className="hidden" />
-              <button onClick={() => fileInputRef.current?.click()} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">+ Upload</button>
-            </div>
-          </div>
-
-          {/* Collapsible Grid */}
-          <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 transition-all duration-500 overflow-hidden ${!viewingImage && config.referenceImages.length > 15 ? 'max-h-[300px] overflow-y-auto pr-1' : ''}`}>
-            {config.referenceImages.slice(0, viewingImage === 'ALL' ? undefined : 15).map(img => (
-              <div key={img.id} className="relative aspect-square rounded bg-gray-100 cursor-pointer overflow-hidden border border-brand-border group shadow-sm transition-transform hover:scale-105" onClick={() => setViewingImage(img.data || img.url)}>
-                <img src={img.data || img.url} alt={img.name} className="w-full h-full object-cover" loading="lazy" />
-
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
-                  <div className="flex justify-between items-start">
-                    {/* Link Indicator */}
-                    <div className="flex gap-1 flex-wrap max-w-[70%]">
-                      {(config.graphicTemplates || []).filter(t => t.referenceImageIds?.includes(img.id)).map(t => (
-                        <span key={t.id} className="text-[8px] bg-brand-accent text-white px-1.5 py-0.5 rounded shadow-sm truncate max-w-full">
-                          {t.label}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <button onClick={(e) => handleLinkImage(e, img.id)} className="bg-white text-indigo-600 rounded-full p-1.5 hover:bg-indigo-50 shadow transition-colors" title="Link to Template">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                      </button>
-                      <button onClick={(e) => handleRenameImage(e, img.id, img.name)} className="bg-white text-gray-700 rounded-full p-1.5 hover:bg-gray-100 shadow transition-colors" title="Rename">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                      </button>
-                      <button onClick={(e) => removeImage(e, img.id)} className="bg-white text-red-500 rounded-full p-1.5 hover:bg-red-50 shadow transition-colors" title="Delete">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="text-[10px] bg-black/60 text-white px-2 py-1 rounded truncate backdrop-blur-sm mt-auto">
-                    {img.name}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Link Modal */}
-          {linkingImageId && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLinkingImageId(null)}>
-              <div className="bg-white rounded-xl p-5 w-[400px] shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
-                <h3 className="font-display font-medium text-lg">Link Image to Template</h3>
-                <p className="text-sm text-gray-500">Select which templates should use this image as a "Strict Style Anchor".</p>
-
-                <div className="space-y-2 max-h-[300px] overflow-y-auto border border-gray-100 rounded-lg p-2">
-                  {/* Create New Toggle */}
-                  {!isCreatingQuick ? (
-                    <button
-                      onClick={() => setIsCreatingQuick(true)}
-                      className="w-full py-2 text-xs text-brand-accent border border-dashed border-brand-accent/50 rounded hover:bg-brand-accent/5 flex items-center justify-center gap-1 mb-2"
-                    >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-                      Create New Template from this Image
+                  <div className="flex flex-col gap-1">
+                    <button onClick={(e) => handleLinkImage(e, img.id)} className="bg-white text-indigo-600 rounded-full p-1.5 hover:bg-indigo-50 shadow transition-colors" title="Link to Template">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                     </button>
-                  ) : (
-                    <div className="bg-gray-50 p-3 rounded border border-brand-border space-y-2 mb-2">
-                      <input
-                        value={quickTmplName}
-                        onChange={e => setQuickTmplName(e.target.value)}
-                        placeholder="New Template Name (e.g. Dark Mode)"
-                        className="w-full text-xs p-2 rounded border border-gray-300"
-                        autoFocus
-                      />
-                      <textarea
-                        value={quickTmplPrompt}
-                        onChange={e => setQuickTmplPrompt(e.target.value)}
-                        placeholder="Describe the style (e.g. Dark background, neon accents, minimalist)"
-                        className="w-full text-xs p-2 rounded border border-gray-300 h-16"
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={() => setIsCreatingQuick(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
-                        <Button onClick={createQuickTemplate} className="text-xs h-7 py-0" disabled={!quickTmplName || !quickTmplPrompt}>Save & Link</Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {(config.graphicTemplates || []).length === 0 && !isCreatingQuick && <p className="text-sm text-center text-gray-400 py-4">No templates found. Create one above!</p>}
-
-                  {(config.graphicTemplates || []).map(tmpl => {
-                    const isLinked = tmpl.referenceImageIds?.includes(linkingImageId);
-                    return (
-                      <div
-                        key={tmpl.id}
-                        onClick={() => toggleImageLink(tmpl.id, linkingImageId)}
-                        className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${isLinked ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-200 hover:border-brand-accent/50'}`}
-                      >
-                        <span className="text-sm font-medium">{tmpl.label}</span>
-                        {isLinked && <svg className="w-5 h-5 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>}
-                      </div>
-                    );
-                  })}
+                    <button onClick={(e) => handleRenameImage(e, img.id, img.name)} className="bg-white text-gray-700 rounded-full p-1.5 hover:bg-gray-100 shadow transition-colors" title="Rename">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
+                    <button onClick={(e) => removeImage(e, img.id)} className="bg-white text-red-500 rounded-full p-1.5 hover:bg-red-50 shadow transition-colors" title="Delete">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
                 </div>
-
-                <div className="flex justify-end">
-                  <Button onClick={() => setLinkingImageId(null)}>Done</Button>
+                <div className="text-[10px] bg-black/60 text-white px-2 py-1 rounded truncate backdrop-blur-sm mt-auto">
+                  {img.name}
                 </div>
               </div>
             </div>
-          )}
+          ))}
+        </div>
 
-          {/* Show More Button */}
-          {config.referenceImages.length > 15 && (
-            <div className="mt-3 flex justify-center sticky bottom-0 z-10">
-              <button
-                onClick={() => setViewingImage(viewingImage === 'ALL' ? null : 'ALL')}
-                className="text-xs text-brand-muted hover:text-brand-text bg-white border border-brand-border px-4 py-2 rounded-full shadow-sm flex items-center gap-2 transition-all hover:shadow-md"
-              >
-                {viewingImage === 'ALL' ? (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" /></svg>
-                    Collapse Gallery
-                  </>
+        {/* Link Modal */}
+        {linkingImageId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLinkingImageId(null)}>
+            <div className="bg-white rounded-xl p-5 w-[400px] shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+              <h3 className="font-display font-medium text-lg">Link Image to Template</h3>
+              <p className="text-sm text-gray-500">Select which templates should use this image as a "Strict Style Anchor".</p>
+
+              <div className="space-y-2 max-h-[300px] overflow-y-auto border border-gray-100 rounded-lg p-2">
+                {/* Create New Toggle */}
+                {!isCreatingQuick ? (
+                  <button
+                    onClick={() => setIsCreatingQuick(true)}
+                    className="w-full py-2 text-xs text-brand-accent border border-dashed border-brand-accent/50 rounded hover:bg-brand-accent/5 flex items-center justify-center gap-1 mb-2"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                    Create New Template from this Image
+                  </button>
                 ) : (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                    Show All {config.referenceImages.length} Images
-                  </>
+                  <div className="bg-gray-50 p-3 rounded border border-brand-border space-y-2 mb-2">
+                    <input
+                      value={quickTmplName}
+                      onChange={e => setQuickTmplName(e.target.value)}
+                      placeholder="New Template Name (e.g. Dark Mode)"
+                      className="w-full text-xs p-2 rounded border border-gray-300"
+                      autoFocus
+                    />
+                    <textarea
+                      value={quickTmplPrompt}
+                      onChange={e => setQuickTmplPrompt(e.target.value)}
+                      placeholder="Describe the style (e.g. Dark background, neon accents, minimalist)"
+                      className="w-full text-xs p-2 rounded border border-gray-300 h-16"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setIsCreatingQuick(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                      <Button onClick={createQuickTemplate} className="text-xs h-7 py-0" disabled={!quickTmplName || !quickTmplPrompt}>Save & Link</Button>
+                    </div>
+                  </div>
                 )}
-              </button>
-            </div>
-          )}
-        </div>
 
-        {/* Footer Actions */}
-        <div className="pt-6 border-t border-brand-border space-y-2">
-          <Button onClick={handleCopyConfig} variant="secondary" className="w-full text-xs h-8">{copyStatus === 'copied' ? 'Copied JSON!' : 'Copy Config JSON'}</Button>
-          <Button onClick={handleRestoreDefaults} variant="outline" className="w-full text-xs h-8 opacity-50 hover:opacity-100">Restore Defaults</Button>
-        </div>
+                {(config.graphicTemplates || []).length === 0 && !isCreatingQuick && <p className="text-sm text-center text-gray-400 py-4">No templates found. Create one above!</p>}
 
-        {
-          viewingImage && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setViewingImage(null)}>
-              <img src={viewingImage} className="max-w-full max-h-[90vh] rounded" />
+                {(config.graphicTemplates || []).map(tmpl => {
+                  const isLinked = tmpl.referenceImageIds?.includes(linkingImageId);
+                  return (
+                    <div
+                      key={tmpl.id}
+                      onClick={() => toggleImageLink(tmpl.id, linkingImageId)}
+                      className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${isLinked ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-200 hover:border-brand-accent/50'}`}
+                    >
+                      <span className="text-sm font-medium">{tmpl.label}</span>
+                      {isLinked && <svg className="w-5 h-5 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={() => setLinkingImageId(null)}>Done</Button>
+              </div>
             </div>
-          )
-        }
-      </div >
-    );
-  };
+          </div>
+        )}
+
+        {/* Show More Button */}
+        {config.referenceImages.length > 15 && (
+          <div className="mt-3 flex justify-center sticky bottom-0 z-10">
+            <button
+              onClick={() => setViewingImage(viewingImage === 'ALL' ? null : 'ALL')}
+              className="text-xs text-brand-muted hover:text-brand-text bg-white border border-brand-border px-4 py-2 rounded-full shadow-sm flex items-center gap-2 transition-all hover:shadow-md"
+            >
+              {viewingImage === 'ALL' ? (
+                <>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" /></svg>
+                  Collapse Gallery
+                </>
+              ) : (
+                <>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                  Show All {config.referenceImages.length} Images
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Actions */}
+      <div className="pt-6 border-t border-brand-border space-y-2">
+        <Button onClick={handleCopyConfig} variant="secondary" className="w-full text-xs h-8">{copyStatus === 'copied' ? 'Copied JSON!' : 'Copy Config JSON'}</Button>
+        <Button onClick={handleRestoreDefaults} variant="outline" className="w-full text-xs h-8 opacity-50 hover:opacity-100">Restore Defaults</Button>
+      </div>
+
+      {
+        viewingImage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setViewingImage(null)}>
+            <img src={viewingImage} className="max-w-full max-h-[90vh] rounded" />
+          </div>
+        )
+      }
+    </div >
+  );
+};
