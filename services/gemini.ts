@@ -545,6 +545,15 @@ export const generateTweet = async (
         ? `STYLE REFERENCE (MIMIC THIS VOICE/PACE/LENGTH): \n${brandConfig.tweetExamples.map(t => `- ${t}`).join('\n')} `
         : "";
 
+    const templateExamples = (brandConfig.graphicTemplates || [])
+        .filter(t => t.tweetExample && t.tweetExample.trim().length > 0)
+        .map(t => `[TEMPLATE STYLE: ${t.label}]: "${t.tweetExample}"`)
+        .join('\n');
+
+    const templateContext = templateExamples.length > 0
+        ? `\nTEMPLATE-SPECIFIC WRITING STYLES (Use these if the output fits the template context): \n${templateExamples}`
+        : "";
+
     const kb = brandConfig.knowledgeBase.length > 0
         ? `KNOWLEDGE BASE (THE ABSOLUTE SOURCE OF TRUTH): \n${brandConfig.knowledgeBase.join('\n\n')} `
         : "";
@@ -569,6 +578,7 @@ export const generateTweet = async (
     - **ACCESSIBILITY**: Deep technical understanding, explained simply.
     
     ${examples}
+    ${templateContext}
     
     ${kb}
 
@@ -693,6 +703,15 @@ export const generateCampaignDrafts = async (
         ? `STYLE DNA (VIBE CHECK ONLY - DO NOT COPY): \n${brandConfig.tweetExamples.slice(0, 5).map(t => `- ${t}`).join('\n')} `
         : "";
 
+    const templateExamples = (brandConfig.graphicTemplates || [])
+        .filter(t => t.tweetExample && t.tweetExample.trim().length > 0)
+        .map(t => `[TEMPLATE STYLE: ${t.label}]: "${t.tweetExample}"`)
+        .join('\n');
+
+    const templateContext = templateExamples.length > 0
+        ? `\nTEMPLATE-SPECIFIC WRITING STYLES (If assigning a template, MATCH its writing style): \n${templateExamples}`
+        : "";
+
     const kb = brandConfig.knowledgeBase.length > 0
         ? `CORE KNOWLEDGE (SOURCE OF TRUTH): \n${brandConfig.knowledgeBase.join('\n\n')} `
         : "";
@@ -804,7 +823,9 @@ export const generateCampaignDrafts = async (
     ${ragContext}
     
     STYLE REFERENCES (DO NOT COPY TEXT, MIMIC THE VIBE):
+    STYLE REFERENCES (DO NOT COPY TEXT, MIMIC THE VIBE):
     ${examples}
+    ${templateContext}
     ${recentContext}
 
     PROTOCOL:
@@ -1012,6 +1033,15 @@ export const generateTrendReaction = async (
         ? `STYLE EXAMPLES: \n${brandConfig.tweetExamples.slice(0, 2).map(t => `- ${t}`).join('\n')} `
         : "";
 
+    const templateExamples = (brandConfig.graphicTemplates || [])
+        .filter(t => t.tweetExample && t.tweetExample.trim().length > 0)
+        .map(t => `[TEMPLATE STYLE: ${t.label}]: "${t.tweetExample}"`)
+        .join('\n');
+
+    const templateContext = templateExamples.length > 0
+        ? `\nTEMPLATE STYLES (Use if relevant): \n${templateExamples}`
+        : "";
+
     const kb = brandConfig.knowledgeBase.length > 0
         ? `OUR BRAND CONTEXT(USE THIS TO CONNECT TREND TO PRODUCT): \n${brandConfig.knowledgeBase.join('\n\n')} `
         : "";
@@ -1055,6 +1085,7 @@ Source: ${trend.source}
     ${kb}
     
     ${examples}
+    ${templateContext}
 
     BRAND PROTOCOLS:
 VOICE: ${voice}
