@@ -233,7 +233,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                 ragContext, // RAG Context (Now Live)
                 signals // LIVE WAR ROOM SIGNALS
             );
-            onUpdateTasks(newTasks);
+            onUpdateTasks(newTasks.tasks);
 
             onLog?.(`Analysis complete. Brief generated.`);
         } catch (e) {
