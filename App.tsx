@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis } from './services/gemini';
+import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis, executeMarketingAction } from './services/gemini';
 import { fetchMarketPulse } from './services/pulse';
 import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { Button } from './components/Button';
 import { Select } from './components/Select';
@@ -18,8 +18,10 @@ import { Campaigns } from './components/Campaigns'; // Import Campaigns
 import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
 import { BrainPage } from './components/Brain/BrainPage'; // Import BrainPage
 import { ContentStudio } from './components/ContentStudio'; // Import ContentStudio
+import { ImageEditor } from './components/ImageEditor'; // Import ImageEditor
 import { Sidebar } from './components/Sidebar';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals } from './types';
+
 
 const App: React.FC = () => {
     // Check environment variable first (injected by Vite define)
@@ -109,13 +111,14 @@ const App: React.FC = () => {
 
     useEffect(() => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
-        setStrategyTasks(loadStrategyTasks(selectedBrand)); // Load Tasks
+        setStrategyTasks(loadStrategyTasks(selectedBrand));
 
-        // Load History (Static)
+        // Load History (Logs + Alert Debug)
+        console.log(`DEBUG: Selected Brand is [${selectedBrand}]`);
         fetchBrainHistoryEvents(selectedBrand).then(events => {
+            console.log('Loaded history events:', events);
             setHistoryEvents(events);
-            console.log(`📅 Loaded ${events.length} historical events for calendar.`);
-        });
+        }).catch(err => console.error("History Load Error:", err));
 
         // Listen for background sync updates
         const handleSyncUpdate = (e: Event) => {
@@ -128,7 +131,7 @@ const App: React.FC = () => {
 
         window.addEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
 
-        // Listen for Brand Updates (e.g. Ingestion saving images)
+        // Listen for Brand Updates
         const handleBrandUpdate = () => {
             console.log("Live Sync: Reloading brand profiles");
             setProfiles(loadBrandProfiles());
@@ -184,33 +187,57 @@ const App: React.FC = () => {
                     fetchSocialMetrics(selectedBrand)
                 ]);
 
-                // 2b. Update Live Signals (Brain Context)
+                // 2b. Update Live Signals
                 const liveSignals = computeSocialSignals(trends, mentions, socialMetrics || undefined);
                 setSocialSignals(liveSignals);
 
                 // 3. RAG Memory Retrieval
                 setSystemLogs(prev => ["Memory: Querying Vector Database...", ...prev]);
-                const ragHits = await searchContext(`Market trends, strategy context, and past decisions for ${selectedBrand}`, 5);
-                const ragContext = buildContextBlock(ragHits);
-                await new Promise(r => setTimeout(r, 800));
+                const ragHits = await searchContext(`Market trends and strategy context for ${selectedBrand}`, 5);
+                const ragContextDocs = ragHits.map(h => h.content); // Extract just strings
 
-                // 4. AI Synthesis
-                setSystemLogs(prev => ["Synthesizing Strategy Opportunities...", ...prev]);
+                // 4. UNIFIED BRAIN EXECUTION (Autopilot)
+                setSystemLogs(prev => ["Autopilot: Engaging Unified Brain...", ...prev]);
 
-                const generatedTasks = await generateStrategicAnalysis(
-                    selectedBrand,
-                    calendarEvents,
-                    trends,
-                    profiles[selectedBrand],
-                    null, // Growth Report optional
-                    mentions,
-                    ragContext,
-                    socialSignals,
-                    loadBrainLogs(selectedBrand) // Cognitive Loop
-                );
+                // Construct the Context Object
+                const brainContext = {
+                    brand: profiles[selectedBrand],
+                    marketState: {
+                        trends: trends,
+                        analytics: socialMetrics || undefined,
+                        mentions: mentions
+                    },
+                    memory: {
+                        ragDocs: ragContextDocs,
+                        recentPosts: socialMetrics?.recentPosts || [],
+                        pastStrategies: strategyTasks
+                    },
+                    userObjective: "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
+                };
 
-                setStrategyTasks(generatedTasks);
-                setSystemLogs(prev => ["Sentinel: Strategy Updated.", ...prev]);
+                // Execute the Cognitive Loop
+                const actions = await executeMarketingAction(brainContext);
+
+                // Process Results
+                if (actions.length > 0) {
+                    setSystemLogs(prev => [`Autopilot: Executed ${actions.length} strategic actions.`, ...prev]);
+
+                    // Convert Actions to Strategy Tasks for UI Visibility
+                    const newTasks: StrategyTask[] = actions.map(act => ({
+                        id: `auto-${Date.now()}-${Math.random()}`,
+                        type: 'CAMPAIGN_IDEA', // Default bucket
+                        title: `Autopilot: ${act.topic}`,
+                        description: `Generated ${act.type} based on market analysis. Goal: ${act.goal}`,
+                        reasoning: `Autopilot determined this was high leverage.`,
+                        impactScore: 9,
+                        executionPrompt: act.topic,
+                        suggestedVisualTemplate: 'Partnership', // Placeholder
+                    }));
+
+                    setStrategyTasks(prev => [...newTasks, ...prev]);
+                } else {
+                    setSystemLogs(prev => ["Autopilot: No high-confidence actions needed right now.", ...prev]);
+                }
 
             } catch (e) {
                 console.error("Auto-pilot analysis failed", e);
@@ -218,23 +245,22 @@ const App: React.FC = () => {
             }
         };
 
-        const interval = setInterval(() => {
-            // Periodic "Liveness" check
-            setSystemLogs(prev => [`Sentinel Scan Active: ${new Date().toLocaleTimeString()}`, ...prev].slice(0, 50));
-        }, 60000); // Every minute log a pulse
-
         // Run initial scan on mount
         runBackgroundScan();
 
-        return () => clearInterval(interval);
-        return () => clearInterval(interval);
+        // No interval needed for sentinel logs - prevents unnecessary re-renders
+        // If we want periodic scans, we should do it cautiously.
+        // For now, removing to fix "1 minute crash".
+
     }, [selectedBrand]);
 
     // --- Server Health Check ---
     const [isServerOnline, setIsServerOnline] = useState<boolean>(false);
     useEffect(() => {
         const checkHealth = async () => {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+            // In Vercel/Production, the API is at the same origin, so we can use '' or just relative paths.
+            // If VITE_API_BASE_URL is set (e.g. for local dev with separate frontend/backend), use it.
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
             try {
                 // simple check, if fails we just set offline
                 const res = await fetch(`${baseUrl}/api/health`).catch(() => null);
@@ -255,7 +281,7 @@ const App: React.FC = () => {
     const [agentDecisions, setAgentDecisions] = useState<any[]>([]);
     useEffect(() => {
         const fetchDecisions = async () => {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
             try {
                 // If health check failed previously, maybe skip this? 
                 // For now, simple fetch with suppression
@@ -656,6 +682,11 @@ const App: React.FC = () => {
                     />
                 )}
 
+                {/* SECTION: IMAGE EDITOR */}
+                {appSection === 'image-editor' && selectedBrand && profiles[selectedBrand] && (
+                    <ImageEditor brandConfig={profiles[selectedBrand]} brandName={selectedBrand} />
+                )}
+
                 {/* ONBOARDING MODAL */}
                 {showOnboarding && (
                     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
@@ -745,6 +776,8 @@ const App: React.FC = () => {
                         <button onClick={() => setViewingImage(null)} className="absolute top-5 right-5 text-white bg-gray-800 rounded-full p-2 hover:bg-gray-700">✕</button>
                     </div>
                 )}
+
+
 
                 {/* SCHEDULE / ADD CONTENT MODAL */}
                 {showScheduleModal && (

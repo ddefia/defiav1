@@ -38,6 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { id: 'campaigns', label: 'Campaigns', icon: 'target' },
                 { id: 'calendar', label: 'Calendar', icon: 'calendar' },
                 { id: 'social', label: 'Social Media', icon: 'message-circle' },
+                { id: 'image-editor', label: 'Image Editor', icon: 'edit' }, // NEW
             ]
         },
         {

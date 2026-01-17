@@ -16,8 +16,10 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_
 // BRANDS TO SYNC
 const TARGET_BRANDS = {
     'metis': 'MetisL2',
-    'lazai': 'LazAI_Official',
-    'defia': 'DefiaLabs'
+    'lazai': 'LazAINetwork',
+    'defia': 'DefiaLabs',
+    'netswap': 'netswapofficial',
+    'enki': 'ENKIProtocol'
 };
 
 // INIT SUPABASE
@@ -46,10 +48,13 @@ async function backfill() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    "searchTerms": [`from:${handle}`],
-                    "maxItems": 100, // Start with 100 to save credits, user can increase
+                    // "searchTerms": [`from:${handle}`], // DEPRECATED: Causes low/no results
+                    "twitterHandles": [handle],
+                    "maxItems": 100,
                     "sort": "Latest",
-                    "tweetLanguage": "en"
+                    "tweetLanguage": "en",
+                    "author": handle,
+                    "proxy": { "useApifyProxy": true }
                 })
             }).then(r => r.json());
 
@@ -67,13 +72,20 @@ async function backfill() {
                 process.stdout.write('.');
             }
 
-            if (status === 'FAILED') {
-                console.error(`\n❌ Scrape failed for ${handle}`);
+            if (status === 'FAILED' || status === 'ABORTED') {
+                console.error(`\n❌ Scrape failed for ${handle} (Status: ${status})`);
                 continue;
             }
 
             // Fetch Items
             const items = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}`).then(r => r.json());
+
+            // Check for "User not found" error in the first item (Apify sometimes returns this as an item)
+            if (items.length > 0 && items[0].error && items[0].code === 'C017') {
+                console.error(`\n❌ User not found: ${handle}. Please verify the handle.`);
+                continue;
+            }
+
             console.log(`\n   ✅ Retrieved ${items.length} tweets.`);
 
             // 2. SAVE TO CACHE (JSON)

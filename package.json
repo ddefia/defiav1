@@ -8,6 +8,7 @@
     "server": "node server.js",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy": "vercel --prod",
     "refresh-memory": "node scripts/backfill_tweets.js"
   },
   "dependencies": {

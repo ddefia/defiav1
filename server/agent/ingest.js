@@ -123,7 +123,7 @@ if (!fs.existsSync(CACHE_DIR)) {
 export const TRACKED_BRANDS = {
     'enki': 'ENKIProtocol',
     'netswap': 'netswapofficial',
-    'lazai': 'LazAI_Official',
+    'lazai': 'LazAINetwork',
     'defia': 'DefiaLabs',
     'meme': 'MetisL2'
 };
@@ -156,10 +156,13 @@ export const updateAllBrands = async (apiKey) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    "searchTerms": [`from:${handle}`],
+                    // "searchTerms": [`from:${handle}`],
+                    "twitterHandles": [handle],
                     "maxItems": 5,
                     "sort": "Latest",
-                    "tweetLanguage": "en"
+                    "tweetLanguage": "en",
+                    "author": handle,
+                    "proxy": { "useApifyProxy": true }
                 })
             });
 

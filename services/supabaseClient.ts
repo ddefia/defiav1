@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-
 const envUrl = process.env.VITE_SUPABASE_URL || (import.meta as any).env?.VITE_SUPABASE_URL || '';
 const envKey = process.env.VITE_SUPABASE_ANON_KEY || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
@@ -10,8 +9,11 @@ export const getSupabase = () => {
     if (clientInstance) return clientInstance;
 
     // 1. Try Environment Variables
-    let url = envUrl;
-    let key = envKey;
+    const HARDCODED_URL = 'https://fwvqrdxgcugullcwkfiq.supabase.co';
+    const HARDCODED_KEY = 'sb_publishable_dn_SxJbbX9sIYjCiR9paTw_MRMnokPf';
+
+    let url = envUrl || HARDCODED_URL;
+    let key = envKey || HARDCODED_KEY;
 
     // 2. Try LocalStorage (UI Overrides) if client-side
     if ((!url || !key) && typeof window !== 'undefined') {
@@ -32,15 +34,26 @@ export const getSupabase = () => {
         return clientInstance;
     }
 
+    console.warn("No Supabase Credentials found. Using Dummy Client.");
+
     // Return dummy client if no keys (prevents crashes, logs warning on use)
+    const dummyBuilder = () => {
+        const chain = {
+            select: () => chain,
+            eq: () => chain,
+            order: () => chain,
+            limit: () => chain,
+            single: async () => ({ data: null, error: { message: "No Supabase Credentials" } }),
+            maybeSingle: async () => ({ data: null, error: { message: "No Supabase Credentials" } }),
+            then: (resolve: any) => resolve({ data: [], error: { message: "No Supabase Credentials" } }) // Allow await
+        };
+        return chain;
+    };
+
     return {
-        from: () => ({
-            select: () => ({ maybeSingle: async () => ({ data: null, error: { message: "No Supabase Credentials" } }) }),
-            upsert: async () => ({ error: { message: "No Supabase Credentials" } })
-        })
+        from: () => dummyBuilder()
     };
 };
 
 // Legacy export compatibility
 export const supabase = getSupabase();
-

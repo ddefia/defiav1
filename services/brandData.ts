@@ -25,8 +25,8 @@ export const DEFAULT_PROFILES: Record<string, BrandConfig> = {
             { id: 'enki_ref_4', name: 'Enki Reference 5', url: '/brands/enki/ref_4.png' }
         ],
         tweetExamples: [
-            "We are simplifying the Metis Sequencer Node participation. 🌿\n\nNo technical headaches. Just pure yield.\n\n$ENKI is the key to unlocking the full potential of @MetisL2.\n\nStake your $METIS now: [Link]",
-            "The era of decentralized sequencers is here.\n\nMetis x ENKI.\n\nIt's time to take control of the network.",
+            "Idle METIS isn't just neutral, it's a missed opportunity.\n\nUnproductive capital weakens the network. With ENKI, your METIS does more, fueling decentralized infrastructure, earns weekly sequencer rewards, and keeps you liquid 💧",
+            "Simplifying sequencer yield, one week at a time.\n\n$ENKI is the key to unlocking the full potential of @MetisL2.\n\nStake your $METIS now: [Link]",
             "Did you know? You don't need to run a node to earn sequencer rewards.\n\nENKI does the heavy lifting for you.\n\nLiquid Staking for the people. 💧"
         ],
         knowledgeBase: [
@@ -115,8 +115,10 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
             { id: 'RViwR9pP', name: 'Reference 9', url: '/brands/netswap/RViwR9pP.jpg' }
         ],
         tweetExamples: [
-            "Liquidity Providers, assemble! 🚜\n\nThe NET/METIS pool rewards just went parabolic.\n\n💸 Current APR: 400%\n🔒 TVL: $2.5M\n⚡ Slippage: < 0.1%\n\nStop letting your assets sit idle. Make them work for you on the premier DEX of Metis.\n\nAdd liquidity now:\n[Link]",
-            "Swap instantly. Low fees. Deep liquidity. 🌊\n\nExperience the most efficient trading engine on Metis.\n\nTrade now:\n[Link]",
+            "Liquidity Providers, assemble! 🚜\n\nThe NET/METIS pool rewards just went parabolic.\n\n💸 Current APR: 400%\n\nStop letting your assets sit idle. Make them work for you on the premier DEX of Metis.",
+            "LP’ing is how you become the market maker 💧\n\nUsers deposit tokens into a pool, earn a share of every trade through swap fees, and can stack protocol rewards on top.\n\nNo gatekeepers + no middlemen 🔒",
+            "Loyalty pays in DeFi. Start staking for Feb 6 at [Link] 🪂",
+            "gmetis 🌿⚡️🤖"
         ],
         knowledgeBase: [
             "Netswap is the premier Decentralized Exchange (DEX) on the Metis network.",
@@ -154,7 +156,9 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
             { id: 'lazai_ref_5', name: 'LazAI Reference 5', url: '/brands/lazai/lazai_ref_5.png' }
         ],
         tweetExamples: [
-            "Stop writing boilerplate. Start creating. 🧠\n\nLazAI v2.0 is live.\n\n- 10x faster generation\n- Context-aware workflows\n- Enterprise grade security\n\nThe future of work is automated.",
+            "He’s cute, chaotic, and completely yours 🧸\n\nLazAI rewards early explorers. No whitelist, no signup. Just on-chain AI that adapts to you.",
+            "She's a 10 but she fully trusts Big Tech AI",
+            "all AI data will be decentralized",
             "Your competitors are already using AI. Are you?\n\nDon't get left behind. #LazAI"
         ],
         knowledgeBase: [
@@ -188,13 +192,23 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
         ],
         referenceImages: [],
         tweetExamples: [
-            "The first decentralized sequencer is live on mainnet. 🌿\n\nMetis is restoring the original promise of Ethereum scaling.\n\nDecentralization isn't a roadmap item. It's our foundation.",
-            "Low fees. High speed. Community owned. 🚀\n\nBuild the future on Metis L2."
+            "AI has moved from hype to reality. It now writes code, automates workflows, and even acts onchain.\n\nThe real question isn’t capability but where the value actually lives beyond speculation.",
+            "Metis was never meant to be ‘just another L2.’\n\nIt’s a unified execution, settlement, and verification stack where AI, data, and payments become native economic primitives.\n\nFrom decentralized sequencing to AI-optimized execution, this is infrastructure designed to evolve.",
+            "“Alpha” is temporary.\nSubstance compounds.\n\nWhat we’re seeing now isn’t a downturn, it’s a filter. Projects built on story struggle. Projects built on conviction keep shipping.",
+            "AI generates value. The question is: who owns it?\n\nThe Data Anchoring Token (DAT) standard makes AI-generated content verifiable, ownable, and monetizable, with revenue embedded at the protocol level.",
+            "In 2026, fragmentation kills economies.\n\nMETIS now serves as the native gas across LazAI, unifying activity across settlement, performance, and applications into one token economy.\n\nUsage is no longer abstract. It directly reinforces the network.",
+            "stop laughing at kids for believing Santa brings presents\n\ni know adults who believe Big Tech AI protects their privacy",
+            "How to find Metis eco's #1 priority in 2026?\n\n1. Open your phones camera\n2. Switch to selfie mode"
         ],
         knowledgeBase: [
-            "Metis is a Smart Layer 2 Rollup on Ethereum.",
-            "It is the first L2 to successfully decentralize its sequencer.",
-            "Key features: Low gas fees, fast transactions, and community governance via Metro DAO."
+            "Metis is evolving from a Layer 2 into an AI-native blockchain economy.",
+            "Key Narrative: Shift from speculation to real usage, infrastructure, and economics.",
+            "LazAI Integration: METIS serves as the native gas across LazAI, unifying settlement, performance, and applications.",
+            "Infrastructure: Metis is a unified stack (Settlement, Execution, Verification) where AI, data, and payments are native primitives.",
+            "Data Anchoring Token (DAT): A standard to make AI-generated content verifiable and ownable, embedding revenue at the protocol level.",
+            "Strategic Focus: 'Alpha is temporary. Substance compounds.' Focus on projects built on conviction.",
+            "Architecture Layers: Andromeda (Settlement), Hyperion (Execution/Throughput), LazAI (Application/Value Capture).",
+            "Community Letter 2026: Real usage changes system priorities. Applications must move past speculation (Article Context)."
         ]
     }
 };

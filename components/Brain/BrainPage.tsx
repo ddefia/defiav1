@@ -184,6 +184,34 @@ export const BrainPage: React.FC<BrainPageProps> = ({ brandName }) => {
                             </div>
                         </div>
 
+                        {/* 1.2 USER PROMPT */}
+                        {selectedLog.userPrompt && (
+                            <div className="space-y-2">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <span className="text-base">👤</span> User Instruction
+                                </h3>
+                                <div className="bg-white p-4 rounded-xl border border-brand-border shadow-sm">
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed font-serif italic">
+                                        "{selectedLog.userPrompt}"
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 1.5 SYSTEM PROMPT (NEW) */}
+                        {selectedLog.systemPrompt && (
+                            <div className="space-y-2">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <span className="text-base">🤖</span> System Instruction (Prompt)
+                                </h3>
+                                <div className="bg-gray-900 text-green-400 p-4 rounded-xl border border-gray-800 shadow-sm overflow-x-auto">
+                                    <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed">
+                                        {selectedLog.systemPrompt}
+                                    </pre>
+                                </div>
+                            </div>
+                        )}
+
                         {/* 2. STRATEGIC ANALYSIS (THINKING) */}
                         {selectedLog.thoughts && (
                             <div className="space-y-3">

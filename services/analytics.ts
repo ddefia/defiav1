@@ -71,7 +71,8 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
     // 1. Try Fetching Cached Daily Stats (Server-Side)
     let cachedStats: any = null;
     try {
-        const cacheRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'}/api/social-metrics/${brandName}`);
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+        const cacheRes = await fetch(`${baseUrl}/api/social-metrics/${brandName}`);
         if (cacheRes.ok) {
             cachedStats = await cacheRes.json();
             if (cachedStats.totalFollowers) {

@@ -4,8 +4,10 @@ import { Select } from './Select';
 import ReactMarkdown from 'react-markdown';
 import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy, analyzeContentNotes } from '../services/gemini';
 import { getBrainContext } from '../services/pulse'; // New Import
+import { dispatchThinking } from './ThinkingConsole';
 
 import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs } from '../services/storage';
+import { saveBrainMemory } from '../services/supabase'; // History Sync
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -57,6 +59,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedStrategy, setGeneratedStrategy] = useState<any>(null); // Store content plan
     const [draftContext, setDraftContext] = useState<string>(""); // Store AI Thinking
+    const [batchProgress, setBatchProgress] = useState<string>(""); // NEW: Batch Progress Indicator
 
     // Quick Mode State
     const [campaignCount, setCampaignCount] = useState<string>('3');
@@ -178,8 +181,17 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const handleGenerateStrategy = async () => {
         if (campaignType === 'theme' && !campaignTheme.trim()) return;
 
+        dispatchThinking("Analyzing Campaign Context...", {
+            goal: campaignGoal,
+            type: campaignType,
+            theme: campaignTheme,
+            docProvided: !!campaignFocusDoc
+        });
+
         setIsGeneratingStrategy(true);
         setError(null);
+        setDraftContext(""); // Clear old context to prevent "JSON Generation Successful" from showing
+
 
         try {
             // FAST TRACK FOR NOTES: Analyze -> Drafts (Skip Strategy Brief)
@@ -196,7 +208,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     planTheme,
                     brandName,
                     brandConfig,
-                    0, // Count invalid for smart plan
+                    parseInt(campaignCount), // Use User Count
                     plan, // Pass the plan
                     "", // Focus Content (none)
                     [] // Recent Posts (none for notes mode)
@@ -204,31 +216,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                 setDraftContext(result.thinking); // Capture thinking
 
-                // Parse & Set Items (Reusing logic from handleDraftCampaign - ideally refactor this)
-                let textToParse = result.content;
-                const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
-                if (colorMatch) {
-                    setCampaignColor(colorMatch[1]);
-                    textToParse = textToParse.replace(colorMatch[0], '').trim();
+                if (result.themeColor) {
+                    setCampaignColor(result.themeColor);
                 }
 
-                const splitDrafts = textToParse.split(/---/).map(t => t.trim()).filter(t => t.length > 0);
-                const items: CampaignItem[] = splitDrafts.map((txt, i) => {
-                    let tweetContent = txt;
-                    let detectedTemplate = campaignTemplate;
-                    const templateMatch = txt.match(/^\[(.*?)\]/);
-                    if (templateMatch) {
-                        detectedTemplate = templateMatch[1];
-                        tweetContent = txt.replace(templateMatch[0], '').trim();
-                    }
+                const items: CampaignItem[] = result.drafts.map((d: any, i: number) => {
                     return {
                         id: `draft-${Date.now()}-${i}`,
-                        tweet: tweetContent,
+                        tweet: d.tweet,
                         isApproved: true,
                         status: 'draft',
                         images: [],
-                        campaignColor: colorMatch ? colorMatch[1] : campaignColor,
-                        template: detectedTemplate
+                        campaignColor: result.themeColor || campaignColor,
+                        template: d.template || campaignTemplate,
+                        reasoning: d.reasoning
                     };
                 });
 
@@ -284,7 +285,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             setCampaignStep(2); // Move to Strategy View
         } catch (err) {
             console.error(err);
-            setError("Failed to generate strategy.");
+            console.error(err);
+            setError(`Failed to generate strategy: ${(err as Error).message}`);
+            dispatchThinking("Strategy Generation Failed", { error: (err as Error).message });
         } finally {
             setIsGeneratingStrategy(false);
         }
@@ -308,6 +311,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 const countForBatch = Math.min(BATCH_SIZE, totalCount - (b * BATCH_SIZE));
                 const batchLabel = `Batch ${b + 1}/${batches}`;
                 console.log(`Generating ${batchLabel}...`);
+                setBatchProgress(`Drafting ${batchLabel} (${allItems.length} generated so far)...`);
 
                 // Pass strategy context to drafting if available
                 const enhancedTheme = campaignStrategy
@@ -325,41 +329,31 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     recentPosts
                 );
 
-                if (b === 0) setDraftContext(result.thinking); // 🧠 Set Brain Thinking Logic from first batch
-
-                let textToParse = result.content;
-
-                // Extract Theme Color if AI Suggests one (only from first batch)
-                if (b === 0) {
-                    const colorMatch = textToParse.match(/THEME_COLOR:\s*(#[0-9a-fA-F]{3,6})/i);
-                    if (colorMatch) {
-                        setCampaignColor(colorMatch[1]);
-                        textToParse = textToParse.replace(colorMatch[0], '').trim();
-                    }
+                if (!result.drafts || result.drafts.length === 0) {
+                    console.warn(`Batch ${b + 1} failed to return drafts.`);
+                    // Continue to next batch instead of breaking whole flow, but alert if all fail
                 }
 
-                const splitDrafts = textToParse.split(/---/)
-                    .map(d => d.trim())
-                    .filter(d => d.length > 0);
+                if (b === 0) setDraftContext(result.thinking); // 🧠 Set Brain Thinking Logic from first batch
 
-                const batchItems: CampaignItem[] = splitDrafts.map((txt, i) => {
-                    let tweetContent = txt;
-                    let detectedTemplate = campaignTemplate;
+                // JSON Handling
+                if (result.themeColor && b === 0) {
+                    setCampaignColor(result.themeColor);
+                }
 
-                    const templateMatch = txt.match(/^\[(.*?)\]/);
-                    if (templateMatch) {
-                        detectedTemplate = templateMatch[1];
-                        tweetContent = txt.replace(templateMatch[0], '').trim();
-                    }
-
+                const batchItems: CampaignItem[] = result.drafts.map((d: any, i: number) => {
                     return {
                         id: `draft-${Date.now()}-${b}-${i}`,
-                        tweet: tweetContent,
+                        tweet: d.tweet,
                         isApproved: true,
                         status: 'draft',
                         images: [],
-                        campaignColor: campaignColor,
-                        template: detectedTemplate
+                        campaignColor: result.themeColor || campaignColor,
+                        template: d.template || campaignTemplate,
+
+                        reasoning: d.reasoning, // New transparency field
+                        visualHeadline: d.visualHeadline, // AI suggested headline
+                        artPrompt: d.visualDescription // Map AI Description to Art Prompt
                     };
                 });
 
@@ -368,12 +362,17 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 setCampaignItems(prev => [...prev, ...batchItems]);
             }
 
+            if (allItems.length === 0) {
+                throw new Error("No drafts were generated. Please check API limits or try a smaller batch.");
+            }
+
             setCampaignStep(3); // Move to Review
         } catch (err) {
-            setError("Failed to draft campaign.");
+            setError(`Failed to draft campaign. ${(err as Error).message}`);
             console.error(err);
         } finally {
             setIsDraftingCampaign(false);
+            setBatchProgress("");
         }
     };
 
@@ -407,10 +406,24 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
             await Promise.all(chunk.map(async (item) => {
                 setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'generating' } : p));
+
+                // CHECK FOR TEXT-ONLY MODE
+                if (item.skipImage) {
+                    // Simulate a quick delay for UX, then complete
+                    await new Promise(r => setTimeout(r, 500));
+                    setCampaignItems(prev => prev.map(p => p.id === item.id ? {
+                        ...p,
+                        status: 'completed',
+                        images: [], // No images
+                        selectedImageIndex: -1 // Indicator for no image
+                    } : p));
+                    return;
+                }
+
                 try {
                     const promises = [
-                        generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined }),
-                        generateWeb3Graphic({ prompt: item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined })
+                        generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined, artPrompt: item.artPrompt }),
+                        generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined, artPrompt: item.artPrompt })
                     ];
                     // Add slight random delay to stagger start times
                     await new Promise(r => setTimeout(r, Math.random() * 1000));
@@ -422,6 +435,15 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         images: images,
                         selectedImageIndex: 0
                     } : p));
+
+                    // History Sync
+                    images.forEach(img => {
+                        saveBrainMemory(brandName, 'FACT', `Campaign Asset: ${item.visualHeadline || item.tweet.substring(0, 30)}`, undefined, {
+                            mediaUrl: img,
+                            source: 'Campaigns',
+                            campaign: campaignTheme
+                        });
+                    });
                 } catch (err) {
                     setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'error' } : p));
                 }
@@ -432,6 +454,10 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
     const handleUpdateItemArtPrompt = (id: string, prompt: string) => {
         setCampaignItems(prev => prev.map(i => i.id === id ? { ...i, artPrompt: prompt } : i));
+    };
+
+    const handleUpdateItemVisualHeadline = (id: string, headline: string) => {
+        setCampaignItems(prev => prev.map(i => i.id === id ? { ...i, visualHeadline: headline } : i));
     };
 
     const handleSelectImage = (itemId: string, index: number) => {
@@ -450,11 +476,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             const effectiveRefImage = item.referenceImageId || campaignReferenceImage || undefined;
 
             const promises = [
-                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined }),
-                generateWeb3Graphic({ prompt: item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined })
+                generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined }),
+                generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined })
             ];
             const images = await Promise.all(promises);
             setCampaignItems(prev => prev.map(p => p.id === id ? { ...p, status: 'completed', images: images, selectedImageIndex: 0 } : p));
+
+            // History Sync
+            images.forEach(img => {
+                saveBrainMemory(brandName, 'FACT', `Campaign Asset (Regen): ${item.visualHeadline || item.tweet.substring(0, 30)}`, undefined, {
+                    mediaUrl: img,
+                    source: 'Campaigns',
+                    campaign: campaignTheme
+                });
+            });
         } catch (err) {
             setCampaignItems(prev => prev.map(p => p.id === id ? { ...p, status: 'error' } : p));
         }
@@ -879,9 +914,18 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     </>
                                 )}
 
-                                {campaignType !== 'notes' && (
-                                    <Select label="Tweet Count" value={campaignCount} onChange={e => setCampaignCount(e.target.value)} options={[{ value: '3', label: '3 Tweets' }, { value: '5', label: '5 Tweets' }, { value: '7', label: '7 Tweets' }, { value: '50', label: '50 Tweets (Mega Batch)' }]} />
-                                )}
+                                {/* Tweet Count Selector (Visible for ALL modes) */}
+                                <div>
+                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Tweet Count</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="50"
+                                        value={campaignCount}
+                                        onChange={e => setCampaignCount(e.target.value)}
+                                        className="w-full bg-white border border-brand-border rounded-lg p-2 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm"
+                                    />
+                                </div>
 
                                 <div className="space-y-4 pt-4 border-t border-brand-border">
                                     {/* Visual Style Selection */}
@@ -935,6 +979,13 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     </div>
                                 </div>
 
+                                {error && (
+                                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4 flex items-center gap-2 animate-fadeIn">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        {error}
+                                    </div>
+                                )}
+
                                 <Button onClick={handleGenerateStrategy} isLoading={isGeneratingStrategy} disabled={campaignType === 'theme' && !campaignTheme} className="w-full shadow-lg shadow-indigo-500/20">
                                     {campaignType === 'notes' ? 'Analyze Notes & Create Plan' : 'Next: Generate Strategy'}
                                 </Button>
@@ -977,7 +1028,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-gray-100 pt-8">
                                     {/* AUDIENCE & MESSAGING */}
                                     {/* AI THINKING BOX */}
-                                    {draftContext && (
+                                    {/* AI THINKING BOX - Hide if legacy message */}
+                                    {draftContext && !draftContext.includes("JSON Generation Successful") && (
                                         <div className="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 animate-fadeIn">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">🧠</div>
@@ -993,20 +1045,21 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     <div className="space-y-6">
                                         <div>
                                             <label className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 block">Target Audience</label>
-                                            <p className="text-brand-text leading-relaxed text-sm">
-                                                {campaignStrategy.targetAudience}
-                                            </p>
+                                            <textarea
+                                                value={campaignStrategy.targetAudience}
+                                                onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, targetAudience: e.target.value } : null)}
+                                                className="w-full bg-white border border-gray-300 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent rounded-lg p-3 text-sm text-brand-text min-h-[80px] outline-none shadow-sm transition-all"
+                                                placeholder="Describe your target audience..."
+                                            />
                                         </div>
                                         <div>
                                             <label className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 block">Key Messaging</label>
-                                            <ul className="space-y-3">
-                                                {campaignStrategy.keyMessaging.map((msg, i) => (
-                                                    <li key={i} className="flex gap-3 text-sm text-brand-text">
-                                                        <span className="w-5 h-5 rounded-full bg-brand-accent/10 text-brand-accent text-xs flex items-center justify-center shrink-0 font-bold mt-0.5">{i + 1}</span>
-                                                        <span>{msg}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                            <textarea
+                                                value={campaignStrategy.keyMessaging.join('\n')}
+                                                onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, keyMessaging: e.target.value.split('\n') } : null)}
+                                                className="w-full bg-white border border-gray-300 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent rounded-lg p-3 text-sm text-brand-text min-h-[120px] outline-none shadow-sm transition-all"
+                                                placeholder="Enter one key message per line"
+                                            />
                                         </div>
                                     </div>
 
@@ -1016,11 +1069,31 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         <div className="space-y-3">
                                             {campaignStrategy.channelStrategy.map((s, i) => (
                                                 <div key={i} className="bg-gray-50 border border-gray-100 p-4 rounded-xl">
-                                                    <div className="flex justify-between items-center mb-2">
+                                                    <div className="flex justify-between items-center mb-2 gap-2">
                                                         <span className="font-bold text-brand-text text-sm">{s.channel}</span>
-                                                        <span className="text-[10px] bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 font-medium">{s.focus}</span>
+                                                        <input
+                                                            value={s.focus}
+                                                            onChange={(e) => {
+                                                                const newVal = e.target.value;
+                                                                setCampaignStrategy(prev => prev ? {
+                                                                    ...prev,
+                                                                    channelStrategy: prev.channelStrategy.map((item, idx) => idx === i ? { ...item, focus: newVal } : item)
+                                                                } : null);
+                                                            }}
+                                                            className="text-[10px] bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 font-medium outline-none focus:border-brand-accent w-32 text-center"
+                                                        />
                                                     </div>
-                                                    <p className="text-xs text-brand-textSecondary leading-relaxed">{s.rationale}</p>
+                                                    <textarea
+                                                        value={s.rationale}
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            setCampaignStrategy(prev => prev ? {
+                                                                ...prev,
+                                                                channelStrategy: prev.channelStrategy.map((item, idx) => idx === i ? { ...item, rationale: newVal } : item)
+                                                            } : null);
+                                                        }}
+                                                        className="w-full bg-transparent text-xs text-brand-textSecondary leading-relaxed outline-none border-b border-transparent focus:border-gray-300 focus:bg-white transition-colors p-1"
+                                                    />
                                                 </div>
                                             ))}
                                         </div>
@@ -1046,7 +1119,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 <div className="flex gap-4 pt-4">
                                     <Button variant="secondary" onClick={() => setCampaignStep(1)}>Back</Button>
                                     <Button onClick={handleDraftCampaign} isLoading={isDraftingCampaign} className="flex-1 shadow-lg shadow-brand-accent/20 h-12 text-base">
-                                        Generate Content Drafts
+                                        {batchProgress || 'Generate Content Drafts'}
                                     </Button>
                                 </div>
                             </div>
@@ -1137,7 +1210,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                                 const newVal = e.target.value;
                                                                 setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, template: newVal } : p));
                                                             }}
-                                                            className="w-full text-[11px] border border-gray-200 rounded px-2 py-1.5 text-brand-text bg-white outline-none focus:border-brand-accent hover:border-gray-300 transition-colors cursor-pointer"
+                                                            disabled={item.skipImage} // Disable if text only
+                                                            className={`w-full text-[11px] border border-gray-200 rounded px-2 py-1.5 text-brand-text bg-white outline-none focus:border-brand-accent hover:border-gray-300 transition-colors cursor-pointer ${item.skipImage ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                         >
                                                             <option value="">Auto (Default)</option>
                                                             <option value="Partnership">Partnership</option>
@@ -1149,6 +1223,22 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                                 <option key={t.id} value={t.label}>{t.label}</option>
                                                             ))}
                                                         </select>
+                                                    </div>
+
+                                                    {/* SKIP IMAGE TOGGLE */}
+                                                    <div className="flex items-center gap-2 pt-2 border-t border-gray-100 mt-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!item.skipImage}
+                                                            onChange={(e) => {
+                                                                setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, skipImage: e.target.checked } : p));
+                                                            }}
+                                                            id={`skip-${item.id}`}
+                                                            className="rounded border-gray-300 text-brand-accent focus:ring-brand-accent h-3 w-3"
+                                                        />
+                                                        <label htmlFor={`skip-${item.id}`} className="text-[10px] font-medium text-brand-muted cursor-pointer select-none">
+                                                            Skip Image (Text Only)
+                                                        </label>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1183,6 +1273,15 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     <div key={item.id} className="bg-white border border-brand-border rounded-xl overflow-hidden shadow-sm">
                                         {/* Edit / Refine Section */}
                                         <div className="p-4 border-b border-brand-border bg-gray-50">
+                                            {item.reasoning && (
+                                                <div className="mb-3 p-3 bg-green-50/50 border border-green-100 rounded-lg flex gap-3">
+                                                    <div className="shrink-0 pt-0.5" title="Verified Source">✅</div>
+                                                    <div>
+                                                        <div className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-0.5">Verified Source</div>
+                                                        <p className="text-xs text-green-900/80 font-medium leading-relaxed">{item.reasoning}</p>
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div className="flex justify-between gap-4 mb-2">
                                                 <textarea
                                                     value={item.tweet}
@@ -1229,6 +1328,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                         <option key={img.id} value={img.id}>{img.name}</option>
                                                     ))}
                                                 </select>
+
+                                                {/* Text Only Toggle Step 4 */}
+                                                <div className="flex items-center gap-1.5 px-2 border border-gray-200 rounded bg-white" title="Skip Image Generation">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!item.skipImage}
+                                                        onChange={(e) => {
+                                                            setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, skipImage: e.target.checked } : i));
+                                                        }}
+                                                        className="rounded border-gray-300 text-brand-accent focus:ring-brand-accent h-3 w-3"
+                                                    />
+                                                    <span className="text-[10px] font-medium text-brand-muted whitespace-nowrap">No Image</span>
+                                                </div>
                                             </div>
 
                                             {/* Visual Refinement Input */}
@@ -1238,8 +1350,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     type="text"
                                                     value={item.artPrompt || ''}
                                                     onChange={e => handleUpdateItemArtPrompt(item.id, e.target.value)}
-                                                    placeholder="e.g. Make it darker, add a neon cat..."
+                                                    placeholder="Art Direction (e.g. Neon, Dark mode)..."
                                                     className="flex-1 bg-white border border-brand-border rounded px-2 py-1 text-xs focus:outline-none focus:border-brand-accent"
+                                                />
+                                            </div>
+                                            {/* Visual Headline Input */}
+                                            <div className="flex gap-2 items-center mt-1">
+                                                <span className="text-[10px] font-bold text-brand-muted uppercase whitespace-nowrap min-w-[90px]">Image Text/Subject:</span>
+                                                <input
+                                                    type="text"
+                                                    value={item.visualHeadline || ''}
+                                                    onChange={e => handleUpdateItemVisualHeadline(item.id, e.target.value)}
+                                                    placeholder="Short text for the image..."
+                                                    className="flex-1 bg-white border border-brand-border rounded px-2 py-1 text-xs focus:outline-none focus:border-brand-accent font-bold text-gray-700"
                                                 />
                                                 <Button
                                                     onClick={() => handleRegenerateItem(item.id)}
@@ -1288,83 +1411,99 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     </div>
                                                 </div>
                                             ))}
+                                            {/* Text Only Fallback Display */}
+                                            {item.status === 'completed' && (!item.images || item.images.length === 0) && item.skipImage && (
+                                                <div className="col-span-2 py-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center text-center">
+                                                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mb-2 text-gray-400">
+                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+                                                    </div>
+                                                    <h3 className="text-sm font-bold text-gray-600">Text Only Tweet</h3>
+                                                    <p className="text-xs text-brand-muted mt-1">No graphic assets needed for this post.</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
+
                             </div>
                         )}
-                    </div>
-                </div>
-            )}
 
-            {/* Hidden File Inputs */}
-            <input type="file" ref={campaignFileInputRef} onChange={handleCampaignImageUpload} accept="image/*" className="hidden" />
 
-            {/* Image Preview Helper */}
-            {viewingImage && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingImage(null)}>
-                    <img src={viewingImage} className="max-w-full max-h-[90vh] rounded shadow-2xl" onClick={e => e.stopPropagation()} />
-                    <button onClick={() => setViewingImage(null)} className="absolute top-5 right-5 text-white bg-gray-800 rounded-full p-2 hover:bg-gray-700">✕</button>
-                </div>
-            )}
+                        {/* Hidden File Inputs */}
+                        <input type="file" ref={campaignFileInputRef} onChange={handleCampaignImageUpload} accept="image/*" className="hidden" />
 
-            {/* ANALYTICS MODAL */}
-            {analyzingCampaign && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-                        <div className="p-6 border-b border-brand-border flex justify-between items-center bg-gray-50">
-                            <div>
-                                <h3 className="text-lg font-bold text-brand-text">{analyzingCampaign}</h3>
-                                <p className="text-xs text-brand-muted">Campaign Performance & Schedule</p>
-                            </div>
-                            <button onClick={() => setAnalyzingCampaign(null)} className="text-gray-400 hover:text-gray-600">✕</button>
-                        </div>
-                        <div className="p-6 overflow-y-auto">
-                            {/* Summary Stats */}
-                            <div className="grid grid-cols-3 gap-4 mb-8">
-                                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-center">
-                                    <div className="text-2xl font-bold text-indigo-600">{events.filter(e => e.campaignName === analyzingCampaign).length}</div>
-                                    <div className="text-[10px] uppercase font-bold text-indigo-400">Scheduled Posts</div>
+                        {/* Image Preview Helper */}
+                        {
+                            viewingImage && (
+                                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingImage(null)}>
+                                    <img src={viewingImage} className="max-w-full max-h-[90vh] rounded shadow-2xl" onClick={e => e.stopPropagation()} />
+                                    <button onClick={() => setViewingImage(null)} className="absolute top-5 right-5 text-white bg-gray-800 rounded-full p-2 hover:bg-gray-700">✕</button>
                                 </div>
-                                <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
-                                    <div className="text-2xl font-bold text-green-600">0</div>
-                                    <div className="text-[10px] uppercase font-bold text-green-400">Engagement (Live)</div>
-                                </div>
-                                <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-center">
-                                    <div className="text-2xl font-bold text-purple-600">100%</div>
-                                    <div className="text-[10px] uppercase font-bold text-purple-400">Completion</div>
-                                </div>
-                            </div>
+                            )
+                        }
 
-                            {/* Post List */}
-                            <h4 className="text-xs font-bold text-brand-muted uppercase mb-4">Scheduled Content</h4>
-                            <div className="space-y-3">
-                                {events.filter(e => e.campaignName === analyzingCampaign).sort((a, b) => a.date.localeCompare(b.date)).map((evt, i) => (
-                                    <div key={i} className="flex gap-4 p-3 border border-brand-border rounded-lg items-start">
-                                        <div className="bg-gray-100 px-3 py-2 rounded text-center min-w-[60px]">
-                                            <div className="text-xs font-bold text-gray-500">{new Date(evt.date).toLocaleString('default', { month: 'short' }).toUpperCase()}</div>
-                                            <div className="text-lg font-bold text-gray-900">{new Date(evt.date).getDate()}</div>
+                        {/* ANALYTICS MODAL */}
+                        {
+                            analyzingCampaign && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
+                                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                                        <div className="p-6 border-b border-brand-border flex justify-between items-center bg-gray-50">
+                                            <div>
+                                                <h3 className="text-lg font-bold text-brand-text">{analyzingCampaign}</h3>
+                                                <p className="text-xs text-brand-muted">Campaign Performance & Schedule</p>
+                                            </div>
+                                            <button onClick={() => setAnalyzingCampaign(null)} className="text-gray-400 hover:text-gray-600">✕</button>
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm text-brand-text line-clamp-2">{evt.content}</p>
-                                            <div className="flex gap-2 mt-2">
-                                                <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100">Twitter</span>
-                                                <span className="text-[10px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded border border-gray-200 uppercase">{evt.status}</span>
+                                        <div className="p-6 overflow-y-auto">
+                                            {/* Summary Stats */}
+                                            <div className="grid grid-cols-3 gap-4 mb-8">
+                                                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-center">
+                                                    <div className="text-2xl font-bold text-indigo-600">{events.filter(e => e.campaignName === analyzingCampaign).length}</div>
+                                                    <div className="text-[10px] uppercase font-bold text-indigo-400">Scheduled Posts</div>
+                                                </div>
+                                                <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
+                                                    <div className="text-2xl font-bold text-green-600">0</div>
+                                                    <div className="text-[10px] uppercase font-bold text-green-400">Engagement (Live)</div>
+                                                </div>
+                                                <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-center">
+                                                    <div className="text-2xl font-bold text-purple-600">100%</div>
+                                                    <div className="text-[10px] uppercase font-bold text-purple-400">Completion</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Post List */}
+                                            <h4 className="text-xs font-bold text-brand-muted uppercase mb-4">Scheduled Content</h4>
+                                            <div className="space-y-3">
+                                                {events.filter(e => e.campaignName === analyzingCampaign).sort((a, b) => a.date.localeCompare(b.date)).map((evt, i) => (
+                                                    <div key={i} className="flex gap-4 p-3 border border-brand-border rounded-lg items-start">
+                                                        <div className="bg-gray-100 px-3 py-2 rounded text-center min-w-[60px]">
+                                                            <div className="text-xs font-bold text-gray-500">{new Date(evt.date).toLocaleString('default', { month: 'short' }).toUpperCase()}</div>
+                                                            <div className="text-lg font-bold text-gray-900">{new Date(evt.date).getDate()}</div>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm text-brand-text line-clamp-2">{evt.content}</p>
+                                                            <div className="flex gap-2 mt-2">
+                                                                <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100">Twitter</span>
+                                                                <span className="text-[10px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded border border-gray-200 uppercase">{evt.status}</span>
+                                                            </div>
+                                                        </div>
+                                                        {evt.image && (
+                                                            <img src={evt.image} alt="Post asset" className="w-16 h-16 object-cover rounded-lg border border-gray-100" />
+                                                        )}
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
-                                        {evt.image && (
-                                            <img src={evt.image} alt="Post asset" className="w-16 h-16 object-cover rounded-lg border border-gray-100" />
-                                        )}
+                                        <div className="p-4 border-t border-brand-border bg-gray-50 flex justify-end">
+                                            <Button onClick={() => setAnalyzingCampaign(null)} variant="secondary">Close</Button>
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="p-4 border-t border-brand-border bg-gray-50 flex justify-end">
-                            <Button onClick={() => setAnalyzingCampaign(null)} variant="secondary">Close</Button>
-                        </div>
+                                </div>
+                            )
+                        }
                     </div>
                 </div>
             )}
-        </div >
+        </div>
     );
 };

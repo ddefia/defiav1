@@ -74,6 +74,10 @@ const dispatchStorageEvent = (eventName: string, detail: any) => {
     }
 };
 
+// --- HYDRATION LOCK ---
+// Prevents the App from overwriting Cloud data with stale Local data during the initial async fetch race.
+let isHydrating = true;
+
 // --- BRAND PROFILES ---
 
 export const loadBrandProfiles = (): Record<string, BrandConfig> => {
@@ -89,16 +93,31 @@ export const loadBrandProfiles = (): Record<string, BrandConfig> => {
 
         const localTs = getLocalTimestamp(STORAGE_KEY);
 
-        // Background Cloud Sync
+        // Background Cloud Sync - IMPROVED PRIORITY
         fetchFromCloud(STORAGE_KEY).then((result) => {
+            isHydrating = false; // RELEASE LOCK
+
             if (result) {
                 const cloudTs = new Date(result.updated_at).getTime();
-                // Only overwrite if cloud is newer than local last-write
-                if (cloudTs > localTs) {
-                    console.log("Cloud data found (Newer). Updating local cache for next session.");
+                // FIX: Trust Cloud if it has more data (e.g. images) OR is newer
+                // We check if Cloud has significantly more reference images than local to detect the "overwrite" issue
+                const cloudProfiles = result.value;
+                let cloudHasMoreImages = false;
+
+                // Simple heuristic: check if any brand has > 10 images in cloud but < 10 locally
+                Object.keys(cloudProfiles).forEach(key => {
+                    const cCount = cloudProfiles[key]?.referenceImages?.length || 0;
+                    const lCount = localData[key]?.referenceImages?.length || 0;
+                    if (cCount > 20 && lCount < 20) cloudHasMoreImages = true;
+                });
+
+                if (cloudTs > localTs || cloudHasMoreImages) {
+                    console.log("Cloud data found (Newer or More Complete). Updating local cache.");
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(result.value));
                     setLocalTimestamp(STORAGE_KEY, cloudTs);
-                    // Force reload if needed, but for now relies on next refresh
+
+                    // Dispatch event to force UI reload immediately
+                    dispatchStorageEvent(STORAGE_EVENTS.BRAND_UPDATE, {});
                 } else {
                     console.log("Cloud data found but stale/older. Ignoring.");
                 }
@@ -108,7 +127,12 @@ export const loadBrandProfiles = (): Record<string, BrandConfig> => {
                     saveToCloud(STORAGE_KEY, localData);
                 }
             }
+        }).catch(() => {
+            isHydrating = false; // Release lock on error too
         });
+
+        // Set a timeout to release lock just in case fetch hangs
+        setTimeout(() => { isHydrating = false; }, 5000);
 
         return mergeWithDefaults(localData);
     } catch (e) {
@@ -171,6 +195,12 @@ export const saveBrandProfiles = (profiles: Record<string, BrandConfig>, suppres
         if (!suppressEvent) {
             dispatchStorageEvent(STORAGE_EVENTS.BRAND_UPDATE, {});
         }
+
+        if (isHydrating) {
+            console.log("Skipping Cloud Save: Hydration in progress...");
+            return;
+        }
+
         saveToCloud(STORAGE_KEY, profiles);
     } catch (e) {
         console.error("Failed to save brand profiles", e);
@@ -321,7 +351,8 @@ export const loadStrategyTasks = (brandName: string): any[] => {
             }
         });
 
-        return stored ? JSON.parse(stored) : [];
+        const parsed = stored ? JSON.parse(stored) : [];
+        return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
         return [];
     }
@@ -427,54 +458,138 @@ export const saveStudioState = (brandName: string, state: any): void => {
 
 export const fetchBrainHistoryEvents = async (brandName: string): Promise<CalendarEvent[]> => {
     try {
-        // Data is stored with the UI Brand Name (e.g. 'Netswap', 'ENKI Protocol')
-        // So we query directly with brandName.
-        const dbBrandId = brandName;
+        // Robust Brand ID Sanitization
+        // 1. Trim whitespace
+        // 2. Handles case-insensitivity at DB level
+        const dbBrandId = brandName.trim();
 
-        const { data } = await supabase
+        console.log(`[History] Fetching events for brand: "${dbBrandId}"`);
+
+        const { data, error } = await supabase
             .from('brain_memory')
-            .select('id, content, created_at, metadata')
-            .eq('brand_id', dbBrandId)
-            // Revert to broad query, let client filter handle specific logic
+            .select('id, created_at, metadata, content, brand_id')
+            .ilike('brand_id', dbBrandId) // Case insensitive match ('Metis' == 'metis')
+            .not('content', 'ilike', '%MIGRATED LOG%') // Filter out system logs
             .order('created_at', { ascending: false })
-            .limit(500); // Check 500 items to bypass log spam
+            .limit(500);
 
-        if (!data) return [];
+        if (error) {
+            console.error('[History] Supabase fetch error:', error);
+            // alert(`Error fetching data: ${error.message}`);
+            return [];
+        }
 
-        // WHITELIST FILTER: Only show actual Tweets / Social History
-        // This ignores all migration logs and other system noise
-        const validData = data.filter((item: any) => {
-            const isSocial = item.metadata?.type === 'social_history';
-            const isTweet = (item.content || "").toString().startsWith('Tweet by');
-            return isSocial || isTweet;
-        });
+        const count = data ? data.length : 0;
+        console.log(`[History] Found ${count} events for ${dbBrandId}`);
 
-        return validData.map((item: any) => {
-            // Prefer original tweet date from metadata, fallback to ingestion time
-            const originDate = item.metadata?.date ? new Date(item.metadata.date) : new Date(item.created_at);
-            // Ensure we don't have valid tweets showing up on the "migration date" (Jan 12) if they have real dates
-            const dateStr = !isNaN(originDate.getTime()) ? originDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        if (!data || data.length === 0) {
+            console.log(`[History] No data found for brand: ${dbBrandId}`);
+            return [];
+        }
 
-            // Improved Content Mapping
-            let displayContent = item.content;
-            if (item.content.startsWith('Tweet by @')) {
-                // Clean up the prefix for display
-                displayContent = item.content.split(': "')[1]?.slice(0, -1) || item.content;
+        // Map to Calendar Events
+        return data.map((item: any) => {
+            // Robust Date Parsing
+            const dateStr = parseSocialDate(item.metadata?.date, item.created_at);
+
+            // Content Cleanup
+            let displayContent = item.content || "";
+            if (displayContent.startsWith('Tweet by @')) {
+                // Clean up the prefix for display: "Tweet by @X: "Content"" -> "Content"
+                const parts = item.content.split(': "');
+                if (parts.length > 1) {
+                    displayContent = parts.slice(1).join(': "').slice(0, -1); // Join back in case content had colons, remove last quote
+                }
             }
+
+            // Ensure Image Mapping (use mediaUrl from metadata)
+            const mediaUrl = item.metadata?.mediaUrl || undefined;
 
             return {
                 id: `history-${item.id}`,
                 date: dateStr,
-                title: displayContent.substring(0, 50) + (displayContent.length > 50 ? '...' : ''), // Map to title for Calendar
+                title: displayContent.substring(0, 50) + (displayContent.length > 50 ? '...' : ''),
                 content: displayContent,
-                platform: 'Twitter',
+                platform: 'Twitter', // Could infer from metadata
                 status: 'published',
                 campaignName: 'History',
-                image: item.metadata?.mediaUrl || undefined
+                image: mediaUrl
             };
         });
     } catch (e) {
         console.warn("Failed to fetch history events", e);
         return [];
+    }
+};
+
+const parseSocialDate = (dateVal: any, createdAt: string): string => {
+    try {
+        if (!dateVal) return new Date(createdAt).toISOString().split('T')[0];
+
+        // Handle Verbose Format: "Sunday, December 14, 2025 at 3:19 PM"
+        let cleanDate = dateVal.toString();
+        // Remove day name prefix (e.g. "Sunday, ")
+        if (cleanDate.includes(',')) {
+            cleanDate = cleanDate.split(', ').slice(1).join(', '); // "December 14, 2025 at 3:19 PM"
+        }
+        // Replace " at " with space
+        cleanDate = cleanDate.replace(' at ', ' ');
+
+        const d = new Date(cleanDate);
+        if (!isNaN(d.getTime())) {
+            return d.toISOString().split('T')[0];
+        }
+
+        // Fallback for Twitter/Other: "Fri Jan 12..."
+        const d2 = new Date(dateVal);
+        if (!isNaN(d2.getTime())) {
+            return d2.toISOString().split('T')[0];
+        }
+
+        console.warn(`[History] Date parse failed for: ${dateVal}, falling back to ${createdAt}`);
+        return new Date(createdAt).toISOString().split('T')[0];
+    } catch (e) {
+        return new Date().toISOString().split('T')[0];
+    }
+};
+
+// --- SYNC HISTORY IMAGES TO REFERENCE ---
+export const importHistoryToReferences = async (brandName: string) => {
+    try {
+        if (!brandName) return;
+        const profiles = loadBrandProfiles();
+        const profile = profiles[brandName];
+        if (!profile) return;
+
+        // Fetch History
+        const events = await fetchBrainHistoryEvents(brandName);
+        const imageEvents = events.filter(e => e.image && e.image.startsWith('http'));
+
+        if (imageEvents.length === 0) return;
+
+        let hasUpdates = false;
+        const existingUrls = new Set(profile.referenceImages.map(r => r.url));
+
+        imageEvents.forEach(e => {
+            if (e.image && !existingUrls.has(e.image)) {
+                profile.referenceImages.push({
+                    id: `ref-${e.id}`,
+                    url: e.image,
+                    name: `Tweet Image ${e.date}`
+                });
+                existingUrls.add(e.image);
+                hasUpdates = true;
+            }
+        });
+
+        if (hasUpdates) {
+            console.log(`[Storage] Importing ${imageEvents.length} new images from history to references.`);
+            profiles[brandName] = profile;
+            saveBrandProfiles(profiles, true); // save and dispatch update
+            // alert(`Imported ${imageEvents.length} images from History to Brand KIt.`);
+        }
+
+    } catch (e) {
+        console.error("Failed to import history images:", e);
     }
 };

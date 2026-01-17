@@ -29,18 +29,24 @@ export const BrainMemory: React.FC<BrainMemoryProps> = ({ brandName, onClose }) 
 
     const fetchMemory = async () => {
         setIsLoading(true);
-        const supabase = getSupabase();
-        if (!supabase) return;
+        try {
+            const supabase = getSupabase();
+            if (!supabase) throw new Error("No database connection");
 
-        const { data } = await supabase
-            .from('brain_memory')
-            .select('*')
-            .eq('brand_id', brandName)
-            .order('created_at', { ascending: false })
-            .limit(50);
+            const { data, error } = await supabase
+                .from('brain_memory')
+                .select('*')
+                .eq('brand_id', brandName)
+                .order('created_at', { ascending: false })
+                .limit(50);
 
-        if (data) setMemories(data);
-        setIsLoading(false);
+            if (error) console.warn("Memory fetch error:", error);
+            if (data) setMemories(data);
+        } catch (err) {
+            console.error("Failed to load memories", err);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

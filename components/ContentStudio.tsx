@@ -5,6 +5,7 @@ import { Select } from './Select';
 import { BrandKit } from './BrandKit';
 import { BrandConfig } from '../types';
 import { generateTweet, generateWeb3Graphic, generateIdeas } from '../services/gemini';
+import { saveBrainMemory } from '../services/supabase';
 import { saveStudioState, loadStudioState } from '../services/storage';
 
 interface ContentStudioProps {
@@ -128,13 +129,28 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                     brandConfig,
                     brandName,
                     templateType: selectedTemplate,
-                    selectedReferenceImage: selectedReferenceImage || undefined
+                    selectedReferenceImages: selectedReferenceImage ? [selectedReferenceImage] : undefined
                 })
             );
             const images = await Promise.all(promises);
             setGeneratedImages(images);
+
+            // Sync to Brain Memory (History)
+            images.forEach(img => {
+                saveBrainMemory(
+                    brandName,
+                    'FACT',
+                    `Generated Visual: ${tweetText.substring(0, 50)}...`,
+                    undefined,
+                    {
+                        mediaUrl: img,
+                        source: 'ContentStudio',
+                        prompt: tweetText
+                    }
+                );
+            });
         } catch (err) {
-            setError("Failed to generate graphics. Ensure local server is running.");
+            setError(`Failed to generate: ${err.message || "Unknown error"}`);
         } finally {
             setIsGenerating(false);
         }

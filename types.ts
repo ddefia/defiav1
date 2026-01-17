@@ -14,6 +14,7 @@ export interface ReferenceImage {
   data?: string; // Base64 string
   url?: string; // Public URL (hosted)
   name: string;
+  category?: string; // New: Grouping (e.g. "Product", "Logo")
 }
 
 export interface BrandConfig {
@@ -29,6 +30,7 @@ export interface BrandConfig {
     id: string;
     label: string;
     prompt: string;
+    category?: string; // New: Grouping (e.g. "Giveaway", "Announcement")
     referenceImageIds?: string[]; // New: Link multiple reference images
   }[];
 }
@@ -61,6 +63,10 @@ export interface CampaignItem {
   campaignColor?: string; // Color code for the campaign
   template?: string; // The specific graphic template used for this item
   referenceImageId?: string; // Specific reference image override for this item
+  skipImage?: boolean; // New: If true, skip image generation for this item
+  reasoning?: string; // New: AI rationale for why this tweet was created
+  visualHeadline?: string; // New: Short punchy text for graphic generation
+  visualDescription?: string; // New: Art direction description
 }
 
 export interface CalendarEvent {
@@ -298,3 +304,45 @@ export interface BrainLog {
   cost?: string; // Estimated token cost (optional placeholder)
 }
 
+
+// --- UNIFIED MARKETING BRAIN TYPES ---
+
+export interface BrainContext {
+  brand: BrandConfig;
+  marketState: {
+    trends: TrendItem[];
+    analytics?: SocialMetrics;
+    mentions?: Mention[];
+  };
+  memory: {
+    ragDocs: string[];
+    recentPosts: SocialPost[];
+    pastStrategies: StrategyTask[];
+  };
+  userObjective: string;
+}
+
+export interface AnalysisReport {
+  summary: string;
+  keyThemes: string[];
+  opportunities: string[];
+  risks: string[];
+  strategicAngle: string; // The "Big Idea"
+}
+
+export interface MarketingAction {
+  type: 'TWEET' | 'THREAD' | 'CAMPAIGN' | 'REPLY';
+  topic: string;
+  goal: string;
+  content: any; // Final output (JSON or String)
+}
+
+export interface ActionPlan {
+  analysis: AnalysisReport;
+  actions: {
+    type: 'TWEET' | 'THREAD' | 'CAMPAIGN' | 'REPLY';
+    topic: string;
+    goal: string;
+    instructions: string;
+  }[];
+}

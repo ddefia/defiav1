@@ -210,30 +210,45 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     // Logic: If specific images are selected, use them.
     // If NOT, but a Template is selected that has linked images, PICK ONE randomly.
     // This enforces "Strict Mode" for that specific style (e.g. Dark) instead of mixing Dark + Light.
+    // --- 1. REFERENCE IMAGE LOGIC (MOVED UP FOR PROMPT AWARENESS) ---
+    // Logic: If specific images are selected, use them.
+    // If NOT, but a Template is selected that has linked images, PICK ONE randomly (Strict Mode).
+    // If NOT, and no template, PICK 3 RANDOM images from the brand to ensure style consistency (Auto Mode).
     let effectiveReferenceImageIds = params.selectedReferenceImages || [];
 
+    // Case A: Template Strict Mode
     if (effectiveReferenceImageIds.length === 0 && params.templateType && params.brandConfig.graphicTemplates) {
         const tmpl = params.brandConfig.graphicTemplates.find(t => t.id === params.templateType || t.label === params.templateType);
         if (tmpl && tmpl.referenceImageIds && tmpl.referenceImageIds.length > 0) {
-            // Randomly select one to ensure distinct style adherence
             const randomIndex = Math.floor(Math.random() * tmpl.referenceImageIds.length);
             effectiveReferenceImageIds = [tmpl.referenceImageIds[randomIndex]];
             console.log(`[Template Strict Mode] Selected Ref Image: ${effectiveReferenceImageIds[0]} from Template: ${tmpl.label}`);
         }
     }
 
+    // Case B: Auto Mode (Generic Style Reinforcement) - ONLY if not meme
+    // If we have no references yet, grab random ones to define the "Brand Look"
+    if (effectiveReferenceImageIds.length === 0 && !isMeme && params.brandConfig.referenceImages && params.brandConfig.referenceImages.length > 0) {
+        const allImages = params.brandConfig.referenceImages;
+        // Fisher-Yates Shuffle
+        const shuffled = [...allImages];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        // Pick top 2 for consistent style injection
+        effectiveReferenceImageIds = shuffled.slice(0, 2).map(i => i.id);
+        console.log(`[Auto Mode] Selected 2 random Brand Images for Style Enforcment`);
+    }
 
-    // Template Logic
+    // --- 2. TEMPLATE LOGIC ---
     let templateInstruction = "";
-
-    // Check for Custom Template first
     const customTmpl = params.brandConfig?.graphicTemplates?.find(t => t.id === params.templateType || t.label === params.templateType);
 
     if (customTmpl) {
         templateInstruction = `TEMPLATE TYPE: ${customTmpl.label}. INSTRUCTION: ${customTmpl.prompt}`;
         console.log(`Using Custom Template: ${customTmpl.label}`);
     } else if (params.templateType) {
-        // Fallback to Standard Templates
         switch (params.templateType) {
             case 'Partnership':
                 templateInstruction = "TEMPLATE TYPE: PARTNERSHIP ANNOUNCEMENT. Composition: Split screen or handshake motif. Showcase two entities joining forces. High trust, official look.";
@@ -276,64 +291,53 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
       `;
     } else {
 
-        const isStructuredTemplate = params.templateType && params.templateType !== 'Campaign'; // Campaign Launch is usually visual-first, others are layout-first.
+        const isStructuredTemplate = params.templateType && params.templateType !== 'Campaign' && params.templateType !== 'Default';
 
         systemPrompt = `
         You are an expert 3D graphic designer for ${brandName}, a leading Web3 company.
         TASK: Create a professional social media graphic for: "${params.prompt}"
         ${templateInstruction}
-        BRANDING:
-        ${effectiveReferenceImageIds.length > 0 ? `
-        - 🎨 COLOR HARMONY:
-        - Use the Reference Images' palette as a foundation, but feel free to evolve it.
-        - Goal: A cohesive visual identity that feels like a natural evolution of the references.
-        ` : `
-        - ⛔ CRITICAL COLOR ENFORCEMENT:
-          - PRIMARY PALETTE: ${colorPalette}.
-          - RULE: You must use these EXACT Hex Codes. Do not shift the hue or saturation.
-          - BANNED: Do not add random accent colors (e.g. no random oranges/greens if not in palette). Keep it monochromatic to the brand if needed.
-        `}
-        ${visualIdentity && !isMeme ? `
-        - 📐 VISUAL IDENTITY SYSTEM (STRICT ADHERENCE REQUIRED):
-        ${visualIdentity}
-        - APPLY the above rules for composition, lighting, and texture.
-        ` : ''}
-    }
-    - Style: PROFESSIONAL, HIGH - END, PREMIUM, Glassmorphism, Ethereal, Geometric.
+        
+        BRANDING ENFORCEMENT (CRITICAL):
+        The user requires STRICT adherence to the brand identity.
+        
+        1. 🎨 COLORS:
+           - PRIMARY PALETTE: ${colorPalette}.
+           - RULE: You MUST prioritize these exact colors.
+           ${effectiveReferenceImageIds.length > 0 ? `- REFERENCE ALIGNMENT: Match the color grading and saturation of the provided Reference Images EXACTLY.` : ''}
 
-        - Typography: Minimal.
+        ${visualIdentity ? `
+        2. 📐 VISUAL IDENTITY SYSTEM:
+        ${visualIdentity}
+        - RULE: Follow these guidelines for composition, lighting, and texture.
+        ` : ''}
+        
+        3. 🖼️ STYLE & VIBE:
+           - Style: PROFESSIONAL, HIGH-END, PREMIUM.
+           - If Reference Images are provided, you MUST mimic their:
+             - Lighting (e.g. Neon vs Soft)
+             - Materiality (e.g. Glass vs Metal)
+             - Background Style (e.g. Abstract vs Cityscape)
+           - DO NOT deviate from the established brand look found in the references.
+
         INSTRUCTIONS:
-    - Analyze tweet sentiment.
+        - Analyze tweet sentiment.
         - ${visualOverride}
         ${negativeInstruction}
-    - ADAPT the visual style of the reference images provided.
-        - ALWAYS give a professional image approach.
         - TEXT RULES:
-    - ⛔ CRITICAL: NEVER copy - paste the prompt / tweet text onto the image.
-          - ⛔ NO Paragraphs or long sentences.
-          - ✅ Use text SPARINGLY.Only use a short title or key stat if necessary.
-          - Focus on creating a professional, high - end visual composition that represents the concept.
-          - Valid approaches: Abstract 3D art, minimalist typography, clean data visualization, or cinematic scenes.
-          - The goal is a high - end brand asset, not a text document.
+          - ⛔ CRITICAL: NEVER copy-paste the prompt text onto the image.
+          - ✅ Use text SPARINGLY (Title/Stat only).
+        
         ${effectiveReferenceImageIds.length > 0 ? `
-          ${isStructuredTemplate ? `
-          - 🏗️ STRUCTURAL CLONE MODE (TEMPLATE ACTIVE):
-          - A Specific Layout Template ("${params.templateType}") is active.
-          - CRITICAL: You MUST preserve the exact layout, camera angle, and composition of the Reference Image(s).
-          - LOGO/TITLE PLACEMENT: Keep them exactly where they are in the reference.
-          - ACTION: Only swap the *content* (text/central subject) to match the new prompt: "${params.prompt}".
-          - DO NOT reinvent the wheel. The user wants this exact format, just updated details.
-          ` : `
-          - 🟢 CREATIVE HARMONY MODE (ART DIRECTION):
-          - PRIORITY: The TEXT PROMPT ("${params.prompt}") dictates the Subject Matter and Composition.
-          - REFERENCE: Use the Reference Image(s) ONLY for Art Direction (Lighting, Material, Vibe).
-          - IGNORE: The layout/shapes of the reference. Reinvent the scene completely to match the prompt.
-          - GOAL: A fresh, unique image that shares the same "DNA" as the reference but looks different.
-          - INNOVATE: Do NOT just reskin the reference. Build something new.
-          - KEY: Same Soul, New Body.
-          `}
-          ` : ''
-            }
+           REFERENCE IMAGE UTILIZATION:
+           - I have provided ${effectiveReferenceImageIds.length} reference images from the brand's history.
+           - 🚨 STRICTLY MIMIC the visual style of these images.
+           - If a Logo is visible in the references, position a similar abstract logo to maintain branding.
+           
+           ${isStructuredTemplate ? `
+           - 🏗️ TEMPLATE MODE: Preserve the EXACT LAYOUT of the reference. Only change the subject matter.` : `
+           - 🟢 CREATIVE HARMONY MODE: Use the references for Art Direction (Lighting, Colors, Vibe) but create a NEW composition for the prompt.`}
+        ` : ''}
     `;
     }
 
@@ -357,27 +361,13 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
     // Process Images (Async)
     try {
-        if (params.brandConfig && params.brandConfig.referenceImages) {
-            // Updated: Use the effective IDs calculated at the start
-            let targetImageIds: string[] = effectiveReferenceImageIds;
-
-            // If no specific images targetted, use RANDOM 3 from the collection for variety
-            // This ensures history images (which are at the end) get used too.
+        if (params.brandConfig && params.brandConfig.referenceImages && effectiveReferenceImageIds.length > 0) {
             const allImages = params.brandConfig.referenceImages;
-            let sourceImages: ReferenceImage[] = [];
 
-            if (targetImageIds.length > 0) {
-                sourceImages = allImages.filter(img => targetImageIds.includes(img.id));
-            } else {
-                // Fisher-Yates Shuffle to pick distinct random images
-                const shuffled = [...allImages];
-                for (let i = shuffled.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-                }
-                sourceImages = shuffled.slice(0, 3);
-                if (sourceImages.length > 0) console.log(`[Auto-Ref] Selected 3 random images for style: ${sourceImages.map(i => i.name).join(', ')}`);
-            }
+            // Get the actual image objects for the IDs we selected
+            const sourceImages = allImages.filter(img => effectiveReferenceImageIds.includes(img.id));
+
+            if (sourceImages.length > 0) console.log(`[Gemini] Using ${sourceImages.length} images for reference.`);
 
             const imageParts = await Promise.all(sourceImages.map(async (img) => {
                 let finalData = img.data;
@@ -607,7 +597,7 @@ export const generateTweet = async (
 
     FORMATTING REQUIREMENTS:
     - YOU MUST use double line breaks (\\n\\n) between sections.
-    - NO HASHTAGS (unless explicitly requested).
+    - NO HASHTAGS (STRICTLY FORBIDDEN).
     `;
 
     try {
@@ -833,6 +823,8 @@ export const generateCampaignDrafts = async (
         "drafts": [
             {
                 "tweet": "Tweet content...\\n\\nUse line breaks for spacing.",
+                "visualHeadline": "A short, punchy 3-5 word headline for the image (e.g. 'DEFI REVOLUTION ARRIVES').",
+                "visualDescription": "A specific art direction description for a designer (e.g. 'Cyberpunk city with neon ethereum logo, high contrast').",
                 "template": "One of: ${allTemplates}",
                 "reasoning": "VERIFICATION: Cite the exact Knowledge Base fact, Strategy Doc section, or URL that validates this tweet. (e.g. 'Source: KB Fact #3 re: L2 Security' or 'Source: Whitepaper p.4')."
             }
@@ -843,7 +835,7 @@ export const generateCampaignDrafts = async (
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: `Generate ${count} strategic tweets aligned with the docs.`,
+            contents: `Generate ${count} strategic tweets aligned with the docs. NO HASHTAGS.`,
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json"
@@ -1030,14 +1022,17 @@ export const generateTrendReaction = async (
     Output: A single, high-impact tweet based on the trend.
     Strategy: Explicitly connect the news ("${trend.headline}") to ${brandName}'s value proposition (from Knowledge Base).
     Structure: Hook -> Insight -> Soft CTA.
-    Style: Minimalist, confident, no hashtags.
+    Structure: Hook -> Insight -> Soft CTA.
+    Style: Minimalist, confident, NO HASHTAGS.
+    Formatting: Use line breaks.
     Formatting: Use line breaks.
         `;
     } else {
         outputGuidance = `
     Output: A short, funny text caption or concept for a meme.
     Strategy: Use internet humor to react to ("${trend.headline}"). Make it relatable to holders of ${brandName}.
-    ${hashtagInstruction}
+    Strategy: Use internet humor to react to ("${trend.headline}"). Make it relatable to holders of ${brandName}.
+    - NO HASHTAGS.
     `;
     }
 

@@ -40,23 +40,43 @@ app.get('/api/decisions', (req, res) => {
 
 const KEY_FILE_PATH = path.join(__dirname, 'service-account.json');
 
-// Check if key exists
-if (!fs.existsSync(KEY_FILE_PATH)) {
-    console.warn("⚠️  WARNING: service-account.json not found in root directory.");
-    console.warn("    Imagen 3 generation will fail until you place the JSON key file here.");
+// Helper to get Credentials
+const getCredentials = () => {
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+        try {
+            return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+        } catch (e) {
+            console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON", e);
+        }
+    }
+    if (fs.existsSync(KEY_FILE_PATH)) {
+        return KEY_FILE_PATH; // GoogleAuth can take file path as 'keyFile' or object as 'credentials'
+    }
+    return null;
+};
+
+// Check if credentials exist
+if (!getCredentials()) {
+    console.warn("⚠️  WARNING: Service Account Credentials not found (env or file).");
+    console.warn("    Imagen 3 generation will fail.");
 }
 
 app.post('/api/generate-image', async (req, res) => {
     try {
-        if (!fs.existsSync(KEY_FILE_PATH)) {
-            throw new Error("Service Account Key (service-account.json) is missing on the server.");
+        const creds = getCredentials();
+        if (!creds) {
+            throw new Error("Service Account Credentials missing (GOOGLE_SERVICE_ACCOUNT_JSON or service-account.json).");
         }
 
         const { prompt, aspectRatio } = req.body;
 
         // 1. Authenticate
+        const authOptions = typeof creds === 'string'
+            ? { keyFile: creds }
+            : { credentials: creds };
+
         const auth = new GoogleAuth({
-            keyFile: KEY_FILE_PATH,
+            ...authOptions,
             scopes: ['https://www.googleapis.com/auth/cloud-platform']
         });
 

@@ -43,6 +43,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     const [showStrategyManager, setShowStrategyManager] = useState(false); // New: Modal State
     const [showMemoryBank, setShowMemoryBank] = useState(false); // New: Memory State
 
+    // DEBUG STATE
+    const [thinkingData, setThinkingData] = useState<{ systemPrompt: string, thoughts: string } | null>(null); // 🧠 BRAIN TRANSPARENCY
+
     // Graphic State
     const [selectedTemplate, setSelectedTemplate] = useState<string>('Campaign Launch');
     const [selectedRefImages, setSelectedRefImages] = useState<string[]>([]);
@@ -52,24 +55,51 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         setIsLoading(true);
         try {
             await runMarketScan(brandName);
-            const [trends, mentions] = await Promise.all([
-                fetchMarketPulse(brandName),
-                fetchMentions(brandName)
-            ]);
+            // SAFETY: Handle potential failures in Promise.all gracefully
+            let trends: TrendItem[] = [];
+            let mentions: any[] = [];
+
+            try {
+                const results = await Promise.all([
+                    fetchMarketPulse(brandName).catch(e => { console.warn("Pulse failed", e); return []; }),
+                    fetchMentions(brandName).catch(e => { console.warn("Mentions failed", e); return []; })
+                ]);
+                trends = results[0] || [];
+                mentions = results[1] || [];
+            } catch (err) {
+                console.error("Critical Data Fetch Error in StrategyBrain", err);
+            }
+
+            // SAFETY: Ensure trends is an array before passing
+            if (!Array.isArray(trends)) trends = [];
+            if (!Array.isArray(mentions)) mentions = [];
 
             const ragHits = await searchContext(`Market trends, strategy context, and past decisions for ${brandName}`, 5);
-            const ragContext = buildContextBlock(ragHits);
+            // SAFETY: Ensure ragHits is valid
+            const safeRagHits = Array.isArray(ragHits) ? ragHits : [];
+            const ragContext = buildContextBlock(safeRagHits);
 
             const generatedTasks = await generateStrategicAnalysis(
                 brandName,
-                events,
+                events || [], // SAFETY: Default to empty array
                 trends,
                 brandConfig,
                 growthReport,
                 mentions,
                 ragContext
             );
-            onUpdateTasks(generatedTasks);
+
+            // 🧠 Update Task List
+            onUpdateTasks(generatedTasks.tasks);
+
+            // 🧠 Update Debug View
+            if (generatedTasks.systemPrompt) {
+                setThinkingData({
+                    systemPrompt: generatedTasks.systemPrompt,
+                    thoughts: generatedTasks.thoughts || "No explicit thoughts returned."
+                });
+            }
+
             setLastScan(new Date());
         } catch (e) {
             console.error(e);
@@ -264,9 +294,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                                 Data Signals (Proof)
                             </label>
-                            {configuringTask.contextData && configuringTask.contextData.length > 0 ? (
+                            {configuringTask.contextData && Array.isArray(configuringTask.contextData) && configuringTask.contextData.length > 0 ? (
                                 <div className="space-y-3">
-                                    {configuringTask.contextData.map((data, idx) => (
+                                    {(configuringTask.contextData).map((data, idx) => (
                                         <div key={idx} className="flex items-start gap-4 bg-indigo-50/50 p-4 rounded-xl border border-indigo-50/50 hover:border-indigo-100 transition-colors">
                                             <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${data.relevance >= 8 ? 'bg-indigo-500 shadow-sm shadow-indigo-300' : 'bg-indigo-300'}`}></div>
                                             <div>
@@ -403,7 +433,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                             <option value="Speaker Scenes">Speaker Quote (Structural)</option>
                                             <option value="Events">Event / Date (Structural)</option>
                                             <option value="Giveaway">Giveaway (Structural)</option>
-                                            {brandConfig.graphicTemplates?.map(t => (
+                                            {Array.isArray(brandConfig.graphicTemplates) && brandConfig.graphicTemplates.map(t => (
                                                 <option key={t.id} value={t.label}>{t.label} (Custom)</option>
                                             ))}
                                         </select>
@@ -413,7 +443,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold text-brand-text uppercase tracking-wider">Reference Images (Multi-Select)</label>
 
-                                        {brandConfig.referenceImages && brandConfig.referenceImages.length > 0 ? (
+                                        {brandConfig.referenceImages && Array.isArray(brandConfig.referenceImages) && brandConfig.referenceImages.length > 0 ? (
                                             <div className="grid grid-cols-4 gap-2">
                                                 {brandConfig.referenceImages.map((img) => {
                                                     const isSelected = selectedRefImages.includes(img.id);
@@ -545,7 +575,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     </div>
                 )}
 
-                {tasks.map((task) => (
+                {(Array.isArray(tasks) ? tasks : []).map((task) => (
                     <div
                         key={task.id}
                         onClick={() => handleConfigureExecution(task)}
@@ -609,6 +639,37 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     brandName={brandName}
                     onClose={() => setShowMemoryBank(false)}
                 />
+            )}
+
+            {/* BRAIN DEBUG VIEW (Think Mode) */}
+            {/* We assume 'thinkingData' state exists, populated by performAudit */}
+            {thinkingData && (
+                <div className="mt-8 border-t border-brand-border pt-8 animate-fadeIn">
+                    <div className="bg-gray-900 rounded-xl p-6 text-gray-300 font-mono text-xs overflow-hidden">
+                        <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                            <span className="font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                                Brain Activity Log
+                            </span>
+                            <span className="text-gray-500">gemini-2.0-flash</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div>
+                                <h4 className="text-white font-bold mb-2">System Prompt (Context)</h4>
+                                <div className="h-64 overflow-y-auto bg-black/50 p-4 rounded border border-gray-800 whitespace-pre-wrap">
+                                    {thinkingData.systemPrompt}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold mb-2">Reasoning Stream (Chain of Thought)</h4>
+                                <div className="h-64 overflow-y-auto bg-black/50 p-4 rounded border border-gray-800 whitespace-pre-wrap text-emerald-300/80">
+                                    {thinkingData.thoughts}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

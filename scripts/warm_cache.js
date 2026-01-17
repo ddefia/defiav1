@@ -10,7 +10,7 @@ const CACHE_FILE = path.join(__dirname, '../server/cache/social_metrics.json');
 const INITIAL_DATA = {
     'enki': { totalFollowers: 93500, handle: 'ENKIProtocol', lastUpdated: new Date().toISOString() },
     'netswap': { totalFollowers: 22100, handle: 'netswapofficial', lastUpdated: new Date().toISOString() },
-    'lazai': { totalFollowers: 5000, handle: 'LazAI_Official', lastUpdated: new Date().toISOString() },
+    'lazai': { totalFollowers: 5000, handle: 'LazAINetwork', lastUpdated: new Date().toISOString() },
     'defia': { totalFollowers: 15000, handle: 'DefiaLabs', lastUpdated: new Date().toISOString() },
     'meme': { totalFollowers: 2500, handle: 'MetisL2', lastUpdated: new Date().toISOString() }
 };
