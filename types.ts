@@ -31,6 +31,7 @@ export interface BrandConfig {
     label: string;
     prompt: string;
     category?: string; // New: Grouping (e.g. "Giveaway", "Announcement")
+    tweetExample?: string; // New: Example tweet content for context
     referenceImageIds?: string[]; // New: Link multiple reference images
   }[];
 }

@@ -37,6 +37,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplatePrompt, setNewTemplatePrompt] = useState('');
   const [newTemplateCategory, setNewTemplateCategory] = useState(''); // New State
+  const [newTemplateTweetExample, setNewTemplateTweetExample] = useState(''); // New State: Example Tweet
   const [newTemplateImageIds, setNewTemplateImageIds] = useState<string[]>([]); // Changed to Array
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
@@ -124,7 +125,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         ...config,
         graphicTemplates: (config.graphicTemplates || []).map(t =>
           t.id === editingTemplateId
-            ? { ...t, label: newTemplateName, prompt: newTemplatePrompt, category: newTemplateCategory, referenceImageIds: newTemplateImageIds }
+            ? { ...t, label: newTemplateName, prompt: newTemplatePrompt, category: newTemplateCategory, referenceImageIds: newTemplateImageIds, tweetExample: newTemplateTweetExample }
             : t
         )
       });
@@ -136,7 +137,8 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         label: newTemplateName,
         prompt: newTemplatePrompt,
         category: newTemplateCategory,
-        referenceImageIds: newTemplateImageIds
+        referenceImageIds: newTemplateImageIds,
+        tweetExample: newTemplateTweetExample
       };
       onChange({
         ...config,
@@ -147,14 +149,16 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
     setNewTemplateName('');
     setNewTemplatePrompt('');
     setNewTemplateCategory('');
+    setNewTemplateTweetExample('');
     setNewTemplateImageIds([]);
     setIsAddingTemplate(false);
   };
 
-  const startEditingTemplate = (t: { id: string, label: string, prompt: string, category?: string, referenceImageIds?: string[] }) => {
+  const startEditingTemplate = (t: { id: string, label: string, prompt: string, category?: string, referenceImageIds?: string[], tweetExample?: string }) => {
     setNewTemplateName(t.label);
     setNewTemplatePrompt(t.prompt);
     setNewTemplateCategory(t.category || '');
+    setNewTemplateTweetExample(t.tweetExample || '');
     setNewTemplateImageIds(t.referenceImageIds || []);
     setEditingTemplateId(t.id);
     setIsAddingTemplate(true);
@@ -670,6 +674,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
               setNewTemplateName('');
               setNewTemplatePrompt('');
               setNewTemplateCategory('');
+              setNewTemplateTweetExample('');
               setNewTemplateImageIds([]);
             }
           }} className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded">
@@ -690,6 +695,13 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
               onChange={e => setNewTemplatePrompt(e.target.value)}
               placeholder="AI Instruction: Describe the layout, composition, and style..."
               className="w-full h-20 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
+            />
+
+            <textarea
+              value={newTemplateTweetExample}
+              onChange={e => setNewTemplateTweetExample(e.target.value)}
+              placeholder="Tweet Example: Paste a sample tweet that fits this style (Context for User)..."
+              className="w-full h-16 bg-white p-2 text-xs text-brand-text rounded border border-brand-border focus:outline-none focus:border-brand-accent"
             />
 
             {/* Category Support with Suggestions */}
@@ -773,6 +785,9 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
                       <div>
                         <div className="text-xs font-bold text-brand-text mb-1">{tmpl.label}</div>
                         <p className="text-[10px] text-brand-muted line-clamp-2">{tmpl.prompt}</p>
+                        {tmpl.tweetExample && (
+                          <p className="text-[9px] text-gray-400 mt-1 italic line-clamp-1 border-l-2 border-gray-200 pl-1">"{tmpl.tweetExample}"</p>
+                        )}
                         {tmpl.category && <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-500">{tmpl.category}</span>}
                       </div>
                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
