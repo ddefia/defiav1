@@ -910,62 +910,99 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
 
         {/* Link Modal */}
         {linkingImageId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLinkingImageId(null)}>
-            <div className="bg-white rounded-xl p-5 w-[400px] shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
-              <h3 className="font-display font-medium text-lg">Link Image to Template</h3>
-              <p className="text-sm text-gray-500">Select which templates should use this image as a "Strict Style Anchor".</p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-all duration-300" onClick={() => setLinkingImageId(null)}>
+            <div className="bg-white rounded-2xl p-6 w-[480px] shadow-2xl border border-white/20 ring-1 ring-black/5 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
 
-              <div className="space-y-2 max-h-[300px] overflow-y-auto border border-gray-100 rounded-lg p-2">
+              <div className="mb-4">
+                <h3 className="font-display font-semibold text-xl text-gray-900">Link Image to Template</h3>
+                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                  Select which templates should use this image as a <span className="font-medium text-brand-accent">Strict Style Anchor</span>.
+                  The AI will mimic this image's layout and vibe.
+                </p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto min-h-0 space-y-3 pr-2 scrollbar-hide">
                 {/* Create New Toggle */}
                 {!isCreatingQuick ? (
                   <button
                     onClick={() => setIsCreatingQuick(true)}
-                    className="w-full py-2 text-xs text-brand-accent border border-dashed border-brand-accent/50 rounded hover:bg-brand-accent/5 flex items-center justify-center gap-1 mb-2"
+                    className="w-full py-3 px-4 text-sm font-medium text-brand-accent bg-brand-accent/5 border border-brand-accent/20 rounded-xl hover:bg-brand-accent/10 hover:border-brand-accent/40 transition-all flex items-center justify-center gap-2 group"
                   >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                    <div className="bg-brand-accent text-white rounded-full p-0.5 group-hover:scale-110 transition-transform">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+                    </div>
                     Create New Template from this Image
                   </button>
                 ) : (
-                  <div className="bg-gray-50 p-3 rounded border border-brand-border space-y-2 mb-2">
-                    <input
-                      value={quickTmplName}
-                      onChange={e => setQuickTmplName(e.target.value)}
-                      placeholder="New Template Name (e.g. Dark Mode)"
-                      className="w-full text-xs p-2 rounded border border-gray-300"
-                      autoFocus
-                    />
-                    <textarea
-                      value={quickTmplPrompt}
-                      onChange={e => setQuickTmplPrompt(e.target.value)}
-                      placeholder="Describe the style (e.g. Dark background, neon accents, minimalist)"
-                      className="w-full text-xs p-2 rounded border border-gray-300 h-16"
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => setIsCreatingQuick(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
-                      <Button onClick={createQuickTemplate} className="text-xs h-7 py-0" disabled={!quickTmplName || !quickTmplPrompt}>Save & Link</Button>
+                  <div className="bg-gray-50/50 p-4 rounded-xl border border-brand-accent/20 space-y-3 shadow-inner ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-200">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1 block">Template Name</label>
+                      <input
+                        value={quickTmplName}
+                        onChange={e => setQuickTmplName(e.target.value)}
+                        placeholder="e.g. Neon Dark Mode"
+                        className="w-full text-sm p-2.5 rounded-lg border border-gray-200 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none transition-all"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1 block">Style Prompt</label>
+                      <textarea
+                        value={quickTmplPrompt}
+                        onChange={e => setQuickTmplPrompt(e.target.value)}
+                        placeholder="Describe the style (e.g. Dark background, glassy textures, vibrant accents...)"
+                        className="w-full text-sm p-2.5 rounded-lg border border-gray-200 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none transition-all h-20 resize-none"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end pt-1">
+                      <button onClick={() => setIsCreatingQuick(false)} className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">Cancel</button>
+                      <Button onClick={createQuickTemplate} className="text-xs h-8 py-0" disabled={!quickTmplName || !quickTmplPrompt}>Save & Link</Button>
                     </div>
                   </div>
                 )}
 
-                {(config.graphicTemplates || []).length === 0 && !isCreatingQuick && <p className="text-sm text-center text-gray-400 py-4">No templates found. Create one above!</p>}
+                <div className="space-y-2 pt-2">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">Existing Templates</h4>
 
-                {(config.graphicTemplates || []).map(tmpl => {
-                  const isLinked = tmpl.referenceImageIds?.includes(linkingImageId);
-                  return (
-                    <div
-                      key={tmpl.id}
-                      onClick={() => toggleImageLink(tmpl.id, linkingImageId)}
-                      className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between transition-all ${isLinked ? 'border-brand-accent bg-brand-accent/5' : 'border-gray-200 hover:border-brand-accent/50'}`}
-                    >
-                      <span className="text-sm font-medium">{tmpl.label}</span>
-                      {isLinked && <svg className="w-5 h-5 text-brand-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>}
+                  {(config.graphicTemplates || []).length === 0 && !isCreatingQuick && (
+                    <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-xl bg-gray-50/50">
+                      <p className="text-sm text-gray-400">No templates found.</p>
                     </div>
-                  );
-                })}
+                  )}
+
+                  {(config.graphicTemplates || []).map(tmpl => {
+                    const isLinked = tmpl.referenceImageIds?.includes(linkingImageId);
+                    return (
+                      <div
+                        key={tmpl.id}
+                        onClick={() => toggleImageLink(tmpl.id, linkingImageId)}
+                        className={`
+                            relative px-4 py-3.5 rounded-xl border transition-all duration-200 cursor-pointer flex items-center justify-between group
+                            ${isLinked
+                            ? 'border-brand-accent bg-brand-accent/5 shadow-sm ring-1 ring-brand-accent/20'
+                            : 'border-gray-100 hover:border-brand-accent/30 hover:bg-gray-50 hover:shadow-sm'
+                          }
+                          `}
+                      >
+                        <div className="flex flex-col">
+                          <span className={`text-sm font-medium ${isLinked ? 'text-brand-accent' : 'text-gray-700 group-hover:text-gray-900'}`}>{tmpl.label}</span>
+                          <span className="text-[10px] text-gray-400 line-clamp-1">{tmpl.prompt}</span>
+                        </div>
+
+                        <div className={`
+                             w-5 h-5 rounded-full flex items-center justify-center border transition-all
+                             ${isLinked ? 'bg-brand-accent border-brand-accent text-white scale-100' : 'border-gray-300 text-transparent scale-90 group-hover:scale-100 group-hover:border-brand-accent/50'}
+                          `}>
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="flex justify-end">
-                <Button onClick={() => setLinkingImageId(null)}>Done</Button>
+              <div className="flex justify-end pt-6 mt-2 border-t border-gray-100">
+                <Button onClick={() => setLinkingImageId(null)} variant="secondary" className="w-full sm:w-auto">Done</Button>
               </div>
             </div>
           </div>
