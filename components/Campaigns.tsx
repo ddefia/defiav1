@@ -222,6 +222,13 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 // }
 
                 const items: CampaignItem[] = result.drafts.map((d: any, i: number) => {
+                    // STRICT TEMPLATE RESOLUTION
+                    // If AI returns empty/null template, but brand has strict custom templates, FORCE the first one.
+                    let resolvedTemplate = d.template || campaignTemplate;
+                    if (!resolvedTemplate && brandConfig.graphicTemplates && brandConfig.graphicTemplates.length > 0) {
+                        resolvedTemplate = brandConfig.graphicTemplates[0].label;
+                    }
+
                     return {
                         id: `draft-${Date.now()}-${i}`,
                         tweet: d.tweet,
@@ -229,7 +236,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         status: 'draft',
                         images: [],
                         campaignColor: result.themeColor || campaignColor,
-                        template: d.template || campaignTemplate,
+                        template: resolvedTemplate,
                         reasoning: d.reasoning
                     };
                 });
@@ -352,6 +359,13 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 }
 
                 const batchItems: CampaignItem[] = result.drafts.map((d: any, i: number) => {
+                    // STRICT TEMPLATE RESOLUTION
+                    // If AI returns empty/null template, but brand has strict custom templates, FORCE the first one.
+                    let resolvedTemplate = d.template || campaignTemplate;
+                    if (!resolvedTemplate && brandConfig.graphicTemplates && brandConfig.graphicTemplates.length > 0) {
+                        resolvedTemplate = brandConfig.graphicTemplates[0].label;
+                    }
+
                     return {
                         id: `draft-${Date.now()}-${b}-${i}`,
                         tweet: d.tweet,
@@ -359,7 +373,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         status: 'draft',
                         images: [],
                         campaignColor: result.themeColor || campaignColor,
-                        template: d.template || campaignTemplate,
+                        template: resolvedTemplate,
 
                         reasoning: d.reasoning, // New transparency field
                         visualHeadline: d.visualHeadline, // AI suggested headline
