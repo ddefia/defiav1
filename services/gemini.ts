@@ -737,6 +737,11 @@ export const generateCampaignDrafts = async (
         `
         : `AVAILABLE TEMPLATES: ${standardTemplates.join(', ')}`;
 
+    // STRICT VALIDATION LIST FOR JSON SCHEMA
+    const validTemplateNames = customTemplates.length > 0
+        ? [...highSignalTemplates, ...lowSignalTemplates].join(', ')
+        : standardTemplates.join(', ');
+
     // --- RAG: RETRIEVE BRAIN MEMORY ---
     let ragContext = "";
     try {
@@ -886,7 +891,7 @@ export const generateCampaignDrafts = async (
                 "tweet": "Tweet content...\\n\\nUse line breaks for spacing.",
                 "visualHeadline": "A short, punchy 3-5 word headline for the image (e.g. 'DEFI REVOLUTION ARRIVES').",
                 "visualDescription": "A specific art direction description for a designer (e.g. 'Cyberpunk city with neon ethereum logo, high contrast').",
-                "template": "One of: ${availableTemplates}",
+                "template": "A STRICT STRING MATCH from this list: [${validTemplateNames}]",
                 "reasoning": "VERIFICATION: Cite the exact Knowledge Base fact, Strategy Doc section, or URL that validates this tweet. (e.g. 'Source: KB Fact #3 re: L2 Security' or 'Source: Whitepaper p.4')."
             }
         ]
