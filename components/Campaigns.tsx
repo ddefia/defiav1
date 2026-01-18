@@ -216,9 +216,10 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                 setDraftContext(result.thinking); // Capture thinking
 
-                if (result.themeColor) {
-                    setCampaignColor(result.themeColor);
-                }
+                // Prevent AI from overwriting the Theme Color randomly. User wants stability.
+                // if (result.themeColor) {
+                //    setCampaignColor(result.themeColor);
+                // }
 
                 const items: CampaignItem[] = result.drafts.map((d: any, i: number) => {
                     return {
@@ -1339,6 +1340,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                                 <option key={img.id} value={img.id}>{img.name}</option>
                                                             ))}
                                                         </select>
+                                                        {/* Step 3 Thumbnail Preview */}
+                                                        {(item.referenceImageId || campaignReferenceImage) && (
+                                                            <div className="mt-1.5 flex items-center gap-2 bg-gray-50 p-1 rounded border border-gray-100">
+                                                                <img
+                                                                    src={brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.url || brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.data || ''}
+                                                                    className="w-6 h-6 rounded-sm object-cover border border-gray-200"
+                                                                    alt=""
+                                                                />
+                                                                <span className="text-[9px] text-gray-500 truncate max-w-[120px]">
+                                                                    {brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.name}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {/* SKIP IMAGE TOGGLE */}
