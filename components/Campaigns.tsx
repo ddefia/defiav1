@@ -222,11 +222,45 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 // }
 
                 const items: CampaignItem[] = result.drafts.map((d: any, i: number) => {
-                    // STRICT TEMPLATE RESOLUTION
-                    // If AI returns empty/null template, but brand has strict custom templates, FORCE the first one.
+                    // SMART TEMPLATE RESOLUTION
+                    // Analyze content and theme to pick the best strict template if AI defaults.
                     let resolvedTemplate = d.template || campaignTemplate;
-                    if (!resolvedTemplate && brandConfig.graphicTemplates && brandConfig.graphicTemplates.length > 0) {
-                        resolvedTemplate = brandConfig.graphicTemplates[0].label;
+
+                    if (brandConfig.graphicTemplates && brandConfig.graphicTemplates.length > 0) {
+                        // Helper Logic (Inline for now to access brandConfig easily)
+                        const lowerTweet = (d.tweet || '').toLowerCase();
+                        const lowerTheme = (planTheme || '').toLowerCase();
+                        let smartMatch = null;
+
+                        // 1. Check for Quote Signals
+                        if (lowerTweet.includes('"') || lowerTweet.includes('said') || lowerTweet.includes(' says') || lowerTweet.includes('- ')) {
+                            smartMatch = brandConfig.graphicTemplates.find(t =>
+                                t.label.toLowerCase().includes('quote') ||
+                                (t.category || '').toLowerCase().includes('community')
+                            );
+                        }
+
+                        // 2. Check for Deepdive/Education Signals
+                        if (!smartMatch && (lowerTweet.includes('thread') || lowerTweet.includes('👇') || lowerTweet.includes('1/') || lowerTweet.includes('breakdown'))) {
+                            smartMatch = brandConfig.graphicTemplates.find(t =>
+                                t.label.toLowerCase().includes('deepdive') ||
+                                t.label.toLowerCase().includes('header') ||
+                                (t.category || '').toLowerCase().includes('education')
+                            );
+                        }
+
+                        // 3. Fallback to Theme Match
+                        if (!smartMatch) {
+                            smartMatch = brandConfig.graphicTemplates.find(t =>
+                                lowerTheme.includes(t.label.toLowerCase()) ||
+                                lowerTheme.includes((t.category || '').toLowerCase())
+                            );
+                        }
+
+                        // Apply Smart Match or Fallback to First (Strict Mode) if AI failed
+                        if (!resolvedTemplate || !brandConfig.graphicTemplates.some(t => t.label === resolvedTemplate)) {
+                            resolvedTemplate = smartMatch ? smartMatch.label : brandConfig.graphicTemplates[0].label;
+                        }
                     }
 
                     return {
@@ -359,11 +393,45 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 }
 
                 const batchItems: CampaignItem[] = result.drafts.map((d: any, i: number) => {
-                    // STRICT TEMPLATE RESOLUTION
-                    // If AI returns empty/null template, but brand has strict custom templates, FORCE the first one.
+                    // SMART TEMPLATE RESOLUTION
+                    // Analyze content and theme to pick the best strict template if AI defaults.
                     let resolvedTemplate = d.template || campaignTemplate;
-                    if (!resolvedTemplate && brandConfig.graphicTemplates && brandConfig.graphicTemplates.length > 0) {
-                        resolvedTemplate = brandConfig.graphicTemplates[0].label;
+
+                    if (brandConfig.graphicTemplates && brandConfig.graphicTemplates.length > 0) {
+                        // Helper Logic
+                        const lowerTweet = (d.tweet || '').toLowerCase();
+                        const lowerTheme = (enhancedTheme || '').toLowerCase();
+                        let smartMatch = null;
+
+                        // 1. Check for Quote Signals
+                        if (lowerTweet.includes('"') || lowerTweet.includes('said') || lowerTweet.includes(' says') || lowerTweet.includes('- ')) {
+                            smartMatch = brandConfig.graphicTemplates.find(t =>
+                                t.label.toLowerCase().includes('quote') ||
+                                (t.category || '').toLowerCase().includes('community')
+                            );
+                        }
+
+                        // 2. Check for Deepdive/Education Signals
+                        if (!smartMatch && (lowerTweet.includes('thread') || lowerTweet.includes('👇') || lowerTweet.includes('1/') || lowerTweet.includes('breakdown'))) {
+                            smartMatch = brandConfig.graphicTemplates.find(t =>
+                                t.label.toLowerCase().includes('deepdive') ||
+                                t.label.toLowerCase().includes('header') ||
+                                (t.category || '').toLowerCase().includes('education')
+                            );
+                        }
+
+                        // 3. Fallback to Theme Match
+                        if (!smartMatch) {
+                            smartMatch = brandConfig.graphicTemplates.find(t =>
+                                lowerTheme.includes(t.label.toLowerCase()) ||
+                                lowerTheme.includes((t.category || '').toLowerCase())
+                            );
+                        }
+
+                        // Apply Smart Match or Fallback to First (Strict Mode) if AI failed
+                        if (!resolvedTemplate || !brandConfig.graphicTemplates.some(t => t.label === resolvedTemplate)) {
+                            resolvedTemplate = smartMatch ? smartMatch.label : brandConfig.graphicTemplates[0].label;
+                        }
                     }
 
                     return {

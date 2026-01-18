@@ -767,7 +767,11 @@ export const generateCampaignDrafts = async (
         [GROUP B - LOW SIGNAL]: ${lowSignalTemplates.length > 0 ? lowSignalTemplates.join(', ') : 'None'}
         [GROUP C - GENERAL]: ${uncategorizedTemplates.length > 0 ? uncategorizedTemplates.join(', ') : 'None'}
         
-        ⛔ CRITICAL: These are the ONLY allowed templates for this brand. Do not invent others.
+        ⛔ CRITICAL: You MUST assign a template that matches the content type:
+        - If it's a quote or person speaking -> Use a 'Quote' or 'Speaker' template.
+        - If it's deep technical analysis -> Use a 'Deepdive', 'Header', or 'Educational' template.
+        - If it's a general update -> Use a 'Community' or 'Update' template.
+        DO NOT leave template blank.
         `
         : `AVAILABLE TEMPLATES: ${standardTemplates.join(', ')}`;
 
