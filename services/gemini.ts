@@ -918,6 +918,7 @@ export const generateCampaignDrafts = async (
        - CRITICAL INSTRUCTION: When assigning a "visualTemplate" to a tweet:
        - **Strictly limit 'Quote' templates** to genuine quotes/testimonials. 
        - For explaining technology (e.g. Sequencers, L2s), use 'Feature Update', 'Deep Dive', or 'Educational' templates.
+       - **VARIETY RULE**: Avoid assigning the same template 5x in a row UNLESS the theme suggests a unified series (e.g. "Part 1, Part 2"). Otherwise, mix it up with 'Community' or 'Update' templates to keep the feed dynamic.
        - Do NOT default to "Generic" if a High Signal template fits.
 
     INPUT DATA (HIERARCHY OF TRUTH):
@@ -958,7 +959,7 @@ export const generateCampaignDrafts = async (
                 "visualDescription": "A specific art direction description for a designer (e.g. 'Cyberpunk city with neon ethereum logo, high contrast').",
                 "template": "A STRICT STRING MATCH from this list: [${validTemplateNames}] OR 'Auto'",
                 "referenceImageId": "If 'Auto' template is used, you MUST pick a Reference Image ID from this list: [${availableRefImages}]. If a specific template is used, this can be null.",
-                "reasoning": "VERIFICATION: Cite the exact Knowledge Base fact, Strategy Doc section, or URL that validates this tweet. (e.g. 'Source: KB Fact #3 re: L2 Security' or 'Source: Whitepaper p.4')."
+                "reasoning": "STRATEGY LOG: \n• CONTENT: Why this angle? (e.g. 'High-signal educational'). \n• VISUAL: Why this template? (e.g. 'Deep Dive chosen to visualize complex architecture'). \n• VERIFICATION: Exact Source/Doc Link."
             }
         ]
     }
@@ -1010,6 +1011,14 @@ export const generateCampaignDrafts = async (
                 else if (tmpl.includes('feature') || tmpl.includes('product') || tmpl.includes('update') || tmpl.includes('educational')) {
                     const nonHumans = candidates.filter(r => !r.name.toLowerCase().match(/speaker|person|portrait|human|face/));
                     if (nonHumans.length > 0) candidates = nonHumans;
+                }
+                // Rule 3 (Fix for Post 9): If Template is "Auto" (Generic), ensure we DO NOT pick a Speaker unless the text is actually a quote.
+                else {
+                    const isQuoteText = (draft.tweet || "").includes('"') || (draft.tweet || "").toLowerCase().includes('says');
+                    if (!isQuoteText) {
+                        const nonHumans = candidates.filter(r => !r.name.toLowerCase().match(/speaker|person|portrait|human|face/));
+                        if (nonHumans.length > 0) candidates = nonHumans;
+                    }
                 }
 
                 // Pick random from the REFINED candidates
