@@ -236,9 +236,9 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
             const j = Math.floor(Math.random() * (i + 1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        // Pick top 2 for consistent style injection
-        effectiveReferenceImageIds = shuffled.slice(0, 2).map(i => i.id);
-        console.log(`[Auto Mode] Selected 2 random Brand Images for Style Enforcment`);
+        // Pick top 1 (Single Source of Truth) to prevent style clashing/mixing
+        effectiveReferenceImageIds = [shuffled[0].id];
+        console.log(`[Auto Mode] Selected 1 random Brand Image for Consistent Style Enforcment`);
     }
 
     // --- 2. TEMPLATE LOGIC ---

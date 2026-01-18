@@ -752,7 +752,15 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             // Content
             doc.setFontSize(11);
             doc.setTextColor(60, 60, 60);
-            const splitText = doc.splitTextToSize(item.tweet, 180);
+
+            // CLEAN TEXT: Strip Markdown, replace bullets, weird chars
+            const manualClean = item.tweet
+                .replace(/\*\*/g, '') // remove bold
+                .replace(/^[-•]\s*/gm, '• ') // normalize bullets
+                .replace(/[^\x00-\x7F]/g, "") // STRIP NON-ASCII (Emojis, etc) to prevent PDF artifacts
+                .replace(/\n\s*\n/g, '\n'); // compact double newlines
+
+            const splitText = doc.splitTextToSize(manualClean, 180);
             doc.text(splitText, 14, yPos);
             yPos += (splitText.length * 5) + 5;
 
