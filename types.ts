@@ -264,6 +264,7 @@ export interface CampaignStrategy {
   keyMessaging: string[];
   channelStrategy: { channel: string; focus: string; rationale: string }[];
   contentMix: string;
+  visualStrategy: string; // Reasoning for visual choices
   estimatedResults: { impressions: string; engagement: string; conversions: string };
 }
 

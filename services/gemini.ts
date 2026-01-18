@@ -328,6 +328,11 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
              - Background Style (e.g. Abstract vs Cityscape)
            - DO NOT deviate from the established brand look found in the references.
 
+        4. 🔠 LOGOS & TYPOGRAPHY (STRICT):
+           - LOGOS: If a Logo is visible in the reference, you MUST leave space or abstractly represent the logo in the same position.
+           - TEXT: If text is required, use the brand name "${brandName}" in a font style that matches the reference image (e.g. if reference is Bold Sans-Serif, use Bold Sans-Serif).
+           - DO NOT use generic or cartoony fonts.
+
         INSTRUCTIONS:
         - Analyze tweet sentiment.
         - ${visualOverride}
@@ -845,24 +850,23 @@ export const generateCampaignDrafts = async (
 
         if (isCreative) {
             structureInstruction = `
-            🎨 **MODE: CREATIVE FLOW (NO RULES)**
+            🎨 **MODE: CREATIVE FLOW**
             The user wants a "Fun/Creative" campaign. 
             - DO NOT use a rigid "Problem/Solution" structure.
-            - JUST JAM on the idea. 
-            - Create ${count} distinct, high-energy, or funny posts that hit the theme.
+            - Create ${count} distinct, high-energy posts that hit the theme.
             - Vibe: Loose, confident, perhaps a bit unhinged (if brand voice allows).
             `;
         } else {
             structureInstruction = `
-            🎓 **MODE: HIGH-SIGNAL EDUCATION (DEEP DIVE)**
-            The user wants to EDUCATE the audience.
+            📈 **MODE: STRATEGIC GROWTH**
+            The user wants value-driven content aligned with the brand.
             
-            **REQUIRED STRUCTURE (The "Alpha" Flow):**
-            1. **THE THESIS (Tweet 1)**: Immediate Alpha. No buildup. State the core insight or value proposition upfront.
-            2. **THE MECHANIC (Tweet 2)**: Technical breakdown. How does it actually work? (Use Knowledge Base).
-            3. **THE NUANCE/EDGE (Tweet 3)**: Address a misconception or explain why this specific approach wins.
-            4. **THE OUTCOME (Tweet 4)**: What is the end result for the user? (Yield, Speed, etc).
-            5. **THE RESOURCE (Tweet 5)**: Link to docs or app.
+            **SUGGESTED STRUCTURE (Adaptable):**
+            1. **THE HOOK (Tweet 1)**: Capture attention with a strong value prop or announcement.
+            2. **THE MECHANIC (Tweet 2)**: Explain how it works or why it matters.
+            3. **THE NUANCE/EDGE (Tweet 3)**: Address a misconception or explain the competitive advantage.
+            4. **THE OUTCOME (Tweet 4)**: What is the end result for the user?
+            5. **THE CTA (Tweet 5)**: Link to docs or app.
 
             *Goal: Position the brand as a Technical Authority.*
             `;
@@ -932,7 +936,6 @@ export const generateCampaignDrafts = async (
     Output a RAW JSON object.
     
     {
-        "themeColor": "#HEXCODE",
         "drafts": [
             {
                 "tweet": "Tweet content...\\n\\nUse line breaks for spacing.",
@@ -1087,6 +1090,7 @@ export const generateCampaignStrategy = async (
     - Define 3 key messaging pillars.
     - Outline a strategy for each selected platform.
     - Provide realistic result estimates based on a standard micro - campaign.
+    - **VISUAL STRATEGY**: Explain the reasoning behind the recommended visual styles and formats (e.g. "Why use 3D extraction?" or "Why heavy text?").
     - ** CRITICAL **: For every key decision, explicitly optional "rationale" citing which 'Strategy Doc' or 'Brain Memory' influenced it. (e.g. "Focusing on DeFi Gaming because: 'Q1 Goal: Capture Gamer Share'").
 
     OUTPUT FORMAT(JSON):
@@ -1099,6 +1103,7 @@ export const generateCampaignStrategy = async (
                     { "channel": "LinkedIn", "focus": "Thought leadership", "rationale": "B2B..." }
                 ],
                     "contentMix": "One sentence description of the content variety (e.g. 30% educational, 20% memes...)",
+                    "visualStrategy": "Explanation of the visual approach (e.g. 'We are using high-contrast 3D visuals to denote premium tech...')",
                         "estimatedResults": {
         "impressions": "10k - 50k",
             "engagement": "2% - 5%",

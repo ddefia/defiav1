@@ -53,7 +53,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [isUploadingFocusDoc, setIsUploadingFocusDoc] = useState<boolean>(false);
     const focusDocInputRef = useRef<HTMLInputElement>(null);
 
-    const [campaignColor, setCampaignColor] = useState<string>('#4F46E5'); // Default Indigo
+
     const [activeTab, setActiveTab] = useState<'wizard' | 'list'>('list');
     const [wizardStep, setWizardStep] = useState(1);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -269,7 +269,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         isApproved: true,
                         status: 'draft',
                         images: [],
-                        campaignColor: result.themeColor || campaignColor,
+                        campaignColor: undefined,
                         template: resolvedTemplate,
                         reasoning: d.reasoning
                     };
@@ -388,9 +388,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 if (b === 0) setDraftContext(result.thinking); // 🧠 Set Brain Thinking Logic from first batch
 
                 // JSON Handling
-                if (result.themeColor && b === 0) {
-                    setCampaignColor(result.themeColor);
-                }
+
 
                 const batchItems: CampaignItem[] = result.drafts.map((d: any, i: number) => {
                     // SMART TEMPLATE RESOLUTION
@@ -440,7 +438,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         isApproved: true,
                         status: 'draft',
                         images: [],
-                        campaignColor: result.themeColor || campaignColor,
+                        campaignColor: undefined,
                         template: resolvedTemplate,
 
                         reasoning: d.reasoning, // New transparency field
@@ -671,7 +669,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 platform: 'Twitter',
                 status: 'scheduled',
                 campaignName: campaignTheme || 'Campaign',
-                color: campaignColor
+                color: '#4F46E5'
             };
         });
 
@@ -1228,6 +1226,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         </div>
                                     )}
 
+                                    {/* VISUAL STRATEGY */}
+                                    <div className="col-span-1 md:col-span-2 bg-indigo-50/30 border border-indigo-100 rounded-xl p-6">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-sm">🎨</div>
+                                            <label className="text-xs font-bold text-indigo-900 uppercase tracking-wider">Visual Strategy & Art Direction</label>
+                                        </div>
+                                        <textarea
+                                            value={campaignStrategy.visualStrategy || "No visual strategy generated."}
+                                            onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, visualStrategy: e.target.value } : null)}
+                                            className="w-full bg-transparent border-none p-0 text-sm text-indigo-900/80 min-h-[60px] outline-none resize-none focus:ring-0 leading-relaxed font-medium placeholder-indigo-300"
+                                            placeholder="Explain the visual approach..."
+                                        />
+                                    </div>
+
                                     {/* GENERATED DRAFTS LIST */}
                                     <div className="space-y-6">
                                         <div>
@@ -1342,19 +1354,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         </div>
                                     </div>
 
-                                    {/* Color Picker (Subtle) */}
-                                    <div className="flex items-center gap-3 pl-6 border-l border-gray-100">
-                                        <label className="text-[10px] font-bold text-brand-muted uppercase">Theme Color</label>
-                                        <div className="relative group">
-                                            <div className="w-8 h-8 rounded-full shadow-sm border border-gray-200 cursor-pointer" style={{ backgroundColor: campaignColor }}></div>
-                                            <input
-                                                type="color"
-                                                value={campaignColor}
-                                                onChange={(e) => setCampaignColor(e.target.value)}
-                                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                            />
-                                        </div>
-                                    </div>
+
                                 </div>
 
                                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
