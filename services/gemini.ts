@@ -267,11 +267,11 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
                 break;
             case 'Educational / Insight':
             case 'Educational':
-                templateInstruction = "TEMPLATE TYPE: EDUCATIONAL / INSIGHT. Composition: Clean, infographic-style, or abstract data visualization. Focus on clarity, structure, and explaining a concept visually. Minimalist background.";
+                templateInstruction = "TEMPLATE TYPE: EDUCATIONAL / INSIGHT. Composition: Clean layout focusing on data or concepts. Style: Must strictly follow the Reference Image aesthetic (background, stroke weight, color palette).";
                 break;
             case 'Feature / Product Update':
             case 'Feature Update':
-                templateInstruction = "TEMPLATE TYPE: FEATURE / PRODUCT UPDATE. Composition: Sleek 3D render of a UI element, code snippet, or abstract mechanism upgrading. High-tech, futuristic, polished look.";
+                templateInstruction = "TEMPLATE TYPE: FEATURE / PRODUCT UPDATE. Composition: Focus on a specific element upgrading or evolving. Style: Must strictly follow the Reference Image style (e.g. if reference is 2D, make this 2D).";
                 break;
             default:
                 templateInstruction = `TEMPLATE TYPE: ${params.templateType}`;
@@ -337,14 +337,12 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - ✅ Use text SPARINGLY (Title/Stat only).
         
         ${effectiveReferenceImageIds.length > 0 ? `
-           REFERENCE IMAGE UTILIZATION:
+           REFERENCE IMAGE UTILIZATION (HIGHEST PRIORITY):
            - I have provided ${effectiveReferenceImageIds.length} reference images from the brand's history.
-           - 🚨 STRICTLY MIMIC the visual style of these images.
-           - If a Logo is visible in the references, position a similar abstract logo to maintain branding.
-           
-           ${isStructuredTemplate ? `
-           - 🏗️ TEMPLATE MODE: Preserve the EXACT LAYOUT of the reference. Only change the subject matter.` : `
-           - 🟢 CREATIVE HARMONY MODE: Use the references for Art Direction (Lighting, Colors, Vibe) but create a NEW composition for the prompt.`}
+           - 🚨 CRITICAL: You MUST adopt the visual style of these images (Line weight, shading, background texture, 2D/3D nature).
+           - The "Template Type" above dictates the *subject* (e.g. a chart), but the *Style* must come from these images.
+           - If the reference is 2D vector art, DO NOT create a realistic 3D render. Match the reference.
+           - If a Logo/Watermark is visible in the references, position a similar abstract element to maintain branding.
         ` : ''}
     `;
     }
