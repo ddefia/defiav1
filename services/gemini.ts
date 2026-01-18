@@ -773,6 +773,13 @@ export const generateCampaignDrafts = async (
         ? [...customTemplates.map(t => t.label), ...standardTemplates].join(', ')
         : standardTemplates.join(', ');
 
+    // REFERENCE IMAGES FOR "VISUAL ANCHORING"
+    const availableRefImages = (brandConfig.referenceImages || [])
+        .map(img => `ID: "${img.id}" (Name: ${img.name})`)
+        .join('\n        ');
+
+    const hasRefImages = brandConfig.referenceImages && brandConfig.referenceImages.length > 0;
+
 
     // --- RAG: RETRIEVE BRAIN MEMORY ---
     let ragContext = "";
@@ -924,11 +931,18 @@ export const generateCampaignDrafts = async (
                 "tweet": "Tweet content...\\n\\nUse line breaks for spacing.",
                 "visualHeadline": "A short, punchy 3-5 word headline for the image (e.g. 'DEFI REVOLUTION ARRIVES').",
                 "visualDescription": "A specific art direction description for a designer (e.g. 'Cyberpunk city with neon ethereum logo, high contrast').",
-                "template": "A STRICT STRING MATCH from this list: [${validTemplateNames}]",
+                "template": "A STRICT STRING MATCH from this list: [${validTemplateNames}] OR 'Auto'",
+                "referenceImageId": "If 'Auto' template is used, you MUST pick a Reference Image ID from this list: [${availableRefImages}]. If a specific template is used, this can be null.",
                 "reasoning": "VERIFICATION: Cite the exact Knowledge Base fact, Strategy Doc section, or URL that validates this tweet. (e.g. 'Source: KB Fact #3 re: L2 Security' or 'Source: Whitepaper p.4')."
             }
         ]
     }
+
+    CRITICAL VISUAL RULES:
+    1. You MUST select a specific Visual Strategy for every post.
+    2. OPTION A: Pick a specific "template" from the list (e.g. "Feature Update", "Educational").
+    3. OPTION B: If using "Auto" template (e.g. for a meme or generic post), you MUST select a specific "referenceImageId" from the Available Ref Images list to ground the style.
+    4. NO GENERIC "AUTO" WITHOUT A REFERENCE. A "Mix" is not allowed. Be specific.
     `;
 
     try {
