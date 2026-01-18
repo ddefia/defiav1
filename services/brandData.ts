@@ -208,6 +208,36 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
             "Strategic Focus: 'Alpha is temporary. Substance compounds.' Focus on projects built on conviction.",
             "Architecture Layers: Andromeda (Settlement), Hyperion (Execution/Throughput), LazAI (Application/Value Capture).",
             "Community Letter 2026: Real usage changes system priorities. Applications must move past speculation (Article Context)."
+        ],
+        graphicTemplates: [
+            {
+                id: 'metis_speaker',
+                label: 'Speaker Quote',
+                prompt: 'Focus on a high-quality portrait or abstract representation of the speaker. Professional, spotlight lighting. Space for a quote.',
+                category: 'Community',
+                tweetExample: '"Alpha is temporary. Substance compounds." - Elena'
+            },
+            {
+                id: 'metis_deepdive',
+                label: 'Deepdive Header',
+                prompt: 'Abstract representation of a decentralized network, nodes connecting and forming a chain, with the Metis logo subtly integrated. High-tech, futuristic style. 3D render.',
+                category: 'Education',
+                tweetExample: 'Deepdive into the new Data Anchoring Token standard.'
+            },
+            {
+                id: 'metis_quote',
+                label: 'Quote',
+                prompt: 'Minimalist background with a focus on typography. Use the Metis Cyan color for emphasis. Clean, modern font.',
+                category: 'Community',
+                tweetExample: 'The real question isn’t capability but where the value actually lives.'
+            },
+            {
+                id: 'metis_community',
+                label: 'Community Update',
+                prompt: 'Vibrant, energetic composition showing community growth or engagement. Use abstract shapes and Metis brand colors.',
+                category: 'Community',
+                tweetExample: 'Metis Community Call #42 Recap'
+            }
         ]
     }
 };

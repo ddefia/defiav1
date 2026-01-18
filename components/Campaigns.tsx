@@ -1035,11 +1035,16 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             className="w-full bg-white border border-brand-border rounded-lg p-2 text-xs text-brand-text outline-none"
                                         >
                                             <option value="">No Template (Default)</option>
-                                            <option value="Partnership">Partnership</option>
-                                            <option value="Campaign">Campaign Launch</option>
-                                            <option value="Giveaway">Giveaway</option>
-                                            <option value="Events">Event</option>
-                                            <option value="Speaker Scenes">Speaker Quote</option>
+                                            {/* STRICT MODE: Only show defaults if NO custom templates exist */}
+                                            {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
+                                                <>
+                                                    <option value="Partnership">Partnership</option>
+                                                    <option value="Campaign">Campaign Launch</option>
+                                                    <option value="Giveaway">Giveaway</option>
+                                                    <option value="Events">Event</option>
+                                                    <option value="Speaker Scenes">Speaker Quote</option>
+                                                </>
+                                            )}
                                             {/* Custom Templates */}
                                             {(brandConfig.graphicTemplates || []).map(t => (
                                                 <option key={t.id} value={t.label}>{t.label} (Custom)</option>
@@ -1311,13 +1316,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                             className={`w-full text-[11px] border border-gray-200 rounded px-2 py-1.5 text-brand-text bg-white outline-none focus:border-brand-accent hover:border-gray-300 transition-colors cursor-pointer ${item.skipImage ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                         >
                                                             <option value="">Auto (Default)</option>
-                                                            <option value="Educational">Educational / Insight</option>
-                                                            <option value="Feature Update">Feature / Product Update</option>
-                                                            <option value="Partnership">Partnership</option>
-                                                            <option value="Campaign Launch">Campaign Launch</option>
-                                                            <option value="Giveaway">Giveaway</option>
-                                                            <option value="Event">Event</option>
-                                                            <option value="Speaker Quote">Speaker Quote</option>
+                                                            {/* STRICT MODE: Only show defaults if NO custom templates exist */}
+                                                            {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
+                                                                <>
+                                                                    <option value="Educational">Educational / Insight</option>
+                                                                    <option value="Feature Update">Feature / Product Update</option>
+                                                                    <option value="Partnership">Partnership</option>
+                                                                    <option value="Campaign Launch">Campaign Launch</option>
+                                                                    <option value="Giveaway">Giveaway</option>
+                                                                    <option value="Event">Event</option>
+                                                                    <option value="Speaker Quote">Speaker Quote</option>
+                                                                </>
+                                                            )}
+                                                            {/* Custom Templates */}
                                                             {(brandConfig.graphicTemplates || []).map(t => (
                                                                 <option key={t.id} value={t.label}>{t.label}</option>
                                                             ))}
@@ -1455,14 +1466,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     className="flex-1 bg-white border border-gray-200 rounded text-[10px] p-1.5 focus:border-brand-accent outline-none"
                                                 >
                                                     <option value="">Default Template</option>
-                                                    <option value="Educational">Educational / Insight</option>
-                                                    <option value="Feature Update">Feature / Product Update</option>
-                                                    <option value="Partnership">Partnership</option>
-                                                    <option value="Campaign Link">Campaign Link</option>
-                                                    <option value="Campaign Launch">Campaign Launch</option>
-                                                    <option value="Giveaway">Giveaway</option>
-                                                    <option value="Events">Event</option>
-                                                    <option value="Speaker Scenes">Speaker Quote</option>
+                                                    {/* STRICT MODE: Only show defaults if NO custom templates exist */}
+                                                    {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
+                                                        <>
+                                                            <option value="Educational">Educational / Insight</option>
+                                                            <option value="Feature Update">Feature / Product Update</option>
+                                                            <option value="Partnership">Partnership</option>
+                                                            <option value="Campaign Link">Campaign Link</option>
+                                                            <option value="Campaign Launch">Campaign Launch</option>
+                                                            <option value="Giveaway">Giveaway</option>
+                                                            <option value="Events">Event</option>
+                                                            <option value="Speaker Scenes">Speaker Quote</option>
+                                                        </>
+                                                    )}
                                                     {(brandConfig.graphicTemplates || []).map(t => (
                                                         <option key={t.id} value={t.label}>{t.label} (Custom)</option>
                                                     ))}

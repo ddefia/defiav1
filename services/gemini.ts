@@ -757,19 +757,24 @@ export const generateCampaignDrafts = async (
         .filter(t => !highSignalTemplates.includes(t.label) && !lowSignalTemplates.includes(t.label))
         .map(t => t.label);
 
+    // STRICT MODE LOGIC:
+    // If Custom Templates exist, DO NOT show Standard Defaults.
+    // If NO Custom Templates, show Standard Defaults.
     const availableTemplates = customTemplates.length > 0
         ? `
-        AVAILABLE TEMPLATES (PRIORITIZE GROUP A + Specific Matches):
+        AVAILABLE TEMPLATES (STRICTLY USE ONE OF THESE):
         [GROUP A - HIGH SIGNAL]: ${highSignalTemplates.length > 0 ? highSignalTemplates.join(', ') : 'None'}
         [GROUP B - LOW SIGNAL]: ${lowSignalTemplates.length > 0 ? lowSignalTemplates.join(', ') : 'None'}
-        [GROUP C - STANDARD]: ${[...uncategorizedTemplates, ...standardTemplates].join(', ')}
+        [GROUP C - GENERAL]: ${uncategorizedTemplates.length > 0 ? uncategorizedTemplates.join(', ') : 'None'}
+        
+        ⛔ CRITICAL: These are the ONLY allowed templates for this brand. Do not invent others.
         `
         : `AVAILABLE TEMPLATES: ${standardTemplates.join(', ')}`;
 
     // STRICT VALIDATION LIST FOR JSON SCHEMA
     const validTemplateNames = customTemplates.length > 0
-        ? [...customTemplates.map(t => t.label), ...standardTemplates].join(', ')
-        : standardTemplates.join(', ');
+        ? customTemplates.map(t => t.label).join(', ') // Only Custom
+        : standardTemplates.join(', '); // Only Standard
 
     // REFERENCE IMAGES FOR "VISUAL ANCHORING"
     const availableRefImages = (brandConfig.referenceImages || [])
