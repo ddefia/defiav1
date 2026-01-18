@@ -265,6 +265,14 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
             case 'Speaker Scenes':
                 templateInstruction = "TEMPLATE TYPE: SPEAKER QUOTE / HIGHLIGHT. Composition: Portrait layout preference. Space for text/quote. Professional, spotlight lighting.";
                 break;
+            case 'Educational / Insight':
+            case 'Educational':
+                templateInstruction = "TEMPLATE TYPE: EDUCATIONAL / INSIGHT. Composition: Clean, infographic-style, or abstract data visualization. Focus on clarity, structure, and explaining a concept visually. Minimalist background.";
+                break;
+            case 'Feature / Product Update':
+            case 'Feature Update':
+                templateInstruction = "TEMPLATE TYPE: FEATURE / PRODUCT UPDATE. Composition: Sleek 3D render of a UI element, code snippet, or abstract mechanism upgrading. High-tech, futuristic, polished look.";
+                break;
             default:
                 templateInstruction = `TEMPLATE TYPE: ${params.templateType}`;
         }
