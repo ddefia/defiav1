@@ -958,9 +958,10 @@ export const generateCampaignDrafts = async (
         const json = JSON.parse(text);
 
         const validDrafts = (json.drafts || []).map((draft: any) => {
-            // FALLBACK LOGIC: If AI picked "Auto" but forgot to pick a reference image, FORCE one.
-            // This ensures the UI always shows a specific "Style Reference" instead of "Auto".
-            if ((!draft.template || draft.template === 'Auto') && !draft.referenceImageId && brandConfig.referenceImages && brandConfig.referenceImages.length > 0) {
+            // FALLBACK LOGIC: FORCE REFERENCE ASSIGNMENT FOR EVERYTHING.
+            // Even if a template is chosen (e.g. "Feature Update"), we strictly want to attach a Brand Reference Image
+            // to ensure the visual style (colors, 2D/3D) overrides the generic template description.
+            if (!draft.referenceImageId && brandConfig.referenceImages && brandConfig.referenceImages.length > 0) {
                 const randomRef = brandConfig.referenceImages[Math.floor(Math.random() * brandConfig.referenceImages.length)];
                 console.log(`[Drafting Fallback] AI missed Ref ID. Forcing: ${randomRef.name}`);
                 return { ...draft, referenceImageId: randomRef.id };
