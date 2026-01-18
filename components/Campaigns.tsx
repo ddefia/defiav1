@@ -362,7 +362,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                         reasoning: d.reasoning, // New transparency field
                         visualHeadline: d.visualHeadline, // AI suggested headline
-                        artPrompt: d.visualDescription // Map AI Description to Art Prompt
+                        artPrompt: d.visualDescription, // Map AI Description to Art Prompt
+                        referenceImageId: d.referenceImageId // Explicitly map the Reference Image ID chosen by AI
                     };
                 });
 
