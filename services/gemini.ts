@@ -717,8 +717,25 @@ export const generateCampaignDrafts = async (
         : "";
 
     const standardTemplates = ['Partnership', 'Campaign Launch', 'Giveaway', 'Event', 'Speaker Quote'];
-    const customTemplates = (brandConfig.graphicTemplates || []).map(t => t.label);
-    const allTemplates = [...standardTemplates, ...customTemplates].join(', ');
+    // Content Diet Logic: Prioritize High-Signal Templates
+    const customTemplates = (brandConfig.graphicTemplates || []);
+
+    const highSignalTemplates = customTemplates
+        .filter(t => ['feature', 'product', 'launch', 'article', 'insight'].some(cat => (t.category || '').toLowerCase().includes(cat)))
+        .map(t => t.label);
+
+    const lowSignalTemplates = customTemplates
+        .filter(t => ['ama', 'event', 'giveaway', 'meme'].some(cat => (t.category || '').toLowerCase().includes(cat)))
+        .map(t => t.label);
+
+    // If no categories, just list them all
+    const availableTemplates = customTemplates.length > 0
+        ? `
+        AVAILABLE TEMPLATES (PRIORITIZE GROUP A):
+        [GROUP A - HIGH SIGNAL (60%)]: ${highSignalTemplates.join(', ')}
+        [GROUP B - LOW SIGNAL (20%)]: ${lowSignalTemplates.join(', ')}
+        `
+        : `AVAILABLE TEMPLATES: ${standardTemplates.join(', ')}`;
 
     // --- RAG: RETRIEVE BRAIN MEMORY ---
     let ragContext = "";
@@ -827,6 +844,10 @@ export const generateCampaignDrafts = async (
     3. **HIGH-SIGNAL**: Use dense, insightful language. "Alpha" > "Marketing".
     4. **FORMATTED**: Perfect vertical spacing, clean hooks.
     5. **DETAILED**: Do NOT be brief. Be COMPREHENSIVE. Use the full character limit to explain the nuance.
+    6. **VISUAL VARIETY**: ${availableTemplates}
+       - CRITICAL INSTRUCTION: When assigning a "visualTemplate" to a tweet, prioritize [GROUP A - HIGH SIGNAL] templates (Features, Articles) for the majority of posts.
+       - Use [GROUP B] (AMAs, Giveaways) SPARINGLY, only if the content specifically demands it.
+       - Do NOT default to "Generic" if a High Signal template fits.
 
     INPUT DATA (HIERARCHY OF TRUTH):
     1. [HIGHEST PRIORITY] STRATEGIC FOCUS DOCUMENT: ${focusContent || "None Provided"} (If this exists, it OVERRIDES everything).
