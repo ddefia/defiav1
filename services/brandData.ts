@@ -200,14 +200,7 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
             "How to find Metis eco's #1 priority in 2026?\n\n1. Open your phones camera\n2. Switch to selfie mode"
         ],
         knowledgeBase: [
-            "Metis is evolving from a Layer 2 into an AI-native blockchain economy.",
-            "Key Narrative: Shift from speculation to real usage, infrastructure, and economics.",
-            "LazAI Integration: METIS serves as the native gas across LazAI, unifying settlement, performance, and applications.",
-            "Infrastructure: Metis is a unified stack (Settlement, Execution, Verification) where AI, data, and payments are native primitives.",
-            "Data Anchoring Token (DAT): A standard to make AI-generated content verifiable and ownable, embedding revenue at the protocol level.",
-            "Strategic Focus: 'Alpha is temporary. Substance compounds.' Focus on projects built on conviction.",
-            "Architecture Layers: Andromeda (Settlement), Hyperion (Execution/Throughput), LazAI (Application/Value Capture).",
-            "Community Letter 2026: Real usage changes system priorities. Applications must move past speculation (Article Context)."
+            // Empty by default to respect user deletions.
         ],
         graphicTemplates: [
             {

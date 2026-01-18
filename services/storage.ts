@@ -132,7 +132,7 @@ export const loadBrandProfiles = (): Record<string, BrandConfig> => {
         });
 
         // Set a timeout to release lock just in case fetch hangs
-        setTimeout(() => { isHydrating = false; }, 5000);
+        setTimeout(() => { isHydrating = false; }, 2000);
 
         return mergeWithDefaults(localData);
     } catch (e) {
