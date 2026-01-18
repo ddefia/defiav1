@@ -149,29 +149,15 @@ const mergeWithDefaults = (storedData: any): Record<string, BrandConfig> => {
             const stored = storedData[key];
 
             const preferStoredArray = (field: keyof BrandConfig) => {
-                let sArr = Array.isArray(stored[field]) ? stored[field] : [];
-                const dArr = Array.isArray(def[field]) ? def[field] : [];
+                // SRICT PERSISTENCE: If the user has saved data for this field (even an empty array),
+                // we use it effectively as the "Source of Truth" and do NOT merge defaults back in.
+                // This fix ensures that if a user deletes items (colors, docs), they stay deleted on refresh.
+                if (field in stored && Array.isArray(stored[field])) {
+                    return stored[field];
+                }
 
-                // FORCE OVERRIDE: Removed to prevent overwriting user-uploaded images
-                // if (dArr.length > 0 && field === 'referenceImages') {
-                //    return dArr;
-                // }
-
-                if (sArr.length === 0) return dArr;
-                if (dArr.length === 0) return sArr;
-
-                // Merge: Start with Stored, Add Defaults if missing (deduplicate by ID or value)
-                const merged = [...sArr];
-                dArr.forEach(dItem => {
-                    const exists = merged.some(sItem => {
-                        if (typeof sItem === 'object' && sItem !== null && 'id' in sItem && 'id' in dItem) {
-                            return sItem.id === dItem.id;
-                        }
-                        return sItem === dItem;
-                    });
-                    if (!exists) merged.push(dItem);
-                });
-                return merged;
+                // Fallback: Only use defaults if the user has never saved this field (e.g. new profile)
+                return Array.isArray(def[field]) ? def[field] : [];
             };
 
             merged[key] = {

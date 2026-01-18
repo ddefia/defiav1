@@ -9,7 +9,7 @@ import { analyzeBrandKit } from '../services/gemini';
 import { parseDocumentFile } from '../services/documentParser';
 import * as pdfjsLib from 'pdfjs-dist';
 // import { syncHistoryToReferenceImages } from '../services/ingestion';
-import { indexEmptyEmbeddings } from '../services/rag';
+import { indexEmptyEmbeddings, ingestContext } from '../services/rag';
 
 
 
@@ -212,20 +212,44 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
     setIsUploadingKB(true);
     const file = files[0];
 
+    // Dynamic import for RAG service to avoid circular deps if any, or just use static if possible.
+    // Better to use dynamic inside the function if we want to be safe, or just rely on the static import I will add.
+    const { ingestContext } = await import('../services/rag');
+
     try {
       const { parseDocumentFile } = await import('../services/documentParser');
       const text = await parseDocumentFile(file);
 
       if (text) {
-        if (text.length > 50000) {
-          if (!window.confirm("This document contains a lot of text (>50k chars). It may use up your storage. Continue?")) {
-            return;
-          }
+        // SAFETY CHECK: If text is large (>20k chars), ingestion into RAG is safer than LocalStorage
+        // This prevents the "Storage Quota Exceeded" crash for large PDFs.
+        const IS_LARGE_DOC = text.length > 20000;
+
+        if (IS_LARGE_DOC) {
+          const confirmed = window.confirm(
+            `This document is large (${(text.length / 1024).toFixed(1)} KB). \n\nTo prevent slowing down the app, we will index this into the AI's Long-Term Memory (RAG) instead of local storage. \n\nProceed?`
+          );
+
+          if (!confirmed) return;
+
+          // Ingest into Supabase/RAG
+          await ingestContext(text, 'KNOWLEDGE_BASE', { filename: file.name, type: 'document' }, brandName);
+
+          // Add a "Pointer" to the local list so the user sees it exists
+          const pointer = `[INDEXED DOCUMENT]: ${file.name} (Searchable by AI)`;
+          onChange({
+            ...config,
+            knowledgeBase: [...(config.knowledgeBase || []), pointer]
+          });
+
+          alert("Document successfully indexed into Brain Memory!");
+        } else {
+          // Small documents can stay in LocalStorage for "Always On" context
+          onChange({
+            ...config,
+            knowledgeBase: [...(config.knowledgeBase || []), text]
+          });
         }
-        onChange({
-          ...config,
-          knowledgeBase: [...(config.knowledgeBase || []), text]
-        });
       }
     } catch (err: any) {
       console.error("Failed to parse file", err);

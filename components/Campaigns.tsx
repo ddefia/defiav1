@@ -708,6 +708,84 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         doc.save(`${brandName}_Campaign_${campaignName.replace(/\s+/g, '_')}.pdf`);
     };
 
+    const handleDownloadDraftsPDF = (drafts: CampaignItem[]) => {
+        // @ts-ignore
+        const doc = new jsPDF();
+
+        // TITLE
+        doc.setFontSize(22);
+        doc.setTextColor(40, 40, 40);
+        doc.text(`${brandName}: Draft Review`, 14, 20);
+
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 28);
+
+        let startDateObj = new Date();
+        if (campaignStartDate) {
+            const parts = campaignStartDate.split('-');
+            startDateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        } else {
+            startDateObj.setDate(startDateObj.getDate() + 1);
+        }
+
+        let yPos = 40;
+
+        drafts.forEach((item, i) => {
+            // Calculate Date
+            const itemDate = new Date(startDateObj);
+            itemDate.setDate(startDateObj.getDate() + i);
+            const dateStr = itemDate.toLocaleDateString();
+
+            // New Page check
+            if (yPos > 250) {
+                doc.addPage();
+                yPos = 20;
+            }
+
+            // Item Index
+            doc.setFontSize(14);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Post #${i + 1} (${dateStr})`, 14, yPos);
+            yPos += 8;
+
+            // Content
+            doc.setFontSize(11);
+            doc.setTextColor(60, 60, 60);
+            const splitText = doc.splitTextToSize(item.tweet, 180);
+            doc.text(splitText, 14, yPos);
+            yPos += (splitText.length * 5) + 5;
+
+            // Image
+            const selectedImg = item.images && item.images.length > 0
+                ? item.images[item.selectedImageIndex || 0]
+                : null;
+
+            if (selectedImg) {
+                try {
+                    // Aspect ratio usually 16:9 => 100 width, 56 height
+                    if (yPos + 60 > 280) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.addImage(selectedImg, 'PNG', 14, yPos, 100, 56);
+                    yPos += 65;
+                } catch (e) {
+                    console.error("PDF Image Error", e);
+                }
+            } else {
+                yPos += 10;
+            }
+
+            // Separator
+            doc.setDrawColor(200, 200, 200);
+            doc.line(14, yPos, 196, yPos);
+            yPos += 10;
+        });
+
+        doc.save(`${brandName}_Drafts_${new Date().toISOString().slice(0, 10)}.pdf`);
+    };
+
 
     // --- RENDER ---
     const activeCampaigns = getActiveCampaigns();
@@ -1223,6 +1301,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                             className={`w-full text-[11px] border border-gray-200 rounded px-2 py-1.5 text-brand-text bg-white outline-none focus:border-brand-accent hover:border-gray-300 transition-colors cursor-pointer ${item.skipImage ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                         >
                                                             <option value="">Auto (Default)</option>
+                                                            <option value="Educational">Educational / Insight</option>
+                                                            <option value="Feature Update">Feature / Product Update</option>
                                                             <option value="Partnership">Partnership</option>
                                                             <option value="Campaign Launch">Campaign Launch</option>
                                                             <option value="Giveaway">Giveaway</option>
@@ -1230,6 +1310,24 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                             <option value="Speaker Quote">Speaker Quote</option>
                                                             {(brandConfig.graphicTemplates || []).map(t => (
                                                                 <option key={t.id} value={t.label}>{t.label}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="pt-2">
+                                                        <label className="text-[9px] font-bold text-brand-muted uppercase block mb-1">Style Reference</label>
+                                                        <select
+                                                            value={item.referenceImageId || campaignReferenceImage || ""}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, referenceImageId: val || undefined } : p));
+                                                            }}
+                                                            disabled={item.skipImage}
+                                                            className={`w-full text-[11px] border border-gray-200 rounded px-2 py-1.5 text-brand-text bg-white outline-none focus:border-brand-accent hover:border-gray-300 transition-colors cursor-pointer ${item.skipImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        >
+                                                            <option value="">Auto (Brand Default)</option>
+                                                            {brandConfig.referenceImages.map(img => (
+                                                                <option key={img.id} value={img.id}>{img.name}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -1275,6 +1373,27 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
                                             Copy All Scripts (Recap)
                                         </Button>
+
+                                        <div className="h-6 w-[1px] bg-gray-300 mx-2"></div>
+
+                                        <Button
+                                            onClick={() => handleDownloadDraftsPDF(campaignItems.filter(i => i.isApproved))}
+                                            variant="secondary"
+                                            className="text-xs py-1 px-3 h-7 flex items-center gap-1"
+                                            title="Download PDF Report"
+                                        >
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                            PDF
+                                        </Button>
+
+                                        <Button
+                                            onClick={() => handleBatchScheduleCampaign(campaignItems.filter(i => i.isApproved))}
+                                            className="text-xs py-1 px-3 h-7 bg-green-600 hover:bg-green-700 text-white border-none flex items-center gap-1"
+                                            title="Schedule all approved posts"
+                                        >
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                            Schedule Approved
+                                        </Button>
                                     </div>
                                     {isBatchProcessing && <span className="text-xs text-brand-accent animate-pulse font-medium">Generating Graphics...</span>}
                                 </div>
@@ -1313,6 +1432,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     className="flex-1 bg-white border border-gray-200 rounded text-[10px] p-1.5 focus:border-brand-accent outline-none"
                                                 >
                                                     <option value="">Default Template</option>
+                                                    <option value="Educational">Educational / Insight</option>
+                                                    <option value="Feature Update">Feature / Product Update</option>
                                                     <option value="Partnership">Partnership</option>
                                                     <option value="Campaign Link">Campaign Link</option>
                                                     <option value="Campaign Launch">Campaign Launch</option>
@@ -1324,19 +1445,35 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     ))}
                                                 </select>
 
-                                                <select
-                                                    value={item.referenceImageId || campaignReferenceImage || ""}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, referenceImageId: val || undefined } : i));
-                                                    }}
-                                                    className="flex-1 bg-white border border-gray-200 rounded text-[10px] p-1.5 focus:border-brand-accent outline-none"
-                                                >
-                                                    <option value="">Default Style</option>
-                                                    {brandConfig.referenceImages.map(img => (
-                                                        <option key={img.id} value={img.id}>{img.name}</option>
-                                                    ))}
-                                                </select>
+                                                <div className="flex-1 min-w-[140px]">
+                                                    <select
+                                                        value={item.referenceImageId || campaignReferenceImage || ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, referenceImageId: val || undefined } : i));
+                                                        }}
+                                                        className="w-full bg-white border border-gray-200 rounded text-[10px] p-1.5 focus:border-brand-accent outline-none"
+                                                    >
+                                                        <option value="">Style: Auto / Best Match</option>
+                                                        {brandConfig.referenceImages.map(img => (
+                                                            <option key={img.id} value={img.id}>Style: {img.name}</option>
+                                                        ))}
+                                                    </select>
+
+                                                    {/* THUMBNAIL PREVIEW */}
+                                                    {(item.referenceImageId || campaignReferenceImage) && (
+                                                        <div className="mt-1 flex items-center gap-2">
+                                                            <img
+                                                                src={brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.url || brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.data || ''}
+                                                                className="w-4 h-4 rounded-sm object-cover border border-gray-200"
+                                                                alt=""
+                                                            />
+                                                            <span className="text-[9px] text-gray-400 truncate">
+                                                                Using: {brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.name}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
 
                                                 {/* Text Only Toggle Step 4 */}
                                                 <div className="flex items-center gap-1.5 px-2 border border-gray-200 rounded bg-white" title="Skip Image Generation">
@@ -1512,7 +1649,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         }
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 };

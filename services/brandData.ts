@@ -163,8 +163,7 @@ Running a Metis Sequencer Node requires technical expertise and high capital. EN
         ],
         knowledgeBase: [
             "LazAI is an AI-powered automation suite for content creators and marketers.",
-            "Core features include automated blog writing, social media scheduling, and image generation.",
-            "Target audience: Agencies, Freelancers, and Growth Hackers."
+            "Core features include automated blog writing, social media scheduling, and image generation."
         ]
     },
     'Defia': {

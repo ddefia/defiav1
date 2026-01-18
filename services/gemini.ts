@@ -554,8 +554,26 @@ export const generateTweet = async (
         ? `\nTEMPLATE-SPECIFIC WRITING STYLES (Use these if the output fits the template context): \n${templateExamples}`
         : "";
 
-    const kb = brandConfig.knowledgeBase.length > 0
-        ? `KNOWLEDGE BASE (THE ABSOLUTE SOURCE OF TRUTH): \n${brandConfig.knowledgeBase.join('\n\n')} `
+    // --- RAG INTEGRATION START ---
+    let ragContext = "";
+    try {
+        // Embed the topic to find relevant KB articles/memories
+        const embedding = await getEmbedding(`${topic} ${brandName}`);
+        if (embedding.length > 0) {
+            const matches = await searchBrainMemory(brandName, embedding, 0.65, 3); // Slightly lower threshold to catch broad context
+            if (matches && matches.length > 0) {
+                dispatchThinking(`🧠 Brain Retrieval for Tweet: Found ${matches.length} relevant docs.`);
+                ragContext = `\nRELEVANT KNOWLEDGE BASE (FROM ARCHIVE):\n${matches.map((m: any) => `- ${m.content}`).join('\n')}\n`;
+            }
+        }
+    } catch (e) {
+        console.warn("RAG Retrieval failed for tweet", e);
+    }
+    // --- RAG INTEGRATION END ---
+
+    // Combine Local KB (Small) + RAG KB (Large)
+    const kb = (brandConfig.knowledgeBase.length > 0 || ragContext.length > 0)
+        ? `KNOWLEDGE BASE (THE ABSOLUTE SOURCE OF TRUTH): \n${brandConfig.knowledgeBase.join('\n\n')}\n${ragContext}`
         : "";
 
     const isNoTagBrand = ['netswap', 'enki'].includes(brandName.toLowerCase());
@@ -716,7 +734,7 @@ export const generateCampaignDrafts = async (
         ? `CORE KNOWLEDGE (SOURCE OF TRUTH): \n${brandConfig.knowledgeBase.join('\n\n')} `
         : "";
 
-    const standardTemplates = ['Partnership', 'Campaign Launch', 'Giveaway', 'Event', 'Speaker Quote'];
+    const standardTemplates = ['Educational', 'Feature Update', 'Partnership', 'Campaign Launch', 'Giveaway', 'Event', 'Speaker Quote'];
     // Content Diet Logic: Prioritize High-Signal Templates
     const customTemplates = (brandConfig.graphicTemplates || []);
 
@@ -729,18 +747,24 @@ export const generateCampaignDrafts = async (
         .map(t => t.label);
 
     // If no categories, just list them all
+    const uncategorizedTemplates = customTemplates
+        .filter(t => !highSignalTemplates.includes(t.label) && !lowSignalTemplates.includes(t.label))
+        .map(t => t.label);
+
     const availableTemplates = customTemplates.length > 0
         ? `
-        AVAILABLE TEMPLATES (PRIORITIZE GROUP A):
-        [GROUP A - HIGH SIGNAL (60%)]: ${highSignalTemplates.join(', ')}
-        [GROUP B - LOW SIGNAL (20%)]: ${lowSignalTemplates.join(', ')}
+        AVAILABLE TEMPLATES (PRIORITIZE GROUP A + Specific Matches):
+        [GROUP A - HIGH SIGNAL]: ${highSignalTemplates.length > 0 ? highSignalTemplates.join(', ') : 'None'}
+        [GROUP B - LOW SIGNAL]: ${lowSignalTemplates.length > 0 ? lowSignalTemplates.join(', ') : 'None'}
+        [GROUP C - STANDARD]: ${[...uncategorizedTemplates, ...standardTemplates].join(', ')}
         `
         : `AVAILABLE TEMPLATES: ${standardTemplates.join(', ')}`;
 
     // STRICT VALIDATION LIST FOR JSON SCHEMA
     const validTemplateNames = customTemplates.length > 0
-        ? [...highSignalTemplates, ...lowSignalTemplates].join(', ')
+        ? [...customTemplates.map(t => t.label), ...standardTemplates].join(', ')
         : standardTemplates.join(', ');
+
 
     // --- RAG: RETRIEVE BRAIN MEMORY ---
     let ragContext = "";
@@ -750,14 +774,15 @@ export const generateCampaignDrafts = async (
         if (queryEmbedding.length > 0) {
             const memories = await searchBrainMemory(brandName, queryEmbedding, 0.7, 5);
             if (memories && memories.length > 0) {
-                dispatchThinking(`🧠 Brain Retrieval: Found ${memories.length} relevant memories.`, memories.map((m: any) => m.content));
+                dispatchThinking(`🧠 Brain Retrieval: Found ${memories.length} relevant docs/memories.`);
                 const memoryList = memories.map((m: any) => `- ${m.content}`).join("\n");
-                ragContext = `[NARRATIVE HISTORY - BUILD ON THIS]:\n${memoryList}`;
+                ragContext = `\nRELEVANT CONTEXT (STRATEGY DOCS & HISTORY):\n${memoryList}\n`;
             }
         }
     } catch (err) {
         console.warn("🧠 Brain RAG: Failed to retrieve memory", err);
     }
+
 
     const winningPosts = recentPosts
         .filter(p => p.likes > 5)
@@ -996,9 +1021,9 @@ export const generateCampaignStrategy = async (
     TONE EXAMPLES:
     ${examples}
 
-TASK:
+    TASK:
     Develop a comprehensive campaign strategy brief.
-    - Analyze the target audience for this specific theme.
+    - Analyze the target audience for this specific theme. note: You must ADAPT the target audience to fit this specific Campaign Theme/Goal. If the theme is "Mass Adoption" or "Diverse", do NOT just default to the core brand audience. Expand the scope.
     - Consider the "Situation" provided to tailor the messaging.
     - SYNERGY: Review "Active Campaigns" and "Brain Memory".Ensure this new campaign complements existing ones(e.g.if we are already doing a 'Giveaway', maybe this one should be 'Educational').
     - Define 3 key messaging pillars.
