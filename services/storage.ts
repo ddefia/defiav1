@@ -246,19 +246,36 @@ export const loadCalendarEvents = (brandName: string): CalendarEvent[] => {
         const stored = localStorage.getItem(key);
         const localTs = getLocalTimestamp(key);
 
-        // Background Sync
+        // Background Sync (Safe Logic)
         fetchFromCloud(key).then(result => {
             if (result) {
                 const cloudTs = new Date(result.updated_at).getTime();
-                // Check if cloud is newer OR if we have no local timestamp yet (first load)
-                if (cloudTs > localTs || localTs === 0) {
-                    console.log(`[Calendar] Cloud newer for ${brandName}. Updating local & UI.`);
+
+                // SAFETY: If we have existing local data (stored) but no timestamp (localTs=0),
+                // we assume local is valid/fresh (e.g. just created) and should NOT be overwritten by an empty/stale cloud state.
+                const hasLocalData = stored && stored.length > 5; // "[]" has length 2
+
+                if (cloudTs > localTs && localTs !== 0) {
+                    console.log(`[Calendar] Cloud strictly newer for ${brandName}. Updating local.`);
                     localStorage.setItem(key, JSON.stringify(result.value));
                     setLocalTimestamp(key, cloudTs);
-                    // Trigger UI Refresh
+                    dispatchStorageEvent(STORAGE_EVENTS.CALENDAR_UPDATE, { brandName });
+                } else if (localTs === 0 && hasLocalData) {
+                    console.log(`[Calendar] Local data exists without timestamp. Trusting Local and syncing UP.`);
+                    setLocalTimestamp(key, Date.now());
+                    saveToCloud(key, JSON.parse(stored!));
+                } else if (cloudTs > localTs && !hasLocalData) {
+                    // Local is empty/missing, Cloud has something (or is newer empty). Sync Down.
+                    console.log(`[Calendar] Local empty/stale, downloading from Cloud.`);
+                    localStorage.setItem(key, JSON.stringify(result.value));
+                    setLocalTimestamp(key, cloudTs);
                     dispatchStorageEvent(STORAGE_EVENTS.CALENDAR_UPDATE, { brandName });
                 } else {
-                    console.log(`[Calendar] Cloud stale for ${brandName}. Ignoring.`);
+                    console.log(`[Calendar] Cloud stale or Local prioritized. Ignoring Cloud.`);
+                    // Ensure cloud is caught up if local is newer
+                    if (localTs > cloudTs && stored) {
+                        saveToCloud(key, JSON.parse(stored));
+                    }
                 }
             } else if (stored) {
                 // Cloud empty, push local
