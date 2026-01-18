@@ -169,7 +169,7 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
             model: 'gemini-2.0-flash',
             contents: [
                 ...validParts,
-                { text: "Analyze these reference images. Describe their visual style, color grading, lighting, and composition in 2 sentences. Focus on keywords that a 3D designer would use. Do not describe the subject matter, only the STYLE." }
+                { text: "Analyze these reference images. Describe their VISUAL STYLE (lighting, colors) AND COMPOSITION (layout, text placement, icon placement) in 2 sentences. Focus on how elements are arranged." }
             ]
         });
 
@@ -239,6 +239,18 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         // Pick top 1 (Single Source of Truth) to prevent style clashing/mixing
         effectiveReferenceImageIds = [shuffled[0].id];
         console.log(`[Auto Mode] Selected 1 random Brand Image for Consistent Style Enforcment`);
+    }
+
+    // --- 1.5 ANALYZE STYLE (CRITICAL FIX) ---
+    // We must "verbally" describe the style to the model, not just pass the image.
+    let analyzedStyleDescription = "";
+    if (effectiveReferenceImageIds.length > 0 && params.brandConfig.referenceImages) {
+        const selectedImageObjects = params.brandConfig.referenceImages.filter(img => effectiveReferenceImageIds.includes(img.id));
+        if (selectedImageObjects.length > 0) {
+            console.log(`[Gemini] Analyzing style of ${selectedImageObjects.length} images...`);
+            analyzedStyleDescription = await analyzeStyleFromReferences(selectedImageObjects);
+            console.log(`[Gemini] Analyzed Style: ${analyzedStyleDescription}`);
+        }
     }
 
     // --- 2. TEMPLATE LOGIC ---
@@ -322,6 +334,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         
         3. 🖼️ STYLE & VIBE:
            - Style: PROFESSIONAL, HIGH-END, PREMIUM.
+           ${analyzedStyleDescription ? `\n           - VISUAL STYLE EXTRACTION (FOLLOW STRICTLY): ${analyzedStyleDescription}` : ''}
            - If Reference Images are provided, you MUST mimic their:
              - Lighting (e.g. Neon vs Soft)
              - Materiality (e.g. Glass vs Metal)
@@ -343,11 +356,12 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         
         ${effectiveReferenceImageIds.length > 0 ? `
            REFERENCE IMAGE UTILIZATION (HIGHEST PRIORITY):
-           - I have provided ${effectiveReferenceImageIds.length} reference images from the brand's history.
-           - 🚨 CRITICAL: You MUST adopt the visual style of these images (Line weight, shading, background texture, 2D/3D nature).
-           - The "Template Type" above dictates the *subject* (e.g. a chart), but the *Style* must come from these images.
-           - If the reference is 2D vector art, DO NOT create a realistic 3D render. Match the reference.
-           - If a Logo/Watermark is visible in the references, position a similar abstract element to maintain branding.
+           - I have provided ${effectiveReferenceImageIds.length} reference images.
+           - 🚨 STRICT TEMPLATE MODE: The user wants to use the Reference Image as a LAYOUT TEMPLATE.
+           - COMPOSITION: You MUST copy the exact layout of the reference. If there is a title at the top, put your new title at the top. If there is a central icon, put your new icon in the center.
+           - REPLACE TEXT: The text in the image should be: "${params.prompt}".
+           - REPLACE ICON: Update the central graphic/icon to match the topic ("${params.prompt}"), but keep it in the SAME position and style as the reference.
+           - STYLE: ${analyzedStyleDescription || "Match the reference style exactly."}
         ` : ''}
     `;
     }
@@ -772,10 +786,10 @@ export const generateCampaignDrafts = async (
         [GROUP B - LOW SIGNAL]: ${lowSignalTemplates.length > 0 ? lowSignalTemplates.join(', ') : 'None'}
         [GROUP C - GENERAL]: ${uncategorizedTemplates.length > 0 ? uncategorizedTemplates.join(', ') : 'None'}
         
-        ⛔ CRITICAL: You MUST assign a template that matches the content type:
-        - If it's a quote or person speaking -> Use a 'Quote' or 'Speaker' template.
-        - If it's deep technical analysis -> Use a 'Deepdive', 'Header', or 'Educational' template.
-        - If it's a general update -> Use a 'Community' or 'Update' template.
+        ⛔ CRITICAL TEMPLATE RULES:
+        1. **'Quote' / 'Speaker' Templates**: USE ONLY IF the tweet is a direct quote from a specific person (e.g. "CEO says...") or a direct citation from the Whitepaper. DO NOT use for general statements.
+        2. **'Feature' / 'Deep Dive' / 'Educational' Templates**: USE for everything else (explaining tech, roadmaps, "how it works", sequencers, mechanics).
+        3. **'Community' / 'Update' Templates**: USE for general news or community vibes.
         DO NOT leave template blank.
         `
         : `AVAILABLE TEMPLATES: ${standardTemplates.join(', ')}`;
@@ -901,8 +915,9 @@ export const generateCampaignDrafts = async (
     4. **FORMATTED**: Perfect vertical spacing, clean hooks.
     5. **DETAILED**: Do NOT be brief. Be COMPREHENSIVE. Use the full character limit to explain the nuance.
     6. **VISUAL VARIETY**: ${availableTemplates}
-       - CRITICAL INSTRUCTION: When assigning a "visualTemplate" to a tweet, prioritize [GROUP A - HIGH SIGNAL] templates (Features, Articles) for the majority of posts.
-       - Use [GROUP B] (AMAs, Giveaways) SPARINGLY, only if the content specifically demands it.
+       - CRITICAL INSTRUCTION: When assigning a "visualTemplate" to a tweet:
+       - **Strictly limit 'Quote' templates** to genuine quotes/testimonials. 
+       - For explaining technology (e.g. Sequencers, L2s), use 'Feature Update', 'Deep Dive', or 'Educational' templates.
        - Do NOT default to "Generic" if a High Signal template fits.
 
     INPUT DATA (HIERARCHY OF TRUTH):

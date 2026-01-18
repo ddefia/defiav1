@@ -402,8 +402,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         const lowerTheme = (enhancedTheme || '').toLowerCase();
                         let smartMatch = null;
 
-                        // 1. Check for Quote Signals
-                        if (lowerTweet.includes('"') || lowerTweet.includes('said') || lowerTweet.includes(' says') || lowerTweet.includes('- ')) {
+                        // 1. Check for Quote Signals (STRICTER)
+                        // Only trigger if it looks like a person speaking, avoiding bullet points or simple emphasis
+                        if (lowerTweet.includes(' stated:') || lowerTweet.includes(' announced:') || lowerTweet.match(/"\s+-\s+[a-z]+/i)) {
                             smartMatch = brandConfig.graphicTemplates.find(t =>
                                 t.label.toLowerCase().includes('quote') ||
                                 (t.category || '').toLowerCase().includes('community')
