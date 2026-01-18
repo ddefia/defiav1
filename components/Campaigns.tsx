@@ -435,6 +435,18 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         }
                     }
 
+                    // RESOLVE REFERENCE IMAGE FROM TEMPLATE
+                    // If AI left ref ID blank (because it respected our "Use Template Images" rule),
+                    // we must now pick one of the template's images to assign to this draft.
+                    let finalRefId = d.referenceImageId;
+                    if (!finalRefId && resolvedTemplate) {
+                        const tmplObj = brandConfig.graphicTemplates?.find(t => t.label === resolvedTemplate);
+                        if (tmplObj && tmplObj.referenceImageIds && tmplObj.referenceImageIds.length > 0) {
+                            // Pick one randomly (User: "what decides" -> Code decides here)
+                            finalRefId = tmplObj.referenceImageIds[Math.floor(Math.random() * tmplObj.referenceImageIds.length)];
+                        }
+                    }
+
                     return {
                         id: `draft-${Date.now()}-${b}-${i}`,
                         tweet: d.tweet,
@@ -443,11 +455,10 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         images: [],
                         campaignColor: undefined,
                         template: resolvedTemplate,
-
                         reasoning: d.reasoning, // New transparency field
                         visualHeadline: d.visualHeadline, // AI suggested headline
                         artPrompt: d.visualDescription, // Map AI Description to Art Prompt
-                        referenceImageId: d.referenceImageId // Explicitly map the Reference Image ID chosen by AI
+                        referenceImageId: finalRefId // Explicitly map the Reference Image ID chosen by AI or Template
                     };
                 });
 

@@ -788,7 +788,7 @@ export const generateCampaignDrafts = async (
         
         ⛔ CRITICAL TEMPLATE RULES:
         1. **'Quote' / 'Speaker' Templates**: USE ONLY IF the tweet is a direct quote from a specific person (e.g. "CEO says...") or a direct citation from the Whitepaper. DO NOT use for general statements.
-        2. **'Feature' / 'Deep Dive' / 'Educational' Templates**: USE for everything else (explaining tech, roadmaps, "how it works", sequencers, mechanics).
+        2. **'Feature' / 'Deep Dive' / 'Educational' Templates**: USE for everything else (explaining tech, roadmaps, "how it works", core product mechanics).
         3. **'Community' / 'Update' Templates**: USE for general news or community vibes.
         DO NOT leave template blank.
         `
@@ -989,6 +989,14 @@ export const generateCampaignDrafts = async (
             // Even if a template is chosen (e.g. "Feature Update"), we strictly want to attach a Brand Reference Image
             // to ensure the visual style (colors, 2D/3D) overrides the generic template description.
             if (!draft.referenceImageId && brandConfig.referenceImages && brandConfig.referenceImages.length > 0) {
+                // Check if the chosen template ALREADY has specific images linked.
+                // If so, we should NOT force a random global image (e.g. Natalia) on top of it.
+                const customTmpl = brandConfig.graphicTemplates?.find(t => t.label === draft.template);
+                if (customTmpl && customTmpl.referenceImageIds && customTmpl.referenceImageIds.length > 0) {
+                    console.log(`[Drafting] Skipping fallback ref assignment for ${draft.template} (has linked images)`);
+                    return draft;
+                }
+
                 // SMART FALLBACK: Context-aware selection
                 let candidates = brandConfig.referenceImages;
                 const tmpl = (draft.template || "").toLowerCase();
