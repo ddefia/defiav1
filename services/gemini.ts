@@ -962,8 +962,25 @@ export const generateCampaignDrafts = async (
             // Even if a template is chosen (e.g. "Feature Update"), we strictly want to attach a Brand Reference Image
             // to ensure the visual style (colors, 2D/3D) overrides the generic template description.
             if (!draft.referenceImageId && brandConfig.referenceImages && brandConfig.referenceImages.length > 0) {
-                const randomRef = brandConfig.referenceImages[Math.floor(Math.random() * brandConfig.referenceImages.length)];
-                console.log(`[Drafting Fallback] AI missed Ref ID. Forcing: ${randomRef.name}`);
+                // SMART FALLBACK: Context-aware selection
+                let candidates = brandConfig.referenceImages;
+                const tmpl = (draft.template || "").toLowerCase();
+
+                // Rule 1: If Template is "Speaker", prioritize Speaker images
+                if (tmpl.includes('speaker') || tmpl.includes('person') || tmpl.includes('quote')) {
+                    const speakers = candidates.filter(r => r.name.toLowerCase().match(/speaker|person|portrait|human|face/));
+                    if (speakers.length > 0) candidates = speakers;
+                }
+                // Rule 2: If Template is "Feature" or "Tech", AVOID human portraits if possible
+                else if (tmpl.includes('feature') || tmpl.includes('product') || tmpl.includes('update') || tmpl.includes('educational')) {
+                    const nonHumans = candidates.filter(r => !r.name.toLowerCase().match(/speaker|person|portrait|human|face/));
+                    if (nonHumans.length > 0) candidates = nonHumans;
+                }
+
+                // Pick random from the REFINED candidates
+                const randomRef = candidates[Math.floor(Math.random() * candidates.length)];
+
+                console.log(`[Drafting Fallback] AI missed Ref ID. Smartly Forcing: ${randomRef.name} (Context: ${draft.template})`);
                 return { ...draft, referenceImageId: randomRef.id };
             }
             return draft;
