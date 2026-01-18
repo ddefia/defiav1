@@ -514,9 +514,12 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 }
 
                 try {
+                    // FIX: Prioritize the specific reference image assigned to this item (Strict Mode)
+                    const effectiveRefImage = item.referenceImageId || campaignReferenceImage || undefined;
+
                     const promises = [
-                        generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined, artPrompt: item.artPrompt }),
-                        generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: campaignReferenceImage ? [campaignReferenceImage] : undefined, artPrompt: item.artPrompt })
+                        generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined, artPrompt: item.artPrompt }),
+                        generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined, artPrompt: item.artPrompt })
                     ];
                     // Add slight random delay to stagger start times
                     await new Promise(r => setTimeout(r, Math.random() * 1000));
