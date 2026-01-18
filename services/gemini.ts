@@ -767,26 +767,42 @@ export const generateCampaignDrafts = async (
     `;
     } else {
         const isCampaign = count >= 3;
+
+        // DYNAMIC LOGIC: Detect intent (Fun vs Edu)
+        const lowerTheme = theme.toLowerCase();
+        const isCreative = lowerTheme.includes('meme') || lowerTheme.includes('fun') || lowerTheme.includes('vibes') || lowerTheme.includes('hype');
+
+        let structureInstruction = "";
+
+        if (isCreative) {
+            structureInstruction = `
+            🎨 **MODE: CREATIVE FLOW (NO RULES)**
+            The user wants a "Fun/Creative" campaign. 
+            - DO NOT use a rigid "Problem/Solution" structure.
+            - JUST JAM on the idea. 
+            - Create ${count} distinct, high-energy, or funny posts that hit the theme.
+            - Vibe: Loose, confident, perhaps a bit unhinged (if brand voice allows).
+            `;
+        } else {
+            structureInstruction = `
+            🎓 **MODE: HIGH-SIGNAL EDUCATION (DEEP DIVE)**
+            The user wants to EDUCATE the audience.
+            
+            **REQUIRED STRUCTURE (The "Alpha" Flow):**
+            1. **THE THESIS (Tweet 1)**: Immediate Alpha. No buildup. State the core insight or value proposition upfront.
+            2. **THE MECHANIC (Tweet 2)**: Technical breakdown. How does it actually work? (Use Knowledge Base).
+            3. **THE NUANCE/EDGE (Tweet 3)**: Address a misconception or explain why this specific approach wins.
+            4. **THE OUTCOME (Tweet 4)**: What is the end result for the user? (Yield, Speed, etc).
+            5. **THE RESOURCE (Tweet 5)**: Link to docs or app.
+
+            *Goal: Position the brand as a Technical Authority.*
+            `;
+        }
+
         taskInstruction = `
-    TASK: Generate ${count} strategic tweets about "${theme}".
+    TASK: Generate ${count} tweets about "${theme}".
     
-    ${isCampaign ? `
-    🚨 **CAMPAIGN MODE: NARRATIVE ARC REQUIRED** 🚨
-    Do NOT generate ${count} unconnected tweets.
-    You MUST create a cohesive **Story Arc** that moves the user from "Unaware" to "Convicted".
-    
-    **REQUIRED SAMPLE FLOW (Adapt as needed):**
-    1. **THE HOOK/PROBLEM**: High-level vision. Identifying the industry pain point.
-    2. **THE SOLUTION/MECHANIC**: How "${brandName}" solves it. 
-       - **CRITICAL**: You MUST Explain the MECHANISM using the "CORE KNOWLEDGE BASE". 
-       - Do NOT just say it "works". Explain HOW (e.g. "By separating execution from consensus...").
-       - Use "Alpha" level details. No surface-level marketing fluff.
-    3. **THE VALUE/PAYOFF**: What does the user get? (Yield? Security? Speed?). *Infer value if not explicit.*
-    4. **SOCIAL PROOF/MOMENTUM**: Why is this happening NOW?
-    5. **THE CLOSER**: Hard CTA. Recap and convert.
-    
-    *Ensure each tweet stands alone but contributes to this wider narrative.*
-    ` : ''}
+    ${isCampaign ? structureInstruction : ''}
 
     STRATEGY: Align with the Roadmap and Documents below.
     INTENT RECOGNITION: If "${theme}" is a broad topic, treat this as a request for a "Masterclass Campaign" - deep diving into every aspect of the topic.
