@@ -259,7 +259,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
                                 History for {brandName || 'Brand'}
                             </h3>
                             <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-                                {history.map((item) => (
+                                {history.slice(0, 8).map((item) => (
                                     <div
                                         key={item.id}
                                         onClick={() => {
