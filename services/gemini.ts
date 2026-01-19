@@ -294,9 +294,11 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         ? `VISUAL DIRECTION OVERRIDE: ${params.artPrompt}`
         : "Visualize momentum, connections, or security based on keywords.";
 
-    const negativeInstruction = params.negativePrompt
-        ? `\n        NEGATIVE PROMPT (DO NOT INCLUDE): ${params.negativePrompt}`
-        : "";
+    // QUALITY BOOSTERS (ALWAYS ACTIVE)
+    const QUALITY_SUFFIX = "High Quality, 8k resolution, photorealistic, sharp focus, highly detailed, crystal clear, cinematic lighting.";
+
+    const negativeInstruction = `
+        NEGATIVE PROMPT (DO NOT INCLUDE): blurry, low quality, grainy, pixelated, distorted, hamburger, text, watermark, bad composition, ugly, lowres, ${params.negativePrompt || ""}`;
 
     let systemPrompt = '';
 
@@ -349,8 +351,10 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         INSTRUCTIONS:
         - Analyze tweet sentiment.
         - ${visualOverride}
+        - STYLE ENFORCEMENT: ${QUALITY_SUFFIX}
         ${negativeInstruction}
         - TEXT RULES:
+
           - ⛔ CRITICAL: NEVER copy-paste the prompt text onto the image.
           - ✅ Use text SPARINGLY (Title/Stat only).
         
@@ -486,6 +490,11 @@ export const editWeb3Graphic = async (
     const systemPrompt = `
     TASK: Edit this image based on the user's instruction.
     INSTRUCTION: "${prompt}"
+
+    QUALITY UPGRADE (CRITICAL):
+    - The output MUST be higher quality than the input.
+    - Remove any blur, grain, or jpeg artifacts.
+    - FINISH: 8k resolution, sharp focus, professional photography standard.
 
     GUIDELINES:
     - PRESERVE the main subject, composition, and layout of the original image as much as possible.
