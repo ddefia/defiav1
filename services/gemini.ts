@@ -166,7 +166,7 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
         if (validParts.length === 0) return "";
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: [
                 ...validParts,
                 { text: "Analyze these reference images. Describe their VISUAL STYLE (lighting, colors) AND COMPOSITION (layout, text placement, icon placement) in 2 sentences. Focus on how elements are arranged." }
@@ -496,7 +496,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
             try {
                 const fallbackResponse = await ai.models.generateContent({
-                    model: 'gemini-2.0-flash', // High Quality Fallback
+                    model: 'gemini-1.5-pro-001', // High Quality Fallback
                     // @ts-ignore
                     contents: [{ parts: parts }],
                     config: {
@@ -567,7 +567,7 @@ export const editWeb3Graphic = async (
     `;
 
     try {
-        console.log(`Editing image with gemini-2.0-flash (Simulated Edit) | Target Ratio: ${aspectRatio}...`);
+        console.log(`Editing image with gemini-1.5-flash-001 (Simulated Edit) | Target Ratio: ${aspectRatio}...`);
 
         // CLEANUP: Previous code called Flash then ignored it.
         // We will attempt to use the Image model directly if supported, or fallback to text if image-to-image is not available on this key.
@@ -728,7 +728,7 @@ export const generateTweet = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: topic,
             config: { systemInstruction: systemInstruction }
         });
@@ -783,7 +783,7 @@ export const analyzeContentNotes = async (notes: string, brandName: string): Pro
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: "Analyze these notes.",
             config: {
                 systemInstruction: systemInstruction,
@@ -863,7 +863,7 @@ const assignVisualStrategy = async (drafts: any[], brandConfig: BrandConfig): Pr
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash-001',
         contents: task,
         config: { responseMimeType: "application/json" }
     });
@@ -1151,7 +1151,7 @@ export const generateCampaignDrafts = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: taskInstruction,
             config: {
                 systemInstruction: systemInstruction,
@@ -1291,7 +1291,7 @@ export const generateCampaignStrategy = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: "Generate strategy brief.",
             config: {
                 systemInstruction: systemInstruction,
@@ -1313,7 +1313,7 @@ export const generateCampaignStrategy = async (
             userPrompt: "Generate strategy brief.",
             rawOutput: text,
             structuredOutput: JSON.parse(text),
-            model: "gemini-2.0-flash"
+            model: "gemini-1.5-flash-001"
         };
         saveBrainLog(log);
 
@@ -1405,7 +1405,7 @@ TASK:
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: "React to this trend now.",
             config: { systemInstruction: systemInstruction }
         });
@@ -1419,7 +1419,7 @@ TASK:
             systemPrompt: systemInstruction,
             userPrompt: "React to this trend now.",
             rawOutput: response.text || "",
-            model: "gemini-2.0-flash"
+            model: "gemini-1.5-flash-001"
         };
         saveBrainLog(log);
 
@@ -1474,7 +1474,7 @@ export const generateBusinessConnections = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: "Generate business connections.",
             config: { systemInstruction: systemInstruction }
         });
@@ -1491,7 +1491,7 @@ export const generateIdeas = async (brandName: string): Promise<string[]> => {
     const ai = new GoogleGenAI({ apiKey });
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: `Generate 4 distinct tweet topics / ideas for a ${brandName} marketing strategist.Return only the topics as a simple list.`,
         });
         return (response.text || '').split('\n').map(l => l.replace(/^[\d\-\.\*]+\s*/, '').trim()).filter(l => l.length > 5);
@@ -1543,7 +1543,7 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
 `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: `Research this brand: ${brandName} (${url})`,
             config: {
                 systemInstruction: systemInstruction,
@@ -1606,7 +1606,7 @@ TASK:
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: "Draft reply.",
             config: { systemInstruction }
         });
@@ -1620,7 +1620,7 @@ TASK:
             systemPrompt: systemInstruction,
             userPrompt: "Draft reply.",
             rawOutput: response.text || "",
-            model: "gemini-2.0-flash"
+            model: "gemini-1.5-flash-001"
         };
         saveBrainLog(log);
 
@@ -1708,7 +1708,7 @@ TASK:
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: "Analyze the data and generate the report.",
             config: {
                 systemInstruction: systemInstruction,
@@ -1730,7 +1730,7 @@ TASK:
             userPrompt: "Analyze the data and generate the report.",
             rawOutput: text,
             structuredOutput: JSON.parse(text),
-            model: "gemini-2.0-flash"
+            model: "gemini-1.5-flash-001"
         };
         saveBrainLog(log);
 
@@ -1896,7 +1896,7 @@ CRITICAL:
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: "Perform the audit and generate thoughts + tasks.",
             config: {
                 systemInstruction: systemInstruction,
@@ -1934,7 +1934,7 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
             rawOutput: response.text || "",
             structuredOutput: tasks,
             thoughts: thoughts,
-            model: "gemini-2.0-flash"
+            model: "gemini-1.5-flash-001"
         };
         saveBrainLog(log);
 
@@ -2029,7 +2029,7 @@ export const classifyImage = async (imageUrl: string, categories: string[]): Pro
         `;
 
         const result = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: [
                 { inlineData: { mimeType, data: cleanBase64 } },
                 { text: prompt }
@@ -2087,7 +2087,7 @@ export const analyzeBrandKit = async (text: string): Promise<string> => {
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: [{ role: 'user', parts: [{ text: "Analyze this brand kit." }] }],
             config: { systemInstruction: systemInstruction }
         });
@@ -2136,7 +2136,7 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: prompt,
             config: { responseMimeType: "application/json" }
         });
@@ -2189,7 +2189,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash-001',
             contents: prompt,
             config: { responseMimeType: "application/json" }
         });
