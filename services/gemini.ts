@@ -489,6 +489,32 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         throw new Error("No image data returned from Gemini.");
 
     } catch (error: any) {
+        // --- FALLBACK MECHANISM FOR QUOTA LIMITS ---
+        if (error.message.includes('429') || error.message.includes('quota') || error.message.includes('RESOURCE_EXHAUSTED')) {
+            console.warn("⚠️ Quota Exceeded for Gemini 3 Pro. Falling back to Gemini 1.5 Pro...");
+            dispatchThinking("⚠️ High Traffic (Quota Hit). Switching to Backup High-Res Model...");
+
+            try {
+                const fallbackResponse = await ai.models.generateContent({
+                    model: 'gemini-1.5-pro', // High Quality Fallback
+                    // @ts-ignore
+                    contents: [{ parts: parts }],
+                    config: config,
+                });
+
+                // @ts-ignore
+                const fallbackPart = fallbackResponse.candidates?.[0]?.content?.parts?.[0];
+                // @ts-ignore
+                if (fallbackPart && fallbackPart.inlineData) {
+                    // @ts-ignore
+                    return `data:${fallbackPart.inlineData.mimeType || 'image/png'}; base64, ${fallbackPart.inlineData.data} `;
+                }
+            } catch (fallbackError: any) {
+                console.error("Fallback Model Failed:", fallbackError.message);
+                throw new Error("All High-Quality Models Busy. Please try again in 1 minute.");
+            }
+        }
+
         console.error("Gemini generation error:", error.message);
         throw error;
     }
