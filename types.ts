@@ -33,6 +33,7 @@ export interface BrandConfig {
     category?: string; // New: Grouping (e.g. "Giveaway", "Announcement")
     tweetExample?: string; // New: Example tweet content for context
     referenceImageIds?: string[]; // New: Link multiple reference images
+    purpose?: string; // New: "High IQ" logic - Description of WHEN to use this template (e.g. "Use for technical deep dives")
   }[];
 }
 
