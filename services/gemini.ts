@@ -363,7 +363,7 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
            - I have provided ${effectiveReferenceImageIds.length} reference images.
            - 🚨 STRICT TEMPLATE MODE: The user wants to use the Reference Image as a LAYOUT TEMPLATE.
            - COMPOSITION: You MUST copy the exact layout of the reference. If there is a title at the top, put your new title at the top. If there is a central icon, put your new icon in the center.
-           - REPLACE TEXT: The text in the image should be: "${params.prompt}".
+           - REPLACE TEXT: Use a SHORT HEADLINE (Max 5 words) derived from: "${params.prompt}". 🚨 NEVER paste the full text/tweet.
            - REPLACE ICON: Update the central graphic/icon to match the topic ("${params.prompt}"), but keep it in the SAME position and style as the reference.
            - STYLE: ${analyzedStyleDescription || "Match the reference style exactly."}
         ` : ''}
