@@ -872,17 +872,16 @@ export const generateCampaignDrafts = async (
             `;
         } else {
             structureInstruction = `
-            📈 **MODE: STRATEGIC GROWTH**
-            The user wants value-driven content aligned with the brand.
+            📈 **MODE: STRATEGIC NARRATIVE**
+            The user wants specific, high-value insights. 
             
-            **SUGGESTED STRUCTURE (Adaptable):**
-            1. **THE HOOK (Tweet 1)**: Capture attention with a strong value prop or announcement.
-            2. **THE MECHANIC (Tweet 2)**: Explain how it works or why it matters.
-            3. **THE NUANCE/EDGE (Tweet 3)**: Address a misconception or explain the competitive advantage.
-            4. **THE OUTCOME (Tweet 4)**: What is the end result for the user?
-            5. **THE CTA (Tweet 5)**: Link to docs or app.
-
-            *Goal: Position the brand as a Technical Authority.*
+            **SUGGESTED STRUCTURE (Adaptable - Do not be robotic):**
+            1. **THE HOOK (Tweet 1)**: Start with a controversial take, a question, or a bold claim. Avoid "We are excited".
+            2. **THE MECHANIC (Tweet 2)**: Explain the "How" simply.
+            3. **THE EDGE (Tweet 3)**: Why does this actually matter? (The "So What?").
+            4. **THE PAYOFF (Tweet 4)**: The end result/benefit.
+            
+            *Goal: Position the brand as a Narrative Leader, not just a technical documentation bot.*
             `;
         }
 
@@ -911,9 +910,9 @@ export const generateCampaignDrafts = async (
     Write ${count} tweets that are:
     1. **STRATEGIC**: Strictly aligned with the "Strategic Focus Document" and "Core Knowledge".
     2. **REASONED**: Every tweet must have a clear "Why". Connecting it to a roadmap goal.
-    3. **HIGH-SIGNAL**: Use dense, insightful language. "Alpha" > "Marketing".
-    4. **FORMATTED**: Perfect vertical spacing, clean hooks.
-    5. **DETAILED**: Do NOT be brief. Be COMPREHENSIVE. Use the full character limit to explain the nuance.
+    3. **HIGH-SIGNAL**: Use dense, insightful language. Avoid fluff.
+    4. **FORMATTED**: Use short paragraphs. ONE idea per line.
+    5. **IMPACT OVER LENGTH**: Do NOT write walls of text. Be PUNCHY. Use short sentences for rhythm. "Why? Keep reading." is better than a long explanation.
     6. **VISUAL VARIETY**: ${availableTemplates}
        - CRITICAL INSTRUCTION: When assigning a "visualTemplate" to a tweet:
        - **Strictly limit 'Quote' templates** to genuine quotes/testimonials. 
@@ -955,7 +954,7 @@ export const generateCampaignDrafts = async (
         "drafts": [
             {
                 "tweet": "Tweet content...\\n\\nUse line breaks for spacing.",
-                "visualHeadline": "A short, punchy 3-5 word headline for the image (e.g. 'DEFI REVOLUTION ARRIVES').",
+                "visualHeadline": "MAX 5 WORDS. Big, punchy text for the image (e.g. 'WHY SEQUENCERS MATTER').",
                 "visualDescription": "A specific art direction description for a designer (e.g. 'Cyberpunk city with neon ethereum logo, high contrast').",
                 "template": "A STRICT STRING MATCH from this list: [${validTemplateNames}] OR 'Auto'",
                 "referenceImageId": "If 'Auto' template is used, you MUST pick a Reference Image ID from this list: [${availableRefImages}]. If a specific template is used, this can be null.",
