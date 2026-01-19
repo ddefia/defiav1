@@ -731,8 +731,9 @@ export const analyzeContentNotes = async (notes: string, brandName: string): Pro
     INSTRUCTIONS:
     1. EXTRACT discrete content items.Look for links, specific topic requests, or event mentions.
     2. IGNORE general conversation filler.
-    3. IDENTIFY global rules(e.g. "No GMs", "Don't use emojis").
-    4. For each item, capture specific instructions(e.g. "Credit the interviewer").
+    3. IDENTIFY global rules (e.g. "No GMs", "Don't use emojis").
+    4. DETECT FINISHED TWEETS: If the user pasted a list of full tweets (e.g. "1. This is the tweet..."), extract the EXACT text into the "finalCopy" field. Do NOT summarize finished tweets.
+    5. For each item, capture specific instructions (e.g. "Credit the interviewer").
     
     OUTPUT JSON FORMAT:
     {
@@ -742,6 +743,7 @@ export const analyzeContentNotes = async (notes: string, brandName: string): Pro
                     {
                         "type": "Tweet" | "Thread" | "Announcement",
                         "topic": "Brief topic summary",
+                        "finalCopy": "If the input is a full, ready-to-post tweet, put the EXACT text here. Otherwise null.",
                         "specificInstruction": "The specific constraint or instruction for this exact post",
                         "url": "extracted link or null"
                     }
@@ -977,9 +979,15 @@ export const generateCampaignDrafts = async (
 
     // SMART MODE OR LEGACY MODE
     if (contentPlan && contentPlan.items && contentPlan.items.length > 0) {
-        const planItems = contentPlan.items.map((item: any, i: number) =>
-            `ITEM ${i + 1}: Type: ${item.type}. Topic: ${item.topic}. URL: ${item.url || 'None'}. Instruction: ${item.specificInstruction} `
-        ).join('\n');
+        const planItems = contentPlan.items.map((item: any, i: number) => {
+            if (item.finalCopy) {
+                return `ITEM ${i + 1}: [STRICT FINAL COPY MODE]. The user has provided the exact text. 
+                YOUR TASK: Output this exact text as the "tweet". DO NOT REWRITE IT. 
+                TEXT: "${item.finalCopy}"
+                Topic: ${item.topic}`;
+            }
+            return `ITEM ${i + 1}: Type: ${item.type}. Topic: ${item.topic}. URL: ${item.url || 'None'}. Instruction: ${item.specificInstruction} `;
+        }).join('\n');
 
         const rules = contentPlan.globalInstructions ? `GLOBAL RULES: ${contentPlan.globalInstructions.join(', ')} ` : "";
 
