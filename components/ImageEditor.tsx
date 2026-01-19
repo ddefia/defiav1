@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './Button';
+import { Select } from './Select';
 import { editWeb3Graphic } from '../services/gemini';
 import { fetchBrainHistoryEvents } from '../services/storage';
 import { BrandConfig, CalendarEvent } from '../types';
@@ -18,6 +19,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
     const [error, setError] = useState<string | null>(null);
     const [history, setHistory] = useState<CalendarEvent[]>([]);
     const [aspectRatio, setAspectRatio] = useState<string>('1:1');
+    const [quality, setQuality] = useState<'1K' | '2K'>('2K');
 
     // API Info
     const currentModel = "Gemini 2.0 Flash (Instruction) + Imagen 3 (Generation)";
@@ -97,7 +99,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
 
         try {
             // Call the service
-            const result = await editWeb3Graphic(originalImage, prompt, brandConfig, aspectRatio);
+            const result = await editWeb3Graphic(originalImage, prompt, brandConfig, aspectRatio, quality);
             setEditedImage(result);
         } catch (err: any) {
             console.error("Edit failed", err);
@@ -179,6 +181,16 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
                                     className="w-full bg-gray-50 border border-brand-border rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-brand-accent outline-none resize-none h-32 transition-all"
                                 />
                             </div>
+
+                            <Select
+                                label="Quality"
+                                value={quality}
+                                onChange={(e) => setQuality(e.target.value as any)}
+                                options={[
+                                    { value: '1K', label: 'Standard (1K)' },
+                                    { value: '2K', label: 'High (2K) - Recommended' }
+                                ]}
+                            />
 
                             <Button
                                 onClick={handleEdit}

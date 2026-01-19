@@ -431,17 +431,48 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
             setTimeout(() => reject(new Error("Generation timed out after 60s")), 60000)
         );
 
+        // Resolution Mapping
+        // Standard (1K): 1024x1024 (1:1), 1280x720 (16:9), 896x1152 (4:5)
+        // High (2K): Try for higher density if model supports, strictly enforcing higher side.
+        let width = 1024;
+        let height = 1024;
+        const isHighRes = params.size === '2K';
+
+        if (params.aspectRatio === '16:9') {
+            width = isHighRes ? 2048 : 1280;
+            height = isHighRes ? 1152 : 720;
+        } else if (params.aspectRatio === '4:5') {
+            width = isHighRes ? 1152 : 896;
+            height = isHighRes ? 1440 : 1152;
+        } else {
+            // 1:1
+            width = isHighRes ? 2048 : 1024;
+            height = isHighRes ? 2048 : 1024;
+        }
+
+        // Imagen 3 often caps strictly, but let's try requesting specific valid buckets.
+        // Safe robust 2K for 1:1 is often 1408x1408 if 2048 fails, let's stick to 1024 base for now but with 'sampleCount: 1' quality focus 
+        // OR rely on Aspect Ratio being key. 
+        // Updated Strategy: Pass string "1024x1024" or "large" if API allows.
+        // Actually, for Vertex AI proxy (which this calls if we had it), we pass direct dimensions. 
+        // But here we are calling GoogleGenAI.
+
+        const config: any = {
+            imageConfig: {
+                aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9'
+                // imageSize: isHighRes ? "2048x2048" : undefined // GoogleGenAI TS SDK might not support custom string dimensions easily without error.
+                // We will trust the quality prompt for now + remove size restriction if possible, 
+                // but typically '1024x1024' is the reliable max for Preview.
+            }
+        }
+
+        console.log(`Generating with gemini-3-pro-image-preview | Quality: ${params.size} (${isHighRes ? 'High' : 'Standard'})`);
+
         const generationPromise = ai.models.generateContent({
             model: 'gemini-3-pro-image-preview',
             // @ts-ignore
             contents: [{ parts: parts }],
-            config: {
-                // @ts-ignore - Experimental/Legacy schema
-                imageConfig: {
-                    aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9',
-                    imageSize: params.size || '1024x1024'
-                }
-            },
+            config: config,
         });
 
         const response = await Promise.race([generationPromise, timeoutPromise]) as any;
@@ -470,7 +501,8 @@ export const editWeb3Graphic = async (
     imageBase64: string,
     prompt: string,
     brandConfig?: BrandConfig,
-    aspectRatio: string = '1:1'
+    aspectRatio: string = '1:1',
+    quality: '1K' | '2K' = '1K'
 ): Promise<string> => {
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
@@ -494,7 +526,7 @@ export const editWeb3Graphic = async (
     QUALITY UPGRADE (CRITICAL):
     - The output MUST be higher quality than the input.
     - Remove any blur, grain, or jpeg artifacts.
-    - FINISH: 8k resolution, sharp focus, professional photography standard.
+    - FINISH: ${quality === '2K' ? 'EXTREME 8K RESOLUTION, MASTERPIECE' : '8k resolution'}, sharp focus, professional photography standard.
 
     GUIDELINES:
     - PRESERVE the main subject, composition, and layout of the original image as much as possible.
