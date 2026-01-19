@@ -917,7 +917,9 @@ export const generateCampaignDrafts = async (
        - CRITICAL INSTRUCTION: When assigning a "visualTemplate" to a tweet:
        - **Strictly limit 'Quote' templates** to genuine quotes/testimonials. 
        - For explaining technology (e.g. Sequencers, L2s), use 'Feature Update', 'Deep Dive', or 'Educational' templates.
-       - **VARIETY RULE**: Avoid assigning the same template 5x in a row UNLESS the theme suggests a unified series (e.g. "Part 1, Part 2"). Otherwise, mix it up with 'Community' or 'Update' templates to keep the feed dynamic.
+       - **VARIETY RULE (MANDATORY)**: Do NOT use the same "visualTemplate" more than twice in a row.
+       - **ROTATE**: For technical topics, you MUST alternate between 'Feature Update', 'Deep Dive', and 'Educational'.
+       - **RHYTHM**: A good feed looks like: [Hook: Feature] -> [Explainer: Deep Dive] -> [Detail: Educational] -> [Impact: Community]. Mix it up!
        - Do NOT default to "Generic" if a High Signal template fits.
 
     INPUT DATA (HIERARCHY OF TRUTH):
