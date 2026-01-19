@@ -800,7 +800,7 @@ const assignVisualStrategy = async (drafts: any[], brandConfig: BrandConfig): Pr
     AVAILABLE TEMPLATES (STRICT RULES):
     ${availableTemplates}
 
-    AVAILABLE REFERENCE IMAGES (If using 'Auto' template):
+    AVAILABLE REFERENCE IMAGES (Style Anchors - CRITICAL):
     ${refImages}
 
     INPUT TWEETS:
@@ -810,7 +810,9 @@ const assignVisualStrategy = async (drafts: any[], brandConfig: BrandConfig): Pr
     Return a JSON array matching the input order. For each tweet:
     1. Select the BEST 'template' based on the definitions above.
     2. Write a 'visualHeadline' (Max 5 words, Punchy).
-    3. Select a 'referenceImageId' if needed (otherwise null).
+    3. Select a 'referenceImageId' that best fits the mood (STYLE ANCHOR).
+       - CRITICAL: You SHOULD assign a Reference Image even if using a Template, to define the texture/lighting.
+       - Only return null if absolutely no reference image fits (rare).
     4. Valid 'reasoning' for your choice.
 
     CRITICAL:
