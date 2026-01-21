@@ -1506,7 +1506,10 @@ export const generateGrowthReport = async (
         .map(t => `- ${t.headline} (${t.source}): ${t.summary}`)
         .join('\n');
 
-    const kb = brandConfig.knowledgeBase.join('\n');
+    // Safe access to KB
+    const kb = (brandConfig && Array.isArray(brandConfig.knowledgeBase))
+        ? brandConfig.knowledgeBase.join('\n')
+        : "Brand context unavailable.";
 
     const systemInstruction = `
     You are the Chief Strategy Officer for ${brandName}.

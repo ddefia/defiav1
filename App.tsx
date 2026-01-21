@@ -192,9 +192,9 @@ const App: React.FC = () => {
                 // 2. Fetch Trends & Mentions
                 setSystemLogs(prev => ["Analysis: Fetching Trends & Mentions...", ...prev]);
                 const [trends, mentions] = await Promise.all([
-                    fetchMarketPulse(selectedBrand),
-                    fetchMentions(selectedBrand),
-                    fetchSocialMetrics(selectedBrand)
+                    fetchMarketPulse(selectedBrand).catch(e => { console.warn("Market Pulse failed", e); return []; }),
+                    fetchMentions(selectedBrand).catch(e => { console.warn("Mentions failed", e); return []; }),
+                    fetchSocialMetrics(selectedBrand).catch(e => { console.warn("Social Metrics failed", e); return null; })
                 ]);
 
                 // 2b. Update Live Signals (Prioritize High Velocity / AI Signals)
