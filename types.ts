@@ -264,6 +264,7 @@ export interface GrowthReport {
     reasoning: string;
   }[];
   metrics?: ComputedMetrics; // Optional if only social analysis is run
+  lastUpdated?: number; // Timestamp for cache invalidation
 }
 
 export interface CampaignStrategy {

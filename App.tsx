@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis, executeMarketingAction } from './services/gemini';
+import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis, executeMarketingAction, generateGrowthReport } from './services/gemini';
 import { fetchMarketPulse } from './services/pulse';
 import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { Button } from './components/Button';
 import { Select } from './components/Select';
@@ -113,6 +113,7 @@ const App: React.FC = () => {
     useEffect(() => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
         setStrategyTasks(loadStrategyTasks(selectedBrand));
+        setGrowthReport(loadGrowthReport(selectedBrand)); // Load (or Seed) Report
 
         // Load History (Logs + Alert Debug)
         console.log(`DEBUG: Selected Brand is [${selectedBrand}]`);
@@ -147,17 +148,22 @@ const App: React.FC = () => {
 
     // Auto-Save Removed: Persistence is now handled explicitly in handlers to avoid race conditions.
 
-    // Persist Tasks
+    // Persist Tasks & Report
     useEffect(() => {
         saveStrategyTasks(selectedBrand, strategyTasks);
     }, [strategyTasks, selectedBrand]);
+
+    useEffect(() => {
+        if (growthReport) saveGrowthReport(selectedBrand, growthReport);
+    }, [growthReport, selectedBrand]);
 
     // --- AUTO-PILOT LOGIC (Formerly in GrowthEngine) ---
     // Persistent background scanning regardless of active tab
     useEffect(() => {
         const runBackgroundScan = async () => {
-            // Only run if we don't have fresh data and we have a valid brand
-            if (strategyTasks.length > 0 || !selectedBrand || !profiles[selectedBrand]) return;
+            // Only run if we lack critical data or want to force a refresh
+            // REMOVED BLOCKER: if (strategyTasks.length > 0) return; -> We want it to run to get the Growth Report
+            if (!selectedBrand || !profiles[selectedBrand]) return;
 
             setSystemLogs(prev => ["Initializing Auto-Pilot Sentinel...", ...prev]);
 
@@ -184,6 +190,26 @@ const App: React.FC = () => {
                     trendingTopics: highVelocityTrends.length > 0 ? highVelocityTrends : trends.slice(0, 5) // Override with full trend objects
                 };
                 setSocialSignals(liveSignals);
+
+                // 2c. Generate Growth Report (Daily Briefing) - REAL TIME w/ CACHE (6h)
+                const reportAge = growthReport?.lastUpdated ? Date.now() - growthReport.lastUpdated : null;
+                const hoursOld = reportAge ? (reportAge / (1000 * 60 * 60)).toFixed(1) : "NEW";
+
+                setSystemLogs(prev => [`Analysis: Verifying Briefing Freshness (Age: ${hoursOld}h)...`, ...prev]);
+
+                const isStale = !reportAge || reportAge > 6 * 60 * 60 * 1000; // 6 Hours (4x per day)
+
+                if (!growthReport || isStale) {
+                    setSystemLogs(prev => ["Analysis: Report is stale or missing. Generating Daily Briefing...", ...prev]);
+                    try {
+                        const freshReport = await generateGrowthReport(selectedBrand, trends, mentions, profiles[selectedBrand]);
+                        setGrowthReport(freshReport);
+                    } catch (err) {
+                        console.error("Failed to generate growth report", err);
+                    }
+                } else {
+                    setSystemLogs(prev => ["Analysis: Daily Briefing is fresh. Skipping generation.", ...prev]);
+                }
 
                 // 3. RAG Memory Retrieval
                 setSystemLogs(prev => ["Memory: Querying Vector Database...", ...prev]);

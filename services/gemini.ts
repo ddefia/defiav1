@@ -1486,6 +1486,93 @@ export const generateBusinessConnections = async (
     }
 };
 
+/**
+ * GENERATE GROWTH REPORT (Daily Strategic Briefing)
+ */
+export const generateGrowthReport = async (
+    brandName: string,
+    trends: TrendItem[],
+    mentions: any[],
+    brandConfig: BrandConfig
+): Promise<GrowthReport> => {
+    dispatchThinking("Generating Daily Strategic Briefing...", { brand: brandName, trendsCount: trends.length });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Filter for high impact trends
+    const significantTrends = trends
+        .filter(t => t.relevanceScore > 70)
+        .slice(0, 5)
+        .map(t => `- ${t.headline} (${t.source}): ${t.summary}`)
+        .join('\n');
+
+    const kb = brandConfig.knowledgeBase.join('\n');
+
+    const systemInstruction = `
+    You are the Chief Strategy Officer for ${brandName}.
+    
+    TASK: Generate the "Daily Strategic Briefing" based on real-time market signals.
+    
+    INPUT DATA:
+    - KEY MARKET TRENDS:
+    ${significantTrends || "No major market shifts detected."}
+    
+    - BRAND CONTEXT:
+    ${kb}
+    
+    OUTPUT FORMAT (JSON):
+    {
+        "executiveSummary": "2 sentences summarizing the market state and our stance (e.g. 'Market is bullish on L2s. We should pivot content to emphasize speed.').",
+        "tacticalPlan": "Specific, immediate actions for the social team (e.g. 'Reply to @Vitalik's post about scaling').",
+        "strategicPlan": [
+            {
+                "action": "KILL" | "DOUBLE_DOWN" | "OPTIMIZE",
+                "subject": "The specific initiative or topic",
+                "reasoning": "Why we are taking this action based on the trends."
+            },
+             {
+                "action": "DOUBLE_DOWN",
+                "subject": "Example Topic",
+                "reasoning": "Reason here."
+            }
+        ]
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "Generate Daily Briefing.",
+            config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json"
+            }
+        });
+
+        const text = response.text || "{}";
+        const parsed = JSON.parse(text);
+        parsed.lastUpdated = Date.now(); // Add timestamp for caching
+
+        // Brain Log
+        saveBrainLog({
+            id: `report-${Date.now()}`,
+            timestamp: Date.now(),
+            type: 'GROWTH_REPORT',
+            brandId: brandName,
+            context: "Daily Briefing Generation",
+            systemPrompt: systemInstruction,
+            rawOutput: text,
+            model: 'gemini-2.0-flash'
+        });
+
+        return parsed as GrowthReport;
+
+    } catch (e) {
+        console.error("Growth Report generation failed", e);
+        throw e;
+    }
+};
+
 export const generateIdeas = async (brandName: string): Promise<string[]> => {
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
@@ -1632,9 +1719,9 @@ TASK:
 };
 
 /**
- * Generates an Investor-Grade Growth Report based on metrics.
+ * GENERATE ANALYTICS REPORT (Investor-Grade Performance Review)
  */
-export const generateGrowthReport = async (
+export const generateAnalyticsReport = async (
     metrics: ComputedMetrics | null,
     campaigns: CampaignLog[],
     socialMetrics?: SocialMetrics,
