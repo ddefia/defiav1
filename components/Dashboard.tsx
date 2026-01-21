@@ -269,57 +269,60 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 {/* COLUMN 2: SIDEBAR (1/3) */}
-                <div className="space-y-8">
+                <div className="space-y-6">
 
-                    {/* LIVE SIGNALS */}
+                    {/* LIVE PRIORITY FEED (Unified) */}
                     <BCard>
                         <div className="flex items-center justify-between mb-6">
-                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Live Signals</span>
+                            <div className="flex flex-col">
+                                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Priority Actions</span>
+                                <span className="text-[10px] text-gray-400">Real-time intelligence stream</span>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                                 </span>
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            {socialSignals && socialSignals.trendingTopics && socialSignals.trendingTopics.length > 0 ? (
-                                socialSignals.trendingTopics.slice(0, 4).map((topic, i) => (
-                                    <div key={i} onClick={() => onNavigate('pulse')} className="cursor-pointer group hover:bg-gray-50 p-3 -mx-3 rounded-xl transition-colors">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Signal</span>
-                                                {topic.source && topic.source.includes('LunarCrush') && (
-                                                    <span className="bg-purple-100 text-purple-700 border border-purple-200 px-1.5 rounded text-[9px] font-bold uppercase tracking-wider">✨ AI</span>
-                                                )}
-                                                {topic.relevanceScore > 80 && (
-                                                    <span className="bg-red-100 text-red-700 border border-red-200 px-1.5 rounded text-[9px] font-bold uppercase tracking-wider">HOT</span>
-                                                )}
-                                            </div>
-                                            <span className="text-[10px] text-gray-300">{new Date(topic.createdAt || topic.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                        </div>
-                                        <h4 className="font-semibold text-black mb-1 group-hover:text-blue-600 transition-colors text-sm">{topic.headline}</h4>
-                                        <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{topic.summary}</p>
+                            {/* 1. STRATEGY TASKS (The "Common Sense" / RAG items) */}
+                            {strategyTasks.slice(0, 3).map((task) => (
+                                <div key={task.id} onClick={() => onNavigate('growth')} className="cursor-pointer group hover:bg-gray-50 p-3 -mx-3 rounded-xl transition-colors border-l-2 border-transparent hover:border-blue-500">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider">Strategy</span>
+                                        <span className="text-[10px] text-gray-300">Auto-Pilot</span>
                                     </div>
-                                ))
-                            ) : (
+                                    <h4 className="font-semibold text-black mb-1 text-sm">{task.title}</h4>
+                                    <p className="text-xs text-gray-500 line-clamp-1">{task.description}</p>
+                                </div>
+                            ))}
+
+                            {/* 2. PULSE SIGNALS (The AI Trends) */}
+                            {socialSignals && socialSignals.trendingTopics.slice(0, 3).map((topic, i) => (
+                                <div key={i} onClick={() => onNavigate('pulse')} className="cursor-pointer group hover:bg-gray-50 p-3 -mx-3 rounded-xl transition-colors border-l-2 border-transparent hover:border-purple-500">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded uppercase tracking-wider">Signal</span>
+                                            {topic.relevanceScore > 80 && <span className="text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded uppercase tracking-wider">HOT</span>}
+                                        </div>
+                                        <span className="text-[10px] text-gray-300">{new Date(topic.createdAt || topic.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    </div>
+                                    <h4 className="font-semibold text-black mb-1 text-sm">{topic.headline}</h4>
+                                    <p className="text-xs text-gray-500 line-clamp-1">{topic.summary}</p>
+                                </div>
+                            ))}
+
+                            {strategyTasks.length === 0 && (!socialSignals?.trendingTopics || socialSignals.trendingTopics.length === 0) && (
                                 <div className="py-12 text-center text-xs text-gray-400 flex flex-col items-center">
                                     <svg className="w-6 h-6 text-gray-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                                    Scanning market data...
+                                    <p>No active signals.</p>
+                                    <p className="text-[10px] opacity-60 mt-1">System is scanning...</p>
                                 </div>
                             )}
                         </div>
-
-                        <button
-                            onClick={() => onNavigate('pulse')}
-                            className="w-full mt-6 py-3 bg-gray-50 rounded-xl text-xs font-bold text-black hover:bg-gray-100 transition-colors border border-gray-100"
-                        >
-                            Open Signal Monitor
-                        </button>
                     </BCard>
-
-                    {/* TERMINAL UI */}
                     <div className="bg-black rounded-3xl p-6 shadow-2xl relative overflow-hidden h-[340px] flex flex-col">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
@@ -351,26 +354,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {/* ACTIVE TASKS MINI */}
-                    {strategyTasks.length > 0 && (
-                        <div>
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 pl-2">Active Directives</h3>
-                            <div className="space-y-3">
-                                {strategyTasks.slice(0, 3).map(task => (
-                                    <div key={task.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-start gap-4 hover:shadow-md transition-shadow cursor-pointer">
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <h4 className="text-sm font-bold text-black">{task.title}</h4>
-                                                <span className="text-[10px] font-bold text-white bg-black px-1.5 py-0.5 rounded">{task.impactScore}</span>
+                    {
+                        strategyTasks.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 pl-2">Active Directives</h3>
+                                <div className="space-y-3">
+                                    {strategyTasks.slice(0, 3).map(task => (
+                                        <div key={task.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-start gap-4 hover:shadow-md transition-shadow cursor-pointer">
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h4 className="text-sm font-bold text-black">{task.title}</h4>
+                                                    <span className="text-[10px] font-bold text-white bg-black px-1.5 py-0.5 rounded">{task.impactScore}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-500 line-clamp-1">{task.description}</p>
                                             </div>
-                                            <p className="text-xs text-gray-500 line-clamp-1">{task.description}</p>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
+                        )
+                    }
+                </div >
+            </div >
+        </div >
     );
 };
