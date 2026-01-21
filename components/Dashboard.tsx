@@ -288,8 +288,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 socialSignals.trendingTopics.slice(0, 4).map((topic, i) => (
                                     <div key={i} onClick={() => onNavigate('pulse')} className="cursor-pointer group hover:bg-gray-50 p-3 -mx-3 rounded-xl transition-colors">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Market</span>
-                                            <span className="text-[10px] text-gray-300">{new Date(topic.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Signal</span>
+                                                {topic.source && topic.source.includes('LunarCrush') && (
+                                                    <span className="bg-purple-100 text-purple-700 border border-purple-200 px-1.5 rounded text-[9px] font-bold uppercase tracking-wider">✨ AI</span>
+                                                )}
+                                                {topic.relevanceScore > 80 && (
+                                                    <span className="bg-red-100 text-red-700 border border-red-200 px-1.5 rounded text-[9px] font-bold uppercase tracking-wider">HOT</span>
+                                                )}
+                                            </div>
+                                            <span className="text-[10px] text-gray-300">{new Date(topic.createdAt || topic.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
                                         <h4 className="font-semibold text-black mb-1 group-hover:text-blue-600 transition-colors text-sm">{topic.headline}</h4>
                                         <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{topic.summary}</p>

@@ -175,8 +175,14 @@ const App: React.FC = () => {
                     fetchSocialMetrics(selectedBrand)
                 ]);
 
-                // 2b. Update Live Signals
-                const liveSignals = computeSocialSignals(trends, mentions, socialMetrics || undefined);
+                // 2b. Update Live Signals (Prioritize High Velocity / AI Signals)
+                // Filter for high relevance (>80) or LunarCrush AI signals
+                const highVelocityTrends = trends.filter(t => t.relevanceScore > 80 || t.source.includes('LunarCrush'));
+
+                const liveSignals: SocialSignals = {
+                    ...computeSocialSignals(trends, mentions, socialMetrics || undefined),
+                    trendingTopics: highVelocityTrends.length > 0 ? highVelocityTrends : trends.slice(0, 5) // Override with full trend objects
+                };
                 setSocialSignals(liveSignals);
 
                 // 3. RAG Memory Retrieval
