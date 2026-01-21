@@ -1637,9 +1637,11 @@ TASK:
 export const generateGrowthReport = async (
     metrics: ComputedMetrics | null,
     campaigns: CampaignLog[],
-    socialMetrics?: SocialMetrics
+    socialMetrics?: SocialMetrics,
+    calendarEvents: CalendarEvent[] = [],
+    trends: TrendItem[] = []
 ): Promise<GrowthReport> => {
-    dispatchThinking(`📊 Generating Growth Report`, { hasOnChain: !!metrics, hasSocial: !!socialMetrics });
+    dispatchThinking(`📊 Generating Growth Report`, { hasOnChain: !!metrics, hasSocial: !!socialMetrics, hasTrends: trends.length > 0 });
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
@@ -1647,7 +1649,7 @@ export const generateGrowthReport = async (
 
     if (metrics) {
         onChainSection = `
-ON - CHAIN DATA:
+ON-CHAIN DATA:
 - Total TVL Change: $${metrics.tvlChange.toLocaleString()}
 - Total Volume: $${metrics.totalVolume.toLocaleString()}
 - Net New Wallets: ${metrics.netNewWallets}
@@ -1663,7 +1665,7 @@ ON - CHAIN DATA:
         const m = metrics?.campaignPerformance.find(p => p.campaignId === c.id);
         return `
     - Campaign: "${c.name}"(${c.channel})
-Budget: $${c.budget}
+      Budget: $${c.budget}
       ${m ? `CPA: $${m.cpa}
       Lift Multiplier: ${m.lift.toFixed(1)}x
       Whales Acquired: ${m.whalesAcquired}
@@ -1675,16 +1677,33 @@ Budget: $${c.budget}
     let socialData = "No social data available.";
     if (socialMetrics) {
         socialData = `
-Followers: ${socialMetrics.totalFollowers}
-      Engagement Rate: ${socialMetrics.engagementRate}% (Vs Last Week: ${socialMetrics.comparison.engagementChange > 0 ? '+' : ''}${socialMetrics.comparison.engagementChange}%)
-      Top Recent Post: "${socialMetrics.recentPosts[0]?.content}"(Likes: ${socialMetrics.recentPosts[0]?.likes}, Comments: ${socialMetrics.recentPosts[0]?.comments})
+Social Presence:
+- Followers: ${socialMetrics.totalFollowers}
+- Engagement Rate: ${socialMetrics.engagementRate}% (Vs Last Week: ${socialMetrics.comparison.engagementChange > 0 ? '+' : ''}${socialMetrics.comparison.engagementChange}%)
+- Top Recent Post: "${socialMetrics.recentPosts[0]?.content}"(Likes: ${socialMetrics.recentPosts[0]?.likes}, Comments: ${socialMetrics.recentPosts[0]?.comments})
     `;
     }
 
-    const systemInstruction = `
-  You are the Head of Growth for a Web3 Protocol.You are analyzing available data to produce a strategic brief.
+    // NEW: Calendar Context
+    const upcomingEvents = calendarEvents
+        .filter(e => new Date(e.date) >= new Date())
+        .slice(0, 5)
+        .map(e => `- ${new Date(e.date).toLocaleDateString()}: ${e.content.substring(0, 40)}... (${e.platform})`)
+        .join('\n');
 
-    ${onChainSection}
+    const calendarSection = upcomingEvents.length > 0
+        ? `UPCOMING SCHEDULE:\n${upcomingEvents}`
+        : "UPCOMING SCHEDULE: No content scheduled.";
+
+    // NEW: Trend Context
+    const trendSection = trends.length > 0
+        ? `MARKET TRENDS:\n${trends.slice(0, 5).map(t => `- ${t.headline}`).join('\n')}`
+        : "MARKET TRENDS: No active signals.";
+
+    const systemInstruction = `
+  You are the Head of Growth for a Web3 Protocol. You are analyzing available data to produce a strategic brief.
+
+  ${onChainSection}
   
   SOCIAL DATA:
   ${socialData}
@@ -1692,17 +1711,26 @@ Followers: ${socialMetrics.totalFollowers}
   CAMPAIGN CONTEXT:
   ${campaignsData}
 
+  ${calendarSection}
+
+  ${trendSection}
+
 TASK:
-  Generate a strictly data - driven strategic brief.
-  If on - chain data is missing, base your recommendations entirely on social engagement, content performance, and brand sentiment.
+  Generate a strictly data-driven strategic brief.
+  - **Executive Summary**: Synthesize the "State of the Union". Mention if we are growing or stalling. Reference specific metrics AND upcoming opportunities (trends/schedule).
+  - **Tactical Plan**: Based on the trends and schedule, what is the IMMEDIATE next move?
+  - **Strategic Plan**:
+    - If engagement is low, suggest "OPTIMIZE" content.
+    - If a trend is hot, "DOUBLE_DOWN" on it.
+    - If a campaign is failing (high CPA), "KILL" it.
   
   OUTPUT FORMAT(JSON):
 {
-    "executiveSummary": "A concise, investor-grade paragraph summarizing the growth health. ${metrics ? 'Correlate social buzz with on-chain volume.' : 'Focus on community sentiment and engagement trends.'}",
-        "tacticalPlan": "Specific, actionable next steps based on the data.",
-            "strategicPlan": [
-                { "action": "KILL" | "DOUBLE_DOWN" | "OPTIMIZE", "subject": "Campaign Name or Content Strategy", "reasoning": "1 sentence data-backed reason." }
-            ]
+    "executiveSummary": "A concise, investor-grade paragraph summarizing the growth health, citing specific numbers and upcoming catalysts.",
+    "tacticalPlan": "Specific, actionable next steps based on the data and schedule.",
+    "strategicPlan": [
+        { "action": "KILL" | "DOUBLE_DOWN" | "OPTIMIZE", "subject": "Campaign Name or Content Strategy", "reasoning": "1 sentence data-backed reason." }
+    ]
 }
 `;
 
@@ -1721,11 +1749,11 @@ TASK:
 
         // BRAIN LOG
         const log: BrainLog = {
-            id: `brain - ${Date.now()} `,
+            id: `brain-${Date.now()}`,
             timestamp: Date.now(),
             type: 'GROWTH_REPORT',
             brandId: 'GrowthEngine', // Generic or specific
-            context: `Analyzing metrics for Growth Report.TVL Change: ${metrics?.tvlChange}, Social Engagement: ${socialMetrics?.engagementRate}% `,
+            context: `Analyzing metrics for Growth Report. TVL Change: ${metrics?.tvlChange}, Trends: ${trends.length}`,
             systemPrompt: systemInstruction,
             userPrompt: "Analyze the data and generate the report.",
             rawOutput: text,

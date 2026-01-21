@@ -211,19 +211,26 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             setProcessingStatus('Generating Strategy Brief via Gemini...');
             onLog?.(`Generating strategic brief via Gemini AI (Model: Experimental)...`);
             const metricsForReport = (overrideParams?.socialOnly) ? await fetchSocialMetrics(brandName, apifyKey) : (socialMetrics || getSocialMetrics(brandName));
+
+            // MOVE TREND FETCH UP (Before Report)
+            onLog?.('Scanning global market trends...');
+            const fetchedTrends = await fetchMarketPulse(brandName);
+            setTrends(fetchedTrends); // STARTUP: Populate Feed
+
             // 5. Generate Strategy (Gaia)
             // Use 'computed' which is either fresh or existing
-            const aiReport = await generateGrowthReport(computed, campaigns, metricsForReport);
+            const aiReport = await generateGrowthReport(
+                computed,
+                campaigns,
+                metricsForReport,
+                calendarEvents, // Pass Calendar
+                fetchedTrends   // Pass Trends
+            );
             onUpdateGrowthReport(aiReport);
 
             // Generate Tasks with Brain Context
             // We need to fetch recent mentions if not already available
             const mentions = metricsForReport?.recentPosts || [];
-
-            // 12/29 FIX: Fetch Real Trends for Brain Context
-            onLog?.('Scanning global market trends...');
-            const fetchedTrends = await fetchMarketPulse(brandName);
-            setTrends(fetchedTrends); // STARTUP: Populate Feed
 
             // 1/10 FIX: Fetch Deep Context (Supabase)
             const { context: ragContext } = await getBrainContext(brandName);

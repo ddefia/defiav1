@@ -16,6 +16,28 @@ interface PulseEngineProps {
     initialTrend?: TrendItem; // Deep Link Support
 }
 
+// Reusable Components matching Dashboard
+const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
+    <div className={`bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100/50 ${className}`}>
+        {children}
+    </div>
+);
+
+const Badge = ({ children, variant = "neutral" }: { children: React.ReactNode, variant?: "neutral" | "ai" | "hot" | "positive" | "negative" }) => {
+    const styles = {
+        neutral: "bg-gray-100 text-gray-600 border-gray-200",
+        ai: "bg-purple-50 text-purple-700 border-purple-200 ring-1 ring-purple-100",
+        hot: "bg-orange-50 text-orange-700 border-orange-200 ring-1 ring-orange-100",
+        positive: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        negative: "bg-red-50 text-red-700 border-red-200"
+    };
+    return (
+        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${styles[variant]} flex items-center gap-1.5`}>
+            {children}
+        </span>
+    );
+};
+
 export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig, onLaunchCampaign, onSchedule, initialTrend }) => {
     const [trends, setTrends] = useState<TrendItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);

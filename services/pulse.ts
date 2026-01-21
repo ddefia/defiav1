@@ -82,14 +82,20 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
                 console.warn(`News fetch failed for ${topicName}`, e);
             }
 
+            let aiReasoning = "AI Signal: Emerging Trend";
+            const volume = t.interactions_24h || 0;
+            if (volume > 100000) aiReasoning = "AI Signal: Viral / High Velocity";
+            else if (volume > 50000) aiReasoning = "AI Signal: Strong Momentum";
+            else if (volume > 10000) aiReasoning = "AI Signal: Growing Interest";
+
             return {
                 id: `lc-topic-${topicName}`,
-                source: 'LunarCrush',
-                headline: headline, // e.g. "AI Trending"
-                summary: context,   // e.g. "News: OpenAI releases new model..."
-                relevanceScore: 85 + Math.floor(Math.random() * 10), // High relevance for topics
-                relevanceReason: "High-Signal Market Narrative",
-                sentiment: 'Neutral', // Topics don't always carry simple sentiment in this endpoint
+                source: 'LunarCrush AI', // Explicitly label as AI data
+                headline: headline,
+                summary: context,
+                relevanceScore: Math.min(99, 70 + Math.floor(volume / 5000) + Math.floor(Math.random() * 5)), // Score weighted by volume
+                relevanceReason: aiReasoning,
+                sentiment: 'Neutral',
                 timestamp: 'Live',
                 createdAt: now,
                 url: `https://lunarcrush.com/topics/${topicName}`,
