@@ -22,6 +22,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     socialMetrics,
     strategyTasks,
     chainMetrics,
+    socialSignals,
     systemLogs = [],
     growthReport,
     onNavigate

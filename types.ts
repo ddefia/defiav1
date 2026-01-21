@@ -237,6 +237,7 @@ export interface SocialSignals {
   sentimentTrend: 'up' | 'down' | 'stable';
   activeNarratives: string[];
   topKols: string[];
+  trendingTopics?: TrendItem[]; // Added for dashboard visualization
 }
 
 export interface ComputedMetrics {
