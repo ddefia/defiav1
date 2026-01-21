@@ -300,7 +300,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             ))}
 
                             {/* 2. PULSE SIGNALS (The AI Trends) */}
-                            {socialSignals && socialSignals.trendingTopics.slice(0, 3).map((topic, i) => (
+                            {socialSignals?.trendingTopics?.slice(0, 3).map((topic, i) => (
                                 <div key={i} onClick={() => onNavigate('pulse')} className="cursor-pointer group hover:bg-gray-50 p-3 -mx-3 rounded-xl transition-colors border-l-2 border-transparent hover:border-purple-500">
                                     <div className="flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-2">
