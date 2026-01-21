@@ -231,34 +231,34 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
     const filteredTrends = sourceFilter === 'All' ? trends : trends.filter(t => t.source === sourceFilter || (sourceFilter === 'LunarCrush AI' && t.source.includes('LunarCrush')));
 
     return (
-        <div className="w-full p-6 md:p-10 font-sans mx-auto animate-fadeIn max-w-[2400px]">
+        <div className="w-full p-6 font-sans mx-auto animate-fadeIn max-w-[1920px]">
 
             {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
-                    <h1 className="text-3xl font-semibold text-black tracking-tight">Intelligence Feed</h1>
+                    <h1 className="text-2xl font-semibold text-black tracking-tight">Intelligence Feed</h1>
                     <div className="flex items-center gap-2 mt-1">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <p className="text-sm text-gray-500 font-medium">Listening to {brandName} Market Signals...</p>
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                        <p className="text-xs text-gray-500 font-medium">Listening to {brandName} Market Signals...</p>
                     </div>
                 </div>
 
                 <div className="flex gap-2">
                     <div className="hidden md:flex gap-1 mr-4">
-                        <button onClick={handleDiscordScan} className="text-xs px-3 py-2 bg-indigo-50 text-indigo-700 font-bold rounded-lg hover:bg-indigo-100 transition-colors">
+                        <button onClick={handleDiscordScan} className="text-[10px] px-3 py-1.5 bg-indigo-50 text-indigo-700 font-bold rounded-lg hover:bg-indigo-100 transition-colors">
                             Scout Discord
                         </button>
-                        <button onClick={handleTelegramScan} className="text-xs px-3 py-2 bg-sky-50 text-sky-700 font-bold rounded-lg hover:bg-sky-100 transition-colors">
+                        <button onClick={handleTelegramScan} className="text-[10px] px-3 py-1.5 bg-sky-50 text-sky-700 font-bold rounded-lg hover:bg-sky-100 transition-colors">
                             Scout Telegram
                         </button>
                     </div>
-                    <Button onClick={handleScan} disabled={isLoading} variant="secondary" className="bg-white border-gray-200">
+                    <Button onClick={handleScan} disabled={isLoading} variant="secondary" className="h-8 text-[10px] bg-white border-gray-200">
                         {isLoading ? 'Scanning...' : 'Refresh Feed'}
                     </Button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-200px)]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-180px)]">
 
                 {/* LEFT COLUMN: SIGNAL FEED (4/12) */}
                 <div className="lg:col-span-4 flex flex-col gap-6 h-full overflow-hidden">

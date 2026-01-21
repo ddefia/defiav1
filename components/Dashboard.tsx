@@ -47,16 +47,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     // APPLE STYLE CARD
     const BCard = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-        <div className={`bg-white rounded-3xl p-8 shadow-sm border border-gray-100/50 ${className}`}>
+        <div className={`bg-white rounded-2xl p-6 shadow-sm border border-gray-100/50 ${className}`}>
             {children}
         </div>
     );
 
     const StatParams = ({ label, value, sub }: any) => (
         <div className="flex flex-col">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-1">{label}</span>
-            <span className="text-3xl font-semibold text-black tracking-tight mb-1">{value}</span>
-            {sub && <span className="text-xs text-gray-500 font-medium">{sub}</span>}
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">{label}</span>
+            <span className="text-2xl font-semibold text-black tracking-tight mb-1">{value}</span>
+            {sub && <span className="text-[11px] text-gray-500 font-medium">{sub}</span>}
         </div>
     );
 
@@ -66,36 +66,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
         .slice(0, 4);
 
     return (
-        <div className="w-full p-6 md:p-10 font-sans mx-auto animate-fadeIn max-w-[2400px]">
+        <div className="w-full p-6 font-sans mx-auto animate-fadeIn max-w-[1920px]">
 
             {/* HEADER */}
-            <div className="flex items-center justify-between mb-8 pl-2">
+            <div className="flex items-center justify-between mb-6 pl-1">
                 <div>
-                    <h1 className="text-3xl font-semibold text-black tracking-tight">Mission Control</h1>
-                    <p className="text-sm text-gray-500 mt-1 font-medium">Overview for {brandName}</p>
+                    <h1 className="text-2xl font-semibold text-black tracking-tight">Mission Control</h1>
+                    <p className="text-xs text-gray-500 mt-1 font-medium">Overview for {brandName}</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                     <button
                         onClick={handleIngestHistory}
-                        className="px-5 py-2.5 bg-black text-white text-xs font-bold rounded-full hover:bg-gray-800 transition-colors shadow-sm uppercase tracking-wider"
+                        className="px-4 py-2 bg-black text-white text-[10px] font-bold rounded-full hover:bg-gray-800 transition-colors shadow-sm uppercase tracking-wider"
                     >
                         Sync Data
                     </button>
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500 border border-gray-200">
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 border border-gray-200">
                         {brandName.charAt(0)}
                     </div>
                 </div>
             </div>
 
             {/* HERO SECTION - "Bento" Style Wide Card */}
-            <BCard className="mb-8 relative overflow-hidden">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-12">
+            <BCard className="mb-6 relative overflow-hidden">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                     <div className="flex-1">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)] animate-pulse"></div>
-                            <span className="text-[10px] font-bold text-black uppercase tracking-widest">System Operational</span>
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)] animate-pulse"></div>
+                            <span className="text-[9px] font-bold text-black uppercase tracking-widest">System Operational</span>
                         </div>
-                        <h2 className="text-3xl font-semibold text-black mb-3 tracking-tight leading-loose">
+                        <h2 className="text-2xl font-semibold text-black mb-2 tracking-tight leading-snug">
                             {strategyTasks.length > 0
                                 ? `Optimizing ${strategyTasks.length} active growth vectors.`
                                 : "Standing by for strategic directive."}
