@@ -69,6 +69,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [campaignItems, setCampaignItems] = useState<CampaignItem[]>([]);
     const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
     const [analyzingCampaign, setAnalyzingCampaign] = useState<string | null>(null); // New State
+    const [viewingCampaignDetails, setViewingCampaignDetails] = useState<string | null>(null); // New State for Thinking View
     // Track what the AI actually analyzed for transparency
     const [contextStats, setContextStats] = useState<{ activeCampaignsCount: number, brainMemoriesCount: number, strategyDocsCount?: number } | null>(null);
 
@@ -683,7 +684,12 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 platform: 'Twitter',
                 status: 'scheduled',
                 campaignName: campaignTheme || 'Campaign',
-                color: '#4F46E5'
+                color: '#4F46E5',
+                reasoning: item.reasoning,
+                visualDescription: item.artPrompt, // Map artPrompt to visualDescription (Prompt)
+                referenceImageId: item.referenceImageId,
+                template: item.template,
+                visualHeadline: item.visualHeadline
             };
         });
 
@@ -939,14 +945,15 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 </div>
                             </div>
                             <div className="flex gap-2 mt-4">
-                                <Button variant="outline" className="flex-1 text-xs" onClick={() => setAnalyzingCampaign(camp.name)}>Analytics</Button>
+                                <Button variant="secondary" className="flex-1 text-xs" onClick={() => setViewingCampaignDetails(camp.name)}>View Posts</Button>
+                                <Button variant="outline" className="text-xs px-2" onClick={() => setAnalyzingCampaign(camp.name)} title="Analytics">Stats</Button>
                                 <Button variant="secondary" className="text-xs px-2" onClick={() => handleExportCSV(camp.name)} title="Download CSV">CSV</Button>
                                 <Button variant="secondary" className="text-xs px-2" onClick={() => handleExportPDF(camp.name)} title="Download PDF">PDF</Button>
                             </div>
                         </div>
                     ))}
                     {activeCampaigns.length === 0 && (
-                        <div className="col-span-full py-20 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 rounded-xl">
+                        <div className="col-span-full py-12 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 rounded-xl">
                             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-3xl">🎯</div>
                             <h3 className="text-xl font-bold text-brand-text">No Active Campaigns</h3>
                             <p className="text-brand-muted max-w-md mt-2 mb-6">
@@ -955,6 +962,111 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }}>Start Your First Campaign</Button>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* VIEW CAMPAIGN DETAILS MODAL */}
+            {viewingCampaignDetails && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fadeIn">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <div>
+                                <h3 className="font-bold text-lg text-brand-text">Campaign: {viewingCampaignDetails}</h3>
+                                <p className="text-xs text-brand-muted">Post Insights & Strategy Logic</p>
+                            </div>
+                            <button onClick={() => setViewingCampaignDetails(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                            {events.filter(e => e.campaignName === viewingCampaignDetails).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(post => {
+                                const refImage = post.referenceImageId ? brandConfig.referenceImages.find(r => r.id === post.referenceImageId) : null;
+                                return (
+                                    <details key={post.id} className="group bg-white border border-gray-200 rounded-lg open:shadow-md open:border-brand-accent/30 transition-all">
+                                        <summary className="p-4 cursor-pointer list-none flex items-start gap-3 select-none hover:bg-gray-50/50 transition-colors">
+                                            <div className="flex flex-col items-center min-w-[50px]">
+                                                <span className="text-[10px] font-bold text-brand-muted uppercase">{new Date(post.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                                <span className={`w-2 h-2 rounded-full mt-1 ${post.status === 'published' ? 'bg-green-500' : 'bg-blue-400'}`}></span>
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm text-brand-text line-clamp-2 font-medium group-open:line-clamp-none">{post.content}</p>
+                                                <div className="flex gap-2 mt-1.5 opacity-0 group-open:opacity-100 transition-opacity">
+                                                    {post.reasoning && <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">HAS THINKING</span>}
+                                                    {post.referenceImageId && <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-bold">HAS REF IMAGE</span>}
+                                                </div>
+                                            </div>
+                                            <svg className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                        </summary>
+
+                                        <div className="p-4 pt-0 border-t border-gray-100 bg-gray-50/30">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+
+                                                {/* LEFT: STRATEGY */}
+                                                <div className="space-y-4">
+                                                    {/* Thinking */}
+                                                    <div>
+                                                        <label className="text-[9px] font-bold text-brand-muted uppercase flex items-center gap-1 mb-1">
+                                                            <span className="w-3 h-3 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-[8px]">🧠</span>
+                                                            AI Thinking
+                                                        </label>
+                                                        <div className="text-xs text-indigo-900/80 bg-indigo-50/50 border border-indigo-100 p-3 rounded-lg leading-relaxed whitespace-pre-wrap">
+                                                            {post.reasoning || "No strategic reasoning recorded."}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Template & Rules */}
+                                                    <div>
+                                                        <label className="text-[9px] font-bold text-brand-muted uppercase mb-1 block">Template Rule</label>
+                                                        <div className="text-xs text-brand-text bg-white border border-gray-200 p-2 rounded">
+                                                            {post.template || "Auto / Default"}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* RIGHT: VISUALS */}
+                                                <div className="space-y-4">
+                                                    {/* Visual Prompt */}
+                                                    <div>
+                                                        <label className="text-[9px] font-bold text-brand-muted uppercase flex items-center gap-1 mb-1">
+                                                            <span className="w-3 h-3 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-[8px]">🎨</span>
+                                                            Visual Prompt
+                                                        </label>
+                                                        <div className="text-xs text-gray-600 bg-white border border-gray-200 p-2 rounded italic">
+                                                            "{post.visualDescription || post.content}"
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Reference Image */}
+                                                    <div>
+                                                        <label className="text-[9px] font-bold text-brand-muted uppercase mb-1 block">Reference Anchor</label>
+                                                        {refImage ? (
+                                                            <div className="flex items-start gap-3 bg-white border border-gray-200 p-2 rounded-lg">
+                                                                <img src={refImage.url || refImage.data} className="w-16 h-16 object-cover rounded border border-gray-100" />
+                                                                <div>
+                                                                    <div className="text-xs font-bold text-brand-text">{refImage.name}</div>
+                                                                    <div className="text-[10px] text-brand-muted mt-1">ID: {refImage.id}</div>
+                                                                    <div className="text-[10px] text-green-600 mt-1 bg-green-50 inline-block px-1 rounded">Visual Style Enforced</div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-xs text-gray-400 italic">No specific reference image linked.</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </details>
+                                );
+                            })}
+
+                            {events.filter(e => e.campaignName === viewingCampaignDetails).length === 0 && (
+                                <div className="text-center py-10 text-brand-muted">No posts found for this campaign.</div>
+                            )}
+                        </div>
+                        <div className="p-3 border-t border-gray-100 bg-gray-50 text-right">
+                            <Button onClick={() => setViewingCampaignDetails(null)} variant="secondary" className="text-xs">Close</Button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1341,7 +1453,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         {/* STEP 3: REVIEW SUMMARY */}
                         {campaignStep === 3 && (
                             <div className="space-y-6 animate-fadeIn">
-                                <div className="flex justify-between items-center mb-2">
+                                <div className="sticky top-2 z-30 bg-white/95 backdrop-blur border border-brand-border/50 shadow-sm rounded-xl p-4 mb-6 flex justify-between items-center">
                                     <div>
                                         <h2 className="text-2xl font-display font-bold text-brand-text">Review Content</h2>
                                         <p className="text-sm text-brand-muted">Review and refine the AI-generated drafts.</p>
@@ -1504,7 +1616,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         {/* RESULTS / GENERATION */}
                         {campaignStep === 4 && (
                             <div className="space-y-8 animate-fadeIn">
-                                <div className="flex justify-between items-center">
+                                <div className="sticky top-2 z-30 bg-white/95 backdrop-blur border border-brand-border/50 shadow-sm rounded-xl p-4 mb-6 flex justify-between items-center">
                                     <div className="flex items-center gap-3">
                                         <h2 className="text-xl font-display font-bold text-brand-text">Campaign Assets</h2>
                                         <Button

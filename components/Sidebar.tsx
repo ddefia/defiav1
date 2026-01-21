@@ -26,15 +26,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             group: 'Overview',
             items: [
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
-                { id: 'brain', label: 'Propulsion Brain', icon: 'brain' },
+                { id: 'brain', label: 'Strategy', icon: 'brain' },
+                { id: 'growth', label: 'Growth', icon: 'trending-up' },
                 { id: 'analytics', label: 'Analytics', icon: 'bar-chart' },
-                { id: 'growth', label: 'Action Center', icon: 'trending-up' },
             ]
         },
         {
             group: 'Marketing',
             items: [
-                { id: 'studio', label: 'Content Studio', icon: 'edit' },
+                { id: 'studio', label: 'Studio', icon: 'edit' },
                 { id: 'campaigns', label: 'Campaigns', icon: 'target' },
                 { id: 'calendar', label: 'Calendar', icon: 'calendar' },
                 { id: 'social', label: 'Social Media', icon: 'message-circle' },

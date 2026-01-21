@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { CampaignLog, GrowthInput, ComputedMetrics, GrowthReport, SocialMetrics, CalendarEvent, TrendItem, BrandConfig, LunarCrushCreator, LunarCrushTimeSeriesItem, LunarCrushPost, StrategyTask, SocialSignals } from '../types';
 import { computeGrowthMetrics, getSocialMetrics, fetchSocialMetrics, getHandle } from '../services/analytics';
 import { getIntegrationConfig } from '../config/integrations';
-import { generateGrowthReport, generateStrategicAnalysis } from '../services/gemini';
+import { generateGrowthReport, generateStrategicAnalysis, generateTrendReaction } from '../services/gemini';
 import { getCreator, getCreatorTimeSeries, getCreatorPosts, fetchMarketPulse, getBrainContext } from '../services/pulse';
 
 import { Button } from './Button';
 import { StrategyBrain } from './StrategyBrain';
 import { SocialActivityFeed } from './SocialActivityFeed';
+import { TrendFeed } from './TrendFeed';
 import { loadIntegrationKeys, saveIntegrationKeys } from '../services/storage';
 
 interface GrowthEngineProps {
@@ -79,6 +80,8 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
     const [isProcessing, setIsProcessing] = useState(true); // Default to processing for "Live" feel
     const [processingStatus, setProcessingStatus] = useState('Initializing Live Activity & Performance Scan...');
     const [contracts, setContracts] = useState<ContractInput[]>([]);
+    const [trends, setTrends] = useState<TrendItem[]>([]); // New: Live Trends
+    const [isReacting, setIsReacting] = useState<string | null>(null); // Track reaction loading
 
     // Keys persisted state
     const [duneKey, setDuneKey] = useState('');
@@ -194,7 +197,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                 await loadRealSocialData();
             } else {
                 setProcessingStatus('Aggregating on-chain data...');
-                await new Promise(r => setTimeout(r, 1000)); // Simulate delay
+                // await new Promise(r => setTimeout(r, 1000)); // Simulate delay - REMOVED
                 computed = await computeGrowthMetrics({
                     contracts: contracts.map(c => ({ label: c.label, address: c.address, type: c.type as any })),
                     duneApiKey: duneKey,
@@ -218,20 +221,23 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             const mentions = metricsForReport?.recentPosts || [];
 
             // 12/29 FIX: Fetch Real Trends for Brain Context
-            const trends = await fetchMarketPulse(brandName);
+            onLog?.('Scanning global market trends...');
+            const fetchedTrends = await fetchMarketPulse(brandName);
+            setTrends(fetchedTrends); // STARTUP: Populate Feed
 
             // 1/10 FIX: Fetch Deep Context (Supabase)
             const { context: ragContext } = await getBrainContext(brandName);
 
+
             const newTasks = await generateStrategicAnalysis(
                 brandName,
                 calendarEvents,
-                trends, // Actual Trends
+                fetchedTrends,
                 brandConfig,
                 aiReport,
                 mentions,
-                ragContext, // RAG Context (Now Live)
-                signals // LIVE WAR ROOM SIGNALS
+                ragContext,
+                signals
             );
             onUpdateTasks(newTasks.tasks);
 
@@ -270,7 +276,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
         // trigger after a brief delay to allow keys to hydrate
         const t = setTimeout(() => {
             performAnalysis({ socialOnly: true });
-        }, 500);
+        }, 1000);
 
         return () => clearTimeout(t);
     }, [brandName]);
@@ -284,7 +290,7 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             interval = setInterval(() => {
                 console.log("Auto-Pilot: Performing Periodic Metric Scan...");
                 performAnalysis({ socialOnly: true });
-            }, 300000); // 5 Minutes
+            }, 86400000); // 24 Hours
         }
         return () => clearInterval(interval);
     }, [isAutoPilot, performAnalysis]);
@@ -299,6 +305,24 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
 
     // Calculate trends for LC
     const followerChange = lunarTimeSeries.length > 1 ? (lunarTimeSeries[lunarTimeSeries.length - 1].followers - lunarTimeSeries[0].followers) : (socialMetrics?.comparison.followersChange || 0);
+
+    // HANDLER: Manual Reaction
+    const handleTrendReaction = async (trend: TrendItem, type: 'Tweet' | 'Meme') => {
+        if (!onSchedule) return;
+        setIsReacting(trend.id);
+        try {
+            onLog?.(`Generating ${type} reaction for: "${trend.headline}"...`);
+            const content = await generateTrendReaction(trend, brandName, brandConfig, type);
+            // Auto schedule or open modal? For now, push to Schedule function which likely opens sketch/modal
+            onSchedule(content, undefined, `Trend Reaction: ${trend.headline.substring(0, 20)}`);
+            onLog?.(`Reaction Drafted!`);
+        } catch (e) {
+            console.error(e);
+            onLog?.(`Failed to generate reaction.`);
+        } finally {
+            setIsReacting(null);
+        }
+    };
 
     return (
         <div className="space-y-4 animate-fadeIn pb-8 w-full h-full flex flex-col max-w-7xl mx-auto px-4 pt-4">
@@ -346,6 +370,25 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                     />
                 </div>
             )}
+
+            <div className="h-px bg-brand-border w-full my-8"></div>
+
+            {/* LIVE PULSE FEED (NEW) */}
+            <div className="space-y-4 animate-slideDown">
+                <div className="flex items-center gap-2">
+                    <span className="text-xl">📡</span>
+                    <div>
+                        <h3 className="text-lg font-bold text-brand-text font-display">Live Signal Feed</h3>
+                        <p className="text-xs text-brand-textSecondary">Real-time market events. Click to react instantly.</p>
+                    </div>
+                </div>
+
+                <TrendFeed
+                    trends={trends}
+                    onReact={handleTrendReaction}
+                    isLoading={isProcessing && trends.length === 0}
+                />
+            </div>
 
             <div className="h-px bg-brand-border w-full my-8"></div>
 

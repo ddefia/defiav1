@@ -53,8 +53,8 @@ export const startAgent = () => {
         if (apifyKey) await updateAllBrands(apifyKey);
     }, 5000);
 
-    // 1. Core Agent Loop (Decision Making) - Every 6 Hours (Testing Mode)
-    cron.schedule('0 */6 * * *', async () => {
+    // 1. Core Agent Loop (Decision Making) - Daily at Midnight
+    cron.schedule('0 0 * * *', async () => {
         console.log(`\n[${new Date().toISOString()}] 🧠 Agent Waking Up (Testing Mode)...`);
 
         const duneKey = process.env.DUNE_API_KEY;
@@ -103,8 +103,8 @@ export const startAgent = () => {
         }
     });
 
-    // 2. Data Sync Loop (Data Freshness) - Every Hour
-    cron.schedule('0 * * * *', async () => {
+    // 2. Data Sync Loop (Data Freshness) - Daily at Noon
+    cron.schedule('0 12 * * *', async () => {
         console.log(`\n[${new Date().toISOString()}] 🔄 Hourly Sync: Updating Social Cache...`);
         try {
             const apifyKey = process.env.APIFY_API_TOKEN;

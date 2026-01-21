@@ -80,6 +80,12 @@ export interface CalendarEvent {
   status: 'scheduled' | 'published';
   campaignName?: string;
   color?: string; // Hex code or Tailwind class
+  // New: Metadata for "Thinking" View
+  reasoning?: string; // The "Thinking"
+  visualDescription?: string; // The "Prompt"
+  referenceImageId?: string; // The "Ref Photo"
+  template?: string; // The "Rules" (implied by template type)
+  visualHeadline?: string;
 }
 
 // --- STRATEGY BRAIN TYPES ---

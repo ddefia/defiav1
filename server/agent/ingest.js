@@ -280,41 +280,49 @@ export const updateAllBrands = async (apiKey) => {
 };
 
 export const fetchPulseTrends = async (apiKey) => {
-    // Fetch Global trends via LunarCrush (Ported from pulse.ts)
+    // Fetch Global trends via LunarCrush (Actionable Narratives, not just Coins)
     if (!apiKey) return [];
     try {
-        console.log("[Agent/Ingest] Fetching Global Market Trends...");
-        const response = await fetch("https://lunarcrush.com/api4/public/coins/list/v1", {
+        console.log("[Agent/Ingest] Fetching Global Market TOPICS...");
+        const response = await fetch("https://lunarcrush.com/api4/public/topics/list/v1", {
             headers: { "Authorization": `Bearer ${apiKey}` }
         });
 
         if (!response.ok) return [];
 
         const data = await response.json();
-        let coins = data.data || [];
-        coins.sort((a, b) => (b.social_volume_24h || 0) - (a.social_volume_24h || 0));
+        let topics = data.data || [];
+        topics.sort((a, b) => (b.interactions_24h || 0) - (a.interactions_24h || 0));
 
-        // Take top 3 and ENRICH them
-        const topCoins = coins.slice(0, 3);
-        const enrichedTrends = await Promise.all(topCoins.map(async (coin) => {
-            // Fetch REASON (Context)
-            let context = `High social volume. Interactions: ${coin.interactions_24h}`;
+        // Take top 5 and ENRICH them with News
+        const topTopics = topics.slice(0, 5);
+
+        const enrichedTrends = await Promise.all(topTopics.map(async (t) => {
+            const topicName = t.topic;
+            let context = `High momentum topic. 24h Interactions: ${(t.interactions_24h || 0).toLocaleString()}`;
+            let headline = `${topicName} Trending`;
+
             try {
-                // Reuse existing function to get posts for this symbol
-                const topPosts = await fetchLunarCrushTrends(apiKey, coin.symbol);
-                if (topPosts.length > 0) {
-                    // Use the top post as the "Reason"
-                    const bestPost = topPosts[0];
-                    // Clean up the body a bit (basic truncation)
-                    context = bestPost.body ? bestPost.body.substring(0, 140) + "..." : context;
+                // Fetch TOP NEWS for this topic
+                const newsRes = await fetch(`https://lunarcrush.com/api4/public/topic/${topicName}/news/v1`, {
+                    headers: { "Authorization": `Bearer ${apiKey}` }
+                });
+
+                if (newsRes.ok) {
+                    const newsData = await newsRes.json();
+                    const stories = newsData.data || [];
+                    if (stories.length > 0) {
+                        const topStory = stories[0];
+                        context = `News: ${topStory.post_title} (via ${topStory.creator_display_name})`;
+                    }
                 }
             } catch (e) {
-                console.warn(`[Agent/Ingest] Failed to enrich ${coin.symbol}`);
+                console.warn(`[Agent/Ingest] Failed to enrich topic ${topicName}`);
             }
 
             return {
-                headline: `${coin.name} (${coin.symbol}) Trending`,
-                summary: context, // Now contains actual news/tweet content
+                headline: headline,
+                summary: context,
                 relevanceScore: 85 + Math.floor(Math.random() * 10) // Dynamic score
             };
         }));

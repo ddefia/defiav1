@@ -505,7 +505,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
               value={config.voiceGuidelines || ''}
               onChange={(e) => onChange({ ...config, voiceGuidelines: e.target.value })}
               placeholder="e.g. Professional, Authoritative, Institutional. Avoid slang. Use clean, concise language."
-              className="w-full h-20 bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
+              className="w-full h-20 bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-400 transition-all"
             />
             <p className="text-[10px] text-gray-400 mt-1">Defines how the AI writes. Defaults to "Professional" if left empty.</p>
           </div>
@@ -519,7 +519,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
                 value={config.targetAudience || ''}
                 onChange={(e) => onChange({ ...config, targetAudience: e.target.value })}
                 placeholder="e.g. Institutional Investors, Pension Funds"
-                className="w-full bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
+                className="w-full bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-400 transition-all"
               />
             </div>
 
@@ -531,7 +531,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
                 value={(config.bannedPhrases || []).join(', ')}
                 onChange={(e) => onChange({ ...config, bannedPhrases: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                 placeholder="e.g. Moon, LFG, WAGMI, Pump"
-                className="w-full bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-300 transition-all"
+                className="w-full bg-white p-3 text-sm text-brand-text rounded-lg border border-brand-border focus:ring-1 focus:ring-brand-accent focus:border-brand-accent outline-none placeholder:text-gray-400 transition-all"
               />
               <p className="text-[10px] text-gray-400 mt-1">Words the AI is strictly forbidden from using.</p>
             </div>
@@ -780,50 +780,52 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         )}
         <div className="space-y-2">
 
-          {/* Grouped Display */}
-          {(() => {
-            const templates = config.graphicTemplates || [];
-            if (templates.length === 0 && !isAddingTemplate) {
-              return <div className="text-xs text-brand-muted italic">No custom templates. Add one to define reusable styles.</div>;
-            }
+          {/* Grouped Display Wrapped in Scroll Area */}
+          <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            {(() => {
+              const templates = config.graphicTemplates || [];
+              if (templates.length === 0 && !isAddingTemplate) {
+                return <div className="text-xs text-brand-muted italic">No custom templates. Add one to define reusable styles.</div>;
+              }
 
-            // Group By Category
-            const grouped: Record<string, typeof templates> = {};
-            templates.forEach(t => {
-              const cat = t.category || 'Uncategorized';
-              if (!grouped[cat]) grouped[cat] = [];
-              grouped[cat].push(t);
-            });
+              // Group By Category
+              const grouped: Record<string, typeof templates> = {};
+              templates.forEach(t => {
+                const cat = t.category || 'Uncategorized';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(t);
+              });
 
-            return Object.entries(grouped).map(([category, items]) => (
-              <div key={category} className="mb-4">
-                {category !== 'Uncategorized' && (
-                  <div className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-2 ml-1">
-                    {category}
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  {items.map(tmpl => (
-                    <div key={tmpl.id} className={`bg-white border rounded-lg p-3 flex justify-between items-start group shadow-sm transition-colors ${editingTemplateId === tmpl.id ? 'border-brand-accent ring-1 ring-brand-accent bg-brand-accent/5' : 'border-brand-border'}`}>
-                      <div>
-                        <div className="text-xs font-bold text-brand-text mb-1">{tmpl.label}</div>
-                        <p className="text-[10px] text-brand-muted line-clamp-2">{tmpl.prompt}</p>
-                        {tmpl.tweetExample && (
-                          <p className="text-[9px] text-gray-400 mt-1 italic line-clamp-1 border-l-2 border-gray-200 pl-1">"{tmpl.tweetExample}"</p>
-                        )}
-                        {tmpl.category && <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-500">{tmpl.category}</span>}
-                      </div>
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => startEditingTemplate(tmpl)} className="text-[10px] text-brand-accent hover:text-brand-text font-medium">Edit</button>
-                        <button onClick={() => removeTemplate(tmpl.id)} className="text-[10px] text-red-500 hover:text-red-600">Delete</button>
-                      </div>
+              return Object.entries(grouped).map(([category, items]) => (
+                <div key={category} className="mb-4">
+                  {category !== 'Uncategorized' && (
+                    <div className="text-[10px] font-bold text-brand-muted uppercase tracking-wider mb-2 ml-1">
+                      {category}
                     </div>
-                  ))}
+                  )}
+
+                  <div className="space-y-2">
+                    {items.map(tmpl => (
+                      <div key={tmpl.id} className={`bg-white border rounded-lg p-3 flex justify-between items-start group shadow-sm transition-colors ${editingTemplateId === tmpl.id ? 'border-brand-accent ring-1 ring-brand-accent bg-brand-accent/5' : 'border-brand-border'}`}>
+                        <div>
+                          <div className="text-xs font-bold text-brand-text mb-1">{tmpl.label}</div>
+                          <p className="text-[10px] text-brand-muted line-clamp-2">{tmpl.prompt}</p>
+                          {tmpl.tweetExample && (
+                            <p className="text-[9px] text-gray-400 mt-1 italic line-clamp-1 border-l-2 border-gray-200 pl-1">"{tmpl.tweetExample}"</p>
+                          )}
+                          {tmpl.category && <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-gray-100 text-[9px] text-gray-500">{tmpl.category}</span>}
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => startEditingTemplate(tmpl)} className="text-[10px] text-brand-accent hover:text-brand-text font-medium">Edit</button>
+                          <button onClick={() => removeTemplate(tmpl.id)} className="text-[10px] text-red-500 hover:text-red-600">Delete</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ));
-          })()}
+              ));
+            })()}
+          </div>
           {(!config.graphicTemplates || config.graphicTemplates.length === 0) && !isAddingTemplate && (
             <div className="text-xs text-brand-muted italic">No custom templates. Add one to define reusable styles.</div>
           )}
@@ -918,7 +920,7 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         </div>
 
         {/* Collapsible Grid */}
-        <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 transition-all duration-500 overflow-hidden ${!viewingImage && config.referenceImages.length > 15 ? 'max-h-[300px] overflow-y-auto pr-1' : ''}`}>
+        <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 transition-all duration-500 overflow-hidden ${!viewingImage && config.referenceImages.length > 15 ? 'max-h-[600px] overflow-y-auto pr-1' : ''}`}>
           {config.referenceImages.slice(0, viewingImage === 'ALL' ? undefined : 15).map(img => (
             <div key={img.id} className="relative aspect-square rounded bg-gray-100 cursor-pointer overflow-hidden border border-brand-border group shadow-sm transition-transform hover:scale-105" onClick={() => setClassifyingImageId(img.id)}>
               <img src={img.data || img.url} alt={img.name} className="w-full h-full object-cover" loading="lazy" />

@@ -28,10 +28,9 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
     if (!token) return [];
 
     try {
-        console.log("Fetching LunarCrush trends (v1)...");
-        // Using v1 endpoint which is more likely to be accessible on free tier
-        // Pass params, but also sort client-side to be safe
-        const response = await fetch("https://lunarcrush.com/api4/public/coins/list/v1", {
+        console.log("Fetching LunarCrush TOPICS (Smart Trends)...");
+        // 1. Fetch Trending TOPICS (Meta-Narratives) instead of Coins
+        const response = await fetch("https://lunarcrush.com/api4/public/topics/list/v1", {
             headers: {
                 "Authorization": `Bearer ${token}`
             }
@@ -43,44 +42,58 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
         }
 
         const data = await response.json();
-        let coins = data.data || [];
+        let topics = data.data || [];
         const now = Date.now();
 
-        // Client-side sort by social volume
-        coins.sort((a: any, b: any) => (b.social_volume_24h || 0) - (a.social_volume_24h || 0));
+        // 2. Sort by INTERACTIONS (Vol is often null for topics)
+        topics.sort((a: any, b: any) => (b.interactions_24h || 0) - (a.interactions_24h || 0));
 
-        // Take top 10 for "Deep Dive" (Expanded coverage)
-        const topCoins = coins.slice(0, 10);
+        // 3. Take Top 5 Actionable Topics (e.g. AI, Gaming, Tech)
+        // Filter out generic filler if needed (e.g. "Country" names if they appear and aren't relevant), 
+        // but broadly topics are good signals.
+        const topTopics = topics.slice(0, 5);
 
-        const enrichedTrends = await Promise.all(topCoins.map(async (coin: any) => {
-            let context = `High social volume for ${coin.name}. 24h Interactions: ${coin.interactions_24h || 0}.`;
+        // 4. Enrich with REAL NEWS (The "Why")
+        const enrichedTrends = await Promise.all(topTopics.map(async (t: any) => {
+            const topicName = t.topic;
+            let context = `High momentum topic. 24h Interactions: ${(t.interactions_24h || 0).toLocaleString()}`;
+            let headline = `${topicName} Trending`;
 
             try {
-                // Fetch context tweets
-                const postsRes = await fetch(`https://lunarcrush.com/api4/public/creator/twitter/${coin.symbol}/posts/v1`, {
+                // Fetch TOP NEWS for this topic
+                const newsRes = await fetch(`https://lunarcrush.com/api4/public/topic/${topicName}/news/v1`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
-                if (postsRes.ok) {
-                    const postsData = await postsRes.json();
-                    const topPost = (postsData.data || [])[0];
-                    if (topPost && topPost.body) {
-                        context = topPost.body.substring(0, 140) + "...";
+
+                if (newsRes.ok) {
+                    const newsData = await newsRes.json();
+                    const stories = newsData.data || [];
+
+                    if (stories.length > 0) {
+                        const topStory = stories[0];
+                        // Use the News Title as the summary logic
+                        context = `News: ${topStory.post_title}`;
+                        if (topStory.creator_display_name) {
+                            context += ` (via ${topStory.creator_display_name})`;
+                        }
                     }
                 }
-            } catch (e) { console.warn("Context fetch failed", e); }
+            } catch (e) {
+                console.warn(`News fetch failed for ${topicName}`, e);
+            }
 
             return {
-                id: `lc-${coin.id}`,
+                id: `lc-topic-${topicName}`,
                 source: 'LunarCrush',
-                headline: `${coin.name} (${coin.symbol}) Trending`,
-                summary: context,
-                relevanceScore: Math.min(99, Math.floor((coin.social_score_24h || 50) + 20)),
-                relevanceReason: "High News Activity",
-                sentiment: (coin.sentiment || 0) > 50 ? 'Positive' : 'Neutral',
+                headline: headline, // e.g. "AI Trending"
+                summary: context,   // e.g. "News: OpenAI releases new model..."
+                relevanceScore: 85 + Math.floor(Math.random() * 10), // High relevance for topics
+                relevanceReason: "High-Signal Market Narrative",
+                sentiment: 'Neutral', // Topics don't always carry simple sentiment in this endpoint
                 timestamp: 'Live',
                 createdAt: now,
-                url: `https://lunarcrush.com/coins/${coin.symbol.toLowerCase()}`,
-                rawData: coin
+                url: `https://lunarcrush.com/topics/${topicName}`,
+                rawData: t
             };
         }));
 
