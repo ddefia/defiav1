@@ -570,8 +570,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
 
                 {!isLoading && tasks.length === 0 && (
                     <div className="p-8 text-center bg-gray-50 border border-brand-border rounded-lg">
-                        <p className="text-sm font-bold text-brand-text">All Clear</p>
-                        <p className="text-xs text-brand-textSecondary">No high-priority actions required at this moment.</p>
+                        <p className="text-sm font-bold text-brand-text">Awaiting Strategic Signal</p>
+                        <p className="text-xs text-brand-textSecondary">No specific recommendations generated yet. Run a market scan to refresh.</p>
                     </div>
                 )}
 

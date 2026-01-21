@@ -456,9 +456,19 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
                             </div>
 
                             {isProcessing ? (
-                                <div className="py-24 text-center">
-                                    <div className="w-12 h-12 border-4 border-brand-accent border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-                                    <p className="text-sm text-brand-muted animate-pulse font-medium tracking-wide">{processingStatus}</p>
+                                <div className="bg-brand-surfaceHighlight border border-brand-border rounded-2xl p-12 text-center h-96 flex flex-col items-center justify-center relative overflow-hidden group">
+                                    <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] pointer-events-none"></div>
+                                    <div className="relative z-10">
+                                        <div className="w-16 h-16 border-4 border-brand-muted/30 border-t-brand-accent rounded-full animate-spin mx-auto mb-6"></div>
+                                        <p className="text-brand-text font-bold text-lg mb-2">Generating Daily Briefing...</p>
+                                        <p className="text-sm text-brand-muted animate-pulse font-medium tracking-wide">{processingStatus}</p>
+
+                                        <div className="mt-8 flex gap-2 justify-center">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-brand-accent animate-bounce [animation-delay:-0.3s]"></span>
+                                            <span className="h-1.5 w-1.5 rounded-full bg-brand-accent animate-bounce [animation-delay:-0.15s]"></span>
+                                            <span className="h-1.5 w-1.5 rounded-full bg-brand-accent animate-bounce"></span>
+                                        </div>
+                                    </div>
                                 </div>
                             ) : growthReport ? (
                                 <div className="prose prose-sm max-w-none text-brand-text font-sans">

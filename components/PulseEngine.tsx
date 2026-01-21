@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { TrendItem, BrandConfig } from '../types';
 import { fetchMarketPulse } from '../services/pulse';
@@ -38,6 +37,19 @@ const Badge = ({ children, variant = "neutral" }: { children: React.ReactNode, v
     );
 };
 
+// Skeleton Loader for Trends
+const TrendSkeleton = () => (
+    <div className="p-5 rounded-2xl border border-gray-100 bg-white animate-pulse">
+        <div className="flex justify-between mb-3">
+            <div className="h-4 w-20 bg-gray-200 rounded"></div>
+            <div className="h-4 w-12 bg-gray-200 rounded"></div>
+        </div>
+        <div className="h-5 w-3/4 bg-gray-200 rounded mb-2"></div>
+        <div className="h-4 w-full bg-gray-100 rounded mb-4"></div>
+        <div className="h-2 w-full bg-gray-100 rounded"></div>
+    </div>
+);
+
 export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig, onLaunchCampaign, onSchedule, initialTrend }) => {
     const [trends, setTrends] = useState<TrendItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +57,7 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
     const [selectedTrend, setSelectedTrend] = useState<TrendItem | null>(null);
 
     // Filters & Inputs
-    const [sourceFilter, setSourceFilter] = useState<'All' | 'Twitter' | 'News' | 'OnChain' | 'LunarCrush'>('All');
+    const [sourceFilter, setSourceFilter] = useState<'All' | 'Twitter' | 'News' | 'OnChain' | 'LunarCrush AI'>('All');
     const [manualSignal, setManualSignal] = useState('');
 
     // Business Connection State
@@ -79,7 +91,7 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
         setLastUpdated(cache.lastUpdated);
 
         const now = Date.now();
-        const CACHE_DURATION = 1000; // 1 second (Force Refresh for Dev)
+        const CACHE_DURATION = 30000; // 30s cache for better UX
         const shouldFetch = (now - cache.lastUpdated) > CACHE_DURATION || cache.items.length === 0;
 
         if (shouldFetch) {
@@ -172,12 +184,6 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
         setManualSignal('');
     };
 
-    const handleAct = async (trend: TrendItem) => {
-        setSelectedTrend(trend);
-        setGeneratedText('');
-        setGeneratedImage('');
-    };
-
     const handleGenerateContent = async () => {
         if (!selectedTrend) return;
         setIsGenerating(true);
@@ -222,307 +228,260 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
         }
     };
 
-    const handleAnalyzeBusiness = async () => {
-        if (trends.length === 0) return;
-        setIsAnalyzingBusiness(true);
-        setBusinessIdeas('');
-        try {
-            const ideas = await generateBusinessConnections(trends, brandName, brandConfig);
-            setBusinessIdeas(ideas);
-        } catch (e) {
-            console.error("Analysis failed", e);
-        } finally {
-            setIsAnalyzingBusiness(false);
-        }
-    };
-
-    const getSourceIcon = (source: string) => {
-        if (source === 'Twitter') return <span className="text-blue-400">🐦</span>;
-        if (source === 'OnChain') return <span className="text-orange-500">🔗</span>;
-        if (source === 'LunarCrush') return <span className="text-purple-400">🌕</span>;
-        if (source === 'DISCORD') return <span className="text-[#5865F2]">👾</span>;
-        if (source === 'TELEGRAM') return <span className="text-[#229ED9]">✈️</span>;
-        return <span className="text-gray-500">📰</span>;
-    };
-
-    const filteredTrends = sourceFilter === 'All' ? trends : trends.filter(t => t.source === sourceFilter);
-
-    // Debug State
-    const [isDebugMode, setIsDebugMode] = useState(false);
+    const filteredTrends = sourceFilter === 'All' ? trends : trends.filter(t => t.source === sourceFilter || (sourceFilter === 'LunarCrush AI' && t.source.includes('LunarCrush')));
 
     return (
-        <div className="w-full h-full flex flex-col lg:flex-row gap-8 animate-fadeIn pb-10">
+        <div className="w-full p-6 md:p-10 font-sans mx-auto animate-fadeIn max-w-[2400px]">
 
-            {/* LEFT: TREND FEED */}
-            <div className="w-full lg:w-1/3 flex flex-col gap-4">
-                <div className="bg-white p-4 rounded-xl border border-brand-border shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <div>
-                            <h2 className="text-xl font-display font-bold text-brand-text">Market Pulse</h2>
-                            <p className="text-sm text-brand-muted">Real-time signals detected for {brandName}</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <div className="flex gap-1">
-                                <button onClick={handleDiscordScan} className="text-[10px] bg-[#5865F2] text-white px-2 py-1 rounded hover:opacity-90 transition-opacity flex items-center gap-1">
-                                    👾 <span className="hidden sm:inline">Discord</span>
-                                </button>
-                                <button onClick={handleTelegramScan} className="text-[10px] bg-[#229ED9] text-white px-2 py-1 rounded hover:opacity-90 transition-opacity flex items-center gap-1">
-                                    ✈️ <span className="hidden sm:inline">Tel</span>
-                                </button>
-                            </div>
-                            <button
-                                onClick={() => setIsDebugMode(!isDebugMode)}
-                                className={`text-xs px-2 py-1 rounded border ${isDebugMode ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-gray-50 text-gray-400'}`}
-                            >
-                                🐞 Debug
-                            </button>
-                            <Button onClick={handleScan} disabled={isLoading} variant="secondary" className="h-8 text-xs px-3">
-                                {isLoading ? 'Scanning...' : 'Refresh'}
-                            </Button>
-                        </div>
+            {/* HEADER */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-semibold text-black tracking-tight">Intelligence Feed</h1>
+                    <div className="flex items-center gap-2 mt-1">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                        <p className="text-sm text-gray-500 font-medium">Listening to {brandName} Market Signals...</p>
                     </div>
+                </div>
 
-                    {/* Manual Input */}
-                    <div className="flex gap-2 mb-4">
-                        <input
-                            type="text"
-                            value={manualSignal}
-                            onChange={(e) => setManualSignal(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleManualAdd()}
-                            placeholder="Paste URL or topic to analyze..."
-                            className="flex-1 bg-gray-50 border border-brand-border rounded px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
-                        />
-                        <button
-                            onClick={handleManualAdd}
-                            className="bg-brand-text text-white px-3 py-2 rounded text-xs font-bold hover:bg-black"
-                        >
-                            + Add
+                <div className="flex gap-2">
+                    <div className="hidden md:flex gap-1 mr-4">
+                        <button onClick={handleDiscordScan} className="text-xs px-3 py-2 bg-indigo-50 text-indigo-700 font-bold rounded-lg hover:bg-indigo-100 transition-colors">
+                            Scout Discord
+                        </button>
+                        <button onClick={handleTelegramScan} className="text-xs px-3 py-2 bg-sky-50 text-sky-700 font-bold rounded-lg hover:bg-sky-100 transition-colors">
+                            Scout Telegram
                         </button>
                     </div>
+                    <Button onClick={handleScan} disabled={isLoading} variant="secondary" className="bg-white border-gray-200">
+                        {isLoading ? 'Scanning...' : 'Refresh Feed'}
+                    </Button>
+                </div>
+            </div>
 
-                    {/* Filter Pills */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                        {(['All', 'Twitter', 'OnChain', 'News', 'LunarCrush'] as const).map(filter => (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-200px)]">
+
+                {/* LEFT COLUMN: SIGNAL FEED (4/12) */}
+                <div className="lg:col-span-4 flex flex-col gap-6 h-full overflow-hidden">
+
+                    {/* FILTER BAR w/ SEARCH */}
+                    <div className="flex gap-2 mb-2 p-1 bg-gray-100/50 rounded-xl overflow-x-auto scrollbar-hide">
+                        {(['All', 'Twitter', 'LunarCrush AI', 'News'] as const).map(filter => (
                             <button
                                 key={filter}
                                 onClick={() => setSourceFilter(filter)}
-                                className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors whitespace-nowrap ${sourceFilter === filter
-                                    ? 'bg-brand-text text-white border-brand-text'
-                                    : 'bg-white text-brand-muted border-brand-border hover:border-gray-400'
+                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sourceFilter === filter
+                                    ? 'bg-white text-black shadow-sm ring-1 ring-black/5'
+                                    : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
                                     }`}
                             >
-                                {filter}
+                                {filter === 'LunarCrush AI' ? ' ✨ AI Signals' : filter}
                             </button>
                         ))}
                     </div>
 
-                    {/* DEBUG PANEL - ANALYSIS OUTPUT */}
-                    {isDebugMode && (
-                        <div className="mt-4 bg-amber-50 p-2 rounded border border-amber-200 text-[10px] font-mono overflow-x-auto">
-                            <strong className="block text-amber-800 mb-1">RAW OUTPUT (Strategic Analysis):</strong>
-                            <pre className="text-amber-900 whitespace-pre-wrap">{businessIdeas || "No analysis generated yet."}</pre>
-                        </div>
-                    )}
-                </div>
-
-
-                {/* DEBUG PANEL - RAW INPUT */}
-                {isDebugMode && (
-                    <div className="bg-gray-900 text-green-400 p-4 rounded-xl border border-gray-700 font-mono text-xs overflow-y-auto max-h-60 shadow-lg">
-                        <strong className="block text-white mb-2 border-b border-gray-700 pb-1">API RAW DATA (Input Trends):</strong>
-                        <pre>{JSON.stringify(trends, null, 2)}</pre>
-                    </div>
-                )}
-
-                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar max-h-[calc(100vh-250px)]">
-                    {filteredTrends.map((trend) => (
-                        <div
-                            key={trend.id}
-                            onClick={() => handleAct(trend)}
-                            className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md bg-white relative overflow-hidden
-                                ${selectedTrend?.id === trend.id ? 'border-brand-accent ring-1 ring-brand-accent shadow-md' : 'border-brand-border hover:border-gray-300'}
-                                ${isLoading ? 'opacity-50' : 'opacity-100'}
-                            `}
-                        >
-                            {/* Score Indicator Background */}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-gray-100 to-transparent"></div>
-
-                            <div className="flex justify-between items-start mb-2 relative z-10">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 bg-gray-50 rounded-md border border-gray-100 shadow-sm">{getSourceIcon(trend.source)}</div>
-                                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">{trend.timestamp}</span>
-                                </div>
-                                {trend.relevanceScore > 80 && <span className="text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shadow-sm">HOT</span>}
-                            </div>
-
-                            <h3 className="font-bold text-sm text-brand-text mb-2 leading-snug pr-4">{trend.headline}</h3>
-
-                            <div className="flex items-center gap-2 mt-3">
-                                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                        className={`h-full rounded-full transition-all duration-500 ${trend.sentiment === 'Positive' ? 'bg-green-500' : 'bg-brand-accent'}`}
-                                        style={{ width: `${trend.relevanceScore}%` }}
-                                    ></div>
-                                </div>
-                                <span className="text-[10px] font-bold text-brand-muted">{trend.relevanceScore}% Rel.</span>
-                            </div>
-                        </div>
-                    ))}
-                    {filteredTrends.length === 0 && !isLoading && (
-                        <div className="text-center py-10 text-brand-muted text-sm bg-white rounded-xl border border-dashed border-brand-border">
-                            No active signals found for this filter.
-                        </div>
-                    )}
-                </div>
-            </div>
-
-
-            {/* RIGHT: ACTION CENTER */}
-            <div className="flex-1 bg-white border border-brand-border rounded-xl p-6 shadow-sm flex flex-col h-full min-h-[600px]">
-                {!selectedTrend ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 text-brand-muted">
-                        <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                            <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                        </div>
-                        <h3 className="text-2xl font-bold text-brand-text mb-2 font-display">Select a Signal</h3>
-                        <p className="text-sm max-w-sm text-gray-500">Choose a trending topic from the feed to analyze and generate targeted content instantly.</p>
-                    </div>
-                ) : (
-                    <div className="flex-1 flex flex-col animate-fadeIn h-full">
-                        <div className="border-b border-brand-border pb-6 mb-6">
-                            <div className="flex items-center gap-3 mb-3">
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold uppercase rounded border border-gray-200">ID: {selectedTrend.id}</span>
-                                <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded border ${selectedTrend.sentiment === 'Positive' ? 'bg-green-50 text-green-700 border-green-200' :
-                                    selectedTrend.sentiment === 'Negative' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-700 border-gray-200'
-                                    }`}>
-                                    {selectedTrend.sentiment} Sentiment
-                                </span>
-                            </div>
-                            <h2 className="text-3xl font-display font-bold text-brand-text leading-tight mb-4">{selectedTrend.headline}</h2>
-                            <div className="bg-gray-50 p-4 rounded-lg border border-brand-border">
-                                <p className="text-sm text-brand-text leading-relaxed">{selectedTrend.summary}</p>
-                                <div className="mt-3 pt-3 border-t border-gray-200 flex items-start gap-2">
-                                    <span className="text-brand-accent">💡</span>
-                                    <p className="text-xs text-brand-muted font-medium italic">{selectedTrend.relevanceReason}</p>
-                                </div>
-                            </div>
+                    <div className="overflow-y-auto custom-scrollbar flex-1 space-y-4 pr-2">
+                        {/* Manual Input Inline */}
+                        <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex gap-2 items-center focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+                            <span className="text-gray-400 pl-2">🔎</span>
+                            <input
+                                type="text"
+                                value={manualSignal}
+                                onChange={(e) => setManualSignal(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleManualAdd()}
+                                placeholder="Paste a URL or topic to analyze..."
+                                className="flex-1 bg-transparent border-none text-sm focus:ring-0 placeholder:text-gray-400"
+                            />
+                            <button onClick={handleManualAdd} className="bg-black text-white px-3 py-1.5 rounded-lg text-xs font-bold">Add</button>
                         </div>
 
-                        {!generatedText && !isGenerating && (
-                            <div className="space-y-6 max-w-2xl mx-auto w-full mt-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button
-                                        onClick={() => setActionType('Tweet')}
-                                        className={`p-6 rounded-xl border text-left transition-all group ${actionType === 'Tweet' ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200' : 'bg-white border-brand-border hover:border-gray-300 hover:shadow-sm'}`}
-                                    >
-                                        <div className={`font-bold text-lg mb-2 ${actionType === 'Tweet' ? 'text-indigo-700' : 'text-gray-900'}`}>📢 Official Comms</div>
-                                        <div className="text-xs text-gray-500">Authoritative, brand-aligned response to the news.</div>
-                                    </button>
-                                    <button
-                                        onClick={() => setActionType('Meme')}
-                                        className={`p-6 rounded-xl border text-left transition-all group ${actionType === 'Meme' ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200' : 'bg-white border-brand-border hover:border-gray-300 hover:shadow-sm'}`}
-                                    >
-                                        <div className={`font-bold text-lg mb-2 ${actionType === 'Meme' ? 'text-indigo-700' : 'text-gray-900'}`}>🐸 Degen / Meme</div>
-                                        <div className="text-xs text-gray-500">Culture-fit, high engagement, community focused.</div>
-                                    </button>
-                                </div>
-
-                                <Button onClick={handleGenerateContent} className="w-full h-12 text-sm shadow-lg shadow-indigo-500/20">
-                                    Generate Reaction Assets
-                                </Button>
-
-                                <div className="text-center pt-4">
-                                    <button
-                                        onClick={() => onLaunchCampaign(selectedTrend)}
-                                        className="text-xs text-brand-muted hover:text-brand-accent underline transition-colors"
-                                    >
-                                        or launch a full multi-day campaign based on this topic
-                                    </button>
-                                </div>
-                            </div>
+                        {/* LOAD STATE */}
+                        {isLoading && trends.length === 0 && (
+                            <>
+                                <TrendSkeleton />
+                                <TrendSkeleton />
+                                <TrendSkeleton />
+                            </>
                         )}
 
-                        {isGenerating && (
-                            <div className="flex-1 flex flex-col items-center justify-center space-y-6">
-                                <div className="relative">
-                                    <div className="w-16 h-16 border-4 border-brand-border rounded-full"></div>
-                                    <div className="w-16 h-16 border-4 border-brand-accent border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                        {filteredTrends.map((trend) => (
+                            <div
+                                key={trend.id}
+                                onClick={() => { setSelectedTrend(trend); setGeneratedText(''); setGeneratedImage(''); }}
+                                className={`group relative p-5 rounded-2xl border transition-all cursor-pointer
+                                    ${selectedTrend?.id === trend.id
+                                        ? 'bg-white border-blue-500 ring-2 ring-blue-500/10 shadow-lg scale-[1.01]'
+                                        : 'bg-white border-gray-100 hover:border-blue-300 hover:shadow-md'
+                                    }
+                                `}
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="flex flex-wrap gap-2">
+                                        {trend.source.includes('LunarCrush') ? (
+                                            <Badge variant="ai">✨ AI Signal</Badge>
+                                        ) : (
+                                            <Badge>{trend.source}</Badge>
+                                        )}
+                                        {trend.relevanceScore > 80 && <Badge variant="hot">High Velocity</Badge>}
+                                    </div>
+                                    <span className="text-[10px] text-gray-400 font-mono pt-1">{new Date(trend.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
-                                <div className="text-center space-y-2">
-                                    <p className="font-bold text-brand-text">Constructing Response...</p>
-                                    <p className="text-sm text-brand-muted">Analyzing sentiment, drafting copy, and rendering visuals.</p>
+
+                                <h3 className="font-bold text-gray-900 leading-snug mb-2 group-hover:text-blue-600 transition-colors">
+                                    {trend.headline}
+                                </h3>
+
+                                <p className="text-xs text-gray-500 line-clamp-2 mb-3">
+                                    {trend.summary}
+                                </p>
+
+                                <div className="flex items-center gap-2 pt-3 border-t border-gray-50">
+                                    <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-blue-500 rounded-full"
+                                            style={{ width: `${trend.relevanceScore}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-gray-400">{trend.relevanceScore}% Impact</span>
                                 </div>
                             </div>
-                        )}
+                        ))}
 
-                        {generatedText && !isGenerating && (
-                            <div className="space-y-6 animate-fadeIn h-full flex flex-col">
-                                <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                    {/* Text Column */}
-                                    <div className="flex flex-col gap-4">
-                                        <label className="text-xs font-bold text-brand-muted uppercase">Draft Copy</label>
-                                        <div className="bg-white border border-brand-border rounded-xl p-4 shadow-sm flex-1">
-                                            <textarea
-                                                value={generatedText}
-                                                onChange={(e) => setGeneratedText(e.target.value)}
-                                                className="w-full h-full bg-transparent border-none p-0 text-lg text-brand-text focus:ring-0 resize-none leading-relaxed"
-                                            />
+                        {filteredTrends.length === 0 && !isLoading && (
+                            <div className="text-center py-20 text-gray-400">
+                                <p className="text-sm">No signals found via this filter.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* RIGHT COLUMN: COMMAND CENTER (8/12) */}
+                <div className="lg:col-span-8 h-full">
+                    {selectedTrend ? (
+                        <Card className="h-full flex flex-col relative overflow-hidden border-blue-100 shadow-xl shadow-blue-900/5">
+                            {/* Header */}
+                            <div className="mb-8 relative z-10">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <Badge variant={selectedTrend.sentiment === 'Positive' ? 'positive' : 'neutral'}>
+                                        {selectedTrend.sentiment} Sentiment
+                                    </Badge>
+                                    <span className="text-xs text-gray-400 px-2 border-l border-gray-200">ID: {selectedTrend.id}</span>
+                                </div>
+                                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 leading-tight">
+                                    {selectedTrend.headline}
+                                </h2>
+                                <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
+                                    <p className="text-gray-700 leading-relaxed text-sm md:text-base">{selectedTrend.summary}</p>
+                                    <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2 text-sm">
+                                        <span className="font-bold text-purple-600">AI Insight:</span>
+                                        <span className="text-gray-600">{selectedTrend.relevanceReason}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* WORKSPACE */}
+                            <div className="flex-1 min-h-0 flex flex-col">
+                                {!generatedText && !isGenerating ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-auto mb-auto">
+                                        <button
+                                            onClick={() => { setActionType('Tweet'); handleGenerateContent(); }}
+                                            className="group relative p-8 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-white hover:border-blue-300 hover:shadow-lg transition-all text-left"
+                                        >
+                                            <div className="absolute top-4 right-4 text-2xl opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all">📢</div>
+                                            <h3 className="text-lg font-bold text-gray-900 mb-1">Official Response</h3>
+                                            <p className="text-sm text-gray-500">Draft a professional, brand-aligned announcement.</p>
+                                        </button>
+
+                                        <button
+                                            onClick={() => { setActionType('Meme'); handleGenerateContent(); }}
+                                            className="group relative p-8 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-white hover:border-purple-300 hover:shadow-lg transition-all text-left"
+                                        >
+                                            <div className="absolute top-4 right-4 text-2xl opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all">🐸</div>
+                                            <h3 className="text-lg font-bold text-gray-900 mb-1">Viral / Meme</h3>
+                                            <p className="text-sm text-gray-500">Draft a high-engagement, culture-fit post.</p>
+                                        </button>
+
+                                        <div className="md:col-span-2 text-center mt-4">
+                                            <button
+                                                onClick={() => onLaunchCampaign(selectedTrend)}
+                                                className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
+                                            >
+                                                Start Full Campaign &rarr;
+                                            </button>
                                         </div>
                                     </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col h-full min-h-0 animate-fadeIn">
+                                        {isGenerating ? (
+                                            <div className="flex-1 flex flex-col items-center justify-center">
+                                                <div className="w-16 h-16 border-4 border-gray-100 border-t-blue-600 rounded-full animate-spin mb-6"></div>
+                                                <p className="text-lg font-bold text-gray-900">Constructing Response...</p>
+                                                <p className="text-gray-500">Analyzing sentiment & rendering assets</p>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col md:flex-row gap-6 h-full min-h-0">
+                                                {/* Editor */}
+                                                <div className="flex-1 flex flex-col gap-2">
+                                                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Draft Content</label>
+                                                    <textarea
+                                                        value={generatedText}
+                                                        onChange={e => setGeneratedText(e.target.value)}
+                                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-4 text-base focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none font-medium text-gray-800"
+                                                    />
+                                                </div>
 
-                                    {/* Image Column */}
-                                    <div className="flex flex-col gap-4">
-                                        <label className="text-xs font-bold text-brand-muted uppercase">Visual Asset</label>
-                                        {generatedImage && (
-                                            <div className="relative group rounded-xl overflow-hidden border border-brand-border shadow-md bg-gray-100 aspect-video flex items-center justify-center">
-                                                {isRegeneratingImage && (
-                                                    <div className="absolute inset-0 z-10 bg-white/80 flex items-center justify-center backdrop-blur-sm">
-                                                        <div className="w-8 h-8 border-2 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
+                                                {/* Visuals */}
+                                                <div className="w-full md:w-1/3 flex flex-col gap-2">
+                                                    <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Visual</label>
+                                                    <div className="aspect-square bg-gray-100 rounded-xl border border-gray-200 overflow-hidden relative group">
+                                                        {generatedImage ? (
+                                                            <>
+                                                                <img src={generatedImage} className="w-full h-full object-cover" />
+                                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 gap-2">
+                                                                    <Button onClick={handleRegenerateImage} variant="secondary" className="w-full text-xs">Redo</Button>
+                                                                    <a href={generatedImage} download="asset.png" className="bg-white/20 text-white w-full py-2 text-center rounded text-xs font-bold backdrop-blur-sm hover:bg-white/30">Download</a>
+                                                                </div>
+                                                                {isRegeneratingImage && (
+                                                                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                                                                        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <div className="flex items-center justify-center h-full text-gray-300 text-xs">No Image</div>
+                                                        )}
                                                     </div>
-                                                )}
-                                                <img src={generatedImage} alt="Generated visual" className="w-full h-full object-cover" />
+                                                </div>
+                                            </div>
+                                        )}
 
-                                                {/* Hover Overlay */}
-                                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-300 gap-3 p-6">
-                                                    <Button onClick={handleRegenerateImage} variant="secondary" className="w-full max-w-[200px] h-9 text-xs">
-                                                        Redo Image
-                                                    </Button>
-                                                    <a href={generatedImage} download={`pulse-${selectedTrend.id}.png`} className="bg-white text-black px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-200 h-9 flex items-center justify-center w-full max-w-[200px]">
-                                                        Download High-Res
-                                                    </a>
+                                        {!isGenerating && (
+                                            <div className="mt-6 pt-6 border-t border-gray-100 flex justify-between items-center">
+                                                <button onClick={() => { setGeneratedText(''); setGeneratedImage(''); }} className="text-gray-400 hover:text-red-500 text-sm font-bold">Cancel</button>
+                                                <div className="flex gap-3">
+                                                    <Button onClick={() => onSchedule(generatedText, generatedImage)} variant="secondary">Schedule</Button>
+                                                    <Button onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(generatedText)}`, '_blank')}>Post Now</Button>
                                                 </div>
                                             </div>
                                         )}
                                     </div>
-                                </div>
-
-                                <div className="border-t border-brand-border pt-6 mt-auto">
-                                    <div className="flex justify-between items-center">
-                                        <button onClick={() => { setGeneratedText(''); setGeneratedImage(''); }} className="text-sm text-brand-muted hover:text-red-500 px-4">
-                                            Discard
-                                        </button>
-                                        <div className="flex gap-4">
-                                            <Button
-                                                onClick={() => onSchedule(generatedText, generatedImage)}
-                                                variant="secondary"
-                                                className="px-8"
-                                            >
-                                                Schedule
-                                            </Button>
-                                            <Button
-                                                onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(generatedText)}`, '_blank')}
-                                                className="px-8 shadow-lg shadow-brand-accent/20"
-                                            >
-                                                Post Now
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                )}
+                        </Card>
+                    ) : (
+                        <Card className="h-full flex flex-col items-center justify-center text-center p-12 bg-gray-50/50 border-dashed">
+                            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-100">
+                                <span className="text-4xl">📡</span>
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">Awaiting Signal Selection</h2>
+                            <p className="text-gray-500 max-w-md mx-auto">Select any trending topic from the Intelligence Feed to activate the War Room.</p>
+                            <div className="mt-8 flex gap-2">
+                                <div className="h-2 w-2 rounded-full bg-purple-400 animate-ping"></div>
+                                <span className="text-xs text-purple-600 font-bold uppercase">AI Listening Active</span>
+                            </div>
+                        </Card>
+                    )}
+                </div>
             </div>
-        </div >
+        </div>
     );
 };
