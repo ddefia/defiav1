@@ -631,9 +631,10 @@ export const generateTweet = async (
     topic: string,
     brandName: string,
     brandConfig: BrandConfig,
-    tone: string = 'Professional'
-): Promise<string> => {
-    dispatchThinking(`🐦 Generating Tweet for: "${topic}"`, { tone, brand: brandName });
+    tone: string = 'Professional',
+    count: number = 1
+): Promise<string | string[]> => {
+    dispatchThinking(`🐦 Generating Tweet for: "${topic}"`, { tone, brand: brandName, count });
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
@@ -681,11 +682,15 @@ export const generateTweet = async (
         ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')} `
         : `Avoid lazy AI words (e.g. ${defaultBanned.join(', ')}).`;
 
+    const countInstruction = count > 1
+        ? `TASK: Write ${count} DISTINCT variations of a high-quality tweet about: "${topic}".\n    RETURN FORMAT: STRICT JSON ARRAY of strings. Do not include markdown formatting.\n    Example: ["Tweet 1 content...", "Tweet 2 content..."]`
+        : `TASK: Write a single, high-quality tweet about: "${topic}".`;
+
     const systemInstruction = `
     You are an Elite Crypto Content Creator for ${brandName}.
     You are known for high-signal content that simplifies complex topics without losing nuance.
 
-    TASK: Write a single, high-quality tweet about: "${topic}".
+    ${countInstruction}
     
     TONE: ${tone} (Guideline: ${voice})
     - **BALANCE**: Be authoritative but friendly.
@@ -722,7 +727,7 @@ export const generateTweet = async (
     3. CTA: Clear directive.
 
     FORMATTING REQUIREMENTS:
-    - YOU MUST use double line breaks (\\n\\n) between sections.
+    - YOU MUST use double line breaks (\n\n) between sections.
     - NO HASHTAGS (STRICTLY FORBIDDEN).
     `;
 
@@ -730,14 +735,28 @@ export const generateTweet = async (
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: topic,
-            config: { systemInstruction: systemInstruction }
+            config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: count > 1 ? "application/json" : "text/plain"
+            }
         });
+
+        if (count > 1) {
+            const text = response.text || "[]";
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error("Failed to parse tweet variations", e);
+                return [text]; // Fallback
+            }
+        }
+
         return response.text || topic;
-    } catch (error) {
-        console.error("Tweet generation error", error);
-        throw error;
+    } catch (e) {
+        console.error("Tweet Generation Failed", e);
+        return topic; // Fail safe
     }
-}
+};
 
 /**
  * Generates a campaign of tweets (Drafting Phase).
@@ -1958,6 +1977,11 @@ INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If yo
     - If the market is fearful, be the builder.
     - **RULE:** No "generic updates". Every post must have a "Hook" or "Alpha".
 
+    CRITICAL RULES (ANTI-HALLUCINATION):
+    1. **NO GENERIC AI/SAAS/WEB2 IDEAS**: Do NOT generate tasks about "Home Improvement", "Art Generators", "Project Phoenix", or "Canvas of Nations".
+    2. **STRICTLY WEB3**: All tasks MUST be related to DeFi, Crypto, Blockchain, Tokenomics, or Community.
+    3. **BRAND SPECIFIC**: Use the brand name (${brandName}) and its specific products/goals. If unknown, infer strictly from the "Context Data" (e.g. if trend is ETH, talk about ETH).
+
     PHASE 3: THE ACTION (Task Generation)
     - Propose exactly 3-5 HIGH-LEVERAGE tasks.
 
@@ -1999,7 +2023,7 @@ INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If yo
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: "Perform the audit and generate thoughts + tasks.",
+            contents: "Perform the audit and generate thoughts + tasks. STRICTLY ADHERE TO THE ANTI-HALLUCINATION RULES.",
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json"

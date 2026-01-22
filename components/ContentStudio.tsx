@@ -104,8 +104,14 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
         setIsWritingTweet(true);
         setGeneratedDraft('');
         try {
-            const draft = await generateTweet(writerTopic, brandName, brandConfig, writerTone);
-            setGeneratedDraft(draft);
+            const count = activeTab === 'writer' ? parseInt(variationCount) : 1;
+            const res = await generateTweet(writerTopic, brandName, brandConfig, writerTone, count);
+
+            if (Array.isArray(res)) {
+                setGeneratedDraft(res.join('\n\n' + '-'.repeat(40) + '\n\n'));
+            } else {
+                setGeneratedDraft(res);
+            }
         } catch (e) { setError('Failed to generate draft.'); } finally { setIsWritingTweet(false); }
     };
 
@@ -224,13 +230,14 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                                 </div>
                             </div>
 
-                            <Select label="Tone of Voice" value={writerTone} onChange={e => setWriterTone(e.target.value)} options={[{ value: 'Professional', label: 'Professional' }, { value: 'Hype', label: 'Hype / Degen' }, { value: 'Casual', label: 'Casual' }, { value: 'Educational', label: 'Educational' }]} />
-
-                            <div className="pt-4">
-                                <Button onClick={handleAIWrite} isLoading={isWritingTweet} disabled={!writerTopic} className="w-full h-12 text-sm shadow-xl shadow-brand-accent/10">
-                                    Generate Draft
-                                </Button>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Select label="Tone of Voice" value={writerTone} onChange={e => setWriterTone(e.target.value)} options={[{ value: 'Professional', label: 'Professional' }, { value: 'Hype', label: 'Hype / Degen' }, { value: 'Casual', label: 'Casual' }, { value: 'Educational', label: 'Educational' }]} />
+                                <Select label="Variations" value={variationCount} onChange={e => setVariationCount(e.target.value)} options={[{ value: '1', label: '1 Option' }, { value: '3', label: '3 Options' }, { value: '5', label: '5 Options' }]} />
                             </div>
+
+                            <Button onClick={handleAIWrite} isLoading={isWritingTweet} disabled={!writerTopic} className="w-full py-3 shadow-lg shadow-indigo-500/20">
+                                Generate Drafts
+                            </Button>
                         </div>
                     )}
 
