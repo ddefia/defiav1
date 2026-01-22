@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../Button';
 import { BrandConfig, ChatMessage, ChatIntentResponse, CalendarEvent, StrategyTask, GrowthReport } from '../../types';
-import { classifyAndPopulate } from '../../services/gemini';
+import { classifyAndPopulate, generateGeneralChatResponse } from '../../services/gemini';
 import { generateCampaignDrafts, generateWeb3Graphic } from '../../services/gemini';
 import { CampaignCard } from './ActionCards/CampaignCard';
 import { ImagePreviewCard } from './ActionCards/ImagePreviewCard';
@@ -63,17 +63,26 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
 
             // 2. Prepare AI Response Placeholder
             const aiMsgId = `ai-${Date.now()}`;
-
-            // 3. Execute Based on Intent (Orchestration Layer)
-            let aiContent = classification.thoughtProcess || "Processing request...";
+            let aiContent = "";
             let cardData = null;
 
+            // 3. LOGIC BRANCHING
             if (classification.type === 'MISSING_INFO') {
                 aiContent = classification.missingInfo ? classification.missingInfo[0] : "Could you provide more details?";
-            } else if (classification.type === 'CREATE_CAMPAIGN') {
-                aiContent = `Drafting campaign regarding: ${classification.params?.campaignTopic}...`;
-            } else if (classification.type === 'GENERATE_IMAGE') {
-                aiContent = `Generating visual for: ${classification.params?.imagePrompt}...`;
+            }
+            else if (classification.type === 'GENERAL_CHAT') {
+                // --- NEW: Call the dedicated Q&A engine ---
+                aiContent = await generateGeneralChatResponse(history, brandConfig, marketingContext);
+            }
+            else if (classification.type === 'CREATE_CAMPAIGN') {
+                aiContent = `Drafting campaign regarding: ${classification.params?.campaignTopic || 'your topic'}...`;
+            }
+            else if (classification.type === 'GENERATE_IMAGE') {
+                aiContent = `Generating visual for: ${classification.params?.imagePrompt || 'your idea'}...`;
+            }
+            else {
+                // Fallback for weird edge cases or analysis
+                aiContent = classification.thoughtProcess || "Processing...";
             }
 
             const aiMsg: ChatMessage = {
@@ -100,31 +109,30 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#09090b] text-zinc-100 relative overflow-hidden font-sans">
-
+        <div className="flex flex-col h-full bg-gray-50 text-gray-900 relative overflow-hidden font-sans">
             {/* HEADER */}
-            <div className="absolute top-0 inset-x-0 h-16 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md z-30 flex items-center justify-between px-6">
+            <div className="absolute top-0 inset-x-0 h-16 border-b border-gray-200 bg-white/95 backdrop-blur-md z-30 flex items-center justify-between px-6 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center shadow-md shadow-purple-500/20">
                         <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                     </div>
                     <div>
-                        <h1 className="text-sm font-semibold text-white tracking-wide">Copilot</h1>
-                        <p className="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Active Agent for {brandName}</p>
+                        <h1 className="text-sm font-bold text-gray-900 tracking-tight">Copilot</h1>
+                        <p className="text-[10px] text-gray-500 font-medium tracking-wide uppercase">Active Agent for {brandName}</p>
                     </div>
                 </div>
             </div>
 
             {/* CHAT STREAM */}
-            <div className="flex-1 overflow-y-auto pt-24 pb-32 px-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+            <div className="flex-1 overflow-y-auto pt-24 pb-32 px-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent custom-scrollbar">
                 <div className="max-w-3xl mx-auto space-y-8">
                     {messages.map((msg) => (
                         <div key={msg.id} className={`group flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn duration-300`}>
 
                             {/* AI AVATAR */}
                             {msg.role === 'assistant' && (
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center mt-1">
-                                    <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center mt-1 shadow-sm">
+                                    <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                                 </div>
                             )}
 
@@ -136,8 +144,8 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                                 <div className={`
                                     px-6 py-4 rounded-2xl text-[15px] leading-relaxed shadow-sm
                                     ${msg.role === 'user'
-                                        ? 'bg-[#2F2F2F] text-white rounded-tr-sm'
-                                        : 'bg-transparent text-zinc-100 pl-0'}
+                                        ? 'bg-white text-gray-900 border border-gray-100 rounded-tr-sm'
+                                        : 'bg-transparent text-gray-700 pl-0'}
                                 `}>
                                     <p className="whitespace-pre-wrap">{msg.content}</p>
 
@@ -145,12 +153,12 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                                     {msg.intent && msg.role === 'assistant' && (
                                         <div className="mt-5 space-y-4">
                                             {msg.intent.uiCard === 'CampaignCard' && (
-                                                <div className="border border-white/10 rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+                                                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-lg shadow-gray-200/50 bg-white">
                                                     <CampaignCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
                                                 </div>
                                             )}
                                             {msg.intent.uiCard === 'ImageCard' && (
-                                                <div className="border border-white/10 rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+                                                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-lg shadow-gray-200/50 bg-white">
                                                     <ImagePreviewCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
                                                 </div>
                                             )}
@@ -164,13 +172,13 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
 
                     {isThinking && (
                         <div className="flex gap-4 animate-pulse">
-                            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center mt-1">
-                                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-ping"></span>
+                            <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center mt-1 shadow-sm">
+                                <span className="w-2 h-2 bg-purple-500 rounded-full animate-ping"></span>
                             </div>
                             <div className="flex items-center gap-1.5 mt-2.5">
-                                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></div>
-                                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce delay-75"></div>
-                                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce delay-150"></div>
+                                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-75"></div>
+                                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-150"></div>
                             </div>
                         </div>
                     )}
@@ -179,11 +187,11 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
             </div>
 
             {/* INPUT AREA */}
-            <div className="absolute bottom-0 inset-x-0 pb-8 pt-20 bg-gradient-to-t from-[#09090b] via-[#09090b]/90 to-transparent z-20 pointer-events-none">
+            <div className="absolute bottom-0 inset-x-0 pb-8 pt-20 bg-gradient-to-t from-gray-50 via-gray-50/90 to-transparent z-20 pointer-events-none">
                 <div className="max-w-3xl mx-auto px-4 pointer-events-auto">
                     <div className="relative group">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
-                        <div className="relative flex items-end gap-2 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-2">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-200 to-blue-200 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                        <div className="relative flex items-end gap-2 bg-white border border-gray-200 rounded-2xl shadow-xl shadow-gray-200/50 p-2">
 
                             {/* TEXTAREA (Auto-growing could be added, keeping simple input for now but styled better) */}
                             <input
@@ -192,7 +200,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                                 placeholder="Message Copilot..."
-                                className="w-full bg-transparent border-none text-white placeholder-zinc-500 focus:ring-0 py-3 px-4 text-[15px]"
+                                className="w-full bg-transparent border-none text-gray-900 placeholder-gray-400 focus:ring-0 py-3 px-4 text-[15px]"
                                 autoFocus
                             />
 
@@ -203,14 +211,14 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                                 className={`
                                     p-2 rounded-xl flex-shrink-0 transition-all duration-200
                                     ${input.trim()
-                                        ? 'bg-white text-black hover:bg-gray-200'
-                                        : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'}
+                                        ? 'bg-gray-900 text-white hover:bg-black shadow-md'
+                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'}
                                 `}
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
                             </button>
                         </div>
-                        <p className="text-center text-[10px] text-zinc-600 mt-3 font-medium">
+                        <p className="text-center text-[10px] text-gray-400 mt-3 font-medium">
                             Copilot can make mistakes. Check important information.
                         </p>
                     </div>

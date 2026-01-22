@@ -2490,3 +2490,53 @@ export const classifyAndPopulate = async (
         };
     }
 };
+
+/**
+ * GENERAL CHAT: Answers questions using the Brand Context & Knowledge Base.
+ */
+export const generateGeneralChatResponse = async (
+    userHistory: { role: string, content: string }[],
+    brandContext: BrandConfig,
+    marketingContext?: { calendar: any[], tasks: any[], report: any }
+): Promise<string> => {
+    dispatchThinking(`🤖 Copilot: Consulting Knowledge Base...`);
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    const kb = brandContext.knowledgeBase.join('\n');
+
+    const systemPrompt = `
+    You are the "Copilot" for ${brandContext.name}, a helpful AI assistant for the marketing team.
+    
+    YOUR KNOWLEDGE BASE (Source of Truth):
+    ${kb}
+
+    LIVE CONTEXT:
+    - Active Campaigns: ${marketingContext?.calendar.length || 0}
+    - Pending Tasks: ${marketingContext?.tasks.length || 0}
+    
+    INSTRUCTIONS:
+    - Answer the user's question based strictly on the KNOWLEDGE BASE and CONTEXT.
+    - If the answer is not in the knowledge base, admit it but try to be helpful based on general crypto knowledge.
+    - Be concise, professional, and friendly.
+    - Do NOT talk about "classification", "intents", or "json". Just answer.
+    `;
+
+    try {
+        // Simplified Single Turn approach for stability with this SDK version
+        // Or use the standard generateContent with history as context in the prompt
+        const contextHistory = userHistory.map(h => `${h.role}: ${h.content}`).join('\n');
+        const fullPrompt = `${systemPrompt}\n\nCHAT HISTORY:\n${contextHistory}\n\nAssistant:`;
+
+        const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        });
+
+        return result.text || "I'm thinking...";
+
+    } catch (e) {
+        console.error("General Chat Failed", e);
+        return "Sorry, I'm having trouble connecting to my brain right now.";
+    }
+};
