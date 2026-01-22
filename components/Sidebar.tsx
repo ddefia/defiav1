@@ -27,7 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             group: 'Overview',
             items: [
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
-                // { id: 'copilot', label: 'Copilot', icon: 'sparkles' }, // RESET: Hidden
+                { id: 'copilot', label: 'Copilot', icon: 'sparkles' }, // NEW
                 { id: 'brain', label: 'Strategy', icon: 'brain' },
                 { id: 'growth', label: 'Growth', icon: 'trending-up' },
                 { id: 'analytics', label: 'Analytics', icon: 'bar-chart' },

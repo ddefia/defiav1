@@ -783,16 +783,16 @@ const App: React.FC = () => {
                     <ImageEditor brandConfig={profiles[selectedBrand]} brandName={selectedBrand} />
                 )}
 
-                {/* SECTION: COPILOT (RESET: Disabled) */}
-                {/* {appSection === 'copilot' && selectedBrand && (
-                    <CopilotPage 
-                        brandName={selectedBrand} 
-                        brandConfig={profiles[selectedBrand]} 
+                {/* SECTION: COPILOT */}
+                {appSection === 'copilot' && selectedBrand && (
+                    <CopilotPage
+                        brandName={selectedBrand}
+                        brandConfig={profiles[selectedBrand]}
                         calendarEvents={calendarEvents}
                         strategyTasks={strategyTasks}
                         growthReport={growthReport}
                     />
-                )} */}
+                )}
 
                 {/* ONBOARDING MODAL */}
                 {showOnboarding && (
