@@ -120,6 +120,9 @@ const App: React.FC = () => {
             !t.title.includes("Customer Segmentation") &&
             !t.title.includes("Value Proposition") &&
             !t.title.includes("Go-to-Market") &&
+            !t.title.includes("Project Phoenix") &&
+            !t.title.includes("Canvas of Nations") &&
+            !t.title.includes("Operation Bootstrap") &&
             !t.title.startsWith("Autopilot:") // Catch-all
         );
         setStrategyTasks(CLEAN_TASKS);

@@ -230,17 +230,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </BCard>
 
-                        {/* GROWTH ANALYTICS */}
+                        {/* GROWTH ANALYTICS -> ON-CHAIN INTELLIGENCE */}
                         <BCard>
                             <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Growth Analytics</h3>
-                                <button onClick={() => onNavigate('analytics')} className="text-xs font-bold text-black hover:opacity-70">Full Report →</button>
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">On-Chain Activity</h3>
+                                <button onClick={() => onNavigate('analytics')} className="text-xs font-bold text-black hover:opacity-70">
+                                    {chainMetrics?.activeWallets ? 'Full Report →' : 'Connect Wallet →'}
+                                </button>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 relative overflow-hidden group">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Net New Wallets</span>
-                                    <span className="text-xl font-bold text-black">{chainMetrics?.netNewWallets ? `+${chainMetrics.netNewWallets}` : '0'}</span>
+                                    <span className="text-xl font-bold text-black relative z-10">
+                                        {chainMetrics?.netNewWallets ? `+${chainMetrics.netNewWallets}` : '0'}
+                                    </span>
+                                    {/* Empty State visual hint */}
+                                    {!chainMetrics?.netNewWallets && <div className="absolute inset-0 bg-gray-50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[9px] text-gray-400 transition-opacity">No Data</div>}
                                 </div>
                                 <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Retention</span>
@@ -251,19 +257,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center text-xs font-medium">
                                     <span className="text-gray-500">Twitter Growth</span>
-                                    <span className="text-green-600 font-bold">+12%</span>
+                                    {socialMetrics?.comparison ? (
+                                        <span className={`${socialMetrics.comparison.followersChange >= 0 ? 'text-green-600' : 'text-red-500'} font-bold`}>
+                                            {socialMetrics.comparison.followersChange >= 0 ? '+' : ''}{socialMetrics.comparison.followersChange}%
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-300">--</span>
+                                    )}
                                 </div>
                                 <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                                    <div className="bg-black h-full w-[12%] rounded-full"></div>
+                                    <div
+                                        className="bg-black h-full rounded-full transition-all duration-500"
+                                        style={{ width: `${Math.min(100, Math.abs(socialMetrics?.comparison?.followersChange || 0) * 5)}%` }}
+                                    ></div>
                                 </div>
                                 <div className="flex justify-between items-center text-xs font-medium mt-2">
-                                    <span className="text-gray-500">On-Chain Volume</span>
-                                    <span className="text-gray-400 font-bold">0%</span>
+                                    <span className="text-gray-500">On-Chain Vol (Est)</span>
+                                    <span className="text-gray-400 font-bold">
+                                        {chainMetrics?.totalVolume ? `$${(chainMetrics.totalVolume / 1000000).toFixed(1)}M` : '--'}
+                                    </span>
                                 </div>
                                 <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
                                     <div className="bg-gray-300 h-full w-[2%] rounded-full"></div>
                                 </div>
                             </div>
+
                         </BCard>
                     </div>
                 </div>
