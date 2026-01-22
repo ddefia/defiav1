@@ -2015,10 +2015,12 @@ INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If yo
                 "description": "One sentence strategic directive.",
                 "reasoning": "Why this wins. (e.g. 'Competitors are ignoring X, we attack Y').",
                 "reasoningSteps": ["1. Signal Detected", "2. Narrative Angle Selected", "3. Execution Strategy"],
+                "strategicAlignment": "How this aligns with our Q1 Goals (e.g. 'Supports TVL Growth objective').",
+                "contentIdeas": ["Unique Angle 1 (e.g. Thread)", "Unique Angle 2 (e.g. Visual)", "Unique Angle 3 (e.g. Meme)"],
                 "impactScore": 1-10,
                 "executionPrompt": "Specific writing instruction for the Copywriter agent...",
                 "contextData": [
-                    { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 9 }
+                    { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 0.9 }
                 ],
                 "suggestedVisualTemplate": "Campaign Launch" | "Partnership" | "Deep Dive" | "Meme", 
                 "suggestedReferenceIds": ["ref-123"]
