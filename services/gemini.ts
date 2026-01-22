@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType } from "../types";
 import { saveBrainLog } from "./storage";
 import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
 
@@ -2395,4 +2395,89 @@ export const executeMarketingAction = async (context: BrainContext): Promise<Mar
     }
 
     return results;
+};
+
+/**
+ * COPILOT: Classifies user intent and populates tool parameters.
+ */
+export const classifyAndPopulate = async (
+    userHistory: { role: string, content: string }[],
+    brandContext: BrandConfig,
+    marketingContext?: { calendar: any[], tasks: any[], report: any }
+): Promise<ChatIntentResponse> => {
+    dispatchThinking(`🤖 Copilot: Analyzing user intent...`);
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Latest user message
+    const lastMessage = userHistory[userHistory.length - 1].content;
+
+    // Summarize Context for the LLM
+    const activeCampaigns = marketingContext?.calendar.filter(c => c.status === 'scheduled').length || 0;
+    const pendingTasks = marketingContext?.tasks.filter(t => t.type).length || 0;
+    const contextSummary = `
+    LIVE DATA:
+    - Active Campaigns (Scheduled): ${activeCampaigns}
+    - Pending Strategy Tasks: ${pendingTasks}
+    - Recent Growth Report: ${marketingContext?.report ? "Available" : "None"}
+    `;
+
+    const systemPrompt = `
+    You are the "Orchestrator" for Defia Studio, a professional Web3 Marketing Platform.
+    Your goal is to understand the user's intent and specific tool they want to use.
+
+    AVAILABLE TOOLS:
+    1. GENERATE_IMAGE: Creating visuals, banners, memes, or graphics.
+       - Params: imagePrompt (string), imageStyle (optional), imageAspectRatio (1:1, 16:9, 4:5).
+    2. CREATE_CAMPAIGN: planning content, tweets, or strategy.
+       - Params: campaignTopic (string), campaignTheme (optional).
+    3. ANALYZE_MARKET: Looking for trends, analyzing sentiment, or researching.
+       - Params: analysisTopic (string).
+    4. GENERAL_CHAT: Just talking, asking "how to", or greetings.
+       - Params: N/A.
+
+    BRAND CONTEXT:
+    Name: ${brandContext.name || "Unknown"}
+    Voice: ${brandContext.voiceGuidelines || "Standard"}
+
+    ${contextSummary}
+
+    INSTRUCTIONS:
+    1. Analyze the conversation history, focusing on the LAST message: "${lastMessage}".
+    2. Determine the Intent.
+    3. EXTRACT defined parameters.
+    4. MISSING INFO CHECK:
+       - If the user says "Create a campaign" but gives NO topic -> Intent: MISSING_INFO, missingInfo: ["What is the campaign about?"]
+       - If the user says "Make a logo" but gives NO style -> Intent: GENERATE_IMAGE (Style is optional, default to "Professional").
+       - Only block with MISSING_INFO if you absolutely cannot proceed without it (e.g. Empty Topic).
+
+    OUTPUT FORMAT (JSON ONLY):
+    {
+      "type": "GENERATE_IMAGE" | "CREATE_CAMPAIGN" | "GENERAL_CHAT" | "MISSING_INFO",
+      "params": { ... },
+      "missingInfo": ["Question 1?"], 
+      "thoughtProcess": "Brief reasoning",
+      "uiCard": "CampaignCard" | "ImageCard" | null
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{ role: 'user', parts: [{ text: JSON.stringify(userHistory) + "\n\n" + systemPrompt }] }],
+            config: { responseMimeType: "application/json" }
+        });
+
+        const text = response.text || "{}";
+        const parsed = JSON.parse(text);
+        return parsed as ChatIntentResponse;
+
+    } catch (e) {
+        console.error("Copilot Classification Failed", e);
+        return {
+            type: 'GENERAL_CHAT',
+            thoughtProcess: "Error in classification fallback.",
+            params: {}
+        };
+    }
 };

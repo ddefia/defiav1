@@ -19,6 +19,7 @@ import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
 import { BrainPage } from './components/Brain/BrainPage'; // Import BrainPage
 import { ContentStudio } from './components/ContentStudio'; // Import ContentStudio
 import { ImageEditor } from './components/ImageEditor'; // Import ImageEditor
+import { CopilotPage } from './components/Copilot/CopilotPage'; // Import Copilot
 import { Sidebar } from './components/Sidebar';
 import { Settings } from './components/Settings'; // Import Settings
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals } from './types';
@@ -273,53 +274,66 @@ const App: React.FC = () => {
                 const ragContextDocs = ragHits.map(h => h.content); // Extract just strings
 
                 // 4. UNIFIED BRAIN EXECUTION (Autopilot)
-                setSystemLogs(prev => ["GAIA: Engaging Unified Brain...", ...prev]);
+                // STABILITY FIX: Only run if we don't have existing tasks to prevent "churn"
+                const existingTasks = loadStrategyTasks(selectedBrand);
+                const hasFreshTasks = existingTasks.length > 0;
 
-                // Construct the Context Object
-                const brainContext = {
-                    brand: { ...profiles[selectedBrand], name: selectedBrand },
-                    marketState: {
-                        trends: trends,
-                        analytics: socialMetrics || undefined,
-                        mentions: mentions
-                    },
-                    memory: {
-                        ragDocs: ragContextDocs,
-                        recentPosts: socialMetrics?.recentPosts || [],
-                        pastStrategies: strategyTasks
-                    },
-                    userObjective: "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
-                };
-
-                // Execute the Cognitive Loop
-                const actions = await executeMarketingAction(brainContext);
-
-                // Process Results
-                if (actions.length > 0) {
-                    setSystemLogs(prev => [`Autopilot: Executed ${actions.length} strategic actions.`, ...prev]);
-
-                    // Convert Actions to Strategy Tasks for UI Visibility
-                    const newTasks: StrategyTask[] = actions.map(act => ({
-                        id: `auto-${Date.now()}-${Math.random()}`,
-                        type: 'CAMPAIGN_IDEA', // Default bucket
-                        title: act.hook || `GAIA Strategy: ${act.topic}`,
-                        description: `Goal: ${act.goal}`,
-                        reasoning: act.reasoning || `GAIA determined this was high leverage based on market context.`,
-                        impactScore: 9,
-                        executionPrompt: act.topic,
-                        suggestedVisualTemplate: 'Partnership', // Placeholder
-                        strategicAlignment: act.strategicAlignment,
-                        contentIdeas: act.contentIdeas
-                    }));
-
-                    setStrategyTasks(prev => {
-                        // FILTER LEGACY: Remove any old "Autopilot:" tasks to ensure freshness
-                        const cleanPrev = prev.filter(t => !t.title.startsWith("Autopilot:"));
-                        return [...newTasks, ...cleanPrev];
-                    });
+                if (hasFreshTasks) {
+                    setSystemLogs(prev => ["GAIA: Strategies active. Skipping new generation.", ...prev]);
                 } else {
-                    setSystemLogs(prev => ["Autopilot: No high-confidence actions needed right now.", ...prev]);
-                }
+                    setSystemLogs(prev => ["GAIA: Engaging Unified Brain...", ...prev]);
+
+                    // Construct the Context Object
+                    const brainContext = {
+                        brand: { ...profiles[selectedBrand], name: selectedBrand },
+                        marketState: {
+                            trends: trends,
+                            analytics: socialMetrics || undefined,
+                            mentions: mentions
+                        },
+                        memory: {
+                            ragDocs: ragContextDocs,
+                            recentPosts: socialMetrics?.recentPosts || [],
+                            pastStrategies: strategyTasks
+                        },
+                        userObjective: "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
+                    };
+
+                    // Execute the Cognitive Loop
+                    const actions = await executeMarketingAction(brainContext);
+
+                    // Process Results
+                    if (actions.length > 0) {
+                        setSystemLogs(prev => [`Autopilot: Executed ${actions.length} strategic actions.`, ...prev]);
+
+                        const newTasks: StrategyTask[] = actions.map(action => ({
+                            id: crypto.randomUUID(),
+                            title: action.hook || `Strategy: ${action.topic}`,
+                            description: action.reasoning || `Execute ${action.type.toLowerCase()} for ${action.goal}`,
+                            status: 'pending',
+                            type: action.type as any, // Cast to avoid literal mismatch, or map explicitly if needed
+                            contextSource: {
+                                type: 'TREND',
+                                source: 'Market Pulse',
+                                headline: action.topic
+                            },
+                            impactScore: 85,
+                            executionPrompt: action.topic,
+                            suggestedVisualTemplate: 'Auto',
+                            reasoning: action.reasoning,
+                            strategicAlignment: action.strategicAlignment,
+                            contentIdeas: action.contentIdeas
+                        })).slice(0, 5); // STRICT LIMIT: Max 5 new tasks
+
+                        setStrategyTasks(prev => {
+                            const updated = [...newTasks, ...prev].slice(0, 7); // Hard cap global list
+                            saveStrategyTasks(selectedBrand, updated);
+                            return updated;
+                        });
+                    } else {
+                        setSystemLogs(prev => ["Autopilot: No high-confidence actions needed right now.", ...prev]);
+                    }
+                } // End else block for hasFreshTasks
 
             } catch (e) {
                 console.error("Auto-pilot analysis failed", e);
@@ -766,6 +780,17 @@ const App: React.FC = () => {
                 {/* SECTION: IMAGE EDITOR */}
                 {appSection === 'image-editor' && selectedBrand && profiles[selectedBrand] && (
                     <ImageEditor brandConfig={profiles[selectedBrand]} brandName={selectedBrand} />
+                )}
+
+                {/* SECTION: COPILOT */}
+                {appSection === 'copilot' && selectedBrand && (
+                    <CopilotPage
+                        brandName={selectedBrand}
+                        brandConfig={profiles[selectedBrand]}
+                        calendarEvents={calendarEvents}
+                        strategyTasks={strategyTasks}
+                        growthReport={growthReport}
+                    />
                 )}
 
                 {/* ONBOARDING MODAL */}

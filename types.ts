@@ -384,6 +384,7 @@ export interface MarketingAction {
   hook?: string; // New: Punchy internal title
 }
 
+
 export interface ActionPlan {
   analysis: AnalysisReport;
   actions: {
@@ -397,3 +398,42 @@ export interface ActionPlan {
     contentIdeas?: string[]; // New
   }[];
 }
+
+// --- COPILOT / CHAT TYPES ---
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+  intent?: ChatIntentResponse; // Associated structured data
+  isThinking?: boolean;
+}
+
+export type CopilotIntentType =
+  | 'GENERAL_CHAT'
+  | 'CREATE_CAMPAIGN'
+  | 'GENERATE_IMAGE'
+  | 'ANALYZE_MARKET'
+  | 'MISSING_INFO'; // Needs follow-up
+
+export interface ChatIntentResponse {
+  type: CopilotIntentType;
+  // Dynamic parameters based on type
+  params?: {
+    // Campaign Params
+    campaignTopic?: string;
+    campaignTheme?: string;
+
+    // Image Params
+    imagePrompt?: string;
+    imageStyle?: string;
+    imageAspectRatio?: AspectRatio;
+
+    // Analysis Params
+    analysisTopic?: string;
+  };
+  missingInfo?: string[]; // Questions to ask user if incomplete
+  thoughtProcess?: string; // AI reasoning for debug/UI
+  uiCard?: 'CampaignCard' | 'ImageCard' | 'TrendCard'; // Hint for UI rendering
+}
+
