@@ -12,9 +12,10 @@ interface CopilotViewProps {
     calendarEvents: CalendarEvent[];
     strategyTasks: StrategyTask[];
     growthReport: GrowthReport | null; // Nullable
+    onNavigate: (section: string, params: any) => void;
 }
 
-export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig, calendarEvents, strategyTasks, growthReport }) => {
+export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig, calendarEvents, strategyTasks, growthReport, onNavigate }) => {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
@@ -189,7 +190,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                                         <div className="mt-5 space-y-4">
                                             {msg.intent.uiCard === 'CampaignCard' && (
                                                 <div className="border border-gray-200 rounded-xl overflow-hidden shadow-lg shadow-gray-200/50 bg-white">
-                                                    <CampaignCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
+                                                    <CampaignCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} onNavigate={onNavigate} />
                                                 </div>
                                             )}
                                             {msg.intent.uiCard === 'ImageCard' && (

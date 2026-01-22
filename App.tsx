@@ -791,6 +791,7 @@ const App: React.FC = () => {
                         calendarEvents={calendarEvents}
                         strategyTasks={strategyTasks}
                         growthReport={growthReport}
+                        onNavigate={handleNavigate}
                     />
                 )}
 
