@@ -289,9 +289,9 @@ const App: React.FC = () => {
                     const newTasks: StrategyTask[] = actions.map(act => ({
                         id: `auto-${Date.now()}-${Math.random()}`,
                         type: 'CAMPAIGN_IDEA', // Default bucket
-                        title: `Autopilot: ${act.topic}`,
-                        description: `Generated ${act.type} based on market analysis. Goal: ${act.goal}`,
-                        reasoning: `Autopilot determined this was high leverage.`,
+                        title: act.hook || `GAIA Strategy: ${act.topic}`,
+                        description: `Goal: ${act.goal}`,
+                        reasoning: act.reasoning || `GAIA determined this was high leverage based on market context.`,
                         impactScore: 9,
                         executionPrompt: act.topic,
                         suggestedVisualTemplate: 'Partnership', // Placeholder

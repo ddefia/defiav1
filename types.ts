@@ -347,6 +347,8 @@ export interface MarketingAction {
   topic: string;
   goal: string;
   content: any; // Final output (JSON or String)
+  reasoning?: string; // New: Why this specific action?
+  hook?: string; // New: Punchy internal title
 }
 
 export interface ActionPlan {
@@ -356,5 +358,7 @@ export interface ActionPlan {
     topic: string;
     goal: string;
     instructions: string;
+    reasoning?: string; // New
+    hook?: string; // New
   }[];
 }
