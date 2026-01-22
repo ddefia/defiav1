@@ -199,15 +199,15 @@ const App: React.FC = () => {
 
                 // 2b. Update Live Signals (Prioritize High Velocity / AI Signals)
                 // Filter for high relevance (>80) or LunarCrush AI signals
-                const highVelocityTrends = trends.filter(t => t.relevanceScore > 80 || t.source.includes('LunarCrush'));
+                // GAIA FILTER: Only show highly relevant (>85) items to reduce noise
+                const highVelocityTrends = trends.filter(t => t.relevanceScore > 85);
 
                 const liveSignals: SocialSignals = {
                     ...computeSocialSignals(trends, mentions, socialMetrics || undefined),
-                    trendingTopics: highVelocityTrends.length > 0 ? highVelocityTrends : trends.slice(0, 5) // Override with full trend objects
+                    trendingTopics: highVelocityTrends.length > 0 ? highVelocityTrends : trends.slice(0, 3) // Fallback to top 3 if no super-high trends
                 };
                 setSocialSignals(liveSignals);
 
-                // 2c. Generate Growth Report (Daily Briefing) - REAL TIME w/ CACHE (6h)
                 // 2c. Generate Growth Report (Daily Briefing) - REAL TIME w/ CACHE (6h)
                 // FIX: Check storage directly if state is empty to avoid race condition on mount
                 let currentReport = growthReport;
@@ -238,12 +238,12 @@ const App: React.FC = () => {
                 const reportAge = currentReport?.lastUpdated ? Date.now() - currentReport.lastUpdated : null;
                 const hoursOld = reportAge ? (reportAge / (1000 * 60 * 60)).toFixed(1) : "NEW";
 
-                setSystemLogs(prev => [`Analysis: Verifying Briefing Freshness (Age: ${hoursOld}h)...`, ...prev]);
+                setSystemLogs(prev => [`GAIA: Verifying Briefing Freshness (Age: ${hoursOld}h)...`, ...prev]);
 
                 const isStale = !reportAge || reportAge > 6 * 60 * 60 * 1000; // 6 Hours (4x per day)
 
                 if (!currentReport || isStale) {
-                    setSystemLogs(prev => ["Analysis: Report is stale or missing. Generating Daily Briefing...", ...prev]);
+                    setSystemLogs(prev => ["GAIA: Report is stale or missing. Generating Daily Briefing...", ...prev]);
                     try {
                         const freshReport = await generateGrowthReport(selectedBrand, trends, mentions, profiles[selectedBrand]);
                         setGrowthReport(freshReport);
@@ -251,7 +251,7 @@ const App: React.FC = () => {
                         console.error("Failed to generate growth report", err);
                     }
                 } else {
-                    setSystemLogs(prev => ["Analysis: Daily Briefing is fresh. Skipping generation.", ...prev]);
+                    setSystemLogs(prev => ["GAIA: Daily Briefing is fresh. Skipping generation.", ...prev]);
                 }
 
                 // 3. RAG Memory Retrieval
@@ -260,7 +260,7 @@ const App: React.FC = () => {
                 const ragContextDocs = ragHits.map(h => h.content); // Extract just strings
 
                 // 4. UNIFIED BRAIN EXECUTION (Autopilot)
-                setSystemLogs(prev => ["Autopilot: Engaging Unified Brain...", ...prev]);
+                setSystemLogs(prev => ["GAIA: Engaging Unified Brain...", ...prev]);
 
                 // Construct the Context Object
                 const brainContext = {

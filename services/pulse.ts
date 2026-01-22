@@ -51,12 +51,28 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
         // 3. Take Top 5 Actionable Topics (e.g. AI, Gaming, Tech)
         // Filter out generic filler if needed (e.g. "Country" names if they appear and aren't relevant), 
         // but broadly topics are good signals.
-        const topTopics = topics.slice(0, 5);
+        // 3. Take Top 10 Topics (Increased from 5 to allow filtering)
+        const candidates = topics.slice(0, 15);
+
+        // BLACKLIST: Generic consumer terms that pollute the "Smart CMO" vibe
+        const BLACKLIST = ['roblox', 'fortnite', 'minecraft', 'youtube', 'tiktok', 'netflix', 'disney', 'marvel', 'taylor swift'];
+        const WHITELIST = ['crypto', 'nft', 'web3', 'token', 'blockchain', 'defi', 'wallet', 'mining', 'airdrop'];
+
+        const filteredTopics = candidates.filter((t: any) => {
+            const topic = t.topic.toLowerCase();
+            // If it's a known generic term, ONLY allow if it explicitly mentions crypto keywords in the same object context (if available)
+            // For now, strict blacklist to be safe.
+            if (BLACKLIST.some(b => topic.includes(b))) {
+                // Check whitelist overrides if we had descriptions, but simpler to just nuke them for now.
+                return false;
+            }
+            return true;
+        }).slice(0, 5); // Take top 5 VALID ones
 
         // 4. Enrich with REAL NEWS (The "Why")
-        const enrichedTrends = await Promise.all(topTopics.map(async (t: any) => {
+        const enrichedTrends = await Promise.all(filteredTopics.map(async (t: any) => {
             const topicName = t.topic;
-            let context = `High momentum topic. 24h Interactions: ${(t.interactions_24h || 0).toLocaleString()}`;
+            let context = `Market Movement: High social volume detected for ${topicName}.`;
             let headline = `${topicName} Trending`;
 
             try {
@@ -72,9 +88,9 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
                     if (stories.length > 0) {
                         const topStory = stories[0];
                         // Use the News Title as the summary logic
-                        context = `News: ${topStory.post_title}`;
+                        context = `Insight: ${topStory.post_title}`;
                         if (topStory.creator_display_name) {
-                            context += ` (via ${topStory.creator_display_name})`;
+                            context += ` (Source: ${topStory.creator_display_name})`;
                         }
                     }
                 }
@@ -82,18 +98,18 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
                 console.warn(`News fetch failed for ${topicName}`, e);
             }
 
-            let aiReasoning = "AI Signal: Emerging Trend";
+            let aiReasoning = "GAIA: Monitoring emerging narrative.";
             const volume = t.interactions_24h || 0;
-            if (volume > 100000) aiReasoning = "AI Signal: Viral / High Velocity";
-            else if (volume > 50000) aiReasoning = "AI Signal: Strong Momentum";
-            else if (volume > 10000) aiReasoning = "AI Signal: Growing Interest";
+            if (volume > 100000) aiReasoning = "GAIA: High Velocity Event (Viral)";
+            else if (volume > 50000) aiReasoning = "GAIA: Strong Sector Momentum";
+            else if (volume > 10000) aiReasoning = "GAIA: Growing Interest Signal";
 
             return {
                 id: `lc-topic-${topicName}`,
-                source: 'LunarCrush AI', // Explicitly label as AI data
+                source: 'LunarCrush',
                 headline: headline,
                 summary: context,
-                relevanceScore: Math.min(99, 70 + Math.floor(volume / 5000) + Math.floor(Math.random() * 5)), // Score weighted by volume
+                relevanceScore: Math.min(99, 75 + Math.floor(volume / 5000)), // Base score higher for valid topics
                 relevanceReason: aiReasoning,
                 sentiment: 'Neutral',
                 timestamp: 'Live',

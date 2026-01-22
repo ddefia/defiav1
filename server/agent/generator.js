@@ -77,8 +77,16 @@ export const generateDailyBriefing = async (brandId) => {
     ]);
 
     // 3. Prepare Prompt (Replicating Frontend Logic)
+    // FILTER: Apply GAIA strict filtering to backend trends too
+    const BLACKLIST = ['roblox', 'fortnite', 'minecraft', 'youtube', 'tiktok', 'netflix', 'disney', 'marvel', 'taylor swift'];
+
     const significantTrends = trends
-        .filter(t => t.relevanceScore > 70)
+        .filter(t => t.relevanceScore > 70) // Base relevance
+        .filter(t => {
+            const topic = t.headline ? t.headline.toLowerCase() : "";
+            const matchesBlacklist = BLACKLIST.some(b => topic.includes(b));
+            return !matchesBlacklist; // Remove if matches blacklist
+        })
         .slice(0, 5)
         .map(t => `- ${t.headline} (${t.source}): ${t.summary}`)
         .join('\n');
