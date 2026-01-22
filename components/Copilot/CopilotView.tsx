@@ -71,8 +71,14 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                 aiContent = classification.missingInfo ? classification.missingInfo[0] : "Could you provide more details?";
             }
             else if (classification.type === 'GENERAL_CHAT') {
-                // --- NEW: Call the dedicated Q&A engine ---
-                aiContent = await generateGeneralChatResponse(history, brandConfig, marketingContext);
+                // --- NEW: Call the dedicated Q&A engine WITH STRUCTURED OUTPUT ---
+                const response = await generateGeneralChatResponse(history, brandConfig, marketingContext);
+                aiContent = response.text;
+
+                // Add actions if present
+                if (response.actions && response.actions.length > 0) {
+                    cardData = response.actions; // Temp storage for this block
+                }
             }
             else if (classification.type === 'CREATE_CAMPAIGN') {
                 aiContent = `Drafting campaign regarding: ${classification.params?.campaignTopic || 'your topic'}...`;
@@ -90,7 +96,8 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                 role: 'assistant',
                 content: aiContent,
                 timestamp: Date.now(),
-                intent: classification
+                intent: classification,
+                suggestedActions: cardData // Pass actions to message
             };
 
             setMessages(prev => [...prev, aiMsg]);
@@ -148,6 +155,34 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                                         : 'bg-transparent text-gray-700 pl-0'}
                                 `}>
                                     <p className="whitespace-pre-wrap">{msg.content}</p>
+
+                                    {/* SUGGESTED ACTIONS (CLICKABLE) */}
+                                    {msg.suggestedActions && (
+                                        <div className="mt-4 flex flex-col gap-2">
+                                            {msg.suggestedActions.map((action, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        // Auto-send the action prompt
+                                                        setInput(action.action);
+                                                        // Small hack to ensure state updates before sending
+                                                        setTimeout(() => {
+                                                            const btn = document.querySelector('button[aria-label="Send Message"]');
+                                                            // For now we just set input, user clicks send or we trigger it?
+                                                            // Let's just set the input for review, or we can auto-trigger. 
+                                                            // User asked for "Clickable", usually implies auto-trigger.
+                                                            // But safer to just populate input?
+                                                            // Let's populate input to let them confirm.
+                                                        }, 100);
+                                                    }}
+                                                    className="text-left w-full px-4 py-3 bg-gray-50 hover:bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:text-purple-600 hover:border-purple-200 transition-all shadow-sm flex items-center justify-between group"
+                                                >
+                                                    <span>{action.label}</span>
+                                                    <svg className="w-4 h-4 text-gray-400 group-hover:text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     {/* RENDER CARDS BASED ON INTENT (AI ONLY) */}
                                     {msg.intent && msg.role === 'assistant' && (

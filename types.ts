@@ -385,6 +385,7 @@ export interface ChatMessage {
   timestamp: number;
   intent?: ChatIntentResponse; // Associated structured data
   isThinking?: boolean;
+  suggestedActions?: { label: string, action: string }[]; // New: Clickable options for the user
 }
 
 export type CopilotIntentType =

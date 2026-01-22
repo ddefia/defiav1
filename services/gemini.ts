@@ -2502,7 +2502,7 @@ export const generateGeneralChatResponse = async (
     userHistory: { role: string, content: string }[],
     brandContext: BrandConfig,
     marketingContext?: { calendar: any[], tasks: any[], report: any }
-): Promise<string> => {
+): Promise<{ text: string, actions?: { label: string, action: string }[] }> => {
     dispatchThinking(`🤖 Copilot: Consulting Knowledge Base...`);
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
@@ -2528,9 +2528,20 @@ export const generateGeneralChatResponse = async (
     SPECIAL MODES:
     - **BRAINSTORMING**: If the user asks for help thinking, ideas, or brainstorming:
       1. Consult the Knowledge Base for context.
-      2. Propose 3 distinct, high-level "strategic angles" or ideas.
-      3. For each idea, explain WHY it fits the brand.
-      4. Ask the user which one they prefer, or if they have a different goal.
+      2. PROPOSE 3 distinct "strategic angles" or ideas.
+      3. For each idea, provide a "label" (short title) and an "action" (full prompt to execute it).
+
+    OUTPUT FORMAT:
+    You must return a JSON object.
+    {
+      "text": "Your conversational response here...",
+      "actions": [
+        { "label": "Draft Tech Deep Dive", "action": "Draft a technical thread about Decentralized Sequencers" },
+        { "label": "Create Meme Campaign", "action": "Create a viral meme campaign about Enki staking" }
+      ]
+    }
+    
+    Always use this JSON format. If no actions are relevant, return an empty array for "actions".
     `;
 
     try {
@@ -2542,12 +2553,19 @@ export const generateGeneralChatResponse = async (
         const result = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+            config: { responseMimeType: "application/json" }
         });
 
-        return result.text || "I'm thinking...";
+        const rawText = result.text || "{}";
+        try {
+            return JSON.parse(rawText);
+        } catch (e) {
+            // Fallback if model fails to return JSON
+            return { text: rawText, actions: [] };
+        }
 
     } catch (e) {
         console.error("General Chat Failed", e);
-        return "Sorry, I'm having trouble connecting to my brain right now.";
+        return { text: "Sorry, I'm having trouble connecting to my brain right now.", actions: [] };
     }
 };
