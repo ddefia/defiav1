@@ -22,6 +22,7 @@ export interface BrandConfig {
   referenceImages: ReferenceImage[];
   tweetExamples: string[]; // List of "Gold Standard" tweets for style
   knowledgeBase: string[]; // List of text content (docs/whitepapers)
+  name?: string; // New: Brand Name (injected from ID)
   voiceGuidelines?: string; // New: Tone/Voice instructions (e.g. "Formal, Trustworthy")
   targetAudience?: string; // New: Who is this for? (e.g. "Institutions")
   bannedPhrases?: string[]; // New: Words to never use
@@ -392,5 +393,7 @@ export interface ActionPlan {
     instructions: string;
     reasoning?: string; // New
     hook?: string; // New
+    strategicAlignment?: string; // New
+    contentIdeas?: string[]; // New
   }[];
 }

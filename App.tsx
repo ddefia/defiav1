@@ -274,7 +274,7 @@ const App: React.FC = () => {
 
                 // Construct the Context Object
                 const brainContext = {
-                    brand: profiles[selectedBrand],
+                    brand: { ...profiles[selectedBrand], name: selectedBrand },
                     marketState: {
                         trends: trends,
                         analytics: socialMetrics || undefined,

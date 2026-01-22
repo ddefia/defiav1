@@ -2219,7 +2219,7 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
     - OBJECTIVE: "${context.userObjective}"
     - TRENDS: ${context.marketState.trends.slice(0, 5).map(t => t.headline).join(', ')}
     - PERFORMANCE: ${context.marketState.analytics ? `Top Post: ${context.marketState.analytics.topPost}` : 'No Data'}
-    - KNOWLEDGE: ${context.memory.ragDocs.join('\n').slice(0, 500)}... (truncated)
+    - KNOWLEDGE: ${context.memory.ragDocs.join('\n')}
 
     TASK: Analyze the situation.
     1. Identify the core "Market Vibe" (Bearish/Bullish/Hype/Quiet).
@@ -2339,13 +2339,13 @@ export const executeMarketingAction = async (context: BrainContext): Promise<Mar
 
             content = await generateTweet(
                 enhancedTopic,
-                'Enki', // TODO: Get from context.brand
+                context.brand.name || 'Defia Studio',
                 context.brand,
                 "Professional"
             );
         } else if (action.type === 'CAMPAIGN') {
             // Use Campaign generator
-            const res = await generateCampaignDrafts(action.topic, 'Enki', context.brand, 3);
+            const res = await generateCampaignDrafts(action.topic, context.brand.name || 'Defia Studio', context.brand, 3);
             content = res.drafts;
         } else {
             content = "Unsupported Action Type";
