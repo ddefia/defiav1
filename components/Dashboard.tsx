@@ -232,52 +232,52 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="w-2.5 h-2.5 rounded-full bg-[#FFBD2E]"></div>
                             <div className="w-2.5 h-2.5 rounded-full bg-[#27C93F]"></div>
                         </div>
-                        <span className="text-[10px] text-gray-600 font-mono">zsh — 80x24</span>
-                </div>
+                        <span className="text-[10px] text-gray-600 font-mono mb-2 block">zsh — 80x24</span>
 
-                <div className="flex-1 font-mono text-[10px] leading-5 text-gray-400 overflow-y-auto pb-4 scrollbar-hide">
-                    {systemLogs.length === 0 ? (
-                        <div className="opacity-50">
-                            <span className="text-green-500">➜</span> <span className="text-white">~</span> initializing core systems...<br />
-                            <span className="text-green-500">➜</span> <span className="text-white">~</span> connected to neural engine.<br />
-                            <span className="text-green-500">➜</span> <span className="text-white">~</span> awaiting input_
-                        </div>
-                    ) : (
-                        systemLogs.map((log, i) => (
-                            <div key={i} className="flex gap-2">
-                                <span className="text-[#444] select-none shrink-0">{new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}</span>
-                                <span className="text-gray-300">
-                                    {i === 0 ? <span className="text-white font-bold">{log}</span> : log}
-                                </span>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-
-            {/* ACTIVE TASKS MINI */}
-            {
-                strategyTasks.length > 0 && (
-                    <div>
-                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 pl-2">Active Directives</h3>
-                        <div className="space-y-3">
-                            {strategyTasks.slice(0, 3).map(task => (
-                                <div key={task.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-start gap-4 hover:shadow-md transition-shadow cursor-pointer">
-                                    <div className="flex-1">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <h4 className="text-sm font-bold text-black">{task.title}</h4>
-                                            <span className="text-[10px] font-bold text-white bg-black px-1.5 py-0.5 rounded">{task.impactScore}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-500 line-clamp-1">{task.description}</p>
-                                    </div>
+                        <div className="flex-1 font-mono text-[10px] leading-5 text-gray-400 overflow-y-auto pb-4 scrollbar-hide">
+                            {systemLogs.length === 0 ? (
+                                <div className="opacity-50">
+                                    <span className="text-green-500">➜</span> <span className="text-white">~</span> initializing core systems...<br />
+                                    <span className="text-green-500">➜</span> <span className="text-white">~</span> connected to neural engine.<br />
+                                    <span className="text-green-500">➜</span> <span className="text-white">~</span> awaiting input_
                                 </div>
-                            ))}
+                            ) : (
+                                systemLogs.map((log, i) => (
+                                    <div key={i} className="flex gap-2">
+                                        <span className="text-[#444] select-none shrink-0">{new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}</span>
+                                        <span className="text-gray-300">
+                                            {i === 0 ? <span className="text-white font-bold">{log}</span> : log}
+                                        </span>
+                                    </div>
+                                ))
+                            )}
                         </div>
-                    </div>
-                )
-            }
-        </div >
+                    </BCard>
+                </div>
+
+                {/* ACTIVE TASKS MINI */}
+                {
+                    strategyTasks.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 pl-2">Active Directives</h3>
+                            <div className="space-y-3">
+                                {strategyTasks.slice(0, 3).map(task => (
+                                    <div key={task.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-start gap-4 hover:shadow-md transition-shadow cursor-pointer">
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className="text-sm font-bold text-black">{task.title}</h4>
+                                                <span className="text-[10px] font-bold text-white bg-black px-1.5 py-0.5 rounded">{task.impactScore}</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 line-clamp-1">{task.description}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )
+                }
             </div >
+        </div >
         </div >
     );
 };
