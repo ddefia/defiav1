@@ -105,9 +105,13 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
     };
 
     return (
-        <div className="flex flex-col h-full bg-brand-bg text-brand-text relative overflow-hidden">
+        <div className="flex flex-col h-full bg-black text-white relative overflow-hidden font-sans">
+            {/* Background Effects */}
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-900/20 rounded-full blur-[128px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[128px] pointer-events-none" />
+
             {/* HEADER */}
-            <div className="p-6 border-b border-brand-border flex items-center justify-between bg-brand-surface/50 backdrop-blur-md z-10">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between bg-black/40 backdrop-blur-xl z-20">
                 <div>
                     <h1 className="text-2xl font-display font-bold text-white flex items-center gap-3">
                         <span className="w-3 h-3 bg-purple-500 rounded-full animate-pulse shadow-[0_0_10px_#A855F7]"></span>
@@ -118,27 +122,49 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
             </div>
 
             {/* CHAT STREAM */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-8 relative z-10">
                 {messages.map((msg) => (
-                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-2xl p-4 rounded-xl ${msg.role === 'user' ? 'bg-brand-accent text-white rounded-br-none' : 'bg-brand-surface border border-brand-border rounded-bl-none'}`}>
-                            <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                        <div className={`
+                            max-w-2xl p-5 rounded-2xl shadow-lg transition-all hover:scale-[1.01]
+                            ${msg.role === 'user'
+                                ? 'bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-br-sm'
+                                : 'bg-white/5 border border-white/10 backdrop-blur-xl text-gray-100 rounded-bl-sm'}
+                        `}>
+                            <div className="flex items-center gap-3 mb-2 opacity-50 text-[10px] uppercase tracking-wider font-bold">
+                                {msg.role === 'assistant' && (
+                                    <>
+                                        <span className="w-4 h-4 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-[8px] text-white">AI</span>
+                                        <span>Copilot Intelligence</span>
+                                    </>
+                                )}
+                                {msg.role === 'user' && <span>You</span>}
+                            </div>
+                            <p className="whitespace-pre-wrap leading-relaxed text-sm font-light tracking-wide">{msg.content}</p>
+
                             {/* RENDER CARDS BASED ON INTENT */}
-                            {msg.intent && msg.intent.uiCard === 'CampaignCard' && (
-                                <CampaignCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
-                            )}
-                            {msg.intent && msg.intent.uiCard === 'ImageCard' && (
-                                <ImagePreviewCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
+                            {msg.intent && (
+                                <div className="mt-4 pt-4 border-t border-white/10">
+                                    {msg.intent.uiCard === 'CampaignCard' && (
+                                        <CampaignCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
+                                    )}
+                                    {msg.intent.uiCard === 'ImageCard' && (
+                                        <ImagePreviewCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
                 ))}
                 {isThinking && (
-                    <div className="flex justify-start">
-                        <div className="bg-brand-surface border border-brand-border rounded-xl rounded-bl-none p-4 flex items-center gap-2">
-                            <span className="w-2 h-2 bg-brand-muted rounded-full animate-bounce"></span>
-                            <span className="w-2 h-2 bg-brand-muted rounded-full animate-bounce delay-100"></span>
-                            <span className="w-2 h-2 bg-brand-muted rounded-full animate-bounce delay-200"></span>
+                    <div className="flex justify-start animate-fadeIn">
+                        <div className="bg-white/5 border border-white/10 rounded-2xl rounded-bl-sm p-4 flex items-center gap-3 backdrop-blur-md">
+                            <div className="flex space-x-1.5">
+                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce"></div>
+                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce delay-75"></div>
+                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce delay-150"></div>
+                            </div>
+                            <span className="text-xs text-purple-200 font-medium">Analyzing Intent...</span>
                         </div>
                     </div>
                 )}

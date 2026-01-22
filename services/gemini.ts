@@ -2445,17 +2445,24 @@ export const classifyAndPopulate = async (
     INSTRUCTIONS:
     1. Analyze the conversation history, focusing on the LAST message: "${lastMessage}".
     2. Determine the Intent.
-    3. EXTRACT defined parameters.
-    4. MISSING INFO CHECK:
-       - If the user says "Create a campaign" but gives NO topic -> Intent: MISSING_INFO, missingInfo: ["What is the campaign about?"]
-       - If the user says "Make a logo" but gives NO style -> Intent: GENERATE_IMAGE (Style is optional, default to "Professional").
-       - Only block with MISSING_INFO if you absolutely cannot proceed without it (e.g. Empty Topic).
+    3. DETECT VAGUENESS (CRITICALLY IMPORTANT):
+       - If the user asks for "content" or "campaign" found GENERIC TOPIC -> Return MISSING_INFO.
+       - If the user asks for "image" but no visual details -> Return MISSING_INFO.
+       - DO NOT GUESS. If you are 90% sure, ask to confirm. 
+       - Users prefer to be asked "What style of image?" rather than getting a random one.
+
+    4. EXAMPLE FLOWS:
+       - User: "Make a tweet about ETH"
+       - You: Intent: MISSING_INFO, missingInfo: ["What is the specific angle? (Bullish, Bearish, Tech update?)", "Should I focus on price or dev activity?"]
+       
+       - User: "Make a cyberpunk banner for our new token launch"
+       - You: Intent: GENERATE_IMAGE (Params: prompt="cyberpunk banner new token launch", style="Cyberpunk", ratio="16:9")
 
     OUTPUT FORMAT (JSON ONLY):
     {
       "type": "GENERATE_IMAGE" | "CREATE_CAMPAIGN" | "GENERAL_CHAT" | "MISSING_INFO",
       "params": { ... },
-      "missingInfo": ["Question 1?"], 
+      "missingInfo": ["Question 1?", "Question 2?"], 
       "thoughtProcess": "Brief reasoning",
       "uiCard": "CampaignCard" | "ImageCard" | null
     }
