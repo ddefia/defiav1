@@ -146,7 +146,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
         setIsExecuting(configuringTask.id);
 
         try {
-            const copy = await generateTweet(configuringTask.executionPrompt, brandName, brandConfig, 'Professional');
+            const result = await generateTweet(configuringTask.executionPrompt, brandName, brandConfig, 'Professional');
+            const copy = Array.isArray(result) ? result[0] : result;
             setGeneratedDraft(copy);
         } catch (e) {
             console.error(e);
@@ -353,8 +354,8 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                         <div key={i} className="p-3 rounded-lg border border-gray-100 bg-gray-50 group hover:border-purple-200 transition-colors">
                                             <div className="flex justify-between items-start mb-2">
                                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase ${data.type === 'TREND' ? 'bg-orange-50 text-orange-600 border-orange-100' :
-                                                        data.type === 'METRIC' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                            'bg-gray-100 text-gray-600 border-gray-200'
+                                                    data.type === 'METRIC' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                        'bg-gray-100 text-gray-600 border-gray-200'
                                                     }`}>{data.type}</span>
                                                 <span className="text-[9px] font-mono text-gray-400">{data.source}</span>
                                             </div>
@@ -376,7 +377,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase bg-blue-50 text-blue-600 border-blue-100">Metric</span>
                                                 <span className="text-[9px] font-mono text-gray-400">DefiLlama</span>
                                             </div>
-                                            <p className="text-xs font-bold text-gray-800 mb-1">Sector TVL Growth > 5%</p>
+                                            <p className="text-xs font-bold text-gray-800 mb-1">Sector TVL Growth &gt; 5%</p>
                                             <p className="text-[10px] text-gray-500">Strong momentum in yield aggregator category.</p>
                                         </div>
                                         <div className="p-3 rounded-lg border border-gray-100 bg-gray-50">
