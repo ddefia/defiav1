@@ -308,15 +308,26 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                                     "Identify high-leverage narrative opportunity.",
                                     "Formulate action plan for maximum impact."
                                 ]).map((step, i) => (
-                                    <div key={i} className="flex gap-3 relative">
+                                    <div key={i} className="flex gap-3 relative group/step pb-6">
                                         {/* Connector Line */}
                                         {i !== (configuringTask.reasoningSteps?.length || 3) - 1 && (
-                                            <div className="absolute left-[5px] top-6 bottom-[-16px] w-px bg-gray-100"></div>
+                                            <div className="absolute left-[5px] top-6 bottom-[-8px] w-px bg-gray-100"></div>
                                         )}
                                         <div className="w-2.5 h-2.5 rounded-full bg-blue-100 border border-blue-500 shrink-0 mt-1.5 relative z-10"></div>
                                         <div>
                                             <span className="text-[10px] font-bold text-blue-600 uppercase mb-0.5 block">Step 0{i + 1}</span>
-                                            <p className="text-xs text-gray-700 font-medium">{step}</p>
+                                            <p className="text-xs text-gray-700 font-medium mb-1.5">{step}</p>
+
+                                            {/* REFERENCE / CITATION INLINE */}
+                                            {configuringTask.contextData && configuringTask.contextData[i] && (
+                                                <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded px-1.5 py-1 w-fit mt-1">
+                                                    <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider">Ref</span>
+                                                    <div className="w-px h-2 bg-gray-200"></div>
+                                                    <span className="text-[9px] text-gray-600 font-mono truncate max-w-[150px]">
+                                                        {configuringTask.contextData[i].source}: {configuringTask.contextData[i].headline}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

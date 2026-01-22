@@ -71,12 +71,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
             if (classification.type === 'MISSING_INFO') {
                 aiContent = classification.missingInfo ? classification.missingInfo[0] : "Could you provide more details?";
             } else if (classification.type === 'CREATE_CAMPAIGN') {
-                // Trigger Campaign Generation
                 aiContent = `Drafting campaign regarding: ${classification.params?.campaignTopic}...`;
-                // Ideally we call the real tool here or show a "Drafting..." card
-                // For MVP Deep Integration, we can effectively call the service if we want instant results
-                // Or we ask for confirmation.
-                // Let's implement "Instant Preview"
             } else if (classification.type === 'GENERATE_IMAGE') {
                 aiContent = `Generating visual for: ${classification.params?.imagePrompt}...`;
             }
@@ -95,7 +90,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
             console.error(e);
             setMessages(prev => [...prev, {
                 id: `err-${Date.now()}`,
-                role: 'assistant', // Fallback
+                role: 'assistant',
                 content: "Sorry, I encountered an error processing that request.",
                 timestamp: Date.now()
             }]);
@@ -105,92 +100,123 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
     };
 
     return (
-        <div className="flex flex-col h-full bg-black text-white relative overflow-hidden font-sans">
-            {/* Background Effects */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-900/20 rounded-full blur-[128px] pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[128px] pointer-events-none" />
+        <div className="flex flex-col h-full bg-[#09090b] text-zinc-100 relative overflow-hidden font-sans">
 
             {/* HEADER */}
-            <div className="p-6 border-b border-white/5 flex items-center justify-between bg-black/40 backdrop-blur-xl z-20">
-                <div>
-                    <h1 className="text-2xl font-display font-bold text-white flex items-center gap-3">
-                        <span className="w-3 h-3 bg-purple-500 rounded-full animate-pulse shadow-[0_0_10px_#A855F7]"></span>
-                        Copilot
-                    </h1>
-                    <p className="text-brand-muted text-sm">Orchestrating growth for {brandName}</p>
+            <div className="absolute top-0 inset-x-0 h-16 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md z-30 flex items-center justify-between px-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </div>
+                    <div>
+                        <h1 className="text-sm font-semibold text-white tracking-wide">Copilot</h1>
+                        <p className="text-[10px] text-zinc-400 font-medium tracking-wider uppercase">Active Agent for {brandName}</p>
+                    </div>
                 </div>
             </div>
 
             {/* CHAT STREAM */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-8 relative z-10">
-                {messages.map((msg) => (
-                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
-                        <div className={`
-                            max-w-2xl p-5 rounded-2xl shadow-lg transition-all hover:scale-[1.01]
-                            ${msg.role === 'user'
-                                ? 'bg-gradient-to-br from-purple-600 to-blue-600 text-white rounded-br-sm'
-                                : 'bg-white/5 border border-white/10 backdrop-blur-xl text-gray-100 rounded-bl-sm'}
-                        `}>
-                            <div className="flex items-center gap-3 mb-2 opacity-50 text-[10px] uppercase tracking-wider font-bold">
-                                {msg.role === 'assistant' && (
-                                    <>
-                                        <span className="w-4 h-4 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-[8px] text-white">AI</span>
-                                        <span>Copilot Intelligence</span>
-                                    </>
-                                )}
-                                {msg.role === 'user' && <span>You</span>}
-                            </div>
-                            <p className="whitespace-pre-wrap leading-relaxed text-sm font-light tracking-wide">{msg.content}</p>
+            <div className="flex-1 overflow-y-auto pt-24 pb-32 px-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+                <div className="max-w-3xl mx-auto space-y-8">
+                    {messages.map((msg) => (
+                        <div key={msg.id} className={`group flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn duration-300`}>
 
-                            {/* RENDER CARDS BASED ON INTENT */}
-                            {msg.intent && (
-                                <div className="mt-4 pt-4 border-t border-white/10">
-                                    {msg.intent.uiCard === 'CampaignCard' && (
-                                        <CampaignCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
-                                    )}
-                                    {msg.intent.uiCard === 'ImageCard' && (
-                                        <ImagePreviewCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
-                                    )}
+                            {/* AI AVATAR */}
+                            {msg.role === 'assistant' && (
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center mt-1">
+                                    <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                ))}
-                {isThinking && (
-                    <div className="flex justify-start animate-fadeIn">
-                        <div className="bg-white/5 border border-white/10 rounded-2xl rounded-bl-sm p-4 flex items-center gap-3 backdrop-blur-md">
-                            <div className="flex space-x-1.5">
-                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce"></div>
-                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce delay-75"></div>
-                                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce delay-150"></div>
+
+                            {/* MESSAGE BUBBLE */}
+                            <div className={`
+                                max-w-[85%] relative
+                                ${msg.role === 'user' ? 'flex flex-row-reverse gap-3' : ''}
+                            `}>
+                                <div className={`
+                                    px-6 py-4 rounded-2xl text-[15px] leading-relaxed shadow-sm
+                                    ${msg.role === 'user'
+                                        ? 'bg-[#2F2F2F] text-white rounded-tr-sm'
+                                        : 'bg-transparent text-zinc-100 pl-0'}
+                                `}>
+                                    <p className="whitespace-pre-wrap">{msg.content}</p>
+
+                                    {/* RENDER CARDS BASED ON INTENT (AI ONLY) */}
+                                    {msg.intent && msg.role === 'assistant' && (
+                                        <div className="mt-5 space-y-4">
+                                            {msg.intent.uiCard === 'CampaignCard' && (
+                                                <div className="border border-white/10 rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+                                                    <CampaignCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
+                                                </div>
+                                            )}
+                                            {msg.intent.uiCard === 'ImageCard' && (
+                                                <div className="border border-white/10 rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+                                                    <ImagePreviewCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <span className="text-xs text-purple-200 font-medium">Analyzing Intent...</span>
+
                         </div>
-                    </div>
-                )}
-                <div ref={messagesEndRef} />
+                    ))}
+
+                    {isThinking && (
+                        <div className="flex gap-4 animate-pulse">
+                            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center mt-1">
+                                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-ping"></span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-2.5">
+                                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></div>
+                                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce delay-75"></div>
+                                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce delay-150"></div>
+                            </div>
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
             </div>
 
             {/* INPUT AREA */}
-            <div className="p-6 border-t border-brand-border bg-brand-bg relative z-20">
-                <div className="relative max-w-4xl mx-auto">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder="Ask Copilot to create a campaign, generate an image, or analyze trends..."
-                        className="w-full bg-brand-surface border border-brand-border rounded-2xl py-4 pl-6 pr-16 text-white placeholder-brand-muted focus:outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all shadow-xl"
-                    />
-                    <button
-                        onClick={handleSend}
-                        disabled={!input.trim() || isThinking}
-                        className="absolute right-2 top-2 bottom-2 aspect-square bg-brand-accent hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center transition-all"
-                    >
-                        Start
-                    </button>
+            <div className="absolute bottom-0 inset-x-0 pb-8 pt-20 bg-gradient-to-t from-[#09090b] via-[#09090b]/90 to-transparent z-20 pointer-events-none">
+                <div className="max-w-3xl mx-auto px-4 pointer-events-auto">
+                    <div className="relative group">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                        <div className="relative flex items-end gap-2 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-2">
+
+                            {/* TEXTAREA (Auto-growing could be added, keeping simple input for now but styled better) */}
+                            <input
+                                type="text"
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                placeholder="Message Copilot..."
+                                className="w-full bg-transparent border-none text-white placeholder-zinc-500 focus:ring-0 py-3 px-4 text-[15px]"
+                                autoFocus
+                            />
+
+                            {/* SEND BUTTON */}
+                            <button
+                                onClick={handleSend}
+                                disabled={!input.trim() || isThinking}
+                                className={`
+                                    p-2 rounded-xl flex-shrink-0 transition-all duration-200
+                                    ${input.trim()
+                                        ? 'bg-white text-black hover:bg-gray-200'
+                                        : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'}
+                                `}
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
+                        <p className="text-center text-[10px] text-zinc-600 mt-3 font-medium">
+                            Copilot can make mistakes. Check important information.
+                        </p>
+                    </div>
                 </div>
             </div>
+
         </div>
     );
 };

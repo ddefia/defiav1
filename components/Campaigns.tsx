@@ -905,1015 +905,1017 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const approvedCount = campaignItems.filter(i => i.isApproved).length;
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
+        <div className="w-full min-h-screen bg-black text-zinc-100 p-8 font-sans">
+            <div className="max-w-7xl mx-auto space-y-8">
 
-            {/* Header */}
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-display font-bold text-brand-text">Campaigns</h1>
-                    <p className="text-brand-muted">Manage multi-post strategic campaigns.</p>
-                </div>
-                {viewMode === 'list' && (
-                    <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }} className="shadow-lg shadow-brand-accent/20">
-                        + New Campaign
-                    </Button>
-                )}
-                {viewMode === 'wizard' && (
-                    <Button onClick={() => setViewMode('list')} variant="secondary">
-                        Back to List
-                    </Button>
-                )}
-            </div>
-
-            {/* LIST VIEW */}
-            {viewMode === 'list' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {activeCampaigns.map((camp, idx) => (
-                        <div key={idx} className="bg-white border border-brand-border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="font-bold text-lg text-brand-text break-words line-clamp-2">{camp.name}</h3>
-                                <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase">{camp.status}</span>
-                            </div>
-                            <div className="space-y-2 mb-6">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-brand-muted">Posts</span>
-                                    <span className="font-medium">{camp.count}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-brand-muted">Latest Date</span>
-                                    <span className="font-medium">{camp.nextDate}</span>
-                                </div>
-                            </div>
-                            <div className="flex gap-2 mt-4">
-                                <Button variant="secondary" className="flex-1 text-xs" onClick={() => setViewingCampaignDetails(camp.name)}>View Posts</Button>
-                                <Button variant="outline" className="text-xs px-2" onClick={() => setAnalyzingCampaign(camp.name)} title="Analytics">Stats</Button>
-                                <Button variant="secondary" className="text-xs px-2" onClick={() => handleExportCSV(camp.name)} title="Download CSV">CSV</Button>
-                                <Button variant="secondary" className="text-xs px-2" onClick={() => handleExportPDF(camp.name)} title="Download PDF">PDF</Button>
-                            </div>
-                        </div>
-                    ))}
-                    {activeCampaigns.length === 0 && (
-                        <div className="col-span-full py-12 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 rounded-xl">
-                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-3xl">🎯</div>
-                            <h3 className="text-xl font-bold text-brand-text">No Active Campaigns</h3>
-                            <p className="text-brand-muted max-w-md mt-2 mb-6">
-                                Campaigns allow you to schedule a sequence of posts around a specific theme or launch.
-                            </p>
-                            <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }}>Start Your First Campaign</Button>
-                        </div>
+                {/* Header */}
+                <div className="flex justify-between items-end border-b border-white/10 pb-6">
+                    <div>
+                        <h1 className="text-3xl font-display font-bold text-white tracking-tight mb-2">Campaigns</h1>
+                        <p className="text-zinc-400 text-sm max-w-lg">Manage multi-post strategic campaigns. Plan, draft, and execute content sequences from a single command center.</p>
+                    </div>
+                    {viewMode === 'list' && (
+                        <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }} className="shadow-lg shadow-purple-500/20 bg-white text-black hover:bg-zinc-200 border-none">
+                            + New Campaign
+                        </Button>
+                    )}
+                    {viewMode === 'wizard' && (
+                        <Button onClick={() => setViewMode('list')} variant="secondary" className="bg-zinc-800 text-zinc-300 hover:text-white border-none">
+                            Back to List
+                        </Button>
                     )}
                 </div>
-            )}
 
-            {/* VIEW CAMPAIGN DETAILS MODAL */}
-            {viewingCampaignDetails && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fadeIn">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
-                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                            <div>
-                                <h3 className="font-bold text-lg text-brand-text">Campaign: {viewingCampaignDetails}</h3>
-                                <p className="text-xs text-brand-muted">Post Insights & Strategy Logic</p>
-                            </div>
-                            <button onClick={() => setViewingCampaignDetails(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                            {events.filter(e => e.campaignName === viewingCampaignDetails).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(post => {
-                                const refImage = post.referenceImageId ? brandConfig.referenceImages.find(r => r.id === post.referenceImageId) : null;
-                                return (
-                                    <details key={post.id} className="group bg-white border border-gray-200 rounded-lg open:shadow-md open:border-brand-accent/30 transition-all">
-                                        <summary className="p-4 cursor-pointer list-none flex items-start gap-3 select-none hover:bg-gray-50/50 transition-colors">
-                                            <div className="flex flex-col items-center min-w-[50px]">
-                                                <span className="text-[10px] font-bold text-brand-muted uppercase">{new Date(post.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                                                <span className={`w-2 h-2 rounded-full mt-1 ${post.status === 'published' ? 'bg-green-500' : 'bg-blue-400'}`}></span>
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm text-brand-text line-clamp-2 font-medium group-open:line-clamp-none">{post.content}</p>
-                                                <div className="flex gap-2 mt-1.5 opacity-0 group-open:opacity-100 transition-opacity">
-                                                    {post.reasoning && <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">HAS THINKING</span>}
-                                                    {post.referenceImageId && <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-bold">HAS REF IMAGE</span>}
-                                                </div>
-                                            </div>
-                                            <svg className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                                        </summary>
+                {/* LIST VIEW */}
+                {viewMode === 'list' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
+                        {activeCampaigns.map((camp, idx) => (
+                            <div key={idx} className="group bg-[#121214] border border-white/5 rounded-2xl p-6 hover:border-zinc-700 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/5 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-purple-500/10 transition-colors"></div>
 
-                                        <div className="p-4 pt-0 border-t border-gray-100 bg-gray-50/30">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div className="flex justify-between items-start mb-6 relative z-10">
+                                    <h3 className="font-bold text-lg text-white break-words line-clamp-2 pr-4">{camp.name}</h3>
+                                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">{camp.status}</span>
+                                </div>
 
-                                                {/* LEFT: STRATEGY */}
-                                                <div className="space-y-4">
-                                                    {/* Thinking */}
-                                                    <div>
-                                                        <label className="text-[9px] font-bold text-brand-muted uppercase flex items-center gap-1 mb-1">
-                                                            <span className="w-3 h-3 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-[8px]">🧠</span>
-                                                            AI Thinking
-                                                        </label>
-                                                        <div className="text-xs text-indigo-900/80 bg-indigo-50/50 border border-indigo-100 p-3 rounded-lg leading-relaxed whitespace-pre-wrap">
-                                                            {post.reasoning || "No strategic reasoning recorded."}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Template & Rules */}
-                                                    <div>
-                                                        <label className="text-[9px] font-bold text-brand-muted uppercase mb-1 block">Template Rule</label>
-                                                        <div className="text-xs text-brand-text bg-white border border-gray-200 p-2 rounded">
-                                                            {post.template || "Auto / Default"}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* RIGHT: VISUALS */}
-                                                <div className="space-y-4">
-                                                    {/* Visual Prompt */}
-                                                    <div>
-                                                        <label className="text-[9px] font-bold text-brand-muted uppercase flex items-center gap-1 mb-1">
-                                                            <span className="w-3 h-3 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-[8px]">🎨</span>
-                                                            Visual Prompt
-                                                        </label>
-                                                        <div className="text-xs text-gray-600 bg-white border border-gray-200 p-2 rounded italic">
-                                                            "{post.visualDescription || post.content}"
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Reference Image */}
-                                                    <div>
-                                                        <label className="text-[9px] font-bold text-brand-muted uppercase mb-1 block">Reference Anchor</label>
-                                                        {refImage ? (
-                                                            <div className="flex items-start gap-3 bg-white border border-gray-200 p-2 rounded-lg">
-                                                                <img src={refImage.url || refImage.data} className="w-16 h-16 object-cover rounded border border-gray-100" />
-                                                                <div>
-                                                                    <div className="text-xs font-bold text-brand-text">{refImage.name}</div>
-                                                                    <div className="text-[10px] text-brand-muted mt-1">ID: {refImage.id}</div>
-                                                                    <div className="text-[10px] text-green-600 mt-1 bg-green-50 inline-block px-1 rounded">Visual Style Enforced</div>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="text-xs text-gray-400 italic">No specific reference image linked.</div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </details>
-                                );
-                            })}
-
-                            {events.filter(e => e.campaignName === viewingCampaignDetails).length === 0 && (
-                                <div className="text-center py-10 text-brand-muted">No posts found for this campaign.</div>
-                            )}
-                        </div>
-                        <div className="p-3 border-t border-gray-100 bg-gray-50 text-right">
-                            <Button onClick={() => setViewingCampaignDetails(null)} variant="secondary" className="text-xs">Close</Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* WIZARD VIEW */}
-            {viewMode === 'wizard' && (
-                <div className="w-full animate-fadeIn transition-all duration-500">
-
-                    {/* WIZARD CONTAINER */}
-                    <div className={`mx-auto space-y-6 transition-all duration-500 ${campaignStep === 1 ? 'max-w-xl' : 'max-w-7xl'}`}>
-
-                        {/* Stepper */}
-                        <div className="flex items-center justify-between px-2 bg-white p-4 rounded-xl border border-brand-border shadow-sm">
-                            <div className={`flex flex-col items-center ${campaignStep >= 1 ? 'text-brand-accent' : 'text-gray-300'}`}>
-                                <div className="w-2 h-2 rounded-full bg-current mb-1" />
-                                <span className="text-[10px] font-bold">CONFIG</span>
-                            </div>
-                            <div className={`h-[1px] flex-1 mx-2 ${campaignStep >= 2 ? 'bg-brand-accent' : 'bg-gray-200'}`} />
-                            <div className={`flex flex-col items-center ${campaignStep >= 2 ? 'text-brand-accent' : 'text-gray-300'}`}>
-                                <div className="w-2 h-2 rounded-full bg-current mb-1" />
-                                <span className="text-[10px] font-bold">STRATEGY</span>
-                            </div>
-                            <div className={`h-[1px] flex-1 mx-2 ${campaignStep >= 3 ? 'bg-brand-accent' : 'bg-gray-200'}`} />
-                            <div className={`flex flex-col items-center ${campaignStep >= 3 ? 'text-brand-accent' : 'text-gray-300'}`}>
-                                <div className="w-2 h-2 rounded-full bg-current mb-1" />
-                                <span className="text-[10px] font-bold">REVIEW</span>
-                            </div>
-                            <div className={`h-[1px] flex-1 mx-2 ${campaignStep >= 4 ? 'bg-brand-accent' : 'bg-gray-200'}`} />
-                            <div className={`flex flex-col items-center ${campaignStep >= 4 ? 'text-brand-accent' : 'text-gray-300'}`}>
-                                <div className="w-2 h-2 rounded-full bg-current mb-1" />
-                                <span className="text-[10px] font-bold">DONE</span>
-                            </div>
-                        </div>
-
-                        {/* STEP 1: CONFIG */}
-                        {campaignStep === 1 && (
-                            <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-6">
-                                <div>
-                                    <label className="text-xs font-bold text-brand-muted uppercase mb-2 block">Campaign Type</label>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => setCampaignType('theme')}
-                                            className={`flex-1 py-2 text-xs rounded border transition-colors ${campaignType === 'theme' ? 'bg-brand-text text-white border-brand-text' : 'bg-white text-brand-text border-brand-border hover:bg-gray-50'}`}
-                                        >
-                                            Specific Theme
-                                        </button>
-                                        <button
-                                            onClick={() => setCampaignType('diverse')}
-                                            className={`flex-1 py-2 text-xs rounded border transition-colors ${campaignType === 'diverse' ? 'bg-brand-text text-white border-brand-text' : 'bg-white text-brand-text border-brand-border hover:bg-gray-50'}`}
-                                        >
-                                            Diverse Mix
-                                        </button>
-                                        <button
-                                            onClick={() => setCampaignType('notes')}
-                                            className={`flex-1 py-2 text-xs rounded border transition-colors ${campaignType === 'notes' ? 'bg-brand-accent text-white border-brand-accent' : 'bg-white text-brand-text border-brand-border hover:bg-gray-50'}`}
-                                        >
-                                            ✨ Smart Plan
-                                        </button>
+                                <div className="space-y-3 mb-8 relative z-10">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-zinc-500 font-medium">Posts</span>
+                                        <span className="font-mono text-zinc-300">{camp.count}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-zinc-500 font-medium">Latest Date</span>
+                                        <span className="font-mono text-zinc-300">{camp.nextDate}</span>
                                     </div>
                                 </div>
 
-                                {campaignType === 'theme' && (
-                                    <div>
-                                        <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Theme</label>
-                                        <input
-                                            type="text"
-                                            value={campaignTheme}
-                                            onChange={e => setCampaignTheme(e.target.value)}
-                                            placeholder="e.g. Protocol v2 Launch Week"
-                                            className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm"
-                                        />
-                                    </div>
-                                )}
-
-                                {campaignType === 'diverse' && (
-                                    <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-800">
-                                        <p className="font-bold mb-1">Diverse Mix Mode</p>
-                                        The AI will automatically generate a balanced week of content covering Education, Community, Market Insights, and Product Updates.
-                                    </div>
-                                )}
-
-                                {campaignType === 'notes' && (
-                                    <div>
-                                        <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Raw Content Notes</label>
-                                        <textarea
-                                            value={campaignContext}
-                                            onChange={e => setCampaignContext(e.target.value)}
-                                            placeholder="Paste your rough notes here (e.g. valid URLs, bullet points, specific instructions like 'No GMs' or 'Credit this user'). The AI will parse this into a structured plan."
-                                            className="w-full bg-indigo-50/50 border border-indigo-200 rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[150px] font-mono"
-                                        />
-                                        <p className="text-[10px] text-brand-muted mt-2">
-                                            The AI will extract links, identify rules, and create one post per item.
-                                        </p>
-                                    </div>
-                                )}
-
-
-                                {campaignType !== 'notes' && (
-                                    <>
-                                        <div>
-                                            <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Goal</label>
-                                            <Select
-                                                label="Campaign Goal"
-                                                value={campaignGoal}
-                                                onChange={(e) => setCampaignGoal(e.target.value)}
-                                                options={[
-                                                    { value: 'User Acquisition', label: 'User Acquisition' },
-                                                    { value: 'Brand Awareness', label: 'Brand Awareness' },
-                                                    { value: 'Community Engagement', label: 'Community Engagement' },
-                                                    { value: 'Product Education', label: 'Product Education' }
-                                                ]}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Campaign Scenario / Context (Optional)</label>
-                                            <textarea
-                                                value={campaignContext}
-                                                onChange={e => setCampaignContext(e.target.value)}
-                                                placeholder="Describe the specific situation (e.g., 'We are launching v2 next week and need to hype the new features...')"
-                                                className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[80px]"
-                                            />
-                                        </div>
-
-                                        {/* STRATEGIC FOCUS DOCUMENT */}
-                                        <div>
-                                            <div className="flex justify-between items-center mb-1">
-                                                <label className="text-xs font-bold text-brand-muted uppercase">Strategic Focus Document (Optional)</label>
-                                                <input
-                                                    type="file"
-                                                    ref={focusDocInputRef}
-                                                    onChange={handleFocusDocUpload}
-                                                    accept=".pdf,.txt,.md"
-                                                    className="hidden"
-                                                />
-                                                <button
-                                                    onClick={() => focusDocInputRef.current?.click()}
-                                                    disabled={isUploadingFocusDoc}
-                                                    className="text-[10px] text-brand-accent hover:underline flex items-center gap-1"
-                                                >
-                                                    {isUploadingFocusDoc ? 'Uploading...' : 'Upload PDF/Text'}
-                                                </button>
-                                            </div>
-                                            <textarea
-                                                value={campaignFocusDoc}
-                                                onChange={e => setCampaignFocusDoc(e.target.value)}
-                                                placeholder="Paste strategy text here or upload a document. The AI will prioritize this over general knowledge base."
-                                                className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm min-h-[100px]"
-                                            />
-                                        </div>
-
-                                    </>
-                                )}
-
-                                {/* Tweet Count Selector (Visible for ALL modes) */}
-                                <div>
-                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Tweet Count</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="50"
-                                        value={campaignCount}
-                                        onChange={e => setCampaignCount(e.target.value)}
-                                        className="w-full bg-white border border-brand-border rounded-lg p-2 text-sm text-brand-text focus:border-brand-accent outline-none shadow-sm"
-                                    />
-                                </div>
-
-                                <div className="space-y-4 pt-4 border-t border-brand-border">
-                                    {/* Visual Style Selection */}
-                                    <div>
-                                        <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Visual Style (Optional)</label>
-                                        <p className="text-[10px] text-brand-muted mb-2">Leave as "Default" to let AI automatically mix content types (images, threads, text) based on the post topic.</p>
-                                        <select
-                                            value={campaignTemplate}
-                                            onChange={(e) => setCampaignTemplate(e.target.value)}
-                                            className="w-full bg-white border border-brand-border rounded-lg p-2 text-xs text-brand-text outline-none"
-                                        >
-                                            <option value="">No Template (Default)</option>
-                                            {/* STRICT MODE: Only show defaults if NO custom templates exist */}
-                                            {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
-                                                <>
-                                                    <option value="Partnership">Partnership</option>
-                                                    <option value="Campaign">Campaign Launch</option>
-                                                    <option value="Giveaway">Giveaway</option>
-                                                    <option value="Events">Event</option>
-                                                    <option value="Speaker Scenes">Speaker Quote</option>
-                                                </>
-                                            )}
-                                            {/* Custom Templates */}
-                                            {(brandConfig.graphicTemplates || []).map(t => (
-                                                <option key={t.id} value={t.label}>{t.label} (Custom)</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Reference Image Selection */}
-                                    <div>
-                                        <label className="text-xs font-bold text-brand-muted uppercase mb-2 block">Reference Image (Optional)</label>
-                                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                                            <div
-                                                onClick={() => setCampaignReferenceImage(null)}
-                                                className={`flex-shrink-0 w-16 h-16 rounded border-2 cursor-pointer flex items-center justify-center bg-gray-50 ${!campaignReferenceImage ? 'border-brand-accent' : 'border-transparent'}`}
-                                            >
-                                                <span className="text-[10px] text-gray-400">None</span>
-                                            </div>
-                                            {brandConfig.referenceImages.map(img => (
-                                                <div
-                                                    key={img.id}
-                                                    onClick={() => setCampaignReferenceImage(campaignReferenceImage === img.id ? null : img.id)}
-                                                    className={`flex-shrink-0 w-16 h-16 rounded border-2 cursor-pointer overflow-hidden relative group ${campaignReferenceImage === img.id ? 'border-brand-accent' : 'border-transparent'}`}
-                                                    title={img.name}
-                                                >
-                                                    <img src={img.data || img.url} className="w-full h-full object-cover" />
-                                                    {campaignReferenceImage === img.id && (
-                                                        <div className="absolute inset-0 bg-brand-accent/20 flex items-center justify-center">
-                                                            <div className="w-2 h-2 bg-brand-accent rounded-full shadow-sm" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
+                                <div className="grid grid-cols-2 gap-2 relative z-10">
+                                    <Button variant="secondary" className="bg-zinc-900 border-white/5 text-zinc-400 hover:text-white text-xs h-9" onClick={() => setViewingCampaignDetails(camp.name)}>View Posts</Button>
+                                    <Button variant="outline" className="border-white/10 text-zinc-400 hover:text-white text-xs h-9" onClick={() => handleExportPDF(camp.name)}>Report PDF</Button>
+                                    <div className="col-span-2 grid grid-cols-2 gap-2">
+                                        <Button variant="secondary" className="bg-zinc-900 border-white/5 text-zinc-500 hover:text-white text-xs h-9" onClick={() => handleExportCSV(camp.name)}>CSV</Button>
+                                        <Button variant="secondary" className="bg-zinc-900 border-white/5 text-zinc-500 hover:text-white text-xs h-9" onClick={() => setAnalyzingCampaign(camp.name)}>Stats</Button>
                                     </div>
                                 </div>
-
-                                {error && (
-                                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-4 flex items-center gap-2 animate-fadeIn">
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                        {error}
-                                    </div>
-                                )}
-
-                                <Button onClick={handleGenerateStrategy} isLoading={isGeneratingStrategy} disabled={campaignType === 'theme' && !campaignTheme} className="w-full shadow-lg shadow-indigo-500/20">
-                                    {campaignType === 'notes' ? 'Analyze Notes & Create Plan' : 'Next: Generate Strategy'}
-                                </Button>
+                            </div>
+                        ))}
+                        {activeCampaigns.length === 0 && (
+                            <div className="col-span-full py-20 flex flex-col items-center justify-center text-center border border-dashed border-zinc-800 rounded-2xl bg-zinc-900/20">
+                                <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mb-6 border border-white/5">
+                                    <span className="text-4xl">🚀</span>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">No Active Campaigns</h3>
+                                <p className="text-zinc-500 max-w-md mb-8">
+                                    Start a new campaign to schedule a sequence of strategic posts.
+                                </p>
+                                <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }} className="bg-white text-black hover:bg-zinc-200">Start Campaign</Button>
                             </div>
                         )}
+                    </div>
+                )}
 
-                        {/* STEP 2: STRATEGY REVIEW & EDIT */}
-                        {/* STEP 2: STRATEGY REVIEW (READ ONLY SUMMARY) */}
-                        {campaignStep === 2 && campaignStrategy && (
-                            <div className="bg-white border border-brand-border rounded-xl p-8 shadow-sm space-y-8 animate-fadeIn">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        {campaignContext && (
-                                            <div className="text-[10px] items-center gap-2 text-brand-muted uppercase font-bold mb-2 flex">
-                                                <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">Context Active</span>
-                                                Context Source: Manual Input
-                                            </div>
-                                        )}
-                                        <h3 className="text-2xl font-display font-bold text-brand-text mb-2">Campaign Strategy</h3>
-                                        <div className="flex items-center gap-4 text-sm text-brand-textSecondary">
-                                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>{campaignGoal}</span>
-                                            <span className="text-gray-300">|</span>
-                                            <span>Target: {campaignStrategy.estimatedResults.impressions} Impressions</span>
-                                        </div>
-                                    </div>
-                                    {/* Estimated Results Mini-Card */}
-                                    <div className="flex gap-4">
-                                        <div className="text-right">
-                                            <div className="text-2xl font-bold text-brand-text">{campaignStrategy.estimatedResults.engagement}</div>
-                                            <div className="text-[10px] text-brand-muted uppercase tracking-wider">Target Eng.</div>
-                                        </div>
-                                        <div className="w-px bg-gray-100 h-10"></div>
-                                        <div className="text-right">
-                                            <div className="text-2xl font-bold text-green-600">{campaignStrategy.estimatedResults.conversions}</div>
-                                            <div className="text-[10px] text-brand-muted uppercase tracking-wider">Conv. Goal</div>
-                                        </div>
+                {/* VIEW CAMPAIGN DETAILS MODAL */}
+                {viewingCampaignDetails && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+                        <div className="bg-[#121214] border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+                            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#121214]">
+                                <div>
+                                    <h3 className="font-bold text-xl text-white mb-1">{viewingCampaignDetails}</h3>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        <p className="text-xs text-zinc-400 font-mono">LIVE CAMPAIGN VIEW</p>
                                     </div>
                                 </div>
+                                <button onClick={() => setViewingCampaignDetails(null)} className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-black/20">
+                                {events.filter(e => e.campaignName === viewingCampaignDetails).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(post => {
+                                    const refImage = post.referenceImageId ? brandConfig.referenceImages.find(r => r.id === post.referenceImageId) : null;
+                                    return (
+                                        <details key={post.id} className="group bg-[#18181b] border border-white/5 rounded-xl open:border-purple-500/30 transition-all duration-300">
+                                            <summary className="p-5 cursor-pointer list-none flex items-start gap-4 select-none hover:bg-white/[0.02] transition-colors rounded-xl">
+                                                <div className="flex flex-col items-center min-w-[60px] pt-1">
+                                                    <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">{new Date(post.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                                    <span className={`w-2 h-2 rounded-full mt-2 ${post.status === 'published' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]'}`}></span>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm text-zinc-200 line-clamp-2 font-medium group-open:line-clamp-none leading-relaxed">{post.content}</p>
+                                                    <div className="flex gap-2 mt-3 opacity-0 group-open:opacity-100 transition-opacity">
+                                                        {post.reasoning && <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded font-bold uppercase tracking-wider">AI Strategy</span>}
+                                                        {post.referenceImageId && <span className="text-[9px] bg-purple-500/10 border border-purple-500/20 text-purple-300 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Ref. Image</span>}
+                                                    </div>
+                                                </div>
+                                                <svg className="w-5 h-5 text-zinc-600 group-open:rotate-180 transition-transform mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                            </summary>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-gray-100 pt-8">
-                                    {/* AUDIENCE & MESSAGING */}
-                                    {/* AI THINKING BOX */}
-                                    {/* AI THINKING BOX - Hide if legacy message */}
-                                    {draftContext && !draftContext.includes("JSON Generation Successful") && (
-                                        <div className="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 animate-fadeIn">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs">🧠</div>
-                                                <h3 className="text-xs font-bold text-indigo-800 uppercase tracking-widest">Brain Logic</h3>
+                                            <div className="p-5 pt-0 border-t border-white/5 mt-2">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+
+                                                    {/* LEFT: STRATEGY */}
+                                                    <div className="space-y-6">
+                                                        {/* Thinking */}
+                                                        <div>
+                                                            <label className="text-[10px] font-bold text-zinc-500 uppercase flex items-center gap-2 mb-2 tracking-wider">
+                                                                <span className="w-4 h-4 bg-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center text-[10px]">🧠</span>
+                                                                AI Reasoning
+                                                            </label>
+                                                            <div className="text-xs text-zinc-400 bg-[#09090b] border border-white/5 p-4 rounded-xl leading-relaxed whitespace-pre-wrap font-medium">
+                                                                {post.reasoning || "No strategic reasoning recorded."}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Template & Rules */}
+                                                        <div>
+                                                            <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Template Rule</label>
+                                                            <div className="text-xs text-zinc-300 bg-[#09090b] border border-white/5 p-3 rounded-lg flex items-center gap-2">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>
+                                                                {post.template || "Auto / Default"}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* RIGHT: VISUALS */}
+                                                    <div className="space-y-6">
+                                                        {/* Visual Prompt */}
+                                                        <div>
+                                                            <label className="text-[10px] font-bold text-zinc-500 uppercase flex items-center gap-2 mb-2 tracking-wider">
+                                                                <span className="w-4 h-4 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center text-[10px]">🎨</span>
+                                                                Visual Prompt
+                                                            </label>
+                                                            <div className="text-xs text-zinc-400 bg-[#09090b] border border-white/5 p-4 rounded-xl italic leading-relaxed">
+                                                                "{post.visualDescription || post.content}"
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Reference Image */}
+                                                        <div>
+                                                            <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Reference Anchor</label>
+                                                            {refImage ? (
+                                                                <div className="flex items-start gap-4 bg-[#09090b] border border-white/5 p-3 rounded-xl hover:border-purple-500/30 transition-colors">
+                                                                    <img src={refImage.url || refImage.data} className="w-20 h-20 object-cover rounded-lg border border-white/5" />
+                                                                    <div>
+                                                                        <div className="text-sm font-bold text-white mb-1">{refImage.name}</div>
+                                                                        <div className="text-[10px] text-zinc-500 font-mono mb-2">ID: {refImage.id}</div>
+                                                                        <div className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 inline-block px-2 py-0.5 rounded font-bold uppercase">Style Enforced</div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-xs text-zinc-600 italic pl-2">No specific reference image linked.</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="prose prose-sm max-w-none text-indigo-900/80 text-xs">
-                                                <ReactMarkdown>{draftContext}</ReactMarkdown>
+                                        </details>
+                                    );
+                                })}
+
+                                {events.filter(e => e.campaignName === viewingCampaignDetails).length === 0 && (
+                                    <div className="text-center py-12 text-zinc-500">No posts found for this campaign.</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* WIZARD VIEW */}
+                {viewMode === 'wizard' && (
+                    <div className="w-full animate-fadeIn transition-all duration-500">
+
+                        {/* WIZARD CONTAINER */}
+                        <div className={`mx-auto space-y-6 transition-all duration-500 ${campaignStep === 1 ? 'max-w-xl' : 'max-w-7xl'}`}>
+
+                            {/* Stepper */}
+                            {/* STEPPER */}
+                            <div className="flex items-center justify-center gap-4 py-4">
+                                {[1, 2, 3, 4].map((step) => (
+                                    <div key={step} className="flex items-center gap-2">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${campaignStep >= step ? 'bg-white text-black scale-110 shadow-lg shadow-white/10' : 'bg-zinc-900 text-zinc-600 border border-white/5'}`}>
+                                            {step}
+                                        </div>
+                                        {step < 4 && <div className={`w-8 h-px transition-colors duration-300 ${campaignStep > step ? 'bg-zinc-600' : 'bg-zinc-900'}`} />}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* STEP 1: CONFIG */}
+                            {campaignStep === 1 && (
+                                <div className="bg-[#121214] border border-white/5 rounded-2xl p-8 shadow-2xl space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                                    <div className="text-center mb-8">
+                                        <h2 className="text-2xl font-bold text-white mb-2">Campaign Setup</h2>
+                                        <p className="text-zinc-400 text-sm">Choose how you want to structure your campaign content.</p>
+                                    </div>
+
+                                    {/* CAMPAIGN TYPE CARDS */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <button
+                                            onClick={() => setCampaignType('theme')}
+                                            className={`p-4 rounded-xl border text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'theme' ? 'bg-purple-600/10 border-purple-500/50' : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-900 hover:border-white/10'}`}
+                                        >
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 text-lg ${campaignType === 'theme' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30' : 'bg-zinc-800 text-zinc-500 group-hover:bg-zinc-700 group-hover:text-zinc-300'}`}>🎯</div>
+                                            <h3 className={`font-bold text-sm mb-1 ${campaignType === 'theme' ? 'text-white' : 'text-zinc-300'}`}>Specific Theme</h3>
+                                            <p className="text-[11px] text-zinc-500 leading-snug">Deep dive into a single topic or launch event.</p>
+                                        </button>
+
+                                        <button
+                                            onClick={() => setCampaignType('diverse')}
+                                            className={`p-4 rounded-xl border text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-blue-600/10 border-blue-500/50' : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-900 hover:border-white/10'}`}
+                                        >
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 text-lg ${campaignType === 'diverse' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-zinc-800 text-zinc-500 group-hover:bg-zinc-700 group-hover:text-zinc-300'}`}>🌊</div>
+                                            <h3 className={`font-bold text-sm mb-1 ${campaignType === 'diverse' ? 'text-white' : 'text-zinc-300'}`}>Diverse Mix</h3>
+                                            <p className="text-[11px] text-zinc-500 leading-snug">Balance of education, community, and updates.</p>
+                                        </button>
+
+                                        <button
+                                            onClick={() => setCampaignType('notes')}
+                                            className={`p-4 rounded-xl border text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'notes' ? 'bg-emerald-600/10 border-emerald-500/50' : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-900 hover:border-white/10'}`}
+                                        >
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 text-lg ${campaignType === 'notes' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-zinc-800 text-zinc-500 group-hover:bg-zinc-700 group-hover:text-zinc-300'}`}>✨</div>
+                                            <h3 className={`font-bold text-sm mb-1 ${campaignType === 'notes' ? 'text-white' : 'text-zinc-300'}`}>Smart Plan</h3>
+                                            <p className="text-[11px] text-zinc-500 leading-snug">AI creates a plan from your raw notes.</p>
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        {campaignType === 'theme' && (
+                                            <div className="animate-fadeIn">
+                                                <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Campaign Theme</label>
+                                                <input
+                                                    type="text"
+                                                    value={campaignTheme}
+                                                    onChange={e => setCampaignTheme(e.target.value)}
+                                                    placeholder="e.g. Protocol v2 Launch Week"
+                                                    className="w-full bg-zinc-900 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 outline-none transition-all placeholder:text-zinc-600"
+                                                />
                                             </div>
+                                        )}
+
+                                        {campaignType === 'notes' && (
+                                            <div className="animate-fadeIn">
+                                                <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Raw Content Notes</label>
+                                                <textarea
+                                                    value={campaignContext}
+                                                    onChange={e => setCampaignContext(e.target.value)}
+                                                    placeholder="Paste your rough notes here..."
+                                                    className="w-full bg-zinc-900 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 outline-none min-h-[150px] font-mono placeholder:text-zinc-600 leading-relaxed"
+                                                />
+                                                <div className="flex items-center gap-2 mt-2 text-zinc-500 text-[10px]">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                    AI will parse links, instructions, and content into a structured plan.
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {campaignType !== 'notes' && (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-6">
+                                                    <div>
+                                                        <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Campaign Goal</label>
+                                                        <div className="relative">
+                                                            <select
+                                                                value={campaignGoal}
+                                                                onChange={(e) => setCampaignGoal(e.target.value)}
+                                                                className="w-full bg-zinc-900 border border-white/10 rounded-xl p-3 text-sm text-white appearance-none outline-none focus:border-white/20"
+                                                            >
+                                                                <option value="User Acquisition">User Acquisition</option>
+                                                                <option value="Brand Awareness">Brand Awareness</option>
+                                                                <option value="Community Engagement">Community Engagement</option>
+                                                                <option value="Product Education">Product Education</option>
+                                                            </select>
+                                                            <div className="absolute right-3 top-3.5 pointer-events-none text-zinc-500">▼</div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Tweet Count</label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="50"
+                                                            value={campaignCount}
+                                                            onChange={e => setCampaignCount(e.target.value)}
+                                                            className="w-full bg-zinc-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-white/20 outline-none"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Context (Optional)</label>
+                                                    <textarea
+                                                        value={campaignContext}
+                                                        onChange={e => setCampaignContext(e.target.value)}
+                                                        placeholder="Describe the specific situation..."
+                                                        className="w-full bg-zinc-900 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-white/20 outline-none min-h-[80px] placeholder:text-zinc-600"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block tracking-wider flex justify-between">
+                                                        <span>Strategic Focus Doc</span>
+                                                        <button onClick={() => focusDocInputRef.current?.click()} className="text-purple-400 hover:text-purple-300 flex items-center gap-1 text-[10px]">
+                                                            {isUploadingFocusDoc ? 'Uploading...' : '+ Upload File'}
+                                                        </button>
+                                                    </label>
+                                                    <input type="file" ref={focusDocInputRef} onChange={handleFocusDocUpload} accept=".pdf,.txt,.md" className="hidden" />
+                                                    <textarea
+                                                        value={campaignFocusDoc}
+                                                        onChange={e => setCampaignFocusDoc(e.target.value)}
+                                                        placeholder="Paste strategy text or upload a doc..."
+                                                        className="w-full bg-zinc-900 border border-white/10 rounded-xl p-4 text-sm text-white focus:border-white/20 outline-none min-h-[100px] placeholder:text-zinc-600 font-mono text-xs"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Visual Style & Refs */}
+                                        <div className="pt-6 border-t border-white/5 space-y-6">
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div>
+                                                    <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Visual Style</label>
+                                                    <div className="relative">
+                                                        <select
+                                                            value={campaignTemplate}
+                                                            onChange={(e) => setCampaignTemplate(e.target.value)}
+                                                            className="w-full bg-zinc-900 border border-white/10 rounded-xl p-3 text-xs text-white appearance-none outline-none focus:border-white/20"
+                                                        >
+                                                            <option value="">No Template (Default)</option>
+                                                            {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
+                                                                <>
+                                                                    <option value="Partnership">Partnership</option>
+                                                                    <option value="Campaign">Campaign Launch</option>
+                                                                    <option value="Giveaway">Giveaway</option>
+                                                                </>
+                                                            )}
+                                                            {(brandConfig.graphicTemplates || []).map(t => (
+                                                                <option key={t.id} value={t.label}>{t.label}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="absolute right-3 top-3.5 pointer-events-none text-zinc-500 text-[10px]">▼</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Reference Image</label>
+                                                <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                                                    <div
+                                                        onClick={() => setCampaignReferenceImage(null)}
+                                                        className={`flex-shrink-0 w-16 h-16 rounded-xl border border-dashed cursor-pointer flex items-center justify-center transition-all ${!campaignReferenceImage ? 'border-purple-500 bg-purple-500/10 text-purple-400' : 'border-zinc-700 bg-zinc-900 text-zinc-600 hover:border-zinc-500'}`}
+                                                    >
+                                                        <span className="text-[10px]">None</span>
+                                                    </div>
+                                                    {brandConfig.referenceImages.map(img => (
+                                                        <div
+                                                            key={img.id}
+                                                            onClick={() => setCampaignReferenceImage(campaignReferenceImage === img.id ? null : img.id)}
+                                                            className={`flex-shrink-0 w-16 h-16 rounded-xl border cursor-pointer overflow-hidden relative group transition-all ${campaignReferenceImage === img.id ? 'border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.3)]' : 'border-white/5 opacity-60 hover:opacity-100 hover:border-white/20'}`}
+                                                            title={img.name}
+                                                        >
+                                                            <img src={img.data || img.url} className="w-full h-full object-cover" />
+                                                            {campaignReferenceImage === img.id && (
+                                                                <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
+                                                                    <div className="w-2 h-2 bg-purple-500 rounded-full shadow-sm" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    {error && (
+                                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm mb-4 flex items-center gap-2 animate-fadeIn">
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                            {error}
                                         </div>
                                     )}
 
-                                    {/* VISUAL STRATEGY */}
-                                    <div className="col-span-1 md:col-span-2 bg-indigo-50/30 border border-indigo-100 rounded-xl p-6">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-sm">🎨</div>
-                                            <label className="text-xs font-bold text-indigo-900 uppercase tracking-wider">Visual Strategy & Art Direction</label>
+                                    <Button onClick={handleGenerateStrategy} isLoading={isGeneratingStrategy} disabled={campaignType === 'theme' && !campaignTheme} className="w-full h-14 text-base font-bold shadow-xl shadow-purple-500/20 bg-white text-black hover:bg-zinc-200 border-none rounded-xl">
+                                        {campaignType === 'notes' ? 'Analyze & Create Plan' : 'Generate Strategy'}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* STEP 2: STRATEGY REVIEW & EDIT */}
+                            {/* STEP 2: STRATEGY REVIEW (READ ONLY SUMMARY) */}
+                            {/* STEP 2: STRATEGY REVIEW & EDIT */}
+                            {campaignStep === 2 && campaignStrategy && (
+                                <div className="bg-[#121214] border border-white/5 rounded-2xl p-8 shadow-2xl space-y-8 animate-fadeIn">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            {campaignContext && (
+                                                <div className="text-[10px] items-center gap-2 text-zinc-400 uppercase font-bold mb-2 flex">
+                                                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded">Context Active</span>
+                                                    Context Source: Manual Input
+                                                </div>
+                                            )}
+                                            <h3 className="text-2xl font-bold text-white mb-2">Campaign Strategy</h3>
+                                            <div className="flex items-center gap-4 text-sm text-zinc-400">
+                                                <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>{campaignGoal}</span>
+                                                <span className="text-zinc-600">|</span>
+                                                <span>Target: <span className="text-white font-mono">{campaignStrategy.estimatedResults.impressions}</span> Impressions</span>
+                                            </div>
                                         </div>
-                                        <textarea
-                                            value={campaignStrategy.visualStrategy || "No visual strategy generated."}
-                                            onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, visualStrategy: e.target.value } : null)}
-                                            className="w-full bg-transparent border-none p-0 text-sm text-indigo-900/80 min-h-[60px] outline-none resize-none focus:ring-0 leading-relaxed font-medium placeholder-indigo-300"
-                                            placeholder="Explain the visual approach..."
-                                        />
+                                        {/* Estimated Results Mini-Card */}
+                                        <div className="flex gap-6 bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                                            <div className="text-right">
+                                                <div className="text-2xl font-bold text-white font-mono">{campaignStrategy.estimatedResults.engagement}</div>
+                                                <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Target Eng.</div>
+                                            </div>
+                                            <div className="w-px bg-white/10 h-10"></div>
+                                            <div className="text-right">
+                                                <div className="text-2xl font-bold text-emerald-400 font-mono">{campaignStrategy.estimatedResults.conversions}</div>
+                                                <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Conv. Goal</div>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* GENERATED DRAFTS LIST */}
-                                    <div className="space-y-6">
-                                        <div>
-                                            <label className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 block">Target Audience</label>
-                                            <textarea
-                                                value={campaignStrategy.targetAudience}
-                                                onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, targetAudience: e.target.value } : null)}
-                                                className="w-full bg-white border border-gray-300 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent rounded-lg p-3 text-sm text-brand-text min-h-[80px] outline-none shadow-sm transition-all"
-                                                placeholder="Describe your target audience..."
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 block">Key Messaging</label>
-                                            <textarea
-                                                value={campaignStrategy.keyMessaging.join('\n')}
-                                                onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, keyMessaging: e.target.value.split('\n') } : null)}
-                                                className="w-full bg-white border border-gray-300 focus:border-brand-accent focus:ring-1 focus:ring-brand-accent rounded-lg p-3 text-sm text-brand-text min-h-[120px] outline-none shadow-sm transition-all"
-                                                placeholder="Enter one key message per line"
-                                            />
-                                        </div>
-                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-white/5 pt-8">
+                                        {/* AUDIENCE & MESSAGING */}
+                                        {/* AI THINKING BOX */}
+                                        {draftContext && !draftContext.includes("JSON Generation Successful") && (
+                                            <div className="mb-6 bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-6 animate-fadeIn relative overflow-hidden">
+                                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                                <div className="flex items-center gap-2 mb-3 relative z-10">
+                                                    <div className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs">🧠</div>
+                                                    <h3 className="text-xs font-bold text-indigo-300 uppercase tracking-widest">Brain Logic</h3>
+                                                </div>
+                                                <div className="prose prose-sm max-w-none text-indigo-200/70 text-xs relative z-10 leading-relaxed">
+                                                    <ReactMarkdown>{draftContext}</ReactMarkdown>
+                                                </div>
+                                            </div>
+                                        )}
 
-                                    {/* PLATFORM STRATEGY */}
-                                    <div>
-                                        <label className="text-xs font-bold text-brand-muted uppercase tracking-wider mb-2 block">Platform Strategy</label>
-                                        <div className="space-y-3">
-                                            {campaignStrategy.channelStrategy.map((s, i) => (
-                                                <div key={i} className="bg-gray-50 border border-gray-100 p-4 rounded-xl">
-                                                    <div className="flex justify-between items-center mb-2 gap-2">
-                                                        <span className="font-bold text-brand-text text-sm">{s.channel}</span>
-                                                        <input
-                                                            value={s.focus}
+                                        {/* VISUAL STRATEGY */}
+                                        <div className="col-span-1 md:col-span-2 bg-zinc-900/30 border border-white/5 rounded-xl p-6 hover:border-white/10 transition-colors">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="w-6 h-6 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center text-sm">🎨</div>
+                                                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Visual Strategy & Art Direction</label>
+                                            </div>
+                                            <textarea
+                                                value={campaignStrategy.visualStrategy || "No visual strategy generated."}
+                                                onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, visualStrategy: e.target.value } : null)}
+                                                className="w-full bg-transparent border-none p-0 text-sm text-zinc-300 min-h-[60px] outline-none resize-none focus:ring-0 leading-relaxed font-medium placeholder-zinc-600"
+                                                placeholder="Explain the visual approach..."
+                                            />
+                                        </div>
+
+                                        {/* GENERATED DRAFTS LIST */}
+                                        <div className="space-y-6">
+                                            <div>
+                                                <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Target Audience</label>
+                                                <textarea
+                                                    value={campaignStrategy.targetAudience}
+                                                    onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, targetAudience: e.target.value } : null)}
+                                                    className="w-full bg-zinc-900 border border-white/10 focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 rounded-xl p-4 text-sm text-white min-h-[80px] outline-none transition-all placeholder:text-zinc-600"
+                                                    placeholder="Describe your target audience..."
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Key Messaging</label>
+                                                <textarea
+                                                    value={campaignStrategy.keyMessaging.join('\n')}
+                                                    onChange={(e) => setCampaignStrategy(prev => prev ? { ...prev, keyMessaging: e.target.value.split('\n') } : null)}
+                                                    className="w-full bg-zinc-900 border border-white/10 focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 rounded-xl p-4 text-sm text-white min-h-[120px] outline-none transition-all placeholder:text-zinc-600"
+                                                    placeholder="Enter one key message per line"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* PLATFORM STRATEGY */}
+                                        <div>
+                                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Platform Strategy</label>
+                                            <div className="space-y-3">
+                                                {campaignStrategy.channelStrategy.map((s, i) => (
+                                                    <div key={i} className="bg-zinc-900 border border-white/5 p-4 rounded-xl hover:border-white/10 transition-colors">
+                                                        <div className="flex justify-between items-center mb-2 gap-2">
+                                                            <span className="font-bold text-white text-sm">{s.channel}</span>
+                                                            <input
+                                                                value={s.focus}
+                                                                onChange={(e) => {
+                                                                    const newVal = e.target.value;
+                                                                    setCampaignStrategy(prev => prev ? {
+                                                                        ...prev,
+                                                                        channelStrategy: prev.channelStrategy.map((item, idx) => idx === i ? { ...item, focus: newVal } : item)
+                                                                    } : null);
+                                                                }}
+                                                                className="text-[10px] bg-black border border-white/10 px-2 py-0.5 rounded text-zinc-400 font-medium outline-none focus:border-purple-500/50 w-32 text-center"
+                                                            />
+                                                        </div>
+                                                        <textarea
+                                                            value={s.rationale}
                                                             onChange={(e) => {
                                                                 const newVal = e.target.value;
                                                                 setCampaignStrategy(prev => prev ? {
                                                                     ...prev,
-                                                                    channelStrategy: prev.channelStrategy.map((item, idx) => idx === i ? { ...item, focus: newVal } : item)
+                                                                    channelStrategy: prev.channelStrategy.map((item, idx) => idx === i ? { ...item, rationale: newVal } : item)
                                                                 } : null);
                                                             }}
-                                                            className="text-[10px] bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-500 font-medium outline-none focus:border-brand-accent w-32 text-center"
+                                                            className="w-full bg-transparent text-xs text-zinc-400 leading-relaxed outline-none border-b border-transparent focus:border-white/10 transition-colors p-1"
                                                         />
                                                     </div>
-                                                    <textarea
-                                                        value={s.rationale}
-                                                        onChange={(e) => {
-                                                            const newVal = e.target.value;
-                                                            setCampaignStrategy(prev => prev ? {
-                                                                ...prev,
-                                                                channelStrategy: prev.channelStrategy.map((item, idx) => idx === i ? { ...item, rationale: newVal } : item)
-                                                            } : null);
-                                                        }}
-                                                        className="w-full bg-transparent text-xs text-brand-textSecondary leading-relaxed outline-none border-b border-transparent focus:border-gray-300 focus:bg-white transition-colors p-1"
-                                                    />
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* SCHEDULING INPUT in STRATEGY STEP */}
-                                <div className="pt-6 border-t border-gray-100">
-                                    <label className="text-xs font-bold text-brand-muted uppercase block mb-2">Start Date</label>
-                                    <div className="flex items-center gap-4">
-                                        <input
-                                            type="date"
-                                            value={campaignStartDate}
-                                            onChange={(e) => setCampaignStartDate(e.target.value)}
-                                            className="bg-white border border-gray-200 rounded p-2 text-sm text-brand-text focus:border-brand-accent outline-none hover:border-gray-300 transition-colors"
-                                        />
-                                        <span className="text-xs text-brand-muted">
-                                            Campaign will launch on this date.
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-4 pt-4">
-                                    <Button variant="secondary" onClick={() => setCampaignStep(1)}>Back</Button>
-                                    <Button onClick={handleDraftCampaign} isLoading={isDraftingCampaign} className="flex-1 shadow-lg shadow-brand-accent/20 h-12 text-base">
-                                        {batchProgress || 'Generate Content Drafts'}
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* STEP 3: REVIEW SUMMARY */}
-                        {campaignStep === 3 && (
-                            <div className="space-y-6 animate-fadeIn">
-                                <div className="sticky top-2 z-30 bg-white/95 backdrop-blur border border-brand-border/50 shadow-sm rounded-xl p-4 mb-6 flex justify-between items-center">
-                                    <div>
-                                        <h2 className="text-2xl font-display font-bold text-brand-text">Review Content</h2>
-                                        <p className="text-sm text-brand-muted">Review and refine the AI-generated drafts.</p>
+                                    {/* SCHEDULING INPUT in STRATEGY STEP */}
+                                    <div className="pt-6 border-t border-white/5">
+                                        <label className="text-xs font-bold text-zinc-500 uppercase block mb-2">Start Date</label>
+                                        <div className="flex items-center gap-4">
+                                            <input
+                                                type="date"
+                                                value={campaignStartDate}
+                                                onChange={(e) => setCampaignStartDate(e.target.value)}
+                                                className="bg-zinc-900 border border-white/10 rounded-lg p-3 text-sm text-white focus:border-purple-500 outline-none color-scheme-dark"
+                                            />
+                                            <span className="text-xs text-zinc-500">
+                                                Campaign will launch on this date.
+                                            </span>
+                                        </div>
                                     </div>
 
-                                    <div className="flex gap-3">
-                                        <button onClick={() => setCampaignStep(2)} className="text-sm text-brand-muted hover:text-brand-text px-4 py-2">Back</button>
-                                        <Button onClick={handleGenerateApproved} className="shadow-lg shadow-brand-accent/20">
-                                            Finalize & Generate Assets
+                                    <div className="flex gap-4 pt-4">
+                                        <Button variant="secondary" onClick={() => setCampaignStep(1)} className="bg-zinc-800 text-zinc-300 hover:text-white border-none">Back</Button>
+                                        <Button onClick={handleDraftCampaign} isLoading={isDraftingCampaign} className="flex-1 shadow-xl shadow-purple-500/20 h-12 text-base bg-white text-black hover:bg-zinc-200 border-none">
+                                            {batchProgress || 'Generate Content Drafts'}
                                         </Button>
                                     </div>
                                 </div>
+                            )}
 
-                                {/* METADATA BAR */}
-                                <div className="bg-white border border-brand-border rounded-xl p-4 flex justify-between items-center shadow-sm">
-                                    <div className="flex gap-6 text-sm">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold text-brand-muted uppercase">Approved</span>
-                                            <span className="font-bold text-green-600">{approvedCount} Posts</span>
+                            {/* STEP 3: REVIEW SUMMARY */}
+                            {campaignStep === 3 && (
+                                <div className="space-y-8 animate-fadeIn">
+                                    <div className="sticky top-2 z-30 bg-[#121214]/95 backdrop-blur border border-white/10 shadow-xl shadow-black/20 rounded-2xl p-6 mb-6 flex justify-between items-center transition-all">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-white mb-1">Review Content</h2>
+                                            <p className="text-sm text-zinc-400">Review and refine the AI-generated drafts.</p>
                                         </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold text-brand-muted uppercase">Est. Assets</span>
-                                            <span className="font-bold text-brand-text">{approvedCount * 2} Graphics</span>
+
+                                        <div className="flex gap-4">
+                                            <button onClick={() => setCampaignStep(2)} className="text-sm text-zinc-400 hover:text-white px-4 py-2 transition-colors">Back</button>
+                                            <Button onClick={handleGenerateApproved} className="shadow-lg shadow-purple-500/20 bg-white text-black hover:bg-zinc-200 border-none font-bold">
+                                                Finalize & Generate Assets
+                                            </Button>
                                         </div>
                                     </div>
 
+                                    {/* METADATA BAR */}
+                                    <div className="bg-[#18181b] border border-white/5 rounded-2xl p-6 flex justify-between items-center shadow-lg">
+                                        <div className="flex gap-8 text-sm">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Approved</span>
+                                                <span className="font-bold text-emerald-400 text-lg">{approvedCount} Posts</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Est. Assets</span>
+                                                <span className="font-bold text-white text-lg">{approvedCount * 2} Graphics</span>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                </div>
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                        {campaignItems.map((item, idx) => (
+                                            <div key={item.id} className={`group bg-[#18181b] border rounded-2xl overflow-hidden transition-all duration-300 ${item.isApproved ? 'border-purple-500/30' : 'border-white/5 opacity-60 grayscale-[0.5]'}`}>
+                                                <div className="p-3 pl-5 bg-white/5 border-b border-white/5 flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Post {idx + 1}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => handleToggleApproval(item.id)}
+                                                            className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors border ${item.isApproved ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-transparent text-zinc-500 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300'}`}
+                                                        >
+                                                            {item.isApproved ? '✓ Approved' : '✕ Discarded'}
+                                                        </button>
+                                                        {/* Delete button option */}
+                                                        <button onClick={() => handleDeleteDraft(item.id)} className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors">
+                                                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
 
-                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                    {campaignItems.map((item, idx) => (
-                                        <div key={item.id} className={`group bg-white border rounded-xl overflow-hidden transition-all duration-300 ${item.isApproved ? 'border-brand-border shadow-sm hover:shadow-md hover:border-brand-accent/30' : 'border-gray-100 opacity-60 grayscale-[0.5]'}`}>
-                                            <div className="p-1 pl-4 bg-gray-50 border-b border-brand-border/50 flex justify-between items-center">
-                                                <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">Post {idx + 1}</span>
-                                                <div className="flex items-center">
-                                                    <button
-                                                        onClick={() => handleToggleApproval(item.id)}
-                                                        className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors border-l ${item.isApproved ? 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}
-                                                    >
-                                                        {item.isApproved ? '✓ Approved' : '✕ Discarded'}
-                                                    </button>
-                                                    {/* Delete button option */}
-                                                    <button onClick={() => handleDeleteDraft(item.id)} className="px-3 py-1.5 border-l border-gray-200 text-gray-400 hover:text-red-500 transition-colors">
-                                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"></path></svg>
-                                                    </button>
+                                                <div className="p-6 flex gap-6 h-[320px]">
+                                                    {/* CONTENT */}
+                                                    <div className="flex-1 flex flex-col h-full">
+                                                        <textarea
+                                                            value={item.tweet}
+                                                            onChange={(e) => handleUpdateDraft(item.id, e.target.value)}
+                                                            className="w-full flex-1 bg-transparent border-none p-0 text-zinc-200 text-base resize-none focus:ring-0 leading-relaxed placeholder-zinc-700 font-medium custom-scrollbar"
+                                                            placeholder="Draft content..."
+                                                        />
+                                                        {/* REASONING DISPLAY */}
+                                                        {item.reasoning && (
+                                                            <div className="mt-4 px-4 py-3 bg-indigo-500/5 rounded-xl border border-indigo-500/10 mb-2">
+                                                                <div className="flex items-center gap-1.5 mb-1 opacity-70">
+                                                                    <svg className="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                                                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Strategy Insight</span>
+                                                                </div>
+                                                                <p className="text-[10px] text-indigo-200/60 leading-relaxed font-medium line-clamp-2 hover:line-clamp-none transition-all">
+                                                                    {item.reasoning}
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                    </div>
+
+                                                    {/* SETTINGS SIDEBAR */}
+                                                    <div className="w-[180px] shrink-0 space-y-5 pt-1 flex flex-col justify-between border-l border-white/5 pl-4">
+                                                        <div>
+                                                            <label className="text-[9px] font-bold text-zinc-500 uppercase block mb-1.5">Visual Template</label>
+                                                            <select
+                                                                value={item.template || ''}
+                                                                onChange={(e) => {
+                                                                    const newVal = e.target.value;
+                                                                    setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, template: newVal } : p));
+                                                                }}
+                                                                disabled={item.skipImage} // Disable if text only
+                                                                className={`w-full text-[11px] border border-white/10 rounded-lg px-2 py-2 text-zinc-300 bg-black outline-none focus:border-purple-500 transition-colors cursor-pointer appearance-none ${item.skipImage ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                            >
+                                                                <option value="">Auto (Default)</option>
+                                                                {/* STRICT MODE: Only show defaults if NO custom templates exist */}
+                                                                {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
+                                                                    <>
+                                                                        <option value="Educational">Educational / Insight</option>
+                                                                        <option value="Feature Update">Feature / Product Update</option>
+                                                                        <option value="Partnership">Partnership</option>
+                                                                        <option value="Campaign Launch">Campaign Launch</option>
+                                                                        <option value="Giveaway">Giveaway</option>
+                                                                        <option value="Event">Event</option>
+                                                                        <option value="Speaker Quote">Speaker Quote</option>
+                                                                    </>
+                                                                )}
+                                                                {/* Custom Templates */}
+                                                                {(brandConfig.graphicTemplates || []).map(t => (
+                                                                    <option key={t.id} value={t.label}>{t.label}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
+                                                        <div className="pt-2">
+                                                            <label className="text-[9px] font-bold text-zinc-500 uppercase block mb-1.5">Style Reference</label>
+                                                            <div className="relative">
+                                                                <select
+                                                                    value={item.referenceImageId || campaignReferenceImage || ""}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, referenceImageId: val || undefined } : p));
+                                                                    }}
+                                                                    disabled={item.skipImage}
+                                                                    className={`w-full text-[11px] border border-white/10 rounded-lg px-2 py-2 text-zinc-300 bg-black outline-none focus:border-purple-500 transition-colors cursor-pointer appearance-none ${item.skipImage ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                                                >
+                                                                    <option value="">Auto (Brand Default)</option>
+                                                                    {brandConfig.referenceImages.map(img => (
+                                                                        <option key={img.id} value={img.id}>{img.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                                <div className="absolute right-2 top-2.5 pointer-events-none text-zinc-500 text-[10px]">▼</div>
+                                                            </div>
+                                                            {/* Step 3 Thumbnail Preview */}
+                                                            {(item.referenceImageId || campaignReferenceImage) && (
+                                                                <div className="mt-2 flex items-center gap-2 bg-white/5 p-1.5 rounded-lg border border-white/5">
+                                                                    <img
+                                                                        src={brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.url || brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.data || ''}
+                                                                        className="w-8 h-8 rounded object-cover border border-white/10"
+                                                                        alt=""
+                                                                    />
+                                                                    <span className="text-[9px] text-zinc-500 truncate max-w-[100px]">
+                                                                        {brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.name}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* SKIP IMAGE TOGGLE */}
+                                                        <div className="flex items-center gap-2 pt-4 border-t border-white/5 mt-auto">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!item.skipImage}
+                                                                onChange={(e) => {
+                                                                    setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, skipImage: e.target.checked } : p));
+                                                                }}
+                                                                id={`skip-${item.id}`}
+                                                                className="rounded border-zinc-700 bg-zinc-900 text-purple-500 focus:ring-purple-500 h-3.5 w-3.5"
+                                                            />
+                                                            <label htmlFor={`skip-${item.id}`} className="text-[10px] font-medium text-zinc-400 cursor-pointer select-none hover:text-white transition-colors">
+                                                                Skip Image (Text Only)
+                                                            </label>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
-                                            <div className="p-5 flex gap-6 h-[280px]">
-                                                {/* CONTENT */}
-                                                <div className="flex-1 flex flex-col h-full">
+                            {/* RESULTS / GENERATION */}
+                            {campaignStep === 4 && (
+                                <div className="space-y-8 animate-fadeIn">
+                                    <div className="sticky top-2 z-30 bg-[#121214]/95 backdrop-blur border border-white/10 shadow-xl shadow-black/20 rounded-2xl p-6 mb-6 flex justify-between items-center transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <h2 className="text-xl font-bold text-white">Campaign Assets</h2>
+                                            <Button
+                                                onClick={() => {
+                                                    const allScripts = campaignItems.map(i => i.tweet).join('\n\n---\n\n');
+                                                    navigator.clipboard.writeText(allScripts);
+                                                    alert("All scripts copied to clipboard!");
+                                                }}
+                                                variant="secondary"
+                                                className="text-xs py-1.5 px-3 h-8 flex items-center gap-1 bg-white/5 text-zinc-300 hover:bg-white/10 border-none"
+                                            >
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                                                Copy Recap
+                                            </Button>
+
+                                            <div className="h-6 w-[1px] bg-white/10 mx-2"></div>
+
+                                            <Button
+                                                onClick={() => handleDownloadDraftsPDF(campaignItems.filter(i => i.isApproved))}
+                                                variant="secondary"
+                                                className="text-xs py-1.5 px-3 h-8 flex items-center gap-1 bg-white/5 text-zinc-300 hover:bg-white/10 border-none"
+                                            >
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                PDF
+                                            </Button>
+
+                                            <Button
+                                                onClick={() => handleBatchScheduleCampaign(campaignItems.filter(i => i.isApproved))}
+                                                className="text-xs py-1.5 px-4 h-8 bg-emerald-500 hover:bg-emerald-600 text-white border-none flex items-center gap-2 font-bold shadow-lg shadow-emerald-500/20"
+                                            >
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                Schedule
+                                            </Button>
+                                        </div>
+                                        {isBatchProcessing && <span className="text-xs text-purple-400 animate-pulse font-bold">Generating Graphics...</span>}
+                                    </div>
+
+                                    {campaignItems.filter(i => i.isApproved).map((item, idx) => (
+                                        <div key={item.id} className="bg-[#18181b] border border-white/5 rounded-2xl overflow-hidden shadow-lg">
+                                            {/* Edit / Refine Section */}
+                                            <div className="p-6 border-b border-white/5 bg-white/5">
+                                                {item.reasoning && (
+                                                    <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex gap-3">
+                                                        <div className="shrink-0 pt-0.5" title="Verified Source">✅</div>
+                                                        <div>
+                                                            <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-0.5 animate-pulse">Verified Source</div>
+                                                            <p className="text-xs text-emerald-200/70 font-medium leading-relaxed">{item.reasoning}</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between gap-6 mb-4">
                                                     <textarea
                                                         value={item.tweet}
-                                                        onChange={(e) => handleUpdateDraft(item.id, e.target.value)}
-                                                        className="w-full flex-1 bg-transparent border-none p-0 text-brand-text text-base resize-none focus:ring-0 leading-relaxed placeholder-gray-300 font-medium"
-                                                        placeholder="Draft content..."
+                                                        onChange={e => handleUpdateDraft(item.id, e.target.value)}
+                                                        className="bg-transparent border-none p-0 text-sm text-zinc-200 w-full focus:ring-0 min-h-[120px] leading-relaxed placeholder-zinc-600 resize-none font-medium custom-scrollbar"
+                                                        rows={5}
+                                                        placeholder="Tweet content..."
                                                     />
-                                                    {/* REASONING DISPLAY */}
-                                                    {item.reasoning && (
-                                                        <div className="mt-3 px-3 py-2 bg-indigo-50/50 rounded border border-indigo-100/50">
-                                                            <div className="flex items-center gap-1.5 mb-1 opacity-70">
-                                                                <svg className="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                                                                <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Strategy Insight</span>
-                                                            </div>
-                                                            <p className="text-[10px] text-indigo-900/70 leading-relaxed font-medium">
-                                                                {item.reasoning}
-                                                            </p>
-                                                        </div>
-                                                    )}
-
+                                                    <Button onClick={() => handlePrepareTweet(item.tweet)} variant="secondary" className="h-8 text-xs py-0 whitespace-nowrap bg-white/10 text-white hover:bg-white/20 border-none">Post Now</Button>
                                                 </div>
 
-                                                {/* SETTINGS SIDEBAR */}
-                                                <div className="w-[180px] shrink-0 space-y-4 pt-1 flex flex-col justify-between">
-                                                    <div>
-                                                        <label className="text-[9px] font-bold text-brand-muted uppercase block mb-1">Visual Template</label>
+                                                {/* Advanced Overrides */}
+                                                <div className="flex gap-2 mb-2 pt-4 border-t border-white/5">
+                                                    <div className="relative flex-1">
                                                         <select
-                                                            value={item.template || ''}
+                                                            value={item.template || campaignTemplate || ""}
                                                             onChange={(e) => {
-                                                                const newVal = e.target.value;
-                                                                setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, template: newVal } : p));
+                                                                const val = e.target.value;
+                                                                setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, template: val } : i));
                                                             }}
-                                                            disabled={item.skipImage} // Disable if text only
-                                                            className={`w-full text-[11px] border border-gray-200 rounded px-2 py-1.5 text-brand-text bg-white outline-none focus:border-brand-accent hover:border-gray-300 transition-colors cursor-pointer ${item.skipImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            className="w-full bg-black border border-white/10 rounded-lg text-[10px] p-2 text-zinc-300 focus:border-purple-500 outline-none appearance-none"
                                                         >
-                                                            <option value="">Auto (Default)</option>
+                                                            <option value="">Default Template</option>
                                                             {/* STRICT MODE: Only show defaults if NO custom templates exist */}
                                                             {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
                                                                 <>
                                                                     <option value="Educational">Educational / Insight</option>
                                                                     <option value="Feature Update">Feature / Product Update</option>
                                                                     <option value="Partnership">Partnership</option>
+                                                                    <option value="Campaign Link">Campaign Link</option>
                                                                     <option value="Campaign Launch">Campaign Launch</option>
                                                                     <option value="Giveaway">Giveaway</option>
-                                                                    <option value="Event">Event</option>
-                                                                    <option value="Speaker Quote">Speaker Quote</option>
+                                                                    <option value="Events">Event</option>
+                                                                    <option value="Speaker Scenes">Speaker Quote</option>
                                                                 </>
                                                             )}
-                                                            {/* Custom Templates */}
                                                             {(brandConfig.graphicTemplates || []).map(t => (
-                                                                <option key={t.id} value={t.label}>{t.label}</option>
+                                                                <option key={t.id} value={t.label}>{t.label} (Custom)</option>
                                                             ))}
                                                         </select>
+                                                        <div className="absolute right-2 top-2.5 pointer-events-none text-zinc-500 text-[10px]">▼</div>
                                                     </div>
 
-                                                    <div className="pt-2">
-                                                        <label className="text-[9px] font-bold text-brand-muted uppercase block mb-1">Style Reference</label>
+                                                    <div className="flex-1 min-w-[140px] relative">
                                                         <select
                                                             value={item.referenceImageId || campaignReferenceImage || ""}
                                                             onChange={(e) => {
                                                                 const val = e.target.value;
-                                                                setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, referenceImageId: val || undefined } : p));
+                                                                setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, referenceImageId: val || undefined } : i));
                                                             }}
-                                                            disabled={item.skipImage}
-                                                            className={`w-full text-[11px] border border-gray-200 rounded px-2 py-1.5 text-brand-text bg-white outline-none focus:border-brand-accent hover:border-gray-300 transition-colors cursor-pointer ${item.skipImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            className="w-full bg-black border border-white/10 rounded-lg text-[10px] p-2 text-zinc-300 focus:border-purple-500 outline-none appearance-none"
                                                         >
-                                                            <option value="">Auto (Brand Default)</option>
+                                                            <option value="">Style: Auto / Best Match</option>
                                                             {brandConfig.referenceImages.map(img => (
-                                                                <option key={img.id} value={img.id}>{img.name}</option>
+                                                                <option key={img.id} value={img.id}>Style: {img.name}</option>
                                                             ))}
                                                         </select>
-                                                        {/* Step 3 Thumbnail Preview */}
+                                                        <div className="absolute right-2 top-2.5 pointer-events-none text-zinc-500 text-[10px]">▼</div>
+
+                                                        {/* THUMBNAIL PREVIEW */}
                                                         {(item.referenceImageId || campaignReferenceImage) && (
-                                                            <div className="mt-1.5 flex items-center gap-2 bg-gray-50 p-1 rounded border border-gray-100">
+                                                            <div className="mt-2 flex items-center gap-2 bg-white/5 p-1 rounded-lg">
                                                                 <img
                                                                     src={brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.url || brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.data || ''}
-                                                                    className="w-6 h-6 rounded-sm object-cover border border-gray-200"
+                                                                    className="w-5 h-5 rounded object-cover border border-white/10"
                                                                     alt=""
                                                                 />
-                                                                <span className="text-[9px] text-gray-500 truncate max-w-[120px]">
-                                                                    {brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.name}
+                                                                <span className="text-[9px] text-zinc-500 truncate">
+                                                                    Using: {brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.name}
                                                                 </span>
                                                             </div>
                                                         )}
                                                     </div>
 
-                                                    {/* SKIP IMAGE TOGGLE */}
-                                                    <div className="flex items-center gap-2 pt-2 border-t border-gray-100 mt-2">
+                                                    {/* Text Only Toggle Step 4 */}
+                                                    <div className="flex items-center gap-2 px-3 border border-white/10 rounded-lg bg-black hover:bg-white/5 transition-colors cursor-pointer" title="Skip Image Generation">
                                                         <input
                                                             type="checkbox"
                                                             checked={!!item.skipImage}
                                                             onChange={(e) => {
-                                                                setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, skipImage: e.target.checked } : p));
+                                                                setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, skipImage: e.target.checked } : i));
                                                             }}
-                                                            id={`skip-${item.id}`}
-                                                            className="rounded border-gray-300 text-brand-accent focus:ring-brand-accent h-3 w-3"
+                                                            className="rounded border-zinc-600 bg-zinc-800 text-purple-500 focus:ring-purple-500 h-3.5 w-3.5"
                                                         />
-                                                        <label htmlFor={`skip-${item.id}`} className="text-[10px] font-medium text-brand-muted cursor-pointer select-none">
-                                                            Skip Image (Text Only)
-                                                        </label>
+                                                        <span className="text-[10px] font-medium text-zinc-400 whitespace-nowrap">No Image</span>
                                                     </div>
                                                 </div>
+
+                                                {/* Visual Refinement Input */}
+                                                <div className="flex gap-2 items-center mt-3">
+                                                    <span className="text-[10px] font-bold text-zinc-500 uppercase whitespace-nowrap w-24">Visual Direction:</span>
+                                                    <input
+                                                        type="text"
+                                                        value={item.artPrompt || ''}
+                                                        onChange={e => handleUpdateItemArtPrompt(item.id, e.target.value)}
+                                                        placeholder="Art Direction (e.g. Neon, Dark mode)..."
+                                                        className="flex-1 bg-black border border-white/10 rounded-lg px-3 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-purple-500 placeholder:text-zinc-700"
+                                                    />
+                                                </div>
+                                                {/* Visual Headline Input */}
+                                                <div className="flex gap-2 items-center mt-2">
+                                                    <span className="text-[10px] font-bold text-zinc-500 uppercase whitespace-nowrap w-24">Image Text:</span>
+                                                    <input
+                                                        type="text"
+                                                        value={item.visualHeadline || ''}
+                                                        onChange={e => handleUpdateItemVisualHeadline(item.id, e.target.value)}
+                                                        placeholder="Short text for the image..."
+                                                        className="flex-1 bg-black border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 font-bold placeholder:text-zinc-700"
+                                                    />
+                                                    <Button
+                                                        onClick={() => handleRegenerateItem(item.id)}
+                                                        className="h-7 text-[10px] px-3 py-0 bg-purple-600 hover:bg-purple-500 text-white border-none shadow-lg shadow-purple-500/20"
+                                                        isLoading={item.status === 'generating'}
+                                                        variant="primary"
+                                                    >
+                                                        Regenerate
+                                                    </Button>
+                                                    <Button
+                                                        onClick={() => { setActiveUploadId(item.id); campaignFileInputRef.current?.click(); }}
+                                                        variant="secondary"
+                                                        className="h-7 text-[10px] px-3 py-0 flex items-center gap-1 bg-white/10 text-zinc-300 hover:bg-white/20 border-none"
+                                                    >
+                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                                        Upload
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-4 grid grid-cols-2 gap-4 bg-[#0a0a0c]">
+                                                {item.status === 'generating' && <div className="col-span-2 py-12 flex flex-col items-center justify-center text-xs text-purple-400 animate-pulse">
+                                                    <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                                                    Generating New Visuals...
+                                                </div>}
+                                                {item.status === 'pending' && <div className="col-span-2 py-8 text-center text-xs text-zinc-600">Queued</div>}
+                                                {item.status === 'error' && <div className="col-span-2 py-8 text-center text-xs text-red-500">Generation Failed</div>}
+                                                {item.status === 'completed' && item.images.map((img, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className={`relative group cursor-pointer rounded-xl overflow-hidden shadow-lg transition-all border-2
+                                                    ${item.selectedImageIndex === i ? 'border-purple-500 ring-4 ring-purple-500/20 scale-[1.02]' : 'border-transparent hover:border-white/20'}
+                                                `}
+                                                        onClick={() => handleSelectImage(item.id, i)}
+                                                    >
+                                                        <img src={img} className="w-full h-48 object-cover bg-zinc-900" />
+                                                        {item.selectedImageIndex === i && (
+                                                            <div className="absolute top-3 left-3 bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
+                                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                                                                Selected
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
+                                                            <Button onClick={(e) => { e.stopPropagation(); setViewingImage(img); }} className="text-xs py-1.5 h-8 bg-white/20 hover:bg-white/30 text-white border-none" variant="secondary">View</Button>
+                                                            <Button onClick={(e) => { e.stopPropagation(); handleDownload(img, 'camp'); }} className="text-xs py-1.5 h-8 bg-white text-black hover:bg-zinc-200 border-none">Save</Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {/* Text Only Fallback Display */}
+                                                {item.status === 'completed' && (!item.images || item.images.length === 0) && item.skipImage && (
+                                                    <div className="col-span-2 py-12 bg-white/5 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-center">
+                                                        <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-3 text-zinc-500">
+                                                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+                                                        </div>
+                                                        <h3 className="text-sm font-bold text-zinc-400">Text Only Tweet</h3>
+                                                        <p className="text-xs text-zinc-600 mt-1">No graphic assets needed for this post.</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
+
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        {/* RESULTS / GENERATION */}
-                        {campaignStep === 4 && (
-                            <div className="space-y-8 animate-fadeIn">
-                                <div className="sticky top-2 z-30 bg-white/95 backdrop-blur border border-brand-border/50 shadow-sm rounded-xl p-4 mb-6 flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <h2 className="text-xl font-display font-bold text-brand-text">Campaign Assets</h2>
-                                        <Button
-                                            onClick={() => {
-                                                const allScripts = campaignItems.map(i => i.tweet).join('\n\n---\n\n');
-                                                navigator.clipboard.writeText(allScripts);
-                                                alert("All scripts copied to clipboard!");
-                                            }}
-                                            variant="secondary"
-                                            className="text-xs py-1 px-3 h-7 flex items-center gap-1"
-                                        >
-                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
-                                            Copy All Scripts (Recap)
-                                        </Button>
 
-                                        <div className="h-6 w-[1px] bg-gray-300 mx-2"></div>
+                            {/* Hidden File Inputs */}
+                            <input type="file" ref={campaignFileInputRef} onChange={handleCampaignImageUpload} accept="image/*" className="hidden" />
 
-                                        <Button
-                                            onClick={() => handleDownloadDraftsPDF(campaignItems.filter(i => i.isApproved))}
-                                            variant="secondary"
-                                            className="text-xs py-1 px-3 h-7 flex items-center gap-1"
-                                            title="Download PDF Report"
-                                        >
-                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                            PDF
-                                        </Button>
-
-                                        <Button
-                                            onClick={() => handleBatchScheduleCampaign(campaignItems.filter(i => i.isApproved))}
-                                            className="text-xs py-1 px-3 h-7 bg-green-600 hover:bg-green-700 text-white border-none flex items-center gap-1"
-                                            title="Schedule all approved posts"
-                                        >
-                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                            Schedule Approved
-                                        </Button>
+                            {/* Image Preview Helper */}
+                            {
+                                viewingImage && (
+                                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-8 backdrop-blur" onClick={() => setViewingImage(null)}>
+                                        <img src={viewingImage} className="max-w-full max-h-[90vh] rounded-xl shadow-2xl border border-white/10" onClick={e => e.stopPropagation()} />
+                                        <button onClick={() => setViewingImage(null)} className="absolute top-5 right-5 text-zinc-400 bg-white/10 rounded-full p-3 hover:bg-white/20 transition-colors">✕</button>
                                     </div>
-                                    {isBatchProcessing && <span className="text-xs text-brand-accent animate-pulse font-medium">Generating Graphics...</span>}
-                                </div>
-                                {campaignItems.filter(i => i.isApproved).map((item, idx) => (
-                                    <div key={item.id} className="bg-white border border-brand-border rounded-xl overflow-hidden shadow-sm">
-                                        {/* Edit / Refine Section */}
-                                        <div className="p-4 border-b border-brand-border bg-gray-50">
-                                            {item.reasoning && (
-                                                <div className="mb-3 p-3 bg-green-50/50 border border-green-100 rounded-lg flex gap-3">
-                                                    <div className="shrink-0 pt-0.5" title="Verified Source">✅</div>
-                                                    <div>
-                                                        <div className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-0.5">Verified Source</div>
-                                                        <p className="text-xs text-green-900/80 font-medium leading-relaxed">{item.reasoning}</p>
+                                )
+                            }
+
+                            {/* ANALYTICS MODAL */}
+                            {
+                                analyzingCampaign && (
+                                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
+                                        <div className="bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                                            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-white">{analyzingCampaign}</h3>
+                                                    <p className="text-xs text-zinc-400">Campaign Performance & Schedule</p>
+                                                </div>
+                                                <button onClick={() => setAnalyzingCampaign(null)} className="text-zinc-500 hover:text-white transition-colors">✕</button>
+                                            </div>
+                                            <div className="p-6 overflow-y-auto custom-scrollbar">
+                                                {/* Summary Stats */}
+                                                <div className="grid grid-cols-3 gap-4 mb-8">
+                                                    <div className="p-4 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-center">
+                                                        <div className="text-2xl font-bold text-indigo-400">{events.filter(e => e.campaignName === analyzingCampaign).length}</div>
+                                                        <div className="text-[10px] uppercase font-bold text-indigo-300/70">Scheduled Posts</div>
+                                                    </div>
+                                                    <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-center">
+                                                        <div className="text-2xl font-bold text-emerald-400">0</div>
+                                                        <div className="text-[10px] uppercase font-bold text-emerald-300/70">Engagement (Live)</div>
+                                                    </div>
+                                                    <div className="p-4 bg-purple-500/10 rounded-xl border border-purple-500/20 text-center">
+                                                        <div className="text-2xl font-bold text-purple-400">100%</div>
+                                                        <div className="text-[10px] uppercase font-bold text-purple-300/70">Completion</div>
                                                     </div>
                                                 </div>
-                                            )}
-                                            <div className="flex justify-between gap-4 mb-2">
-                                                <textarea
-                                                    value={item.tweet}
-                                                    onChange={e => handleUpdateDraft(item.id, e.target.value)}
-                                                    className="bg-transparent border-none p-0 text-sm text-brand-text w-full focus:ring-0 min-h-[120px]"
-                                                    rows={5}
-                                                    placeholder="Tweet content..."
-                                                />
-                                                <Button onClick={() => handlePrepareTweet(item.tweet)} variant="secondary" className="h-8 text-xs py-0 whitespace-nowrap">Post</Button>
-                                            </div>
 
-                                            {/* Advanced Overrides */}
-                                            <div className="flex gap-2 mb-2 pt-2 border-t border-gray-200">
-                                                <select
-                                                    value={item.template || campaignTemplate || ""}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, template: val } : i));
-                                                    }}
-                                                    className="flex-1 bg-white border border-gray-200 rounded text-[10px] p-1.5 focus:border-brand-accent outline-none"
-                                                >
-                                                    <option value="">Default Template</option>
-                                                    {/* STRICT MODE: Only show defaults if NO custom templates exist */}
-                                                    {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
-                                                        <>
-                                                            <option value="Educational">Educational / Insight</option>
-                                                            <option value="Feature Update">Feature / Product Update</option>
-                                                            <option value="Partnership">Partnership</option>
-                                                            <option value="Campaign Link">Campaign Link</option>
-                                                            <option value="Campaign Launch">Campaign Launch</option>
-                                                            <option value="Giveaway">Giveaway</option>
-                                                            <option value="Events">Event</option>
-                                                            <option value="Speaker Scenes">Speaker Quote</option>
-                                                        </>
-                                                    )}
-                                                    {(brandConfig.graphicTemplates || []).map(t => (
-                                                        <option key={t.id} value={t.label}>{t.label} (Custom)</option>
-                                                    ))}
-                                                </select>
-
-                                                <div className="flex-1 min-w-[140px]">
-                                                    <select
-                                                        value={item.referenceImageId || campaignReferenceImage || ""}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, referenceImageId: val || undefined } : i));
-                                                        }}
-                                                        className="w-full bg-white border border-gray-200 rounded text-[10px] p-1.5 focus:border-brand-accent outline-none"
-                                                    >
-                                                        <option value="">Style: Auto / Best Match</option>
-                                                        {brandConfig.referenceImages.map(img => (
-                                                            <option key={img.id} value={img.id}>Style: {img.name}</option>
-                                                        ))}
-                                                    </select>
-
-                                                    {/* THUMBNAIL PREVIEW */}
-                                                    {(item.referenceImageId || campaignReferenceImage) && (
-                                                        <div className="mt-1 flex items-center gap-2">
-                                                            <img
-                                                                src={brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.url || brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.data || ''}
-                                                                className="w-4 h-4 rounded-sm object-cover border border-gray-200"
-                                                                alt=""
-                                                            />
-                                                            <span className="text-[9px] text-gray-400 truncate">
-                                                                Using: {brandConfig.referenceImages.find(r => r.id === (item.referenceImageId || campaignReferenceImage))?.name}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Text Only Toggle Step 4 */}
-                                                <div className="flex items-center gap-1.5 px-2 border border-gray-200 rounded bg-white" title="Skip Image Generation">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={!!item.skipImage}
-                                                        onChange={(e) => {
-                                                            setCampaignItems(prev => prev.map(i => i.id === item.id ? { ...i, skipImage: e.target.checked } : i));
-                                                        }}
-                                                        className="rounded border-gray-300 text-brand-accent focus:ring-brand-accent h-3 w-3"
-                                                    />
-                                                    <span className="text-[10px] font-medium text-brand-muted whitespace-nowrap">No Image</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Visual Refinement Input */}
-                                            <div className="flex gap-2 items-center">
-                                                <span className="text-[10px] font-bold text-brand-muted uppercase whitespace-nowrap">Visual Direction:</span>
-                                                <input
-                                                    type="text"
-                                                    value={item.artPrompt || ''}
-                                                    onChange={e => handleUpdateItemArtPrompt(item.id, e.target.value)}
-                                                    placeholder="Art Direction (e.g. Neon, Dark mode)..."
-                                                    className="flex-1 bg-white border border-brand-border rounded px-2 py-1 text-xs focus:outline-none focus:border-brand-accent"
-                                                />
-                                            </div>
-                                            {/* Visual Headline Input */}
-                                            <div className="flex gap-2 items-center mt-1">
-                                                <span className="text-[10px] font-bold text-brand-muted uppercase whitespace-nowrap min-w-[90px]">Image Text/Subject:</span>
-                                                <input
-                                                    type="text"
-                                                    value={item.visualHeadline || ''}
-                                                    onChange={e => handleUpdateItemVisualHeadline(item.id, e.target.value)}
-                                                    placeholder="Short text for the image..."
-                                                    className="flex-1 bg-white border border-brand-border rounded px-2 py-1 text-xs focus:outline-none focus:border-brand-accent font-bold text-gray-700"
-                                                />
-                                                <Button
-                                                    onClick={() => handleRegenerateItem(item.id)}
-                                                    className="h-7 text-[10px] px-3 py-0"
-                                                    isLoading={item.status === 'generating'}
-                                                    variant="primary"
-                                                >
-                                                    Regenerate
-                                                </Button>
-                                                <Button
-                                                    onClick={() => { setActiveUploadId(item.id); campaignFileInputRef.current?.click(); }}
-                                                    variant="secondary"
-                                                    className="h-7 text-[10px] px-3 py-0 flex items-center gap-1"
-                                                >
-                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                                                    Upload
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-4 grid grid-cols-2 gap-4">
-                                            {item.status === 'generating' && <div className="col-span-2 py-12 flex flex-col items-center justify-center text-xs text-brand-muted animate-pulse">
-                                                <div className="w-6 h-6 border-2 border-brand-accent border-t-transparent rounded-full animate-spin mb-2"></div>
-                                                Generating New Visuals...
-                                            </div>}
-                                            {item.status === 'pending' && <div className="col-span-2 py-8 text-center text-xs text-brand-muted">Queued</div>}
-                                            {item.status === 'error' && <div className="col-span-2 py-8 text-center text-xs text-red-500">Generation Failed</div>}
-                                            {item.status === 'completed' && item.images.map((img, i) => (
-                                                <div
-                                                    key={i}
-                                                    className={`relative group cursor-pointer rounded-lg overflow-hidden shadow-sm transition-all border-2
-                                                    ${item.selectedImageIndex === i ? 'border-green-500 ring-2 ring-green-100' : 'border-brand-border hover:border-gray-300'}
-                                                `}
-                                                    onClick={() => handleSelectImage(item.id, i)}
-                                                >
-                                                    <img src={img} className="w-full" />
-                                                    {item.selectedImageIndex === i && (
-                                                        <div className="absolute top-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1">
-                                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                                                            Selected
-                                                        </div>
-                                                    )}
-                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                        <Button onClick={(e) => { e.stopPropagation(); setViewingImage(img); }} className="text-xs py-1 h-8" variant="secondary">View</Button>
-                                                        <Button onClick={(e) => { e.stopPropagation(); handleDownload(img, 'camp'); }} className="text-xs py-1 h-8">Save</Button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {/* Text Only Fallback Display */}
-                                            {item.status === 'completed' && (!item.images || item.images.length === 0) && item.skipImage && (
-                                                <div className="col-span-2 py-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center text-center">
-                                                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mb-2 text-gray-400">
-                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
-                                                    </div>
-                                                    <h3 className="text-sm font-bold text-gray-600">Text Only Tweet</h3>
-                                                    <p className="text-xs text-brand-muted mt-1">No graphic assets needed for this post.</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-
-                            </div>
-                        )}
-
-
-                        {/* Hidden File Inputs */}
-                        <input type="file" ref={campaignFileInputRef} onChange={handleCampaignImageUpload} accept="image/*" className="hidden" />
-
-                        {/* Image Preview Helper */}
-                        {
-                            viewingImage && (
-                                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingImage(null)}>
-                                    <img src={viewingImage} className="max-w-full max-h-[90vh] rounded shadow-2xl" onClick={e => e.stopPropagation()} />
-                                    <button onClick={() => setViewingImage(null)} className="absolute top-5 right-5 text-white bg-gray-800 rounded-full p-2 hover:bg-gray-700">✕</button>
-                                </div>
-                            )
-                        }
-
-                        {/* ANALYTICS MODAL */}
-                        {
-                            analyzingCampaign && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn">
-                                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-                                        <div className="p-6 border-b border-brand-border flex justify-between items-center bg-gray-50">
-                                            <div>
-                                                <h3 className="text-lg font-bold text-brand-text">{analyzingCampaign}</h3>
-                                                <p className="text-xs text-brand-muted">Campaign Performance & Schedule</p>
-                                            </div>
-                                            <button onClick={() => setAnalyzingCampaign(null)} className="text-gray-400 hover:text-gray-600">✕</button>
-                                        </div>
-                                        <div className="p-6 overflow-y-auto">
-                                            {/* Summary Stats */}
-                                            <div className="grid grid-cols-3 gap-4 mb-8">
-                                                <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-center">
-                                                    <div className="text-2xl font-bold text-indigo-600">{events.filter(e => e.campaignName === analyzingCampaign).length}</div>
-                                                    <div className="text-[10px] uppercase font-bold text-indigo-400">Scheduled Posts</div>
-                                                </div>
-                                                <div className="p-4 bg-green-50 rounded-xl border border-green-100 text-center">
-                                                    <div className="text-2xl font-bold text-green-600">0</div>
-                                                    <div className="text-[10px] uppercase font-bold text-green-400">Engagement (Live)</div>
-                                                </div>
-                                                <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-center">
-                                                    <div className="text-2xl font-bold text-purple-600">100%</div>
-                                                    <div className="text-[10px] uppercase font-bold text-purple-400">Completion</div>
-                                                </div>
-                                            </div>
-
-                                            {/* Post List */}
-                                            <h4 className="text-xs font-bold text-brand-muted uppercase mb-4">Scheduled Content</h4>
-                                            <div className="space-y-3">
-                                                {events.filter(e => e.campaignName === analyzingCampaign).sort((a, b) => a.date.localeCompare(b.date)).map((evt, i) => (
-                                                    <div key={i} className="flex gap-4 p-3 border border-brand-border rounded-lg items-start">
-                                                        <div className="bg-gray-100 px-3 py-2 rounded text-center min-w-[60px]">
-                                                            <div className="text-xs font-bold text-gray-500">{new Date(evt.date).toLocaleString('default', { month: 'short' }).toUpperCase()}</div>
-                                                            <div className="text-lg font-bold text-gray-900">{new Date(evt.date).getDate()}</div>
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-sm text-brand-text line-clamp-2">{evt.content}</p>
-                                                            <div className="flex gap-2 mt-2">
-                                                                <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100">Twitter</span>
-                                                                <span className="text-[10px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded border border-gray-200 uppercase">{evt.status}</span>
+                                                {/* Post List */}
+                                                <h4 className="text-xs font-bold text-zinc-500 uppercase mb-4 tracking-wider">Scheduled Content</h4>
+                                                <div className="space-y-3">
+                                                    {events.filter(e => e.campaignName === analyzingCampaign).sort((a, b) => a.date.localeCompare(b.date)).map((evt, i) => (
+                                                        <div key={i} className="flex gap-4 p-4 border border-white/5 bg-white/5 rounded-xl items-start hover:bg-white/10 transition-colors">
+                                                            <div className="bg-black/40 px-3 py-2 rounded-lg text-center min-w-[60px] border border-white/5">
+                                                                <div className="text-[10px] font-bold text-zinc-500 uppercase">{new Date(evt.date).toLocaleString('default', { month: 'short' })}</div>
+                                                                <div className="text-xl font-bold text-white">{new Date(evt.date).getDate()}</div>
                                                             </div>
+                                                            <div className="flex-1">
+                                                                <p className="text-sm text-zinc-300 line-clamp-2 leading-relaxed">{evt.content}</p>
+                                                                <div className="flex gap-2 mt-3">
+                                                                    <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded border border-blue-500/20 font-bold">Twitter</span>
+                                                                    <span className="text-[10px] bg-white/5 text-zinc-500 px-2.5 py-1 rounded border border-white/10 uppercase font-bold">{evt.status}</span>
+                                                                </div>
+                                                            </div>
+                                                            {evt.image && (
+                                                                <img src={evt.image} alt="Post asset" className="w-16 h-16 object-cover rounded-lg border border-white/10 bg-black" />
+                                                            )}
                                                         </div>
-                                                        {evt.image && (
-                                                            <img src={evt.image} alt="Post asset" className="w-16 h-16 object-cover rounded-lg border border-gray-100" />
-                                                        )}
-                                                    </div>
-                                                ))}
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="p-4 border-t border-white/5 bg-white/5 flex justify-end">
+                                                <Button onClick={() => setAnalyzingCampaign(null)} variant="secondary" className="bg-white/10 text-white hover:bg-white/20 border-none">Close</Button>
                                             </div>
                                         </div>
-                                        <div className="p-4 border-t border-brand-border bg-gray-50 flex justify-end">
-                                            <Button onClick={() => setAnalyzingCampaign(null)} variant="secondary">Close</Button>
-                                        </div>
                                     </div>
-                                </div>
-                            )
-                        }
+                                )
+                            }
+                        </div>
                     </div>
-                </div>
-            )
-            }
-        </div >
+                )
+                }
+            </div>
+        </div>
     );
 };
