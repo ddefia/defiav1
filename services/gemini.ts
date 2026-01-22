@@ -2524,6 +2524,13 @@ export const generateGeneralChatResponse = async (
     - If the answer is not in the knowledge base, admit it but try to be helpful based on general crypto knowledge.
     - Be concise, professional, and friendly.
     - Do NOT talk about "classification", "intents", or "json". Just answer.
+    
+    SPECIAL MODES:
+    - **BRAINSTORMING**: If the user asks for help thinking, ideas, or brainstorming:
+      1. Consult the Knowledge Base for context.
+      2. Propose 3 distinct, high-level "strategic angles" or ideas.
+      3. For each idea, explain WHY it fits the brand.
+      4. Ask the user which one they prefer, or if they have a different goal.
     `;
 
     try {
