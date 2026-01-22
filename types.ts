@@ -375,29 +375,7 @@ export interface AnalysisReport {
   strategicAngle: string; // The "Big Idea"
 }
 
-export interface MarketingAction {
-  type: 'TWEET' | 'THREAD' | 'CAMPAIGN' | 'REPLY';
-  topic: string;
-  goal: string;
-  content: any; // Final output (JSON or String)
-  reasoning?: string; // New: Why this specific action?
-  hook?: string; // New: Punchy internal title
-}
 
-
-export interface ActionPlan {
-  analysis: AnalysisReport;
-  actions: {
-    type: 'TWEET' | 'THREAD' | 'CAMPAIGN' | 'REPLY';
-    topic: string;
-    goal: string;
-    instructions: string;
-    reasoning?: string; // New
-    hook?: string; // New
-    strategicAlignment?: string; // New
-    contentIdeas?: string[]; // New
-  }[];
-}
 
 // --- COPILOT / CHAT TYPES ---
 export interface ChatMessage {
