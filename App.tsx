@@ -295,9 +295,15 @@ const App: React.FC = () => {
                         impactScore: 9,
                         executionPrompt: act.topic,
                         suggestedVisualTemplate: 'Partnership', // Placeholder
+                        strategicAlignment: act.strategicAlignment,
+                        contentIdeas: act.contentIdeas
                     }));
 
-                    setStrategyTasks(prev => [...newTasks, ...prev]);
+                    setStrategyTasks(prev => {
+                        // FILTER LEGACY: Remove any old "Autopilot:" tasks to ensure freshness
+                        const cleanPrev = prev.filter(t => !t.title.startsWith("Autopilot:"));
+                        return [...newTasks, ...cleanPrev];
+                    });
                 } else {
                     setSystemLogs(prev => ["Autopilot: No high-confidence actions needed right now.", ...prev]);
                 }

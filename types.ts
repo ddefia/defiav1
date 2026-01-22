@@ -104,6 +104,10 @@ export interface StrategyTask {
   sourceLogId?: string; // New: Link to the BrainLog that created this
   suggestedVisualTemplate?: string; // New: AI suggested graphic template
   suggestedReferenceIds?: string[]; // New: AI suggested reference images
+
+  // NEW: Deep Strategy Fields
+  strategicAlignment?: string; // Explanation of fit with Brand KB
+  contentIdeas?: string[]; // 3 specific content angles
 }
 
 export interface TaskContextSource {
@@ -114,6 +118,34 @@ export interface TaskContextSource {
   relevance?: number;
 }
 
+// ... (Pulse/Trend types unchanged) ...
+
+// ... (Growth Intelligence types unchanged) ...
+
+export interface MarketingAction {
+  type: 'TWEET' | 'THREAD' | 'CAMPAIGN' | 'REPLY';
+  topic: string;
+  goal: string;
+  content: any; // Final output (JSON or String)
+  reasoning?: string; // New: Why this specific action?
+  hook?: string; // New: Punchy internal title
+  strategicAlignment?: string; // New
+  contentIdeas?: string[]; // New
+}
+
+export interface ActionPlan {
+  analysis: AnalysisReport;
+  actions: {
+    type: 'TWEET' | 'THREAD' | 'CAMPAIGN' | 'REPLY';
+    topic: string;
+    goal: string;
+    instructions: string;
+    reasoning?: string; // New
+    hook?: string; // New
+    strategicAlignment?: string; // New
+    contentIdeas?: string[]; // New
+  }[];
+}
 // --- PULSE / TRENDS TYPES ---
 
 export interface TrendItem {

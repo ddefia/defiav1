@@ -2277,6 +2277,8 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     - If broad (e.g. "Grow awareness"), plan a mix (Tweet + Reply).
     - **CRITICAL:** Providing a "Reasoning" is mandatory. Explain WHY this specific action works given the market context.
     - **HOOK:** Give it a cool internal code name (e.g. "Operation Alpha", "Liquidity Vampire").
+    - **ALIGNMENT:** Explicitly cite which part of the Brand Knowledge Base or Values this aligns with.
+    - **CONCEPTS:** Propose 3 distinct content angles/headlines for this task.
     
     OUTPUT JSON:
     {
@@ -2287,7 +2289,9 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
                 "goal": "What does this specific piece achieve?",
                 "instructions": "Specific constraints for the writer (e.g. 'Use the 3-part structure')",
                 "reasoning": "Data-backed rationale (e.g. 'Competitors are weak here, we strike now')",
-                "hook": "Punchy Title"
+                "hook": "Punchy Title",
+                "strategicAlignment": "Aligns with our core value of [Value] because...",
+                "contentIdeas": ["Headline 1", "Angle 2", "Meme Idea 3"]
             }
         ]
     }
@@ -2353,7 +2357,9 @@ export const executeMarketingAction = async (context: BrainContext): Promise<Mar
             goal: action.goal,
             content: content,
             reasoning: action.reasoning || "Autopilot determined this was high leverage.",
-            hook: action.hook || `GAIA Strategy: ${action.topic}`
+            hook: action.hook || `GAIA Strategy: ${action.topic}`,
+            strategicAlignment: action.strategicAlignment || "Aligns with core brand growth goals.",
+            contentIdeas: action.contentIdeas || [`Post about ${action.topic}`]
         });
     }
 

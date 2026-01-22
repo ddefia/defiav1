@@ -276,42 +276,61 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 border-t border-gray-100 pt-8">
-                        {/* REASONING */}
-                        <div>
-                            <label className="flex items-center gap-2 text-xs font-bold text-brand-text uppercase tracking-wider mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 border-t border-gray-100 pt-8">
+                        {/* 1. THE SIGNAL (WHY NOW) */}
+                        <div className="space-y-4">
+                            <label className="flex items-center gap-2 text-xs font-bold text-brand-text uppercase tracking-wider">
                                 <span className="w-1.5 h-1.5 rounded-full bg-brand-accent"></span>
-                                AI Reasoning
+                                The Signal (Why Now)
                             </label>
-                            <div className="bg-brand-accent/5 p-6 rounded-xl border border-brand-accent/10 text-brand-text leading-relaxed text-base">
+                            <div className="bg-brand-accent/5 p-5 rounded-xl border border-brand-accent/10 text-brand-text text-sm leading-relaxed">
                                 {configuringTask.reasoning}
+                            </div>
+                            {/* Evidence Tags */}
+                            {configuringTask.contextData && configuringTask.contextData.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {configuringTask.contextData.map((d, i) => (
+                                        <span key={i} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200 flex items-center gap-1">
+                                            <span className="w-1 h-1 rounded-full bg-gray-400"></span>
+                                            {d.source}: {d.headline}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 2. THE ALIGNMENT (WHY US) */}
+                        <div className="space-y-4">
+                            <label className="flex items-center gap-2 text-xs font-bold text-brand-text uppercase tracking-wider">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Strategic Fit (Why Us)
+                            </label>
+                            <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100 text-gray-700 text-sm leading-relaxed">
+                                {configuringTask.strategicAlignment || "Aligns with core brand growth directives and knowledge base assertions."}
                             </div>
                         </div>
 
-                        {/* PROOF */}
-                        <div>
-                            <label className="flex items-center gap-2 text-xs font-bold text-brand-text uppercase tracking-wider mb-4">
+                        {/* 3. THE CONCEPTS (WHAT TO POST) */}
+                        <div className="space-y-4">
+                            <label className="flex items-center gap-2 text-xs font-bold text-brand-text uppercase tracking-wider">
                                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                                Data Signals (Proof)
+                                Content Angles (Select One)
                             </label>
-                            {configuringTask.contextData && Array.isArray(configuringTask.contextData) && configuringTask.contextData.length > 0 ? (
-                                <div className="space-y-3">
-                                    {(configuringTask.contextData).map((data, idx) => (
-                                        <div key={idx} className="flex items-start gap-4 bg-indigo-50/50 p-4 rounded-xl border border-indigo-50/50 hover:border-indigo-100 transition-colors">
-                                            <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${data.relevance >= 8 ? 'bg-indigo-500 shadow-sm shadow-indigo-300' : 'bg-indigo-300'}`}></div>
-                                            <div>
-                                                <div className="font-bold text-gray-800 text-sm mb-1">{data.headline}</div>
-                                                <div className="text-xs text-gray-500 flex items-center gap-2 font-medium">
-                                                    <span className="uppercase tracking-wider text-indigo-600/80 text-[10px]">{data.type}</span>
-                                                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                                    <span>{data.source}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                            {configuringTask.contentIdeas && configuringTask.contentIdeas.length > 0 ? (
+                                <div className="space-y-2">
+                                    {configuringTask.contentIdeas.map((idea, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => setGeneratedDraft(idea)} // Quick fill for now, ideally updates prompt
+                                            className="w-full text-left p-3 rounded-lg border border-indigo-100 bg-indigo-50/30 hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs font-medium text-indigo-900 flex items-start gap-2"
+                                        >
+                                            <span className="mt-0.5 text-indigo-400">➢</span>
+                                            {idea}
+                                        </button>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-sm text-brand-muted italic py-2">No specific data signals cited by AI.</div>
+                                <div className="text-sm text-gray-400 italic">No specific angles generated.</div>
                             )}
                         </div>
                     </div>
