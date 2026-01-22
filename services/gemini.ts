@@ -2448,12 +2448,16 @@ export const classifyAndPopulate = async (
     1. Analyze the conversation history, focusing on the LAST message: "${lastMessage}".
     2. Determine the Intent.
     3. DETECT VAGUENESS (CRITICALLY IMPORTANT):
+       - **BRAINSTORMING RULE**: If the user asks to "brainstorm", "help me think", or "ideas for", DO NOT choose CREATE_CAMPAIGN yet. Return MISSING_INFO.
        - If the user asks for "content" or "campaign" found GENERIC TOPIC -> Return MISSING_INFO.
        - If the user asks for "image" but no visual details -> Return MISSING_INFO.
        - DO NOT GUESS. If you are 90% sure, ask to confirm. 
        - Users prefer to be asked "What style of image?" rather than getting a random one.
 
     4. EXAMPLE FLOWS:
+       - User: "Help me brainstorm a campaign"
+       - You: Intent: MISSING_INFO, missingInfo: ["What is the primary goal? (e.g. Awareness, Conversion)", "Who is the target audience?", "Any specific theme?"]
+
        - User: "Make a tweet about ETH"
        - You: Intent: MISSING_INFO, missingInfo: ["What is the specific angle? (Bullish, Bearish, Tech update?)", "Should I focus on price or dev activity?"]
        

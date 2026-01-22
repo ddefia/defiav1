@@ -42,17 +42,17 @@ export const CampaignCard: React.FC<CampaignCardProps> = ({ params, brandName, b
 
     if (status === 'done' && result) {
         return (
-            <div className="p-4 bg-[#121214] border border-white/5 rounded-xl animate-fadeIn duration-300">
+            <div className="p-4 bg-white border border-gray-200 rounded-xl animate-fadeIn duration-300 shadow-sm">
                 <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-semibold text-emerald-400 flex items-center gap-2">
+                    <h4 className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                         Generated Drafts
                     </h4>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 bg-zinc-900 px-2 py-1 rounded">{result.length} Posts</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">{result.length} Posts</span>
                 </div>
                 <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar mb-4 pr-1">
                     {result.map((item: any, idx: number) => (
-                        <div key={idx} className="p-3 bg-zinc-900/50 border border-white/5 rounded-lg text-[13px] text-zinc-300 hover:bg-zinc-900 transition-colors">
+                        <div key={idx} className="p-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-700 hover:bg-gray-100 transition-colors">
                             <p className="leading-relaxed">{item.tweet || item.content}</p>
                         </div>
                     ))}
@@ -65,20 +65,20 @@ export const CampaignCard: React.FC<CampaignCardProps> = ({ params, brandName, b
     }
 
     return (
-        <div className="p-4 bg-[#121214] border border-white/5 rounded-xl">
-            <h4 className="text-sm font-semibold text-purple-400 mb-4 flex items-center gap-2">
+        <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
+            <h4 className="text-sm font-semibold text-purple-600 mb-4 flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 Draft Campaign
             </h4>
             <div className="space-y-3 mb-5">
                 <div className="flex justify-between items-center text-[13px]">
-                    <span className="text-zinc-500 font-medium">Topic</span>
-                    <span className="text-zinc-200 font-medium truncate max-w-[200px]">{params?.campaignTopic}</span>
+                    <span className="text-gray-500 font-medium">Topic</span>
+                    <span className="text-gray-900 font-medium truncate max-w-[200px]">{params?.campaignTopic}</span>
                 </div>
                 {params?.campaignTheme && (
                     <div className="flex justify-between items-center text-[13px]">
-                        <span className="text-zinc-500 font-medium">Theme</span>
-                        <span className="text-zinc-200 font-medium">{params.campaignTheme}</span>
+                        <span className="text-gray-500 font-medium">Theme</span>
+                        <span className="text-gray-900 font-medium">{params.campaignTheme}</span>
                     </div>
                 )}
             </div>
