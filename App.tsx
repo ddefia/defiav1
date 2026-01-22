@@ -785,7 +785,7 @@ const App: React.FC = () => {
 
                 {/* SECTION: COPILOT */}
                 {appSection === 'copilot' && selectedBrand && (
-                    <CopilotPage
+                    <CopilotView
                         brandName={selectedBrand}
                         brandConfig={profiles[selectedBrand]}
                         calendarEvents={calendarEvents}
