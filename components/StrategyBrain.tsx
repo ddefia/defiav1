@@ -116,8 +116,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
 
     // PREPARE EXECUTION (Enter Config Mode)
     const handleConfigureExecution = (task: StrategyTask) => {
-        // Intelligent Routing Bypass (Same as before)
-        if (task.type === 'CAMPAIGN_IDEA' && onNavigate) { onNavigate('campaigns', { intent: task.title }); return; }
+        // Intelligent Routing Bypass (DISABLED to show Reasoning Modal first)
+        // if (task.type === 'CAMPAIGN_IDEA' && onNavigate) { onNavigate('campaigns', { intent: task.title }); return; }
+
         if (task.type === 'TREND_JACK' && onNavigate && task.contextData?.some(c => c.type === 'TREND')) {
             const trend = task.contextData.find(c => c.type === 'TREND');
             if (trend) { onNavigate('pulse', { trend: { headline: trend.headline, summary: trend.source } }); return; }

@@ -112,7 +112,17 @@ const App: React.FC = () => {
 
     useEffect(() => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
-        setStrategyTasks(loadStrategyTasks(selectedBrand));
+
+        // AGGRESSIVE PURGE: Remove legacy "Autopilot" generic tasks
+        const rawTasks = loadStrategyTasks(selectedBrand);
+        const CLEAN_TASKS = rawTasks.filter(t =>
+            !t.title.includes("Competitive Landscape Analysis") &&
+            !t.title.includes("Customer Segmentation") &&
+            !t.title.includes("Value Proposition") &&
+            !t.title.includes("Go-to-Market") &&
+            !t.title.startsWith("Autopilot:") // Catch-all
+        );
+        setStrategyTasks(CLEAN_TASKS);
 
         const loadedReport = loadGrowthReport(selectedBrand);
         if (loadedReport) {
