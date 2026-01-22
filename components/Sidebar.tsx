@@ -19,7 +19,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onConnect
 }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const [isBrandMenuOpen, setIsBrandMenuOpen] = useState(false);
+    // console.log("Sidebar: Copilot Nav Item Present");
 
     const navItems = [
         {

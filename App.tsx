@@ -28,6 +28,7 @@ import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, Tren
 const App: React.FC = () => {
     // Check environment variable first (injected by Vite define)
     const [hasKey, setHasKey] = useState<boolean>(!!process.env.API_KEY);
+    console.log('App: Copilot Integration Loaded v2'); // Debug: Force Rebuild
     const [checkingKey, setCheckingKey] = useState<boolean>(true);
     const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
