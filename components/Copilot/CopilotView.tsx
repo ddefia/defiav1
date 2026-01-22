@@ -6,7 +6,7 @@ import { generateCampaignDrafts, generateWeb3Graphic } from '../../services/gemi
 import { CampaignCard } from './ActionCards/CampaignCard';
 import { ImagePreviewCard } from './ActionCards/ImagePreviewCard';
 
-interface CopilotPageProps {
+interface CopilotViewProps {
     brandName: string;
     brandConfig: BrandConfig;
     calendarEvents: CalendarEvent[];
@@ -14,7 +14,7 @@ interface CopilotPageProps {
     growthReport: GrowthReport | null; // Nullable
 }
 
-export const CopilotPage: React.FC<CopilotPageProps> = ({ brandName, brandConfig, calendarEvents, strategyTasks, growthReport }) => {
+export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig, calendarEvents, strategyTasks, growthReport }) => {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<ChatMessage[]>([
         {

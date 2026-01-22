@@ -19,7 +19,7 @@ import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
 import { BrainPage } from './components/Brain/BrainPage'; // Import BrainPage
 import { ContentStudio } from './components/ContentStudio'; // Import ContentStudio
 import { ImageEditor } from './components/ImageEditor'; // Import ImageEditor
-import { CopilotPage } from './components/Copilot/CopilotPage'; // Import Copilot
+import { CopilotView } from './components/Copilot/CopilotView'; // Import Copilot
 import { Sidebar } from './components/Sidebar';
 import { Settings } from './components/Settings'; // Import Settings
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals } from './types';
