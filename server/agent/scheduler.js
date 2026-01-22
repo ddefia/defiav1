@@ -1,6 +1,7 @@
 import cron from 'node-cron';
-import { fetchDuneMetrics, fetchLunarCrushTrends, fetchMentions, fetchPulseTrends, updateAllBrands } from './ingest.js';
+import { fetchDuneMetrics, fetchLunarCrushTrends, fetchMentions, fetchPulseTrends, updateAllBrands, TRACKED_BRANDS } from './ingest.js'; // Imported TRACKED_BRANDS directly
 import { analyzeState } from './brain.js';
+import { generateDailyBriefing } from './generator.js'; // Import Generator
 
 /**
  * SCHEDULER SERVICE
@@ -70,9 +71,7 @@ export const startAgent = () => {
             ]);
 
             // B. Per-Brand Analysis (Multi-Tenant)
-            // Import dynamically or use the one we just exported if in same file structure (It is)
-            const { TRACKED_BRANDS } = await import('./ingest.js');
-
+            // Use imported TRACKED_BRANDS
             for (const [brandId, handle] of Object.entries(TRACKED_BRANDS)) {
                 console.log(`   > Analyzing Brand: ${brandId} (@${handle})...`);
 
@@ -111,6 +110,19 @@ export const startAgent = () => {
             await updateAllBrands(apifyKey);
         } catch (e) {
             console.error("   - Sync Failed:", e.message);
+        }
+    });
+
+    // 3. DAILY BRIEFING GENERATION (06:00 AM)
+    cron.schedule('0 6 * * *', async () => {
+        console.log(`\n[${new Date().toISOString()}] 🌤️ Morning Briefing: Generating Reports...`);
+        try {
+            // Generate for all tracked brands
+            for (const brandId of Object.keys(TRACKED_BRANDS)) {
+                await generateDailyBriefing(brandId);
+            }
+        } catch (e) {
+            console.error("   - Morning Generation Failed:", e.message);
         }
     });
 };

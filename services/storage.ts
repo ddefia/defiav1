@@ -544,6 +544,21 @@ export const saveGrowthReport = (brandName: string, report: any): void => {
     }
 };
 
+export const fetchGrowthReportFromCloud = async (brandName: string): Promise<any | null> => {
+    try {
+        const key = `${GROWTH_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        const res = await fetchFromCloud(key);
+        if (res && res.value) {
+            // Update local cache immediately to persist it
+            localStorage.setItem(key, JSON.stringify(res.value));
+            return res.value;
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+};
+
 // --- HISTORY EVENTS (READ-ONLY) ---
 
 export const fetchBrainHistoryEvents = async (brandName: string): Promise<CalendarEvent[]> => {

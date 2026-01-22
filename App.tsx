@@ -4,7 +4,7 @@ import { fetchMarketPulse } from './services/pulse';
 import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { Button } from './components/Button';
 import { Select } from './components/Select';
@@ -208,14 +208,41 @@ const App: React.FC = () => {
                 setSocialSignals(liveSignals);
 
                 // 2c. Generate Growth Report (Daily Briefing) - REAL TIME w/ CACHE (6h)
-                const reportAge = growthReport?.lastUpdated ? Date.now() - growthReport.lastUpdated : null;
+                // 2c. Generate Growth Report (Daily Briefing) - REAL TIME w/ CACHE (6h)
+                // FIX: Check storage directly if state is empty to avoid race condition on mount
+                let currentReport = growthReport;
+
+                // 1. Try Local Storage Synchronously
+                if (!currentReport) {
+                    const cachedParams = loadGrowthReport(selectedBrand);
+                    if (cachedParams) currentReport = cachedParams;
+                }
+
+                // 2. If Local is Missing or is just a Seed (lastUpdated === 0), Try Cloud (Async)
+                if (!currentReport || currentReport.lastUpdated === 0) {
+                    setSystemLogs(prev => ["Local cache empty/seed. Syncing from Cloud...", ...prev]);
+                    try {
+                        // Explicitly wait for cloud data
+                        const cloudReport = await fetchGrowthReportFromCloud(selectedBrand);
+                        if (cloudReport) {
+                            currentReport = cloudReport;
+                            // Update State immediately so UI shows it
+                            setGrowthReport(cloudReport);
+                            setSystemLogs(prev => ["Cloud sync successful. Loaded Daily Briefing.", ...prev]);
+                        }
+                    } catch (e) {
+                        console.warn("Cloud sync check failed", e);
+                    }
+                }
+
+                const reportAge = currentReport?.lastUpdated ? Date.now() - currentReport.lastUpdated : null;
                 const hoursOld = reportAge ? (reportAge / (1000 * 60 * 60)).toFixed(1) : "NEW";
 
                 setSystemLogs(prev => [`Analysis: Verifying Briefing Freshness (Age: ${hoursOld}h)...`, ...prev]);
 
                 const isStale = !reportAge || reportAge > 6 * 60 * 60 * 1000; // 6 Hours (4x per day)
 
-                if (!growthReport || isStale) {
+                if (!currentReport || isStale) {
                     setSystemLogs(prev => ["Analysis: Report is stale or missing. Generating Daily Briefing...", ...prev]);
                     try {
                         const freshReport = await generateGrowthReport(selectedBrand, trends, mentions, profiles[selectedBrand]);
