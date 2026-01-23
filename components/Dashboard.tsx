@@ -22,6 +22,7 @@ interface DashboardProps {
 const safeVal = (val: number | undefined, suffix = '') => val ? `${val.toLocaleString()}${suffix}` : '--';
 
 // --- HELPER: TRANSFORM METRICS TO KPIS ---
+// --- HELPER: TRANSFORM METRICS TO KPIS ---
 const transformMetricsToKPIs = (
     metrics: SocialMetrics | null,
     chain: ComputedMetrics | null,
@@ -32,15 +33,19 @@ const transformMetricsToKPIs = (
         ? campaigns.reduce((acc, c) => acc + c.spend, 0)
         : 0;
 
-    // 2. ATTR WALLETS (Chain)
-    const newWallets = chain?.netNewWallets || 0; // Default to 0 if no real data
+    // 2. ATTR WALLETS (sum of campaigns)
+    // Honest Connection: Only show wallets we can prove came from campaigns
+    const newWallets = campaigns.length > 0
+        ? campaigns.reduce((acc, c) => acc + c.attributedWallets, 0)
+        : (chain?.netNewWallets || 0);
 
     // 3. CPA (Weighted Average)
-    const totalAttr = campaigns.reduce((acc, c) => acc + c.attributedWallets, 0);
-    const cpaVal = totalAttr > 0 ? (spendVal / totalAttr) : 0;
+    const cpaVal = newWallets > 0 ? (spendVal / newWallets) : 0;
 
-    // 4. TVL (Chain)
-    const tvlVal = chain?.totalVolume ? chain.totalVolume : 0;
+    // 4. VALUE CREATED (sum of campaigns) vs TVL
+    const valueCreated = campaigns.length > 0
+        ? campaigns.reduce((acc, c) => acc + c.valueCreated, 0)
+        : (chain?.totalVolume || 0);
 
     // 5. DEFIA SCORE
     const defiaScore = metrics ? (metrics.engagementRate * 1.5 + (chain?.retentionRate || 0) * 5).toFixed(1) : '0.0';
@@ -49,20 +54,20 @@ const transformMetricsToKPIs = (
         {
             label: 'Spend (7d)',
             value: `$${spendVal.toLocaleString()}`,
-            delta: 0, // Needs historical data for real calc
+            delta: 0,
             trend: 'flat',
             confidence: campaigns.length > 0 ? 'High' : 'Low',
             statusLabel: spendVal > 5000 ? 'Watch' : 'Strong',
-            sparklineData: [spendVal * 0.8, spendVal * 0.9, spendVal] // Placeholder trend
+            sparklineData: [spendVal * 0.8, spendVal * 0.9, spendVal]
         },
         {
             label: 'Attr. Wallets',
             value: newWallets.toLocaleString(),
             delta: 0,
             trend: 'flat',
-            confidence: 'Med',
+            confidence: campaigns.length > 0 ? 'High' : 'Med',
             statusLabel: newWallets > 100 ? 'Strong' : 'Watch',
-            sparklineData: [newWallets * 0.8, newWallets] // Placeholder
+            sparklineData: [newWallets * 0.8, newWallets]
         },
         {
             label: 'CPA (Average)',
@@ -74,13 +79,13 @@ const transformMetricsToKPIs = (
             sparklineData: [cpaVal * 1.1, cpaVal]
         },
         {
-            label: 'Value (TVL)',
-            value: `+$${(tvlVal / 1000).toFixed(1)}k`,
-            delta: 24,
+            label: 'Value Created',
+            value: `$${(valueCreated / 1000).toFixed(1)}k`,
+            delta: 0,
             trend: 'up',
-            confidence: 'Low',
+            confidence: 'High',
             statusLabel: 'Strong',
-            sparklineData: [300, 320, 310, 380, 410, 430, tvlVal / 1000]
+            sparklineData: [valueCreated * 0.8, valueCreated]
         },
         {
             label: 'Defia Index',
@@ -223,10 +228,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <button
                         onClick={handleOpenDrawer}
                         className={`text-[10px] uppercase font-mono tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${briefLoading
-                                ? 'bg-gray-50 text-gray-500 border-gray-200 cursor-wait'
-                                : briefData
-                                    ? 'bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 cursor-pointer shadow-sm'
-                                    : 'bg-white text-gray-400 border-gray-200'
+                            ? 'bg-gray-50 text-gray-500 border-gray-200 cursor-wait'
+                            : briefData
+                                ? 'bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 cursor-pointer shadow-sm'
+                                : 'bg-white text-gray-400 border-gray-200'
                             }`}
                     >
                         <span className="relative flex h-2 w-2">
