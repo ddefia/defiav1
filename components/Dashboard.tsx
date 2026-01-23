@@ -22,50 +22,56 @@ interface DashboardProps {
 const safeVal = (val: number | undefined, suffix = '') => val ? `${val.toLocaleString()}${suffix}` : '--';
 
 // --- HELPER: TRANSFORM METRICS TO KPIS ---
-const transformMetricsToKPIs = (metrics: SocialMetrics | null, chain: ComputedMetrics | null): KPIItem[] => {
-    // 1. SPEND (Simulated from Campaigns for now, or hardcoded if no Ads API)
-    // In a real app, pass adsData here. For now, we estimate from metrics or defaults.
-    const spendVal = 4250;
+const transformMetricsToKPIs = (
+    metrics: SocialMetrics | null,
+    chain: ComputedMetrics | null,
+    campaigns: DashboardCampaign[] = []
+): KPIItem[] => {
+    // 1. SPEND (Aggregated from Real Campaigns)
+    const spendVal = campaigns.length > 0
+        ? campaigns.reduce((acc, c) => acc + c.spend, 0)
+        : 0;
 
     // 2. ATTR WALLETS (Chain)
-    const newWallets = chain?.netNewWallets || 142;
+    const newWallets = chain?.netNewWallets || 0; // Default to 0 if no real data
 
-    // 3. CPA (Simulated)
-    const cpaVal = 32.10;
+    // 3. CPA (Weighted Average)
+    const totalAttr = campaigns.reduce((acc, c) => acc + c.attributedWallets, 0);
+    const cpaVal = totalAttr > 0 ? (spendVal / totalAttr) : 0;
 
     // 4. TVL (Chain)
-    const tvlVal = chain?.totalVolume ? chain.totalVolume : 450000;
+    const tvlVal = chain?.totalVolume ? chain.totalVolume : 0;
 
     // 5. DEFIA SCORE
-    const defiaScore = metrics ? (metrics.engagementRate * 1.5 + (chain?.retentionRate || 0.5) * 5).toFixed(1) : '7.8';
+    const defiaScore = metrics ? (metrics.engagementRate * 1.5 + (chain?.retentionRate || 0) * 5).toFixed(1) : '0.0';
 
     return [
         {
             label: 'Spend (7d)',
             value: `$${spendVal.toLocaleString()}`,
-            delta: 12,
-            trend: 'up',
-            confidence: 'High',
-            statusLabel: 'Watch',
-            sparklineData: [3000, 3200, 3100, 3500, 4000, 4100, 4250]
+            delta: 0, // Needs historical data for real calc
+            trend: 'flat',
+            confidence: campaigns.length > 0 ? 'High' : 'Low',
+            statusLabel: spendVal > 5000 ? 'Watch' : 'Strong',
+            sparklineData: [spendVal * 0.8, spendVal * 0.9, spendVal] // Placeholder trend
         },
         {
             label: 'Attr. Wallets',
             value: newWallets.toLocaleString(),
-            delta: 8.5,
-            trend: 'up',
+            delta: 0,
+            trend: 'flat',
             confidence: 'Med',
-            statusLabel: 'Strong',
-            sparklineData: [80, 95, 88, 110, 125, 130, newWallets]
+            statusLabel: newWallets > 100 ? 'Strong' : 'Watch',
+            sparklineData: [newWallets * 0.8, newWallets] // Placeholder
         },
         {
             label: 'CPA (Average)',
             value: `$${cpaVal.toFixed(2)}`,
-            delta: -5.2,
-            trend: 'down',
+            delta: 0,
+            trend: 'flat',
             confidence: 'High',
-            statusLabel: 'Strong',
-            sparklineData: [45, 42, 40, 38, 35, 33, cpaVal]
+            statusLabel: cpaVal < 50 ? 'Strong' : 'Watch',
+            sparklineData: [cpaVal * 1.1, cpaVal]
         },
         {
             label: 'Value (TVL)',
@@ -126,7 +132,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [briefData, setBriefData] = useState<DailyBrief | null>(null);
     const [briefLoading, setBriefLoading] = useState(false);
 
-    const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics), [socialMetrics, chainMetrics]);
+    // Re-calculate KPIs when data arrives
+    const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics, campaigns), [socialMetrics, chainMetrics, campaigns]);
 
     // Handler: Generate/View Brief
     const handleViewInsights = async () => {

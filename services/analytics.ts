@@ -615,101 +615,48 @@ export const computeSocialSignals = (trends: TrendItem[], mentions: Mention[], s
     };
 };
 
+import { getSupabase } from './supabaseClient';
+
 /**
- * CAMPAIGN PERFORMANCE (ADS API INTEGATION)
- * Currently simulated. Connect to Facebook/Twitter Ads API here.
+ * CAMPAIGN PERFORMANCE (REAL DATA FROM SUPABASE)
  */
 export const fetchCampaignPerformance = async (): Promise<DashboardCampaign[]> => {
-    // Simulate API latency
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // 1. Fetch from Supabase
+    const supabase = getSupabase();
+    if (!supabase) return [];
 
-    // Return Data matching DashboardCampaign interface
-    return [
-        {
-            id: 'c1',
-            name: 'Alpha Launch',
-            channel: 'Twitter',
-            spend: 1200,
-            attributedWallets: 45,
-            cpa: 26.6,
-            retention: 85,
-            valueCreated: 15000,
-            roi: 12.5,
-            status: 'Scale',
-            trendSignal: 'up',
-            confidence: 'High',
-            aiSummary: ['Viral mechanic working', 'High influencer participation'],
-            anomalies: [],
-            recommendation: {
-                action: 'Scale',
-                reasoning: ['ROI is 12x', 'CPA is low'],
-                confidence: 'High',
-                riskFactors: ['Bot traffic potential']
-            }
-        },
-        {
-            id: 'c2',
-            name: 'Influencer Batch A',
-            channel: 'Influencer',
-            spend: 2500,
-            attributedWallets: 12,
-            cpa: 208,
-            retention: 40,
-            valueCreated: 1200,
-            roi: 0.48,
-            status: 'Kill',
-            trendSignal: 'down',
-            confidence: 'High',
-            aiSummary: ['Poor conversion', 'High cost'],
-            anomalies: [],
-            recommendation: {
-                action: 'Kill',
-                reasoning: ['ROI < 1', 'CPA unsustainable'],
-                confidence: 'High'
-            }
-        },
-        {
-            id: 'c3',
-            name: 'DeFi Education Thread',
-            channel: 'Twitter',
-            spend: 150,
-            attributedWallets: 28,
-            cpa: 5.35,
-            retention: 92,
-            valueCreated: 5600,
-            roi: 37.3,
-            status: 'Scale',
-            trendSignal: 'up',
-            confidence: 'High',
-            aiSummary: ['Top organic performer'],
-            anomalies: [],
-            recommendation: {
-                action: 'Scale',
-                reasoning: ['Best CPA', 'High retention'],
-                confidence: 'High'
-            }
-        },
-        {
-            id: 'c4',
-            name: 'Discord AMA',
-            channel: 'Discord',
-            spend: 500,
-            attributedWallets: 60,
-            cpa: 8.33,
-            retention: 78,
-            valueCreated: 8000,
-            roi: 16.0,
-            status: 'Test',
-            trendSignal: 'flat',
-            confidence: 'Med',
-            aiSummary: ['Solid engagement'],
-            anomalies: [],
-            recommendation: {
-                action: 'Test',
-                reasoning: ['Need more data'],
-                confidence: 'Med'
-            }
+    try {
+        const { data, error } = await supabase
+            .from('campaign_performance')
+            .select('*');
+
+        if (error || !data) {
+            console.warn("Supabase Campaign Fetch Failed (or table empty):", error);
+            return [];
         }
-    ];
+
+        // 2. Transform DB Rows -> DashboardCampaign
+        // Note: Assumes DB columns are snake_case matching the types or need mapping.
+        return data.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            channel: d.channel,
+            spend: d.spend,
+            attributedWallets: d.attributed_wallets,
+            cpa: d.cpa,
+            retention: d.retention,
+            valueCreated: d.value_created,
+            roi: d.roi,
+            status: d.status_label,
+            trendSignal: d.trend_signal,
+            confidence: d.confidence,
+            aiSummary: d.ai_summary || [],
+            anomalies: d.anomalies || [],
+            recommendation: d.recommendation || { action: 'Test', confidence: 'Low', reasoning: [] }
+        }));
+    } catch (e) {
+        console.error("Campaign Fetch Error", e);
+        return [];
+    }
 };
 
