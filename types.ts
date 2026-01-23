@@ -462,3 +462,14 @@ export interface CommunitySignal {
   sentiment: 'Positive' | 'Negative' | 'Neutral';
 }
 
+export interface DailyBrief {
+  keyDrivers: string[];
+  decisionsReinforced: string[];
+  risksAndUnknowns: string[];
+  confidence: {
+    level: 'High' | 'Medium' | 'Low';
+    explanation: string;
+  };
+  timestamp: number;
+}
+

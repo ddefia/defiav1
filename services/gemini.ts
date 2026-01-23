@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief } from "../types";
 import { saveBrainLog } from "./storage";
 import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
 
@@ -2597,5 +2597,99 @@ export const generateGeneralChatResponse = async (
     } catch (e) {
         console.error("General Chat Failed", e);
         return { text: "Sorry, I'm having trouble connecting to my brain right now.", actions: [] };
+    }
+};
+
+/**
+ * DAILY AI BRIEF GENERATOR (STRICT ANALYST MODE)
+ */
+export const generateDailyBrief = async (
+    brandName: string,
+    kpis: KPIItem[],
+    campaigns: DashboardCampaign[],
+    signals: CommunitySignal[]
+): Promise<DailyBrief> => {
+    dispatchThinking("📊 Generating Daily AI Brief (Analyst Mode)");
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Prepare Context from VISIBLE Data Only
+    const kpiSummary = kpis.map(k => `${k.label}: ${k.value} (${k.trend} ${k.delta}%)`).join('\n');
+    const campaignSummary = campaigns.map(c =>
+        `Campaign: ${c.name} | ROI: ${c.roi}x | CPA: $${c.cpa} | Status: ${c.status} | Rec: ${c.recommendation.action}`
+    ).join('\n');
+    const signalSummary = signals.map(s => `${s.platform}: ${s.signal} (${s.trend})`).join('\n');
+
+    const systemInstruction = `
+    You are Defia's AI Analyst.
+    Your task is to generate a Daily AI Brief that explains the current dashboard state.
+
+    Rules:
+    - Use only the provided metrics.
+    - Do not speculate or predict.
+    - Do not introduce new actions.
+    - Max 3 bullets per section.
+    - Use precise, neutral language.
+    - If confidence is not High, explicitly state why.
+
+    Input Data:
+    KPIs:\n${kpiSummary}
+    
+    Campaigns:\n${campaignSummary}
+    
+    Signals:\n${signalSummary}
+
+    Output sections (exact JSON structure):
+    {
+        "keyDrivers": ["string", "string"],
+        "decisionsReinforced": ["string", "string"],
+        "risksAndUnknowns": ["string", "string"],
+        "confidence": {
+            "level": "High" | "Medium" | "Low",
+            "explanation": "string"
+        }
+    }
+    
+    CONFIDENCE SCORING LOGIC:
+    - High: If ROI data is present and consistant.
+    - Medium: If mixed signals or short time windows.
+    - Low: If data is sparse.
+
+    HARD CONSTRAINTS:
+    - No emotional language ("exciting", "bullish").
+    - Causality must be clear (X happened because of Y metric).
+    - If data is invalid, return empty arrays and Low confidence.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "Generate Daily Brief",
+            config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json"
+            }
+        });
+
+        const text = response.text || "{}";
+        const data = JSON.parse(text);
+
+        return {
+            keyDrivers: data.keyDrivers || [],
+            decisionsReinforced: data.decisionsReinforced || [],
+            risksAndUnknowns: data.risksAndUnknowns || [],
+            confidence: data.confidence || { level: 'Low', explanation: 'Generation Error' },
+            timestamp: Date.now()
+        };
+
+    } catch (e) {
+        console.error("Daily Brief Generation Failed", e);
+        return {
+            keyDrivers: [],
+            decisionsReinforced: [],
+            risksAndUnknowns: ["System Error: Unable to generate brief."],
+            confidence: { level: 'Low', explanation: 'AI Service Failure' },
+            timestamp: Date.now()
+        };
     }
 };

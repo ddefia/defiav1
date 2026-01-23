@@ -1,4 +1,4 @@
-import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost, SocialSignals, TrendItem, Mention } from "../types";
+import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost, SocialSignals, TrendItem, Mention, DashboardCampaign } from "../types";
 import { getIntegrationConfig } from "../config/integrations";
 
 
@@ -614,3 +614,102 @@ export const computeSocialSignals = (trends: TrendItem[], mentions: Mention[], s
         topKols: Array.from(kols).slice(0, 5) // Top 5
     };
 };
+
+/**
+ * CAMPAIGN PERFORMANCE (ADS API INTEGATION)
+ * Currently simulated. Connect to Facebook/Twitter Ads API here.
+ */
+export const fetchCampaignPerformance = async (): Promise<DashboardCampaign[]> => {
+    // Simulate API latency
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    // Return Data matching DashboardCampaign interface
+    return [
+        {
+            id: 'c1',
+            name: 'Alpha Launch',
+            channel: 'Twitter',
+            spend: 1200,
+            attributedWallets: 45,
+            cpa: 26.6,
+            retention: 85,
+            valueCreated: 15000,
+            roi: 12.5,
+            status: 'Scale',
+            trendSignal: 'up',
+            confidence: 'High',
+            aiSummary: ['Viral mechanic working', 'High influencer participation'],
+            anomalies: [],
+            recommendation: {
+                action: 'Scale',
+                reasoning: ['ROI is 12x', 'CPA is low'],
+                confidence: 'High',
+                riskFactors: ['Bot traffic potential']
+            }
+        },
+        {
+            id: 'c2',
+            name: 'Influencer Batch A',
+            channel: 'Influencer',
+            spend: 2500,
+            attributedWallets: 12,
+            cpa: 208,
+            retention: 40,
+            valueCreated: 1200,
+            roi: 0.48,
+            status: 'Kill',
+            trendSignal: 'down',
+            confidence: 'High',
+            aiSummary: ['Poor conversion', 'High cost'],
+            anomalies: [],
+            recommendation: {
+                action: 'Kill',
+                reasoning: ['ROI < 1', 'CPA unsustainable'],
+                confidence: 'High'
+            }
+        },
+        {
+            id: 'c3',
+            name: 'DeFi Education Thread',
+            channel: 'Twitter',
+            spend: 150,
+            attributedWallets: 28,
+            cpa: 5.35,
+            retention: 92,
+            valueCreated: 5600,
+            roi: 37.3,
+            status: 'Scale',
+            trendSignal: 'up',
+            confidence: 'High',
+            aiSummary: ['Top organic performer'],
+            anomalies: [],
+            recommendation: {
+                action: 'Scale',
+                reasoning: ['Best CPA', 'High retention'],
+                confidence: 'High'
+            }
+        },
+        {
+            id: 'c4',
+            name: 'Discord AMA',
+            channel: 'Discord',
+            spend: 500,
+            attributedWallets: 60,
+            cpa: 8.33,
+            retention: 78,
+            valueCreated: 8000,
+            roi: 16.0,
+            status: 'Test',
+            trendSignal: 'flat',
+            confidence: 'Med',
+            aiSummary: ['Solid engagement'],
+            anomalies: [],
+            recommendation: {
+                action: 'Test',
+                reasoning: ['Need more data'],
+                confidence: 'Med'
+            }
+        }
+    ];
+};
+
