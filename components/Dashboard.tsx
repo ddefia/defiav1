@@ -393,62 +393,61 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="p-4 border-b border-gray-100 bg-gray-50/50">
                             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Today's Calls</h3>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             {todaysCalls.map((c, i) => (
-                                <div key={i} className="group">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors cursor-pointer">
-                                            {c.recommendation.action} {c.name}
-                                        </div>
+                                <div key={i} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm relative group hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h4 className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                            </svg>
+                                            {c.recommendation.action} Recommendations
+                                        </h4>
                                         <StatusBadge status={c.recommendation.action} />
                                     </div>
-                                    <button
-                                        onClick={() => onNavigate('campaigns')}
-                                        className="text-[9px] font-bold text-blue-600 hover:underline mb-2 block"
-                                    >
-                                        Review Details →
-                                    </button>
 
-                                    <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 mb-2">
-                                        <ul className="space-y-1.5">
-                                            {c.recommendation.reasoning.slice(0, 2).map((r, ri) => (
-                                                <li key={ri} className="text-xs text-gray-600 flex items-start gap-2">
-                                                    <span className="mt-1 w-1 h-1 rounded-full bg-gray-400"></span>
-                                                    {r}
-                                                </li>
-                                            ))}
-                                        </ul>
+                                    <div className="text-xs font-bold text-gray-900 mb-2">
+                                        Campaign: {c.name}
                                     </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-[9px] font-bold uppercase border px-1.5 rounded ${c.recommendation.confidence === 'High' ? 'text-emerald-600 border-emerald-100 bg-emerald-50' : 'text-amber-600 border-amber-100 bg-amber-50'
+                                    <div className="relative mb-3">
+                                        <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-700 min-h-[60px] flex flex-col justify-center">
+                                            <ul className="space-y-1.5 pl-1">
+                                                {c.recommendation.reasoning.slice(0, 2).map((r, ri) => (
+                                                    <li key={ri} className="text-xs text-gray-600 flex items-start leading-relaxed">
+                                                        <span className="mr-2 mt-1.5 w-1 h-1 rounded-full bg-gray-400 shrink-0"></span>
+                                                        {r}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between mt-3 border-t border-gray-50 pt-2">
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${c.recommendation.confidence === 'High' ? 'text-emerald-600' : 'text-amber-600'
                                             }`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${c.recommendation.confidence === 'High' ? 'bg-emerald-500' : 'bg-amber-500'
+                                                }`}></span>
                                             {c.recommendation.confidence} Confidence
                                         </span>
-                                        {c.recommendation.riskFactors && c.recommendation.riskFactors.length > 0 && (
-                                            <div className="group relative cursor-help">
-                                                <span className="text-[9px] text-gray-400 font-medium hover:text-rose-500 transition-colors">
-                                                    Risk: Low
-                                                </span>
-                                                {/* Simple Tooltip */}
-                                                <div className="absolute bottom-full right-0 mb-1 w-32 p-2 bg-black text-white text-[9px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                                    {c.recommendation.riskFactors[0]}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
 
-                                    {i < todaysCalls.length - 1 && <div className="h-px bg-gray-100 mt-6"></div>}
+                                        <button
+                                            onClick={() => onNavigate('campaigns')}
+                                            className="text-[10px] font-bold text-gray-400 hover:text-emerald-600 uppercase tracking-wide flex items-center gap-1 transition-colors"
+                                        >
+                                            Review <span aria-hidden="true">&rarr;</span>
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
 
                             {/* Empty State */}
                             {todaysCalls.length === 0 && (
-                                <div className="text-center py-10 text-gray-400 text-xs">
-                                    No critical actions pending.
+                                <div className="p-8 text-center border-2 border-dashed border-gray-100 rounded-xl">
+                                    <p className="text-gray-400 text-xs font-mono mb-2">ALL SYSTEMS OPTIMAL</p>
+                                    <p className="text-gray-300 text-[10px]">No immediate actions required.</p>
                                 </div>
                             )}
-
                         </div>
                         <div className="p-4 border-t border-gray-100 bg-gray-50">
                             <button
