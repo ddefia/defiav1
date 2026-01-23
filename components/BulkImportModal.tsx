@@ -153,8 +153,8 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                                                 <textarea
                                                     value={draft.content}
                                                     onChange={(e) => updateDraft(draft.id, 'content', e.target.value)}
-                                                    className="w-full text-sm bg-transparent border-none p-0 focus:ring-0 resize-none text-gray-800 font-medium"
-                                                    rows={2}
+                                                    className="w-full text-sm bg-transparent border border-gray-100 rounded p-2 focus:ring-1 focus:ring-purple-200 resize-y text-gray-800 font-medium leading-relaxed"
+                                                    rows={6}
                                                 />
                                             </div>
                                         </div>

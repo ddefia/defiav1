@@ -47,29 +47,76 @@ export const CampaignCard: React.FC<CampaignCardProps> = ({ params, brandName, b
         }
     };
 
-    if (status === 'done' && result) {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    const handleNext = () => {
+        if (result && currentIndex < result.length - 1) setCurrentIndex(prev => prev + 1);
+    };
+
+    const handlePrev = () => {
+        if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
+    };
+
+    if (status === 'done' && result && result.length > 0) {
+        const currentItem = result[currentIndex];
         return (
-            <div className="p-4 bg-white border border-gray-200 rounded-xl animate-fadeIn duration-300 shadow-sm">
-                <div className="flex justify-between items-center mb-4">
+            <div className="p-4 bg-white border border-gray-200 rounded-xl animate-fadeIn duration-300 shadow-sm relative group">
+                <div className="flex justify-between items-center mb-3">
                     <h4 className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        Generated Drafts
+                        Generated Options
                     </h4>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">{result.length} Posts</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400">
+                            Option {currentIndex + 1} / {result.length}
+                        </span>
+                    </div>
                 </div>
-                <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar mb-4 pr-1">
-                    {result.map((item: any, idx: number) => (
-                        <div key={idx} className="p-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-700 hover:bg-gray-100 transition-colors">
-                            <p className="leading-relaxed">{item.tweet || item.content}</p>
-                        </div>
-                    ))}
+
+                <div className="relative mb-4">
+                    <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-700 min-h-[100px] flex items-center justify-center">
+                        <p className="leading-relaxed w-full whitespace-pre-wrap text-center font-medium">
+                            {currentItem.tweet || currentItem.content}
+                        </p>
+                    </div>
+
+                    {/* Navigation Arrows */}
+                    <div className="absolute inset-y-0 left-0 flex items-center -ml-2">
+                        <button
+                            onClick={handlePrev}
+                            disabled={currentIndex === 0}
+                            className={`p-1 rounded-full bg-white border shadow-sm hover:bg-gray-50 transition-all ${currentIndex === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                        >
+                            <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                    </div>
+                    <div className="absolute inset-y-0 right-0 flex items-center -mr-2">
+                        <button
+                            onClick={handleNext}
+                            disabled={currentIndex === result.length - 1}
+                            className={`p-1 rounded-full bg-white border shadow-sm hover:bg-gray-50 transition-all ${currentIndex === result.length - 1 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+                        >
+                            <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
                 </div>
+
                 <div className="flex gap-2">
                     <Button
                         className="w-full"
-                        onClick={() => onNavigate('campaigns', { intent: topic })} // Use the active topic
+                        onClick={() => onNavigate('campaigns', { intent: topic })}
                     >
-                        Open in Editor
+                        Edit This Option
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            setResult(null);
+                            setStatus('idle');
+                            setCurrentIndex(0);
+                        }}
+                    >
+                        Reset
                     </Button>
                 </div>
             </div>
