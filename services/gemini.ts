@@ -169,7 +169,7 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
             model: 'gemini-2.0-flash',
             contents: [
                 ...validParts,
-                { text: "Analyze these reference images. Describe their VISUAL STYLE (lighting, colors) AND COMPOSITION (layout, text placement, icon placement) in 2 sentences. Focus on how elements are arranged." }
+                { text: "Analyze these reference images. Describe their VISUAL STYLE (lighting, colors) AND TYPOGRAPHY (Is the text All Caps, Title Case, or Sentence Case? Font weight?). Focus on how elements are arranged." }
             ]
         });
 
@@ -345,7 +345,11 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
         4. 🔠 LOGOS & TYPOGRAPHY (STRICT):
            - LOGOS: If a Logo is visible in the reference, you MUST leave space or abstractly represent the logo in the same position.
-           - TEXT: If text is required, use the brand name "${brandName}" in a font style that matches the reference image (e.g. if reference is Bold Sans-Serif, use Bold Sans-Serif).
+           - TEXT: If text is required, use the brand name "${brandName}" in a font style that matches the reference image.
+           - 🚨 CASE SENSITIVITY: Look at the Reference Image.
+             - If the reference uses "Sentence case", you MUST use Sentence case.
+             - If the reference uses "ALL CAPS", you may use ALL CAPS.
+             - **DEFAULT TO SENTENCE CASE** if unclear. Do NOT use ALL CAPS by default.
            - DO NOT use generic or cartoony fonts.
 
         INSTRUCTIONS:
