@@ -9,7 +9,8 @@ import { searchContext, buildContextBlock, logDecision } from '../services/rag';
 import { loadBrainLogs } from '../services/storage';
 import { Button } from './Button';
 import { ManageStrategy } from './ManageStrategy';
-import { BrainMemory } from './BrainMemory'; // New Import
+import { BrainMemory } from './BrainMemory';
+import { StrategyActionCard } from './StrategyActionCard';
 
 interface StrategyBrainProps {
     brandName: string;
@@ -333,34 +334,22 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     return (
         <div className="w-full space-y-4 animate-fadeIn pb-4">
 
-            {/* HEADER / TOOLBAR (AUTONOMOUS MODE) */}
+            {/* HEADER / TOOLBAR (ANALYSIS ENGINE MODE) */}
             <div className="flex justify-between items-center bg-white border border-brand-border rounded-lg p-3 shadow-sm">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        {/* LIVE PULSE INDICATOR */}
+                        {/* LIVE INDICATOR */}
                         <div className="relative flex h-3 w-3">
                             {isLoading && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
                             <span className={`relative inline-flex rounded-full h-3 w-3 ${isLoading ? 'bg-emerald-500' : 'bg-emerald-500'}`}></span>
                         </div>
                         <div>
-                            <span className="text-xs font-bold text-brand-text uppercase tracking-wider block">Autonomous Mode</span>
+                            <span className="text-xs font-bold text-brand-text uppercase tracking-wider block">Analysis Engine: Live</span>
                             <span className="text-[10px] text-brand-muted block uppercase tracking-wide">
-                                {isLoading ? 'Scanning Market...' : 'Monitoring Active'}
+                                {isLoading ? 'Scanning Signals...' : 'System Active'}
                             </span>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setShowMemoryBank(true)}
-                        className="text-[10px] font-bold text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 px-3 py-1 rounded-full transition-colors flex items-center gap-1"
-                    >
-                        <span>📜</span> Log
-                    </button>
-                    <button
-                        onClick={() => setShowStrategyManager(true)}
-                        className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 px-3 py-1 rounded-full transition-colors flex items-center gap-1"
-                    >
-                        <span>🧠</span> Config
-                    </button>
                 </div>
 
                 {/* NO FORCE BUTTON - PURE STATUS */}
@@ -393,43 +382,12 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     </div>
                 )}
 
-                {(Array.isArray(tasks) ? tasks : []).map((task) => (
-                    <div
+                {(Array.isArray(tasks) ? tasks : []).sort((a, b) => b.impactScore - a.impactScore).map((task) => (
+                    <StrategyActionCard
                         key={task.id}
-                        onClick={() => handleConfigureExecution(task)}
-                        className="group bg-white border border-brand-border rounded-lg p-4 shadow-sm hover:shadow-md hover:border-brand-accent/50 transition-all flex flex-col md:flex-row md:items-center gap-4 cursor-pointer"
-                    >
-
-                        {/* SCORE & TYPE */}
-                        <div className="flex flex-row md:flex-col items-center md:items-start gap-3 md:gap-1 min-w-[80px]">
-                            <div className="flex items-center gap-1.5" title={`Impact Score: ${task.impactScore}/10`}>
-                                <div className={`w-2 h-2 rounded-full ${task.impactScore >= 8 ? 'bg-red-500' : 'bg-blue-400'}`}></div>
-                                <span className="text-xs font-mono font-bold text-brand-text">{task.impactScore}/10</span>
-                            </div>
-                            {getTypeBadge(task.type)}
-                        </div>
-
-                        {/* CONTENT */}
-                        <div className="flex-1">
-                            <h3 className="text-sm font-bold text-brand-text mb-1 group-hover:text-brand-accent transition-colors">{task.title}</h3>
-                            <p className="text-xs text-brand-textSecondary leading-relaxed max-w-2xl">{task.description}</p>
-
-                            {/* MINI CONTEXT TAGS */}
-                            <div className="flex items-center gap-2 mt-2">
-                                <span className="text-[10px] font-bold text-brand-muted uppercase">Rational:</span>
-                                <span className="text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 truncate max-w-[300px]">
-                                    {task.reasoning}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* STATUS (Ready) */}
-                        <div className="flex items-center gap-2 shrink-0 md:ml-auto w-full md:w-auto justify-end">
-                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded uppercase tracking-wide">
-                                Ready to Execute
-                            </span>
-                        </div>
-                    </div>
+                        task={task}
+                        onConfigure={() => handleConfigureExecution(task)}
+                    />
                 ))}
             </div>
 
@@ -448,36 +406,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                 />
             )}
 
-            {/* BRAIN DEBUG VIEW (Think Mode) */}
-            {/* We assume 'thinkingData' state exists, populated by performAudit */}
-            {thinkingData && (
-                <div className="mt-8 border-t border-brand-border pt-8 animate-fadeIn">
-                    <div className="bg-gray-900 rounded-xl p-6 text-gray-300 font-mono text-xs overflow-hidden">
-                        <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
-                            <span className="font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
-                                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                                Brain Activity Log
-                            </span>
-                            <span className="text-gray-500">gemini-2.0-flash</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div>
-                                <h4 className="text-white font-bold mb-2">System Prompt (Context)</h4>
-                                <div className="h-64 overflow-y-auto bg-black/50 p-4 rounded border border-gray-800 whitespace-pre-wrap">
-                                    {thinkingData.systemPrompt}
-                                </div>
-                            </div>
-                            <div>
-                                <h4 className="text-white font-bold mb-2">Reasoning Stream (Chain of Thought)</h4>
-                                <div className="h-64 overflow-y-auto bg-black/50 p-4 rounded border border-gray-800 whitespace-pre-wrap text-emerald-300/80">
-                                    {thinkingData.thoughts}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* BRAIN DEBUG VIEW REMOVED - Production Console */}
         </div>
     )
 }

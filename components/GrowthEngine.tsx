@@ -217,20 +217,21 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             const fetchedTrends = await fetchMarketPulse(brandName);
             setTrends(fetchedTrends); // STARTUP: Populate Feed
 
-            // 5. Generate Strategy (Gaia)
+            // Generate Strategy (Gaia)
             // Use 'computed' which is either fresh or existing
+
+            // We need to fetch recent mentions if not already available
+            const mentions = metricsForReport?.recentPosts || [];
+
             const aiReport = await generateGrowthReport(
-                computed,
-                campaigns,
-                metricsForReport,
-                calendarEvents, // Pass Calendar
-                fetchedTrends   // Pass Trends
+                brandName,
+                fetchedTrends,
+                mentions,
+                brandConfig
             );
             onUpdateGrowthReport(aiReport);
 
             // Generate Tasks with Brain Context
-            // We need to fetch recent mentions if not already available
-            const mentions = metricsForReport?.recentPosts || [];
 
             // 1/10 FIX: Fetch Deep Context (Supabase)
             const { context: ragContext } = await getBrainContext(brandName);
@@ -337,8 +338,8 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             {/* HEADER (Matches Dashboard.tsx Style) */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
                 <div>
-                    <h1 className="text-2xl font-display font-bold text-brand-text tracking-tight mb-1">Action Center</h1>
-                    <p className="text-sm text-brand-textSecondary">Review and approve high-priority strategic actions.</p>
+                    <h1 className="text-2xl font-display font-bold text-brand-text tracking-tight mb-1">Analysis Engine</h1>
+                    <p className="text-sm text-brand-textSecondary">Approve system-recommended actions derived from live performance signals.</p>
                 </div>
                 <div className="flex gap-3 mt-4 md:mt-0">
                     {/* Status Indicators */}
@@ -357,8 +358,8 @@ export const GrowthEngine: React.FC<GrowthEngineProps> = ({ brandName, calendarE
             <div className="bg-brand-accent/5 border border-brand-accent/20 rounded-lg p-3 flex items-start sm:items-center gap-3 text-xs text-brand-textSecondary">
                 <span className="text-brand-accent text-lg">💡</span>
                 <p>
-                    <strong>How it works:</strong> The <strong>Propulsion Brain</strong> (Top) analyzes the <strong>Live Intelligence</strong> (Bottom) to generate strategic actions.
-                    Review the tasks below and click "Execute" to let the AI draft content or schedule campaigns based on this data.
+                    <strong>System Logic:</strong> The <strong>Analysis Engine</strong> (Top) processes <strong>Live Signal Data</strong> (Bottom) to identify high-confidence opportunities.
+                    Click "Approve & Execute" to draft content or schedule campaigns.
                 </p>
             </div>
 
