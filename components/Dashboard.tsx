@@ -135,20 +135,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
     // Re-calculate KPIs when data arrives
     const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics, campaigns), [socialMetrics, chainMetrics, campaigns]);
 
-    // Handler: Generate/View Brief
-    const handleViewInsights = async () => {
-        setIsBriefOpen(true);
-        if (!briefData) {
-            setBriefLoading(true);
-            try {
-                const brief = await generateBriefService(brandName, kpis, campaigns, signals);
-                setBriefData(brief);
-            } catch (e) {
-                console.error("Failed to generate brief", e);
-            } finally {
-                setBriefLoading(false);
+    // Auto-Generate Brief on Mount (Background Process)
+    useEffect(() => {
+        const initBrief = async () => {
+            if (!briefData && !briefLoading) {
+                setBriefLoading(true);
+                try {
+                    // Small delay to simulate "system boot" feel
+                    await new Promise(r => setTimeout(r, 1500));
+                    const brief = await generateBriefService(brandName, kpis, campaigns, signals);
+                    setBriefData(brief);
+                } catch (e) {
+                    console.error("Background Brief Gen Failed", e);
+                } finally {
+                    setBriefLoading(false);
+                }
             }
-        }
+        };
+        initBrief();
+    }, [brandName, kpis.length]); // Dependencies to ensure data is ready
+
+    // Handler: Open Drawer
+    const handleOpenDrawer = () => {
+        setIsBriefOpen(true);
     };
 
     // Data Fetching
@@ -201,21 +210,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {/* HEADER */}
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                        DEFIA COMMAND <span className="text-gray-400">/</span> {brandName}
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                        Defia Console
                     </h1>
+                    <div className="text-[11px] text-gray-500 font-mono mt-1 tracking-tight flex items-center gap-2">
+                        {brandName} <span className="text-gray-300">/</span> Marketing Layer
+                    </div>
                 </div>
-                <div className="flex items-center gap-4">
+
+                {/* AI STATUS INDICATOR */}
+                <div className="relative group">
                     <button
-                        onClick={handleViewInsights}
-                        className="text-[10px] bg-white border border-gray-200 px-3 py-1 rounded-full font-mono text-emerald-600 border-emerald-100 flex items-center gap-2 hover:bg-emerald-50 transition-colors cursor-pointer"
+                        onClick={handleOpenDrawer}
+                        className={`text-[10px] uppercase font-mono tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${briefLoading
+                                ? 'bg-gray-50 text-gray-500 border-gray-200 cursor-wait'
+                                : briefData
+                                    ? 'bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 cursor-pointer shadow-sm'
+                                    : 'bg-white text-gray-400 border-gray-200'
+                            }`}
                     >
                         <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            {briefLoading && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>}
+                            {!briefLoading && briefData && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+                            <span className={`relative inline-flex rounded-full h-2 w-2 ${briefLoading ? 'bg-gray-400' : briefData ? 'bg-emerald-500' : 'bg-gray-300'
+                                }`}></span>
                         </span>
-                        ONLINE • VIEW INSIGHTS
+                        {briefLoading ? 'AI · Analyzing' : briefData ? 'AI · Update' : 'AI · Offline'}
                     </button>
+
+                    {/* HOVER PREVIEW TOOLTIP */}
+                    {!briefLoading && briefData && (
+                        <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-bold text-gray-900 uppercase">AI Update (Just Now)</span>
+                                <span className={`text-[9px] px-1.5 rounded ${briefData.confidence.level === 'High' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {briefData.confidence.level} Conf
+                                </span>
+                            </div>
+                            <ul className="space-y-1.5">
+                                {(briefData.keyDrivers || []).slice(0, 3).map((item, i) => (
+                                    <li key={i} className="text-[10px] text-gray-600 leading-snug flex items-start gap-1.5">
+                                        <span className="mt-1 w-1 h-3 rounded-full bg-gray-400 shrink-0"></span>
+                                        {item.length > 50 ? item.substring(0, 50) + '...' : item}
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="mt-2 pt-2 border-t border-gray-50 text-[9px] text-blue-600 font-medium flex items-center gap-1">
+                                View full brief <span aria-hidden="true">&rarr;</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
