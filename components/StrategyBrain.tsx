@@ -42,6 +42,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     const [showGraphicConfig, setShowGraphicConfig] = useState(false); // New: Show/Hide Graphic UI
     const [showStrategyManager, setShowStrategyManager] = useState(false); // New: Modal State
     const [showMemoryBank, setShowMemoryBank] = useState(false); // New: Memory State
+    const [dailyExecutions, setDailyExecutions] = useState(0); // New: Track executions
+    const MAX_DAILY_ACTIONS = 10; // Safety Limit
+
 
     // DEBUG STATE
     const [thinkingData, setThinkingData] = useState<{ systemPrompt: string, thoughts: string } | null>(null); // 🧠 BRAIN TRANSPARENCY
