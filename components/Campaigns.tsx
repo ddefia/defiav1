@@ -913,7 +913,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 {/* Header */}
                 <div className="flex justify-between items-end border-b border-white/10 pb-6">
                     <div>
-                        <h1 className="text-3xl font-display font-bold text-white tracking-tight mb-2">Campaigns</h1>
+                        <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">Campaigns</h1>
                         <p className="text-zinc-400 text-sm max-w-lg">Design a coordinated content sequence tied to a specific growth objective.</p>
                         <p className="text-zinc-600 text-xs mt-1">Execution units derived from Defia system recommendations.</p>
                     </div>
