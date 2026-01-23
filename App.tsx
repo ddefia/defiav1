@@ -751,6 +751,11 @@ const App: React.FC = () => {
                             onAddEvent={handleDayClick}
                             onMoveEvent={handleMoveEvent}
                             onUpdateEvent={handleUpdateEvent}
+                            onBatchAdd={(newEvents) => {
+                                setCalendarEvents(prev => [...prev, ...newEvents]);
+                                const updated = [...calendarEvents, ...newEvents]; // Capture state for save
+                                saveCalendarEvents(selectedBrand, updated);
+                            }}
                         />
                     </div>
                 )}

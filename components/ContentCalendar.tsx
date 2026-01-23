@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { CalendarEvent } from '../types';
 import { Button } from './Button';
+import { BulkImportModal } from './BulkImportModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -12,9 +13,10 @@ interface ContentCalendarProps {
     onAddEvent: (date: string) => void;
     onMoveEvent: (id: string, newDate: string) => void;
     onUpdateEvent: (id: string, updatedFields: Partial<CalendarEvent>) => void;
+    onBatchAdd?: (events: CalendarEvent[]) => void;
 }
 
-export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, events, onDeleteEvent, onAddEvent, onMoveEvent, onUpdateEvent }) => {
+export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, events, onDeleteEvent, onAddEvent, onMoveEvent, onUpdateEvent, onBatchAdd }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -23,6 +25,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
     const [editDate, setEditDate] = useState('');
+    const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
     const calendarFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -328,6 +331,12 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                     <p className="text-sm text-brand-muted">Schedule and manage your upcoming content for <span className="font-bold">{brandName}</span></p>
                 </div>
                 <div className="flex items-center gap-4 bg-white p-2 rounded-lg border border-brand-border shadow-sm">
+                    <button
+                        onClick={() => setIsBulkImportOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-colors border border-indigo-200"
+                    >
+                        <span className="text-sm">✨</span> Bulk Import
+                    </button>
                     {/* Export Buttons */}
                     <div className="flex items-center gap-1 mr-2 border-r border-gray-200 pr-4">
                         <button onClick={handleExportAllCSV} className="text-xs px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 text-brand-text font-medium" title="Export All to CSV">CSV</button>
@@ -519,6 +528,19 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                     </div>
                 </div>
             )}
+
+            <BulkImportModal
+                isOpen={isBulkImportOpen}
+                onClose={() => setIsBulkImportOpen(false)}
+                brandName={brandName}
+                onImport={(newEvents) => {
+                    if (onBatchAdd) {
+                        onBatchAdd(newEvents);
+                    } else {
+                        console.warn("Batch Add not implemented in parent");
+                    }
+                }}
+            />
         </div>
     );
 };
