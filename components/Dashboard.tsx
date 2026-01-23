@@ -4,6 +4,7 @@ import { fetchCampaignPerformance, fetchSocialMetrics, computeGrowthMetrics, com
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
 import { fetchMarketPulse } from '../services/pulse';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
+import { ActionCard } from './ActionCard';
 
 interface DashboardProps {
     brandName: string;
@@ -201,7 +202,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         .slice(0, 5);
 
     // Filter Logic for "Today's Calls"
-    const todaysCalls = campaigns.filter(c => c.status === 'Scale' || c.status === 'Kill' || c.status === 'Test');
+    const todaysCalls = campaigns
+        .filter(c => c.status === 'Scale' || c.status === 'Kill' || c.status === 'Test')
+        .sort((a, b) => b.priorityScore - a.priorityScore);
 
     const handleExecuteAll = () => {
         if (confirm(`Execute ${todaysCalls.length} strategic actions? This will scale updated budgets and pause underperformers.`)) {
@@ -216,31 +219,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-xl font-bold text-gray-900 tracking-tight">
-                        Defia Console
+                        Analysis Engine
                     </h1>
                     <div className="text-[11px] text-gray-500 font-mono mt-1 tracking-tight flex items-center gap-2">
-                        {brandName} <span className="text-gray-300">/</span> Marketing Layer
+                        Approve system-recommended actions derived from live performance signals.
                     </div>
                 </div>
 
                 {/* AI STATUS INDICATOR */}
                 <div className="relative group">
                     <button
-                        onClick={handleOpenDrawer}
                         className={`text-[10px] uppercase font-mono tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${briefLoading
                             ? 'bg-gray-50 text-gray-500 border-gray-200 cursor-wait'
-                            : briefData
-                                ? 'bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 cursor-pointer shadow-sm'
-                                : 'bg-white text-gray-400 border-gray-200'
+                            : 'bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 cursor-default shadow-sm'
                             }`}
                     >
                         <span className="relative flex h-2 w-2">
                             {briefLoading && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-400 opacity-75"></span>}
                             {!briefLoading && briefData && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                            <span className={`relative inline-flex rounded-full h-2 w-2 ${briefLoading ? 'bg-gray-400' : briefData ? 'bg-emerald-500' : 'bg-gray-300'
-                                }`}></span>
+                            <span className={`relative inline-flex rounded-full h-2 w-2 ${briefLoading ? 'bg-gray-400' : 'bg-emerald-500'}`}></span>
                         </span>
-                        {briefLoading ? 'AI · Analyzing' : briefData ? 'AI · Update' : 'AI · Offline'}
+                        {briefLoading ? 'Analysis Engine: Syncing' : 'Analysis Engine: Live'}
                     </button>
 
                     {/* HOVER PREVIEW TOOLTIP */}
@@ -439,61 +438,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {/* LANE 2 (RIGHT): DECISIONS & INTELLIGENCE ("What should we do") */}
                 <div className="col-span-4">
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full flex flex-col sticky top-6">
-                        <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Today's Calls</h3>
+                        <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Recommended Actions</h3>
+                            <span className="text-[10px] text-gray-400 font-mono">{todaysCalls.length} Pending</span>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {todaysCalls.map((c, i) => (
-                                <div key={i} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm relative group hover:shadow-md transition-shadow">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <h4 className="text-sm font-semibold text-emerald-600 flex items-center gap-2">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                            </svg>
-                                            {c.recommendation.action} Recommendations
-                                        </h4>
-                                        <StatusBadge status={c.recommendation.action} />
-                                    </div>
-
-                                    <div className="text-xs font-bold text-gray-900 mb-2">
-                                        Campaign: {c.name}
-                                    </div>
-
-                                    <div className="relative mb-3">
-                                        <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-700 min-h-[60px] flex flex-col justify-center">
-                                            <ul className="space-y-1.5 pl-1">
-                                                {c.recommendation.reasoning.slice(0, 2).map((r, ri) => (
-                                                    <li key={ri} className="text-xs text-gray-600 flex items-start leading-relaxed">
-                                                        <span className="mr-2 mt-1.5 w-1 h-1 rounded-full bg-gray-400 shrink-0"></span>
-                                                        {r}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between mt-3 border-t border-gray-50 pt-2">
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${c.recommendation.confidence === 'High' ? 'text-emerald-600' : 'text-amber-600'
-                                            }`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${c.recommendation.confidence === 'High' ? 'bg-emerald-500' : 'bg-amber-500'
-                                                }`}></span>
-                                            {c.recommendation.confidence} Confidence
-                                        </span>
-
-                                        <button
-                                            onClick={() => onNavigate('campaigns')}
-                                            className="text-[10px] font-bold text-gray-400 hover:text-emerald-600 uppercase tracking-wide flex items-center gap-1 transition-colors"
-                                        >
-                                            Review <span aria-hidden="true">&rarr;</span>
-                                        </button>
-                                    </div>
-                                </div>
+                            {todaysCalls.map((c) => (
+                                <ActionCard
+                                    key={c.id}
+                                    campaign={c}
+                                    onReview={() => onNavigate('campaigns')}
+                                    onExecute={() => {
+                                        if (confirm(`Initialize strict execution flow for ${c.name}? This will draft content and schedule campaigns but requires final manual approval.`)) {
+                                            alert('Execution Pipeline Initialized: Drafts Created.');
+                                        }
+                                    }}
+                                />
                             ))}
 
                             {/* Empty State */}
                             {todaysCalls.length === 0 && (
                                 <div className="p-8 text-center border-2 border-dashed border-gray-100 rounded-xl">
-                                    <p className="text-gray-400 text-xs font-mono mb-2">ALL SYSTEMS OPTIMAL</p>
+                                    <p className="text-gray-400 text-xs font-mono mb-2">SYSTEM OPTIMAL</p>
                                     <p className="text-gray-300 text-[10px]">No immediate actions required.</p>
                                 </div>
                             )}
@@ -501,9 +467,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="p-4 border-t border-gray-100 bg-gray-50">
                             <button
                                 onClick={handleExecuteAll}
-                                className="w-full py-2 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors uppercase tracking-wide">
-                                Execute All Approved
+                                title="Drafts and Schedules all actions. Requires final review."
+                                className="w-full py-2 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors uppercase tracking-wide flex items-center justify-center gap-2">
+                                Execute All Recommended
                             </button>
+                            <div className="text-[9px] text-center text-gray-400 mt-2">
+                                Will not publish without final review.
+                            </div>
                         </div>
                     </div>
                 </div>

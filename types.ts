@@ -447,6 +447,12 @@ export interface DashboardCampaign {
   // Drawer/Decision Context
   aiSummary: string[];
   anomalies: string[];
+
+  // New "Action Card" Fields
+  priorityScore: number; // 0-10
+  type: 'Alpha' | 'Evergreen' | 'Newsjack';
+  expectedImpact: string;
+
   recommendation: {
     action: 'Scale' | 'Test' | 'Pause' | 'Kill';
     reasoning: string[];

@@ -652,6 +652,12 @@ export const fetchCampaignPerformance = async (): Promise<DashboardCampaign[]> =
             confidence: d.confidence,
             aiSummary: d.ai_summary || [],
             anomalies: d.anomalies || [],
+
+            // New Action Card Fields (Simulated if missing in DB)
+            priorityScore: d.priority_score || Math.min(10, Math.max(1, Math.round(d.roi * 1.5))),
+            type: d.campaign_type || (d.channel === 'Twitter' ? 'Newsjack' : 'Alpha'),
+            expectedImpact: d.expected_impact || (d.roi > 2 ? '↑ volume, ↑ active wallets' : 'Optimize retention'),
+
             recommendation: d.recommendation || { action: 'Test', confidence: 'Low', reasoning: [] }
         }));
     } catch (e) {
