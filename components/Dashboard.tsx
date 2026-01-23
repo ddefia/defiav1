@@ -159,9 +159,9 @@ const generateMockCampaigns = (): DashboardCampaign[] => {
 };
 
 const generateMockSignals = (): CommunitySignal[] => [
-    { platform: 'Telegram', signal: '+5% active (7d)', trend: 'up', sentiment: 'Positive' },
-    { platform: 'Discord', signal: 'flat — no post in 3 days', trend: 'flat', sentiment: 'Neutral' },
-    { platform: 'Twitter', signal: 'Impressions ↓ after Jan 18', trend: 'down', sentiment: 'Negative' }
+    { platform: 'Telegram', signal: '+5% active (7d) → high retention', trend: 'up', sentiment: 'Positive' },
+    { platform: 'Discord', signal: 'Inactive 3d → risk to retention', trend: 'flat', sentiment: 'Neutral' },
+    { platform: 'Twitter', signal: 'Impressions ↓ 12% → needs hook', trend: 'down', sentiment: 'Negative' }
 ];
 
 
@@ -252,7 +252,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="col-span-8 flex flex-col gap-8">
 
                     {/* CAMPAIGN TABLE */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-xl border border-gray-200/75 shadow-md shadow-gray-100/50 overflow-hidden relative">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/80"></div>
                         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
                             <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Active Campaigns</h3>
                             <div className="flex gap-2 text-[10px] font-medium text-gray-500">
@@ -332,7 +333,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         </div>
                                     </div>
                                 )) : (
-                                    <div className="text-xs text-gray-400 italic">No content scheduled.</div>
+                                    <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg flex flex-col gap-2">
+                                        <div className="flex items-center gap-2 text-amber-800">
+                                            <span className="text-[10px] font-bold uppercase">⚠️ High Risk</span>
+                                        </div>
+                                        <div className="text-xs text-amber-900 font-medium">No active content. Engagement decay likely.</div>
+                                        <button onClick={() => onNavigate('calendar')} className="text-[10px] font-bold text-amber-700 underline text-left hover:text-amber-900">
+                                            Schedule Thread →
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -379,7 +388,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                                     <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 mb-2">
                                         <ul className="space-y-1.5">
-                                            {c.recommendation.reasoning.map((r, ri) => (
+                                            {c.recommendation.reasoning.slice(0, 2).map((r, ri) => (
                                                 <li key={ri} className="text-xs text-gray-600 flex items-start gap-2">
                                                     <span className="mt-1 w-1 h-1 rounded-full bg-gray-400"></span>
                                                     {r}
@@ -388,15 +397,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         </ul>
                                     </div>
 
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center justify-between">
                                         <span className={`text-[9px] font-bold uppercase border px-1.5 rounded ${c.recommendation.confidence === 'High' ? 'text-emerald-600 border-emerald-100 bg-emerald-50' : 'text-amber-600 border-amber-100 bg-amber-50'
                                             }`}>
                                             {c.recommendation.confidence} Confidence
                                         </span>
                                         {c.recommendation.riskFactors && c.recommendation.riskFactors.length > 0 && (
-                                            <span className="text-[9px] text-rose-500 font-medium">
-                                                Risk: {c.recommendation.riskFactors[0]}
-                                            </span>
+                                            <div className="group relative cursor-help">
+                                                <span className="text-[9px] text-gray-400 font-medium hover:text-rose-500 transition-colors">
+                                                    Risk: Low
+                                                </span>
+                                                {/* Simple Tooltip */}
+                                                <div className="absolute bottom-full right-0 mb-1 w-32 p-2 bg-black text-white text-[9px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                                    {c.recommendation.riskFactors[0]}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
 
