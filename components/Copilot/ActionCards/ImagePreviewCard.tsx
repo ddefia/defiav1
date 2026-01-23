@@ -8,9 +8,10 @@ interface ImagePreviewCardProps {
     params: ChatIntentResponse['params'];
     brandName: string;
     brandConfig: BrandConfig;
+    onNavigate: (section: string, params: any) => void;
 }
 
-export const ImagePreviewCard: React.FC<ImagePreviewCardProps> = ({ params, brandName, brandConfig }) => {
+export const ImagePreviewCard: React.FC<ImagePreviewCardProps> = ({ params, brandName, brandConfig, onNavigate }) => {
     const [status, setStatus] = useState<'idle' | 'generating' | 'done'>('idle');
     const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -52,8 +53,18 @@ export const ImagePreviewCard: React.FC<ImagePreviewCardProps> = ({ params, bran
                     <img src={imageUrl} alt="Generated visual" className="w-full h-full object-cover" />
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                     <Button className="flex-1" onClick={() => window.location.hash = '#image-editor'}>Edit High-Res</Button>
+                    <Button
+                        variant="secondary"
+                        title="Draft Tweet for this image"
+                        onClick={() => window.dispatchEvent(new CustomEvent('navigate-campaign', { detail: { intent: params?.imagePrompt || "New Visual" } }))}
+                    // Note: App.tsx handles navigation prop, but here we might need to use the prop if available.
+                    // Checking props... ImagePreviewCard doesn't seem to have onNavigate passed in line 13.
+                    // Wait, I need to check if 'onNavigate' is available or if I need to add it.
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </Button>
                     <a href={imageUrl} download={`generated-${Date.now()}.png`} className="px-4 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     </a>

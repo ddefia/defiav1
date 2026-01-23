@@ -16,6 +16,7 @@ interface DraftItem {
     date: string;
     selected: boolean;
     type: string;
+    image?: string;
 }
 
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose, onImport, brandName }) => {
