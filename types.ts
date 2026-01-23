@@ -419,11 +419,12 @@ export interface ChatIntentResponse {
 // --- DASHBOARD V2 TYPES ---
 
 export interface KPIItem {
-  label: string;
+  label: string; // e.g. "Spend (7d)"
   value: string;
   delta: number; // Percentage
   trend: 'up' | 'down' | 'flat';
-  confidence: 'High' | 'Med' | 'Low';
+  confidence: 'High' | 'Med' | 'Low'; // Data quality
+  statusLabel: 'Strong' | 'Watch' | 'Weak'; // Narrative label
   sparklineData: number[]; // 7d trend
 }
 
@@ -439,13 +440,25 @@ export interface DashboardCampaign {
   roi: number; // x
   status: 'Scale' | 'Test' | 'Pause' | 'Kill';
 
-  // Drawer Context
+  // V2 New Fields
+  trendSignal: 'up' | 'flat' | 'down';
+  confidence: 'High' | 'Med' | 'Low';
+
+  // Drawer/Decision Context
   aiSummary: string[];
   anomalies: string[];
   recommendation: {
     action: 'Scale' | 'Test' | 'Pause' | 'Kill';
     reasoning: string[];
+    riskFactors?: string[]; // New
     confidence: 'High' | 'Med' | 'Low';
   };
+}
+
+export interface CommunitySignal {
+  platform: 'Twitter' | 'Discord' | 'Telegram';
+  signal: string; // e.g. "Impressions ↓ after Jan 18"
+  trend: 'up' | 'down' | 'flat';
+  sentiment: 'Positive' | 'Negative' | 'Neutral';
 }
 
