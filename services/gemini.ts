@@ -1914,7 +1914,8 @@ export const generateStrategicAnalysis = async (
     ragContext: string = "", // New: RAG Memory Context
 
     signals?: SocialSignals, // New: War Room Context
-    recentLogs: BrainLog[] = [] // New: Cognitive Loop (Short Term Memory)
+    recentLogs: BrainLog[] = [], // New: Cognitive Loop (Short Term Memory)
+    agentDecisions: any[] = [] // New: Backend Agent Decisions
 ): Promise<{ tasks: StrategyTask[], systemPrompt?: string, thoughts?: string }> => {
     dispatchThinking(`🤖 Generating Strategic Analysis (Gaia)`, { brand: brandName, trendCount: trends.length });
     const apiKey = getApiKey();
@@ -1933,8 +1934,17 @@ export const generateStrategicAnalysis = async (
     SHORT TERM MEMORY(Your Recent Decisions):
     ${recentLogs.slice(0, 5).map(l => `- [${l.type}] ${new Date(l.timestamp).toLocaleTimeString()}: ${l.context}`).join('\n')}
 
-INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If you just reacted to a trend, look for replies.If you just posted, check for engagement.
+    INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If you just reacted to a trend, look for replies.If you just posted, check for engagement.
     ` : "SHORT TERM MEMORY: Empty (Fresh Start).";
+
+    // Agent Decisions Context
+    const decisionsContext = agentDecisions.length > 0 ? `
+    PENDING AGENT DECISIONS(BACKGROUND INTELLIGENCE):
+    The autonomous background agent has flagged these pending actions.REVIEW THEM.
+        ${agentDecisions.map(d => `- [${d.action}] For ${d.brandId}: "${d.reason}" (Draft: ${d.draft || 'None'})`).join('\n')}
+
+    INSTRUCTION: If these decisions are valid and high - quality, APPROVE them by converting them into Tasks below.If they are low quality, IGNORE them.
+    ` : "PENDING AGENT DECISIONS: None.";
 
     // 1. Analyze Calendar (Content Machine)
     const now = new Date();
@@ -1947,7 +1957,7 @@ INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If yo
 
     // 2. Prepare Context
     const kb = brandConfig.knowledgeBase.slice(0, 3).join('\n'); // Brief context
-    const trendSummaries = trends.slice(0, 3).map(t => `- ${t.headline}(${t.relevanceReason})`).join('\n');
+    const trendSummaries = trends.slice(0, 3).map(t => `- ${t.headline} (${t.relevanceReason})`).join('\n');
     const existingSchedule = eventsNextWeek.map(e => `${e.date}: ${e.content.substring(0, 30)}... ${e.campaignName ? `[Campaign: ${e.campaignName}]` : ''} `).join('\n');
     const mentionSummaries = mentions.slice(0, 3).map(m => `- ${m.author}: "${m.text}"`).join('\n');
 
@@ -1955,54 +1965,59 @@ INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If yo
     if (growthReport) {
         reportContext = `
         PERFORMANCE DATA(Use this to optimize tasks):
-- Executive Summary: ${growthReport.executiveSummary}
-- Strategic Directives: ${growthReport.strategicPlan.map(p => `${p.action}: ${p.subject}`).join(' | ')}
-`;
+    - Executive Summary: ${growthReport.executiveSummary}
+    - Strategic Directives: ${growthReport.strategicPlan.map(p => `${p.action}: ${p.subject}`).join(' | ')}
+    `;
     }
 
     const systemInstruction = `
-    You are 'Gaia', the Chief Marketing Officer (CMO) for ${brandName}.
+    You are 'Gaia', the Chief Marketing Officer(CMO) for ${brandName}.
     Your goal is to DOMINATE the narrative, not just participate.
 
     INPUT DATA:
     ${warRoomContext}
 
+    ${warRoomContext}
+
     ${memoryContext}
+
+    ${decisionsContext}
 
     ${ragContext ? `
     🔥 STRATEGIC MANDATES (FROM DEEP MEMORY):
     CRITICAL: The following are Q1 GOALS. Every task must aggressively advance these.
     ${ragContext}
-    ` : ''}
+    ` : ''
+        }
 
-    YOUR 3-STEP COGNITIVE PIPELINE:
+    YOUR 3 - STEP COGNITIVE PIPELINE:
 
-    PHASE 1: THE FILTER (Is it Noise or Signal?)
-    - Scan 'Market Trends' and 'Mentions'.
-    - IGNORE generic noise (e.g. "Crypto is up").
+    PHASE 1: THE FILTER(Is it Noise or Signal ?)
+        - Scan 'Market Trends' and 'Mentions'.
+    - IGNORE generic noise(e.g. "Crypto is up").
     - ATTACK signals that align with our brand keywords.
-    
-    PHASE 2: THE ANGLE (Contrarian & Narrative Driven)
-    - If a competitor launches a feature, don't just congratulate them. Explain why OURS is safer/faster/better.
-    - If a trend is hype, be the voice of reason.
+
+        PHASE 2: THE ANGLE(Contrarian & Narrative Driven)
+            - If a competitor launches a feature, don't just congratulate them. Explain why OURS is safer/faster/better.
+                - If a trend is hype, be the voice of reason.
     - If the market is fearful, be the builder.
-    - **RULE:** No "generic updates". Every post must have a "Hook" or "Alpha".
+    - ** RULE:** No "generic updates".Every post must have a "Hook" or "Alpha".
 
-    CRITICAL RULES (ANTI-HALLUCINATION):
-    1. **NO GENERIC AI/SAAS/WEB2 IDEAS**: Do NOT generate tasks about "Home Improvement", "Art Generators", "Project Phoenix", or "Canvas of Nations".
-    2. **STRICTLY WEB3**: All tasks MUST be related to DeFi, Crypto, Blockchain, Tokenomics, or Community.
-    3. **BRAND SPECIFIC**: Use the brand name (${brandName}) and its specific products/goals. If unknown, infer strictly from the "Context Data" (e.g. if trend is ETH, talk about ETH).
+    CRITICAL RULES(ANTI - HALLUCINATION):
+    1. ** NO GENERIC AI / SAAS / WEB2 IDEAS **: Do NOT generate tasks about "Home Improvement", "Art Generators", "Project Phoenix", or "Canvas of Nations".
+    2. ** STRICTLY WEB3 **: All tasks MUST be related to DeFi, Crypto, Blockchain, Tokenomics, or Community.
+    3. ** BRAND SPECIFIC **: Use the brand name(${brandName}) and its specific products / goals.If unknown, infer strictly from the "Context Data"(e.g.if trend is ETH, talk about ETH).
 
-    PHASE 3: THE ACTION (Task Generation)
-    - Propose exactly 3-5 HIGH-LEVERAGE tasks.
+        PHASE 3: THE ACTION(Task Generation)
+            - Propose exactly 3 - 5 HIGH - LEVERAGE tasks.
 
     TASK TYPES:
-    1. **NEWSJACK:** A major event just happened. We must comment within 1 hour.
-    2. **ALPHA_DROP:** Share deep technical insight or "secret" knowledge.
-    3. **COMMUNITY_WAR:** Defend FUD or amplify a super-fan.
-    4. **EVERGREEN:** If quiet, drop a "Masterclass" thread on our core tech.
+    1. ** NEWSJACK:** A major event just happened.We must comment within 1 hour.
+    2. ** ALPHA_DROP:** Share deep technical insight or "secret" knowledge.
+    3. ** COMMUNITY_WAR:** Defend FUD or amplify a super- fan.
+    4. ** EVERGREEN:** If quiet, drop a "Masterclass" thread on our core tech.
 
-    CONTEXT:
+        CONTEXT:
     - Schedule: ${existingSchedule || "EMPTY (Crisis Level: High). Feed the machine immediately."}
     - Trends: ${trendSummaries || "Quiet."}
     - Mentions: ${mentionSummaries || "Silence."}
@@ -2011,25 +2026,25 @@ INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If yo
     OUTPUT JSON FORMAT:
     {
         "thoughts": "I have analyzed the market. The sentiment is [X]. The opportunity is [Y]. I am prioritizing [Z] because...",
-        "tasks": [
-            {
-                "id": "unique_string",
-                "type": "NEWSJACK" | "ALPHA_DROP" | "COMMUNITY_WAR" | "EVERGREEN",
-                "title": "Punchy Internal Code Name for Task",
-                "description": "One sentence strategic directive.",
-                "reasoning": "Why this wins. (e.g. 'Competitors are ignoring X, we attack Y').",
-                "reasoningSteps": ["1. Signal Detected", "2. Narrative Angle Selected", "3. Execution Strategy"],
-                "strategicAlignment": "How this aligns with our Q1 Goals (e.g. 'Supports TVL Growth objective').",
-                "contentIdeas": ["Unique Angle 1 (e.g. Thread)", "Unique Angle 2 (e.g. Visual)", "Unique Angle 3 (e.g. Meme)"],
-                "impactScore": 1-10,
-                "executionPrompt": "Specific writing instruction for the Copywriter agent...",
-                "contextData": [
-                    { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 0.9 }
-                ],
-                "suggestedVisualTemplate": "Campaign Launch" | "Partnership" | "Deep Dive" | "Meme", 
-                "suggestedReferenceIds": ["ref-123"]
-            }
-        ]
+            "tasks": [
+                {
+                    "id": "unique_string",
+                    "type": "NEWSJACK" | "ALPHA_DROP" | "COMMUNITY_WAR" | "EVERGREEN",
+                    "title": "Punchy Internal Code Name for Task",
+                    "description": "One sentence strategic directive.",
+                    "reasoning": "Why this wins. (e.g. 'Competitors are ignoring X, we attack Y').",
+                    "reasoningSteps": ["1. Signal Detected", "2. Narrative Angle Selected", "3. Execution Strategy"],
+                    "strategicAlignment": "How this aligns with our Q1 Goals (e.g. 'Supports TVL Growth objective').",
+                    "contentIdeas": ["Unique Angle 1 (e.g. Thread)", "Unique Angle 2 (e.g. Visual)", "Unique Angle 3 (e.g. Meme)"],
+                    "impactScore": 1 - 10,
+                    "executionPrompt": "Specific writing instruction for the Copywriter agent...",
+                    "contextData": [
+                        { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 0.9 }
+                    ],
+                    "suggestedVisualTemplate": "Campaign Launch" | "Partnership" | "Deep Dive" | "Meme",
+                    "suggestedReferenceIds": ["ref-123"]
+                }
+            ]
     }
     `;
 
@@ -2053,21 +2068,21 @@ INSTRUCTION: Review your recent memory.Do not repeat actions you just took.If yo
             type: 'STRATEGY',
             brandId: brandName,
             context: `
-[SOURCE: CALENDAR_AUDIT]
+    [SOURCE: CALENDAR_AUDIT]
 Scan Depth: ${eventsNextWeek.length} items found.
-    ${existingSchedule || "No records found."}
+        ${existingSchedule || "No records found."}
 
-[SOURCE: LIVE_MARKET_TRENDS]
+    [SOURCE: LIVE_MARKET_TRENDS]
 Scan Depth: ${trends.length} active signals.
-    ${trendSummaries || "No signals detected."}
+        ${trendSummaries || "No signals detected."}
 
-[SOURCE: COMMUNITY_MENTIONS]
+    [SOURCE: COMMUNITY_MENTIONS]
 Scan Depth: ${mentions.length} interactions.
-    ${mentionSummaries || "No recent activity."}
+        ${mentionSummaries || "No recent activity."}
 
-[SOURCE: SYSTEM_MEMORY]
+    [SOURCE: SYSTEM_MEMORY]
 ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." : "Memory initialized."}
-`.trim(),
+    `.trim(),
             systemPrompt: systemInstruction,
             userPrompt: "Perform the audit and generate tasks.",
             rawOutput: response.text || "",
@@ -2098,7 +2113,7 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
                 description: 'The calendar is light. Generating educational content.',
                 reasoning: 'Consistent presence is key.',
                 impactScore: 7,
-                executionPrompt: `Write an educational tweet about ${brandName}'s core value proposition.`,
+                executionPrompt: `Write an educational tweet about ${brandName} 's core value proposition.`,
                 suggestedVisualTemplate: 'Campaign Launch',
                 contextData: [{
                     type: 'CALENDAR',

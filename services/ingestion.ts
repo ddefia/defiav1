@@ -253,3 +253,28 @@ export const syncHistoryToReferenceImages = async (brandName: string) => {
         throw e;
     }
 };
+
+/**
+ * FETCH AGENT DECISIONS (Backend Bridge)
+ * Retrieves pending decisions made by the autonomous agent (server/brain.js).
+ */
+export const fetchAgentDecisions = async (brandName: string): Promise<any[]> => {
+    try {
+        // We use the proxy endpoint in server.js
+        const response = await fetch('http://localhost:3001/api/decisions');
+        if (!response.ok) return [];
+
+        const allDecisions = await response.json();
+        if (!Array.isArray(allDecisions)) return [];
+
+        // Filter for this brand
+        // Note: The backend agent currently might not save brandId nicely in the flat file or logic needs check.
+        // But assuming the saveDecision in scheduler.js saves 'brandId', we filter.
+        return allDecisions.filter((d: any) =>
+            d.brandId && d.brandId.toLowerCase() === brandName.toLowerCase() && d.status === 'pending'
+        );
+    } catch (e) {
+        console.warn("Agent bridge offline (is server.js running?)", e);
+        return [];
+    }
+};

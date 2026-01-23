@@ -416,3 +416,36 @@ export interface ChatIntentResponse {
   uiCard?: 'CampaignCard' | 'ImageCard' | 'TrendCard'; // Hint for UI rendering
 }
 
+// --- DASHBOARD V2 TYPES ---
+
+export interface KPIItem {
+  label: string;
+  value: string;
+  delta: number; // Percentage
+  trend: 'up' | 'down' | 'flat';
+  confidence: 'High' | 'Med' | 'Low';
+  sparklineData: number[]; // 7d trend
+}
+
+export interface DashboardCampaign {
+  id: string;
+  name: string;
+  channel: 'Twitter' | 'Telegram' | 'Discord' | 'Web' | 'Paid' | 'Influencer';
+  spend: number;
+  attributedWallets: number;
+  cpa: number;
+  retention: number; // %
+  valueCreated: number; // $
+  roi: number; // x
+  status: 'Scale' | 'Test' | 'Pause' | 'Kill';
+
+  // Drawer Context
+  aiSummary: string[];
+  anomalies: string[];
+  recommendation: {
+    action: 'Scale' | 'Test' | 'Pause' | 'Kill';
+    reasoning: string[];
+    confidence: 'High' | 'Med' | 'Low';
+  };
+}
+
