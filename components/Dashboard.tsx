@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief } from '../types';
-import { fetchCampaignPerformance, fetchMarketPulse } from '../services/analytics';
+import { fetchCampaignPerformance, fetchSocialMetrics, computeGrowthMetrics, computeSocialSignals } from '../services/analytics';
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
+import { fetchMarketPulse } from '../services/pulse';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
 import { ActionCard } from './ActionCard';
 
@@ -18,26 +19,31 @@ interface DashboardProps {
     onNavigate: (section: string) => void;
 }
 
+// Helper: Safety check for metrics
+const safeVal = (val: number | undefined, suffix = '') => val ? `${val.toLocaleString()}${suffix}` : '--';
+
+// --- HELPER: TRANSFORM METRICS TO KPIS ---
 // --- HELPER: TRANSFORM METRICS TO KPIS ---
 const transformMetricsToKPIs = (
     metrics: SocialMetrics | null,
     chain: ComputedMetrics | null,
     campaigns: DashboardCampaign[] = []
 ): KPIItem[] => {
-    // 1. SPEND
+    // 1. SPEND (Aggregated from Real Campaigns)
     const spendVal = campaigns.length > 0
         ? campaigns.reduce((acc, c) => acc + c.spend, 0)
         : 0;
 
-    // 2. ATTR WALLETS
+    // 2. ATTR WALLETS (sum of campaigns)
+    // Honest Connection: Only show wallets we can prove came from campaigns
     const newWallets = campaigns.length > 0
         ? campaigns.reduce((acc, c) => acc + c.attributedWallets, 0)
         : (chain?.netNewWallets || 0);
 
-    // 3. CPA
+    // 3. CPA (Weighted Average)
     const cpaVal = newWallets > 0 ? (spendVal / newWallets) : 0;
 
-    // 4. VALUE CREATED
+    // 4. VALUE CREATED (sum of campaigns) vs TVL
     const valueCreated = campaigns.length > 0
         ? campaigns.reduce((acc, c) => acc + c.valueCreated, 0)
         : (chain?.totalVolume || 0);
@@ -58,8 +64,8 @@ const transformMetricsToKPIs = (
         {
             label: 'Attr. Wallets',
             value: newWallets.toLocaleString(),
-            delta: 12,
-            trend: 'up',
+            delta: 0,
+            trend: 'flat',
             confidence: campaigns.length > 0 ? 'High' : 'Med',
             statusLabel: newWallets > 100 ? 'Strong' : 'Watch',
             sparklineData: [newWallets * 0.8, newWallets]
@@ -76,7 +82,7 @@ const transformMetricsToKPIs = (
         {
             label: 'Value Created',
             value: `$${(valueCreated / 1000).toFixed(1)}k`,
-            delta: 8,
+            delta: 0,
             trend: 'up',
             confidence: 'High',
             statusLabel: 'Strong',
@@ -94,6 +100,9 @@ const transformMetricsToKPIs = (
     ];
 };
 
+
+// --- SUB-COMPONENTS ---
+
 const StatusBadge = ({ status }: { status: string }) => {
     const colors: Record<string, string> = {
         'Scale': 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -110,6 +119,8 @@ const StatusBadge = ({ status }: { status: string }) => {
         </span>
     );
 };
+
+// --- MAIN DASHBOARD V2 ---
 
 export const Dashboard: React.FC<DashboardProps> = ({
     brandName,
@@ -136,20 +147,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
             if (!briefData && !briefLoading) {
                 setBriefLoading(true);
                 try {
+                    // Small delay to simulate "system boot" feel
                     await new Promise(r => setTimeout(r, 1500));
                     const brief = await generateBriefService(brandName, kpis, campaigns, signals);
                     setBriefData(brief);
-                } catch (e) { console.error(e); } finally { setBriefLoading(false); }
+                } catch (e) {
+                    console.error("Background Brief Gen Failed", e);
+                } finally {
+                    setBriefLoading(false);
+                }
             }
         };
         initBrief();
-    }, [kpis.length]);
+    }, [brandName, kpis.length]); // Dependencies to ensure data is ready
+
+    // Handler: Open Drawer
+    const handleOpenDrawer = () => {
+        setIsBriefOpen(true);
+    };
 
     // Data Fetching
     useEffect(() => {
         let mounted = true;
         const loadData = async () => {
             try {
+                // Parallel Fetch
                 const [camps, pulse] = await Promise.all([
                     fetchCampaignPerformance(),
                     fetchMarketPulse(brandName)
@@ -158,7 +180,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 if (mounted) {
                     setCampaigns(camps);
                     setSignals(pulse.map(p => ({
-                        platform: 'Twitter', // Defaulting to Twitter
+                        platform: 'Twitter', // Defaulting to Twitter as main source for now
                         signal: p.headline,
                         trend: p.sentiment === 'Positive' ? 'up' : p.sentiment === 'Negative' ? 'down' : 'flat',
                         sentiment: p.sentiment
@@ -179,12 +201,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .slice(0, 5);
 
+    // Filter Logic for "Today's Calls"
     const todaysCalls = campaigns
         .filter(c => c.status === 'Scale' || c.status === 'Kill' || c.status === 'Test')
         .sort((a, b) => b.priorityScore - a.priorityScore);
 
     const handleExecuteAll = () => {
-        if (confirm(`Execute ${todaysCalls.length} strategic actions?`)) {
+        if (confirm(`Execute ${todaysCalls.length} strategic actions? This will scale updated budgets and pause underperformers.`)) {
             alert('Actions Executed. Budgets updated on-chain.');
         }
     };
@@ -206,7 +229,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {/* AI STATUS INDICATOR */}
                 <div className="relative group">
                     <button
-                        onClick={() => setIsBriefOpen(true)}
                         className={`text-[10px] uppercase font-mono tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${briefLoading
                             ? 'bg-gray-50 text-gray-500 border-gray-200 cursor-wait'
                             : 'bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 cursor-default shadow-sm'
@@ -219,7 +241,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </span>
                         {briefLoading ? 'Analysis Engine: Syncing' : 'Analysis Engine: Live'}
                     </button>
-                    {/* Tooltip omitted for cleaner code, restored BriefDrawer interaction */}
+
+                    {/* HOVER PREVIEW TOOLTIP */}
+                    {!briefLoading && briefData && (
+                        <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-bold text-gray-900 uppercase">AI Update (Just Now)</span>
+                                <span className={`text-[9px] px-1.5 rounded ${briefData.confidence.level === 'High' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {briefData.confidence.level} Conf
+                                </span>
+                            </div>
+                            <ul className="space-y-1.5">
+                                {(briefData.keyDrivers || []).slice(0, 3).map((item, i) => (
+                                    <li key={i} className="text-[10px] text-gray-600 leading-snug flex items-start gap-1.5">
+                                        <span className="mt-1 w-1 h-3 rounded-full bg-gray-400 shrink-0"></span>
+                                        {item.length > 50 ? item.substring(0, 50) + '...' : item}
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="mt-2 pt-2 border-t border-gray-50 text-[9px] text-blue-600 font-medium flex items-center gap-1">
+                                View full brief <span aria-hidden="true">&rarr;</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -230,20 +274,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 loading={briefLoading}
             />
 
-            {/* LANE 1: PERFORMANCE (KPIs with Sparklines) */}
+            {/* LANE 1: PERFORMANCE (KPIs) */}
             <div className="grid grid-cols-5 gap-3 mb-8">
                 {kpis.map((kpi, i) => (
                     <div key={i} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm relative group">
+                        {/* Confidence Dot */}
                         <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${kpi.confidence === 'High' ? 'bg-emerald-500' : 'bg-amber-500'}`} title={`Confidence: ${kpi.confidence}`}></div>
+
                         <div className="mb-2">
                             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{kpi.label}</div>
                             <div className="text-xl font-bold text-gray-900 tracking-tighter">{kpi.value}</div>
                         </div>
+
                         <div className="flex items-center justify-between">
                             <div className={`text-[10px] font-bold flex items-center gap-1 ${kpi.delta > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {kpi.trend === 'up' ? '↑' : '↓'} {Math.abs(kpi.delta)}%
                             </div>
-                            <StatusBadge status={kpi.statusLabel} />
+                            <span className={`text-[9px] font-bold uppercase ${kpi.statusLabel === 'Strong' ? 'text-emerald-600' : kpi.statusLabel === 'Weak' ? 'text-rose-500' : 'text-amber-500'
+                                }`}>
+                                {kpi.statusLabel}
+                            </span>
                         </div>
                     </div>
                 ))}
@@ -253,105 +303,139 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* LANE 1 (LEFT/CENTER): PERFORMANCE & CAMPAIGN TABLE */}
                 <div className="col-span-8 flex flex-col gap-8">
-                    {/* CAMPAIGN TABLE */}
-                    <div className="bg-white rounded-xl border border-gray-200/75 shadow-md shadow-gray-100/50 overflow-hidden relative">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/80"></div>
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Active Campaigns</h3>
-                            <div className="flex gap-2 text-[10px] font-medium text-gray-500">
-                                <span>Sort: ROI</span>
-                            </div>
+
+                    {/* Loading State */}
+                    {loading && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-12 flex flex-col items-center justify-center text-gray-400">
+                            <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                            <div className="text-xs font-mono animate-pulse">SYNCING CHAIN DATA...</div>
                         </div>
-                        <div className="overflow-x-auto">
-                            {loading ? <div className="p-12 text-center text-gray-400 text-xs font-mono">Loading data...</div> : (
-                                <table className="w-full text-left">
-                                    <thead className="bg-gray-50 border-b border-gray-100">
-                                        <tr>
-                                            {['Campaign', 'Trend', 'Spend', 'CPA', 'Retention', 'Value', 'ROI', 'Conf', 'Status'].map(h => (
-                                                <th key={h} className="px-4 py-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider">{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {campaigns.map(c => (
-                                            <tr key={c.id} className="hover:bg-gray-50 transition-colors cursor-pointer group">
-                                                <td className="px-4 py-3" onClick={() => onNavigate('campaigns')}>
-                                                    <div className="text-xs font-bold text-gray-900 group-hover:text-blue-600 underline decoration-dotted underline-offset-2">{c.name}</div>
-                                                    <div className="text-[10px] text-gray-400">{c.channel}</div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <span className={`text-xs ${c.trendSignal === 'up' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                        {c.trendSignal === 'up' ? '↗' : '↘'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-xs font-mono text-gray-600">${c.spend.toLocaleString()}</td>
-                                                <td className="px-4 py-3 text-xs font-mono font-medium">${c.cpa.toFixed(2)}</td>
-                                                <td className="px-4 py-3 text-xs font-mono">{c.retention}%</td>
-                                                <td className="px-4 py-3 text-xs font-mono font-bold">+${c.valueCreated.toLocaleString()}</td>
-                                                <td className="px-4 py-3 text-xs font-mono font-bold">
-                                                    <span className={c.roi > 5 ? 'text-emerald-600' : 'text-amber-600'}>{c.roi}x</span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className={`w-2 h-2 rounded-full mx-auto ${c.confidence === 'High' ? 'bg-emerald-400' : 'bg-gray-300'}`}></div>
-                                                </td>
-                                                <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
+                    )}
+
+                    {!loading && (
+                        <>
+                            {/* CAMPAIGN TABLE */}
+                            <div className="bg-white rounded-xl border border-gray-200/75 shadow-md shadow-gray-100/50 overflow-hidden relative">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/80"></div>
+                                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                                    <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Active Campaigns</h3>
+                                    <div className="flex gap-2 text-[10px] font-medium text-gray-500">
+                                        <span>Sort: ROI</span>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-gray-50 border-b border-gray-100">
+                                            <tr>
+                                                {['Campaign', 'Trend', 'Spend', 'CPA', 'Retention', 'Value', 'ROI', 'Conf', 'Status'].map(h => (
+                                                    <th key={h} className="px-4 py-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider">{h}</th>
+                                                ))}
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {campaigns.map(c => {
+                                                // Row Color Logic
+                                                let rowClass = "hover:bg-gray-50 transition-colors cursor-pointer group";
+                                                if (c.roi < 1 || (c.attributedWallets === 0 && c.spend > 1000)) rowClass += " bg-rose-50/30 hover:bg-rose-50/60";
+                                                else if (c.cpa > 50 || c.retention < 50) rowClass += " bg-amber-50/30 hover:bg-amber-50/60";
 
-                    {/* LANE 3: CONTENT & COMMUNITY */}
-                    <div className="grid grid-cols-2 gap-6">
-                        {/* Upcoming Content */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                Upcoming (7 Days)
-                            </h3>
-                            <div className="space-y-3">
-                                {upcomingContent.map((e, i) => (
-                                    <div key={i} className="flex items-center gap-3">
-                                        <div className="text-[10px] font-mono text-gray-400 w-8">{new Date(e.date).getDate()}th</div>
-                                        <div className="flex-1">
-                                            <div className="text-xs font-bold text-gray-900 truncate">{e.content}</div>
-                                            <div className="flex items-center gap-2 text-[9px] text-gray-500 uppercase">
-                                                <span>{e.platform}</span>
-                                                <span className={`font-bold ${e.status === 'scheduled' ? 'text-emerald-500' : 'text-amber-500'}`}>{e.status}</span>
+                                                return (
+                                                    <tr key={c.id} className={rowClass}>
+                                                        <td className="px-4 py-3" onClick={() => onNavigate('campaigns')}>
+                                                            <div className="text-xs font-bold text-gray-900 group-hover:text-blue-600 underline decoration-dotted underline-offset-2">{c.name}</div>
+                                                            <div className="text-[10px] text-gray-400">{c.channel}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`text-xs ${c.trendSignal === 'up' ? 'text-emerald-500' : c.trendSignal === 'down' ? 'text-rose-500' : 'text-gray-400'}`}>
+                                                                {c.trendSignal === 'up' ? '↗' : c.trendSignal === 'down' ? '↘' : '→'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-xs font-mono text-gray-600">${c.spend.toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-xs font-mono font-medium">
+                                                            ${c.cpa.toFixed(2)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-xs font-mono">{c.retention}%</td>
+                                                        <td className="px-4 py-3 text-xs font-mono font-bold">+${c.valueCreated.toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-xs font-mono font-bold">
+                                                            <span className={c.roi > 5 ? 'text-emerald-600' : c.roi < 1 ? 'text-rose-600' : 'text-amber-600'}>{c.roi}x</span>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className={`w-2 h-2 rounded-full mx-auto ${c.confidence === 'High' ? 'bg-emerald-400' : 'bg-gray-300'}`} title={c.confidence}></div>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <StatusBadge status={c.status} />
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* LANE 3: CONTENT & COMMUNITY ("What's coming") */}
+                            <div className="grid grid-cols-2 gap-6">
+
+                                {/* Upcoming Content */}
+                                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                        Upcoming (7 Days)
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {upcomingContent.length > 0 ? upcomingContent.map((e, i) => (
+                                            <div key={i} className="flex items-center gap-3 group">
+                                                <div className="text-[10px] font-mono text-gray-400 w-8">{new Date(e.date).getDate()}th</div>
+                                                <div className="flex-1">
+                                                    <div className="text-xs font-bold text-gray-900 group-hover:text-blue-600 truncate transition-colors">{e.content}</div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[9px] text-gray-500 uppercase">{e.platform}</span>
+                                                        <span className="text-[9px] text-gray-300">•</span>
+                                                        <span className={`text-[9px] font-bold uppercase ${e.status === 'scheduled' ? 'text-emerald-500' : 'text-amber-500'}`}>{e.status}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )) : (
+                                            <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg flex flex-col gap-2">
+                                                <div className="flex items-center gap-2 text-amber-800">
+                                                    <span className="text-[10px] font-bold uppercase">⚠️ High Risk</span>
+                                                </div>
+                                                <div className="text-xs text-amber-900 font-medium">No active content. Engagement decay likely.</div>
+                                                <button onClick={() => onNavigate('calendar')} className="text-[10px] font-bold text-amber-700 underline text-left hover:text-amber-900">
+                                                    Schedule Thread →
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
-                                {upcomingContent.length === 0 && <div className="text-xs text-gray-400 italic">No upcoming content.</div>}
-                            </div>
-                        </div>
+                                </div>
 
-                        {/* Community Signals */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
-                                Community Signals
-                            </h3>
-                            <div className="space-y-3">
-                                {signals.map((s, i) => (
-                                    <div key={i} className="flex items-start gap-3">
-                                        <div className={`mt-1 text-[10px] ${s.trend === 'up' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                            {s.trend === 'up' ? '▲' : '▼'}
-                                        </div>
-                                        <div>
-                                            <div className="text-xs font-medium text-gray-900">{s.signal}</div>
-                                            <div className="text-[9px] text-gray-400 uppercase font-bold mt-0.5">{s.platform}</div>
-                                        </div>
+                                {/* Community Signals */}
+                                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+                                        Community Signals
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {signals.map((s, i) => (
+                                            <div key={i} className="flex items-start gap-3">
+                                                <div className={`mt-1 text-[10px] ${s.trend === 'up' ? 'text-emerald-500' : s.trend === 'down' ? 'text-rose-500' : 'text-gray-400'}`}>
+                                                    {s.trend === 'up' ? '▲' : s.trend === 'down' ? '▼' : '●'}
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-medium text-gray-900">{s.signal}</div>
+                                                    <div className="text-[9px] text-gray-400 uppercase font-bold mt-0.5">{s.platform}</div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                </div>
+
                             </div>
-                        </div>
-                    </div>
+                        </>
+                    )}
                 </div>
 
-                {/* LANE 2 (RIGHT): DECISIONS & INTELLIGENCE */}
+                {/* LANE 2 (RIGHT): DECISIONS & INTELLIGENCE ("What should we do") */}
                 <div className="col-span-4">
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full flex flex-col sticky top-6">
                         <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
@@ -365,22 +449,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     campaign={c}
                                     onReview={() => onNavigate('campaigns')}
                                     onExecute={() => {
-                                        if (confirm(`Initialize strict execution flow for ${c.name}?`)) alert('Pipeline Initialized.');
+                                        if (confirm(`Initialize strict execution flow for ${c.name}? This will draft content and schedule campaigns but requires final manual approval.`)) {
+                                            alert('Execution Pipeline Initialized: Drafts Created.');
+                                        }
                                     }}
                                 />
                             ))}
+
+                            {/* Empty State */}
                             {todaysCalls.length === 0 && (
                                 <div className="p-8 text-center border-2 border-dashed border-gray-100 rounded-xl">
-                                    <p className="text-gray-400 text-xs font-mono">SYSTEM OPTIMAL</p>
+                                    <p className="text-gray-400 text-xs font-mono mb-2">SYSTEM OPTIMAL</p>
+                                    <p className="text-gray-300 text-[10px]">No immediate actions required.</p>
                                 </div>
                             )}
                         </div>
                         <div className="p-4 border-t border-gray-100 bg-gray-50">
                             <button
                                 onClick={handleExecuteAll}
+                                title="Drafts and Schedules all actions. Requires final review."
                                 className="w-full py-2 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors uppercase tracking-wide flex items-center justify-center gap-2">
                                 Execute All Recommended
                             </button>
+                            <div className="text-[9px] text-center text-gray-400 mt-2">
+                                Will not publish without final review.
+                            </div>
                         </div>
                     </div>
                 </div>
