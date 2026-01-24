@@ -1137,11 +1137,52 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             </button>
 
                                             {showBrief && (
-                                                <div className="mt-3 pt-3 border-t border-gray-50 text-xs text-gray-600 leading-relaxed animate-in slide-in-from-top-1">
-                                                    <p>System detected a +15% increase in competitor mentions regarding "Protocol v2". Recommendation is to launch a preemptive educational campaign to capture share of voice.</p>
-                                                    <div className="mt-2 flex gap-2">
-                                                        <span className="bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-500">Signal: Social Vlm</span>
-                                                        <span className="bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-500">Source: Twitter API</span>
+                                                <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-600 leading-relaxed animate-in slide-in-from-top-1">
+
+                                                    {/* Analysis Header & Score */}
+                                                    <div className="flex items-start justify-between mb-4">
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <span className="bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide">Competitor Spike</span>
+                                                                <span className="bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide">Correlation: 0.88</span>
+                                                            </div>
+                                                            <p className="text-zinc-700 leading-relaxed">
+                                                                System detected a <span className="font-bold text-zinc-900">+15% increase</span> in competitor mentions regarding "Protocol v2" over the last 4 hours.
+                                                                Sentiment analysis suggests confusion in the market. Recommendation is to launch a <span className="font-bold text-zinc-900">preemptive education campaign</span> to capture Share of Voice (SoV).
+                                                            </p>
+                                                        </div>
+                                                        <div className="bg-zinc-900 text-white p-2 rounded-lg text-center min-w-[50px] ml-4">
+                                                            <div className="text-lg font-bold">9<span className="text-xs text-zinc-400">/10</span></div>
+                                                            <div className="text-[8px] uppercase tracking-wider text-zinc-400">Impact</div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* References Section */}
+                                                    <div className="space-y-2">
+                                                        <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Data References</div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                            <div className="flex items-center justify-between p-2 bg-gray-50 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors cursor-pointer group/ref">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-1 h-3 bg-blue-400 rounded-full"></div>
+                                                                    <span className="text-[10px] font-medium text-gray-700">Twitter API Stream (#DeFi)</span>
+                                                                </div>
+                                                                <svg className="w-3 h-3 text-gray-400 group-hover/ref:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                            </div>
+                                                            <div className="flex items-center justify-between p-2 bg-gray-50 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors cursor-pointer group/ref">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-1 h-3 bg-purple-400 rounded-full"></div>
+                                                                    <span className="text-[10px] font-medium text-gray-700">Competitor Volume (24h)</span>
+                                                                </div>
+                                                                <svg className="w-3 h-3 text-gray-400 group-hover/ref:text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                            </div>
+                                                            <div className="flex items-center justify-between p-2 bg-gray-50 border border-gray-100 rounded-lg hover:border-gray-200 transition-colors cursor-pointer group/ref">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-1 h-3 bg-emerald-400 rounded-full"></div>
+                                                                    <span className="text-[10px] font-medium text-gray-700">Sentiment Engine</span>
+                                                                </div>
+                                                                <svg className="w-3 h-3 text-gray-400 group-hover/ref:text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
