@@ -26,7 +26,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     const [writerTopic, setWriterTopic] = useState('');
     const [writerTone, setWriterTone] = useState('Professional');
     const [isWritingTweet, setIsWritingTweet] = useState(false);
-    const [generatedDraft, setGeneratedDraft] = useState('');
+    const [generatedDrafts, setGeneratedDrafts] = useState<string[]>([]);
     const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
     const [suggestedIdeas, setSuggestedIdeas] = useState<string[]>([]);
 
@@ -73,7 +73,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
             if (saved) {
                 if (saved.activeTab && (saved.activeTab === 'writer' || saved.activeTab === 'generate')) setActiveTab(saved.activeTab);
                 if (saved.writerTopic) setWriterTopic(saved.writerTopic);
-                if (saved.generatedDraft) setGeneratedDraft(saved.generatedDraft);
+                if (saved.generatedDrafts) setGeneratedDrafts(saved.generatedDrafts); // Load Array
+                else if (saved.generatedDraft) setGeneratedDrafts([saved.generatedDraft]); // Legacy Support
                 if (saved.tweetText) setTweetText(saved.tweetText);
                 if (saved.visualPrompt) setVisualPrompt(saved.visualPrompt);
                 if (saved.negativePrompt) setNegativePrompt(saved.negativePrompt);
@@ -84,11 +85,11 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
 
     useEffect(() => {
         const state = {
-            activeTab, writerTopic, generatedDraft, tweetText, visualPrompt, negativePrompt, generatedImages
+            activeTab, writerTopic, generatedDrafts, tweetText, visualPrompt, negativePrompt, generatedImages
         };
         const timeout = setTimeout(() => saveStudioState(brandName, state), 1000);
         return () => clearTimeout(timeout);
-    }, [activeTab, writerTopic, generatedDraft, tweetText, visualPrompt, negativePrompt, generatedImages, brandName]);
+    }, [activeTab, writerTopic, generatedDrafts, tweetText, visualPrompt, negativePrompt, generatedImages, brandName]);
 
 
     // --- HANDLERS ---
@@ -102,15 +103,15 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
 
     const handleAIWrite = async () => {
         setIsWritingTweet(true);
-        setGeneratedDraft('');
+        setGeneratedDrafts([]);
         try {
             const count = activeTab === 'writer' ? parseInt(variationCount) : 1;
             const res = await generateTweet(writerTopic, brandName, brandConfig, writerTone, count);
 
             if (Array.isArray(res)) {
-                setGeneratedDraft(res.join('\n\n' + '-'.repeat(40) + '\n\n'));
+                setGeneratedDrafts(res);
             } else {
-                setGeneratedDraft(res);
+                setGeneratedDrafts([res]);
             }
         } catch (e) { setError('Failed to generate draft.'); } finally { setIsWritingTweet(false); }
     };
@@ -357,25 +358,45 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                     <span className="text-[10px] text-gray-300">Auto-Saving</span>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-8 pt-16 custom-scrollbar flex items-center justify-center min-h-[500px]">
+                <div className="flex-1 overflow-y-auto p-8 pt-16 custom-scrollbar flex flex-col items-center min-h-[500px]">
 
                     {/* WRITER PREVIEW */}
                     {activeTab === 'writer' && (
-                        generatedDraft ? (
-                            <div className="w-full max-w-2xl bg-white border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 p-8 animate-fadeIn">
-                                <textarea
-                                    value={generatedDraft}
-                                    onChange={e => setGeneratedDraft(e.target.value)}
-                                    className="w-full bg-transparent border-none p-0 text-xl font-display text-gray-800 focus:ring-0 resize-none min-h-[160px] leading-relaxed placeholder-gray-300"
-                                    placeholder="Your draft will appear here..."
-                                />
-                                <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-50">
-                                    <Button onClick={() => handlePrepareTweet(generatedDraft)} variant="secondary" className="text-xs">Post to X</Button>
-                                    <Button onClick={() => onSchedule(generatedDraft)} className="text-xs bg-gray-900 text-white">Schedule</Button>
-                                </div>
+                        generatedDrafts.length > 0 ? (
+                            <div className="w-full max-w-2xl space-y-8 animate-fadeIn pb-12">
+                                {generatedDrafts.map((draft, idx) => (
+                                    <div key={idx} className="bg-white border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 p-8 relative group transition-all hover:shadow-indigo-500/10 hover:border-indigo-100">
+                                        <div className="absolute top-4 right-4 text-[10px] font-bold text-gray-300 uppercase tracking-widest group-hover:text-indigo-300">Option {idx + 1}</div>
+                                        <textarea
+                                            value={draft}
+                                            onChange={e => {
+                                                const newDrafts = [...generatedDrafts];
+                                                newDrafts[idx] = e.target.value;
+                                                setGeneratedDrafts(newDrafts);
+                                            }}
+                                            className="w-full bg-transparent border-none p-0 text-xl font-display text-gray-800 focus:ring-0 resize-none min-h-[120px] leading-relaxed placeholder-gray-300"
+                                            placeholder="Your draft will appear here..."
+                                        />
+                                        <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-50">
+                                            <Button
+                                                onClick={() => {
+                                                    setTweetText(draft);
+                                                    setActiveTab('generate');
+                                                }}
+                                                className="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-100 flex items-center gap-2"
+                                            >
+                                                <span>🎨</span> Create Visual
+                                            </Button>
+                                            <div className="flex gap-2">
+                                                <Button onClick={() => handlePrepareTweet(draft)} variant="secondary" className="text-xs">Post to X</Button>
+                                                <Button onClick={() => onSchedule(draft)} className="text-xs bg-gray-900 text-white">Schedule</Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         ) : (
-                            <div className="text-center opacity-30">
+                            <div className="text-center opacity-30 mt-20">
                                 <div className="text-6xl mb-4">✍️</div>
                                 <p className="font-bold text-gray-500">Drafting Board</p>
                             </div>
@@ -385,7 +406,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                     {/* GENERATOR PREVIEW */}
                     {activeTab === 'generate' && (
                         generatedImages.length > 0 ? (
-                            <div className="w-full h-full grid grid-cols-1 md:grid-cols-2 gap-8 content-start">
+                            <div className="w-full h-full grid grid-cols-1 md:grid-cols-2 gap-8 content-start pb-12">
                                 {generatedImages.map((img, idx) => (
                                     <div key={idx} className="relative group rounded-xl overflow-hidden shadow-2xl shadow-indigo-500/10 border-4 border-white cursor-pointer transition-all hover:scale-[1.02] hover:shadow-indigo-500/20" onClick={() => setViewingImage(img)}>
                                         <img src={img} className="w-full object-cover bg-gray-100" />
@@ -397,7 +418,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center opacity-30">
+                            <div className="text-center opacity-30 mt-20">
                                 <div className="text-6xl mb-4">🎨</div>
                                 <p className="font-bold text-gray-500">Visual Canvas</p>
                             </div>

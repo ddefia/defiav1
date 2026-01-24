@@ -1094,7 +1094,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             {/* Stepper */}
                             {/* COMPACT HEADER & STEPPER */}
                             {/* COMPACT STEPPER (Right Aligned) */}
-                            <div className="flex items-center justify-end py-2 border-b border-gray-200 mb-4">
+                            <div className="flex items-center justify-end border-b border-gray-200 mb-2">
                                 <div className="flex items-center gap-2">
                                     <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                                         {[1, 2, 3, 4].map((step) => (

@@ -66,7 +66,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
             group: 'Management',
             items: [
-                { id: 'audience', label: 'Audience', icon: 'users' },
                 { id: 'settings', label: 'Settings', icon: 'settings' },
             ]
         }
