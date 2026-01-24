@@ -44,7 +44,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
                 { id: 'copilot', label: 'Copilot', icon: 'sparkles' },
                 { id: 'brain', label: 'Strategy', icon: 'brain' },
-                { id: 'growth', label: 'Growth', icon: 'trending-up' },
                 { id: 'analytics', label: 'Analytics', icon: 'bar-chart' },
             ]
         },

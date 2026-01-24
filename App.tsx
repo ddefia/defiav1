@@ -9,7 +9,6 @@ import { migrateToCloud } from './services/migration'; // Import migration
 import { Button } from './components/Button';
 import { Select } from './components/Select';
 import { BrandKit } from './components/BrandKit';
-import { GrowthEngine } from './components/GrowthEngine';
 import { PulseEngine } from './components/PulseEngine'; // Import Pulse
 import { ContentCalendar } from './components/ContentCalendar';
 import { Dashboard } from './components/Dashboard'; // Import Dashboard
@@ -645,12 +644,15 @@ const App: React.FC = () => {
                         brandConfig={profiles[selectedBrand]}
                         calendarEvents={calendarEvents}
                         socialMetrics={socialMetrics}
-                        strategyTasks={strategyTasks}
                         chainMetrics={chainMetrics}
                         socialSignals={socialSignals} // Pass signals
                         systemLogs={systemLogs}
                         growthReport={growthReport}
                         onNavigate={(section) => setAppSection(section)}
+                        // New Props from Growth Engine
+                        tasks={strategyTasks}
+                        onUpdateTasks={setStrategyTasks}
+                        onSchedule={handleOpenScheduleModal}
                     />
                 )}
 
@@ -693,43 +695,6 @@ const App: React.FC = () => {
                         onClearIntent={() => setCampaignIntent(null)}
                         recentPosts={socialMetrics?.recentPosts || []}
                     />
-                )}
-
-                {/* SECTION: GROWTH & STRATEGY (Always Mounted for Background Ops) */}
-                {selectedBrand && profiles[selectedBrand] && (
-                    <div className={`w-full h-full animate-fadeIn ${appSection === 'growth' ? 'block' : 'hidden'}`}>
-                        <GrowthEngine
-                            brandName={selectedBrand}
-                            calendarEvents={calendarEvents}
-                            brandConfig={profiles[selectedBrand]}
-                            onSchedule={handleOpenScheduleModal}
-                            metrics={socialMetrics}
-                            onUpdateMetrics={setSocialMetrics}
-                            chainMetrics={chainMetrics}
-                            onUpdateChainMetrics={setChainMetrics}
-                            tasks={strategyTasks}
-                            onUpdateTasks={setStrategyTasks}
-                            growthReport={growthReport}
-                            onUpdateGrowthReport={setGrowthReport}
-                            onLog={(msg) => {
-                                setSystemLogs(prev => [msg, ...prev].slice(0, 50));
-                                // Pipe to Brain Stream
-                                if (selectedBrand) {
-                                    saveBrainLog({
-                                        id: `sys-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                                        timestamp: Date.now(),
-                                        type: 'SYSTEM',
-                                        brandId: selectedBrand,
-                                        context: msg,
-                                        model: 'System',
-                                        thoughts: 'System Activity Log'
-                                    });
-                                }
-                            }} // Pipe logs
-                            signals={socialSignals} // Pass signals to Brain
-                            onNavigate={handleNavigate}
-                        />
-                    </div>
                 )}
 
                 {/* SECTION: SETTINGS (Replaces 'profile') */}
