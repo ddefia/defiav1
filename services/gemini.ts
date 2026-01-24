@@ -746,12 +746,20 @@ export const generateTweet = async (
         });
 
         if (count > 1) {
-            const text = response.text || "[]";
+            let text = response.text || "[]";
+            // Clean Markdown code blocks if present
+            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
             try {
                 return JSON.parse(text);
             } catch (e) {
                 console.error("Failed to parse tweet variations", e);
-                return [text]; // Fallback
+                // Try one last desperate cleanup for common JSON issues (trailing commas)
+                try {
+                    return JSON.parse(text.replace(/,\s*]/, "]"));
+                } catch (e2) {
+                    return [text]; // Fallback
+                }
             }
         }
 

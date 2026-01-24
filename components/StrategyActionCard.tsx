@@ -7,118 +7,91 @@ interface StrategyActionCardProps {
 }
 
 export const StrategyActionCard: React.FC<StrategyActionCardProps> = ({ task, onConfigure }) => {
-    const [isRationaleOpen, setIsRationaleOpen] = useState(false);
-
     // Map Type to readable tag
     const getTagStyle = (type: string) => {
         const styles: Record<string, string> = {
-            'REPLY': 'bg-blue-50 text-blue-700 border-blue-100',
-            'REACTION': 'bg-pink-50 text-pink-700 border-pink-100',
-            'EVERGREEN': 'bg-emerald-50 text-emerald-700 border-emerald-100',
-            'GAP_FILL': 'bg-orange-50 text-orange-700 border-orange-100',
-            'TREND_JACK': 'bg-purple-50 text-purple-700 border-purple-100',
-            'CAMPAIGN_IDEA': 'bg-indigo-50 text-indigo-700 border-indigo-100'
+            'REPLY': 'bg-blue-100 text-blue-800 border-blue-200',
+            'REACTION': 'bg-pink-100 text-pink-800 border-pink-200',
+            'EVERGREEN': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            'GAP_FILL': 'bg-orange-100 text-orange-800 border-orange-200',
+            'TREND_JACK': 'bg-purple-100 text-purple-800 border-purple-200',
+            'CAMPAIGN_IDEA': 'bg-indigo-100 text-indigo-800 border-indigo-200'
         };
-        return styles[type] || 'bg-gray-50 text-gray-700 border-gray-100';
+        return styles[type] || 'bg-gray-100 text-gray-800 border-gray-200';
     };
 
-    // Infer Expected Impact based on type/score (Simulation for UI)
-    const getExpectedImpact = (task: StrategyTask) => {
-        if (task.impactScore > 8) return "↑ retention, ↑ wallet quality";
-        if (task.type === 'TREND_JACK') return "↑ visibility, ↑ engagement";
-        return "Brand consistency";
+    const getImpactColor = (score: number) => {
+        if (score >= 9) return 'text-emerald-600 bg-emerald-50 border-emerald-100';
+        if (score >= 7) return 'text-blue-600 bg-blue-50 border-blue-100';
+        return 'text-amber-600 bg-amber-50 border-amber-100';
     };
 
     return (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all relative group overflow-hidden mb-3">
-            {/* Header Section */}
-            <div className="p-4 border-b border-gray-100 bg-gray-50/30 flex items-start gap-3">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 relative group overflow-hidden mb-2">
 
-                {/* 1. THUMBNAIL (Simulation if task has image context) */}
-                <div className="w-16 h-16 rounded-lg bg-gray-200 overflow-hidden shrink-0 border border-gray-200 shadow-sm relative">
-                    {/* Placeholder for now as StrategyTask doesn't have image URL yet */}
-                    <div className="w-full h-full bg-gray-100 flex items-center justify-center text-2xl opacity-50">📰</div>
-                </div>
+            {/* CARD BODY - GRID LAYOUT */}
+            <div className="flex flex-col sm:flex-row">
 
-                <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                        <div>
-                            <h3 className="text-xs font-bold text-gray-900 leading-tight">
-                                {task.title}
-                            </h3>
-                            <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1.5 mt-1">
-                                <span>Twitter</span>
-                                <span className="text-gray-300">•</span>
-                                <span>{task.type.replace('_', ' ')}</span>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col items-center justify-center w-8 h-8 bg-gray-900 rounded-lg text-white shadow-sm shrink-0">
-                            <span className="text-xs font-bold leading-none">{task.impactScore}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getTagStyle(task.type)}`}>
+                {/* LEFT: Main Context (Weighted 2/3) */}
+                <div className="flex-1 p-3 border-b sm:border-b-0 sm:border-r border-gray-100">
+                    {/* Header Line */}
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider border ${getTagStyle(task.type)}`}>
                             {task.type.replace('_', ' ')}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-mono truncate max-w-[200px]">
-                            <span className="text-xs text-gray-300 mr-1">↪</span>
-                            <span className="text-gray-600 font-medium">{getExpectedImpact(task)}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">Twitter</span>
+                        <div className="flex-1"></div>
+                        {/* Mobile Score (Hidden on Desktop usually, but good for responsive) */}
+                        <span className={`sm:hidden text-[9px] font-bold px-1.5 py-0.5 rounded border ${getImpactColor(task.impactScore)}`}>
+                            Impact: {task.impactScore}/10
                         </span>
                     </div>
-                </div>
-            </div>
 
-            {/* Content Body */}
-            <div className="p-4 flex flex-col pt-3">
-                {/* Uncollapsed Analysis */}
-                <div className="flex items-center justify-between mb-3">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Reasoning Engine</span>
-                    <span className={`text-[9px] font-bold px-1.5 rounded ${task.impactScore > 7 ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'}`}>
-                        {task.impactScore > 7 ? 'High' : 'Medium'} Confidence
-                    </span>
+                    {/* Title */}
+                    <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 group-hover:text-blue-600 transition-colors cursor-pointer" onClick={onConfigure}>
+                        {task.title}
+                    </h3>
+
+                    {/* Reasoning - Compact */}
+                    <div className="relative pl-3 border-l-2 border-blue-100">
+                        <p className="text-[11px] text-gray-600 leading-relaxed font-medium line-clamp-2">
+                            {task.reasoning}
+                        </p>
+                    </div>
                 </div>
 
-                <div className="bg-blue-50/30 rounded-lg p-3 border border-blue-50 mb-3">
-                    <p className="text-[10px] text-gray-700 leading-relaxed font-medium flex items-start gap-2">
-                        <span className="mt-1.5 w-1 h-1 bg-blue-400 rounded-full shrink-0"></span>
-                        {task.reasoning}
-                    </p>
-                    {task.contextData && task.contextData.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-blue-100/50">
-                            <ul className="space-y-1">
-                                {task.contextData.map((c, i) => (
-                                    <li key={i} className="text-[9px] text-gray-500 truncate flex items-center gap-1">
-                                        <span className="w-0.5 h-2 bg-gray-300 rounded-full"></span>
-                                        {c.headline}
-                                    </li>
-                                ))}
-                            </ul>
+                {/* RIGHT: Metrics & Actions (Weighted 1/3) */}
+                <div className="w-full sm:w-[180px] bg-gray-50/50 p-3 flex flex-col justify-between gap-3">
+
+                    {/* Metrics Block */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase">Confidence</span>
+                            <span className={`text-[9px] font-bold ${task.impactScore > 7 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                {task.impactScore > 7 ? 'High' : 'Med'}
+                            </span>
                         </div>
-                    )}
-                </div>
 
-                {/* Actions */}
-                <div className="flex gap-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase">Impact</span>
+                            <div className={`flex items-center px-1.5 py-0.5 rounded border ${getImpactColor(task.impactScore)}`}>
+                                <span className="text-xs font-bold">{task.impactScore}</span>
+                                <span className="text-[9px] opacity-70">/10</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Primary Action Button */}
                     <button
                         onClick={onConfigure}
-                        className="flex-1 py-1.5 px-3 bg-white border border-gray-200 text-gray-600 text-[10px] font-bold rounded-lg hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 transition-all uppercase tracking-wide"
+                        className="w-full group/btn relative overflow-hidden rounded flex items-center justify-center gap-2 bg-white hover:bg-black hover:text-white border border-gray-200 hover:border-black text-gray-700 text-[10px] font-bold uppercase tracking-wide py-2 transition-all shadow-sm"
                     >
-                        Review
+                        <span>Execute</span>
+                        <svg className="w-3 h-3 text-gray-400 group-hover/btn:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
                     </button>
 
-                    <div className="relative group/exec flex-[1.5]">
-                        <button
-                            onClick={onConfigure}
-                            className={`w-full py-1.5 px-3 bg-black text-white text-[10px] font-bold rounded-lg hover:bg-gray-800 transition-all shadow-sm hover:shadow-md uppercase tracking-wide flex items-center justify-center gap-2`}
-                        >
-                            Approve & Execute
-                            <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>

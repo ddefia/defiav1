@@ -74,6 +74,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [viewingCampaignDetails, setViewingCampaignDetails] = useState<string | null>(null); // New State for Thinking View
     // Track what the AI actually analyzed for transparency
     const [contextStats, setContextStats] = useState<{ activeCampaignsCount: number, brainMemoriesCount: number, strategyDocsCount?: number } | null>(null);
+    const [recommendedStrategies, setRecommendedStrategies] = useState<MarketingAction[]>([]); // NEW: Recommended Actions
 
     // --- PERSISTENCE ---
     // Load state on mount
@@ -95,6 +96,23 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             if (saved.campaignStartDate) setCampaignStartDate(saved.campaignStartDate);
             if (saved.contentPlan) setContentPlan(saved.contentPlan);
         }
+
+        // Load Action Plan Recommendations
+        const plan = loadBrainState(brandName); // Reuse existing loadBrainState or similar storage util if loadActionPlan doesn't exist directly
+        // Just for safety if loadActionPlan is not exported, we can check localStorage directly or use a known util
+        // Assuming loadActionPlan exists or we can get it from localStorage 'defia_action_plan_{brand}'
+        try {
+            const storedPlan = localStorage.getItem(`defia_action_plan_${brandName}`);
+            if (storedPlan) {
+                const parsed = JSON.parse(storedPlan) as ActionPlan;
+                if (parsed && parsed.strategies) {
+                    setRecommendedStrategies(parsed.strategies.slice(0, 3));
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load recommended campaigns", e);
+        }
+
     }, [brandName]);
 
     // Save state on change
@@ -1161,36 +1179,64 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             </div>
 
                                             <div className="space-y-2">
-                                                <button
-                                                    onClick={() => setCampaignType('theme')}
-                                                    className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'theme' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🎯</div>
-                                                        <div>
-                                                            <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-600'}`}>Specific Theme</h3>
-                                                            <p className="text-[10px] text-gray-500 leading-tight">Deep dive into a single topic or launch event.</p>
+                                                {/* Recommended Strategies from Growth Engine */}
+                                                {recommendedStrategies.map((strategy, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            setCampaignType('theme');
+                                                            setCampaignTheme(strategy.title);
+                                                            setCampaignGoal(strategy.objective);
+                                                            setCampaignContext(strategy.notes || '');
+                                                        }}
+                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignTheme === strategy.title ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-green-50/30 border-green-200 hover:bg-white hover:border-green-300'}`}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignTheme === strategy.title ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-green-600 border border-green-100'}`}>🚀</div>
+                                                            <div>
+                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignTheme === strategy.title ? 'text-gray-900' : 'text-gray-800'}`}>{strategy.title}</h3>
+                                                                <p className="text-[10px] text-gray-500 leading-tight">{strategy.description}</p>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    {campaignType === 'theme' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
-                                                </button>
+                                                        {campaignTheme === strategy.title && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
+                                                    </button>
+                                                ))}
+
+                                                {/* Fallback / Static Options if no recommendations or just always show */}
+                                                {recommendedStrategies.length === 0 && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => setCampaignType('theme')}
+                                                            className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => s.title === campaignTheme) ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                                                        >
+                                                            <div className="flex items-start gap-3">
+                                                                <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'theme' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🎯</div>
+                                                                <div>
+                                                                    <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-600'}`}>Specific Theme</h3>
+                                                                    <p className="text-[10px] text-gray-500 leading-tight">Deep dive into a single topic or launch event.</p>
+                                                                </div>
+                                                            </div>
+                                                            {campaignType === 'theme' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() => setCampaignType('diverse')}
+                                                            className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                                                        >
+                                                            <div className="flex items-start gap-3">
+                                                                <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'diverse' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🌊</div>
+                                                                <div>
+                                                                    <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-600'}`}>Diverse Mix</h3>
+                                                                    <p className="text-[10px] text-gray-500 leading-tight">Balance maintenance content with updates.</p>
+                                                                </div>
+                                                            </div>
+                                                            {campaignType === 'diverse' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
+                                                        </button>
+                                                    </>
+                                                )}
 
                                                 <button
-                                                    onClick={() => setCampaignType('diverse')}
-                                                    className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'diverse' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🌊</div>
-                                                        <div>
-                                                            <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-600'}`}>Diverse Mix</h3>
-                                                            <p className="text-[10px] text-gray-500 leading-tight">Balance maintenance content with updates.</p>
-                                                        </div>
-                                                    </div>
-                                                    {campaignType === 'diverse' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
-                                                </button>
-
-                                                <button
-                                                    onClick={() => setCampaignType('notes')}
+                                                    onClick={() => { setCampaignType('notes'); setCampaignTheme(''); }}
                                                     className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'notes' ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
                                                 >
                                                     <div className="flex items-start gap-3">
