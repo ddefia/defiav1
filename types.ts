@@ -459,6 +459,7 @@ export interface DashboardCampaign {
     riskFactors?: string[]; // New
     confidence: 'High' | 'Med' | 'Low';
   };
+  mediaUrl?: string; // New: Article/Post thumbnail
 }
 
 export interface CommunitySignal {

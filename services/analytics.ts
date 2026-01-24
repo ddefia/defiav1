@@ -663,7 +663,10 @@ export const fetchCampaignPerformance = async (): Promise<DashboardCampaign[]> =
                 action: d.status_label === 'Scale' ? 'Scale' : d.roi > 3 ? 'Scale' : 'Test',
                 confidence: d.confidence || (d.roi > 2 ? 'High' : 'Med'),
                 reasoning: generateSmartRationale(d.roi, d.cpa, d.retention, d.status_label)
-            }
+            },
+
+            // Media URL (Mocking for Demo)
+            mediaUrl: d.media_url || (d.channel === 'Twitter' ? 'https://pbs.twimg.com/media/F_ueyJ6XsAAv8X_.jpg' : undefined)
         }));
     } catch (e) {
         console.error("Campaign Fetch Error", e);
