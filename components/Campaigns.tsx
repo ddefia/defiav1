@@ -34,6 +34,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     // View State: 'list' | 'wizard'
     const [viewMode, setViewMode] = useState<'list' | 'wizard'>('list');
     const [promptProvenance, setPromptProvenance] = useState<string>('Manual Creation');
+    const [showBrief, setShowBrief] = useState<boolean>(false);
 
     // Wizard State
     const [campaignStep, setCampaignStep] = useState<1 | 2 | 3 | 4>(1); // 1: Config, 2: Strategy, 3: Drafts, 4: Assets
@@ -1106,13 +1107,45 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             {/* STEP 1: CONFIG */}
                             {campaignStep === 1 && (
                                 <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-                                    {/* Provenance Banner */}
-                                    <div className="bg-zinc-900/5 border border-zinc-200/50 rounded-lg p-3 flex items-center justify-between backdrop-blur-sm">
-                                        <div className="flex items-center gap-3">
+                                    {/* Intelligence Widget */}
+                                    <div className="flex flex-col items-center justify-center py-2">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[10px] font-mono font-bold text-emerald-600 tracking-wider mb-4 animate-fadeIn">
                                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                            <span className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Triggered by: <span className="text-zinc-700 font-bold">{promptProvenance}</span></span>
+                                            ANALYSIS ENGINE: LIVE
                                         </div>
-                                        <div className="text-[10px] text-zinc-400 font-mono">ID: REF-8823</div>
+
+                                        <div className="w-full bg-white border border-gray-100 rounded-xl p-4 shadow-sm relative overflow-hidden group">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <div className="text-xs text-zinc-500 font-bold uppercase tracking-wider mb-1">Trigger Source</div>
+                                                    <div className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                                        {promptProvenance}
+                                                        <span className="text-[9px] text-zinc-400 font-normal">(Just Now)</span>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-amber-50 text-amber-600 border border-amber-100 px-2 py-1 rounded text-[10px] font-bold">
+                                                    High Conf
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={() => setShowBrief(!showBrief)}
+                                                className="text-[11px] text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 mt-1 transition-colors group-hover:underline"
+                                            >
+                                                {showBrief ? 'Hide full brief' : 'View full brief'}
+                                                <span className="text-xs">→</span>
+                                            </button>
+
+                                            {showBrief && (
+                                                <div className="mt-3 pt-3 border-t border-gray-50 text-xs text-gray-600 leading-relaxed animate-in slide-in-from-top-1">
+                                                    <p>System detected a +15% increase in competitor mentions regarding "Protocol v2". Recommendation is to launch a preemptive educational campaign to capture share of voice.</p>
+                                                    <div className="mt-2 flex gap-2">
+                                                        <span className="bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-500">Signal: Social Vlm</span>
+                                                        <span className="bg-zinc-50 border border-zinc-100 px-1.5 py-0.5 rounded text-[9px] font-mono text-zinc-500">Source: Twitter API</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
