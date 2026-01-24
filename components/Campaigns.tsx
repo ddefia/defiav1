@@ -1089,7 +1089,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     <div className="w-full animate-fadeIn transition-all duration-500">
 
                         {/* WIZARD CONTAINER */}
-                        <div className={`mx-auto space-y-6 transition-all duration-500 ${campaignStep === 1 ? 'max-w-6xl' : 'max-w-7xl'}`}>
+                        <div className={`mx-auto transition-all duration-500 ${campaignStep === 1 ? 'max-w-6xl' : 'max-w-7xl'}`}>
 
                             {/* Stepper */}
                             {/* COMPACT HEADER & STEPPER */}

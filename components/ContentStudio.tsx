@@ -108,11 +108,30 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
             const count = activeTab === 'writer' ? parseInt(variationCount) : 1;
             const res = await generateTweet(writerTopic, brandName, brandConfig, writerTone, count);
 
+            let drafts: string[] = [];
             if (Array.isArray(res)) {
-                setGeneratedDrafts(res);
+                drafts = res;
+            } else if (typeof res === 'string') {
+                // Try parsing if it looks like a JSON array
+                if (res.trim().startsWith('[') && res.trim().endsWith(']')) {
+                    try {
+                        const parsed = JSON.parse(res);
+                        if (Array.isArray(parsed)) drafts = parsed;
+                    } catch (e) {
+                        // Fallback to split if parse fails
+                        drafts = res.split('\n\n' + '-'.repeat(40) + '\n\n');
+                    }
+                } else {
+                    // Fallback to split separator for legacy format
+                    drafts = res.split('\n\n' + '-'.repeat(40) + '\n\n');
+                }
             } else {
-                setGeneratedDrafts([res]);
+                drafts = [String(res)];
             }
+
+            // Filter empty strings
+            setGeneratedDrafts(drafts.filter(d => d && d.trim().length > 0));
+
         } catch (e) { setError('Failed to generate draft.'); } finally { setIsWritingTweet(false); }
     };
 
