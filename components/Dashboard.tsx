@@ -294,20 +294,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 loading={briefLoading}
             />
 
-            {/* SECTION 1: AI STRATEGY DIRECTOR (NEW) */}
-            <div className="mb-8 animate-fadeIn">
-                <StrategyBrain
-                    brandName={brandName}
-                    brandConfig={brandConfig}
-                    events={calendarEvents}
-                    growthReport={growthReport}
-                    onSchedule={onSchedule}
-                    tasks={tasks}
-                    onUpdateTasks={onUpdateTasks}
-                    onNavigate={onNavigate}
-                />
-            </div>
-
             {/* LANE 1: PERFORMANCE (KPIs) */}
             <div className="grid grid-cols-5 gap-3 mb-8">
                 {kpis.map((kpi, i) => (
@@ -333,8 +319,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 ))}
             </div>
 
-            <div className="grid grid-cols-12 gap-8">
-
+            <div className="grid grid-cols-12 gap-8 mb-12">
                 {/* LANE 1 (LEFT/CENTER): PERFORMANCE & CAMPAIGN TABLE */}
                 <div className="col-span-8 flex flex-col gap-8">
 
@@ -493,6 +478,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
+            </div>
+
+            {/* SECTION: AI STRATEGY DIRECTOR (MOVED TO BOTTOM) */}
+            <div className="mb-8 animate-fadeIn">
+                <StrategyBrain
+                    brandName={brandName}
+                    brandConfig={brandConfig}
+                    events={calendarEvents}
+                    growthReport={growthReport}
+                    onSchedule={onSchedule}
+                    tasks={tasks}
+                    onUpdateTasks={onUpdateTasks}
+                    onNavigate={onNavigate}
+                />
             </div>
         </div>
     );
