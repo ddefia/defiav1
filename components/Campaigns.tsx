@@ -1088,7 +1088,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     <div className="w-full animate-fadeIn transition-all duration-500">
 
                         {/* WIZARD CONTAINER */}
-                        <div className={`mx-auto space-y-6 transition-all duration-500 ${campaignStep === 1 ? 'max-w-xl' : 'max-w-7xl'}`}>
+                        <div className={`mx-auto space-y-6 transition-all duration-500 ${campaignStep === 1 ? 'max-w-6xl' : 'max-w-7xl'}`}>
 
                             {/* Stepper */}
                             {/* STEPPER */}
@@ -1107,7 +1107,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             {campaignStep === 1 && (
                                 <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
                                     {/* Provenance Banner */}
-                                    <div className="bg-zinc-900/5 border border-zinc-200/50 rounded-lg p-3 flex items-center justify-between mx-auto max-w-2xl backdrop-blur-sm">
+                                    <div className="bg-zinc-900/5 border border-zinc-200/50 rounded-lg p-3 flex items-center justify-between backdrop-blur-sm">
                                         <div className="flex items-center gap-3">
                                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                                             <span className="text-xs text-zinc-500 font-medium uppercase tracking-wider">Triggered by: <span className="text-zinc-700 font-bold">{promptProvenance}</span></span>
@@ -1115,221 +1115,247 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         <div className="text-[10px] text-zinc-400 font-mono">ID: REF-8823</div>
                                     </div>
 
-                                    <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm space-y-8">
-                                        <div className="text-center mb-8">
-                                            <h2 className="text-xl font-bold text-gray-900 mb-2">Design Sequence</h2>
-                                            <p className="text-gray-500 text-sm">Configure the execution parameters for this campaign.</p>
-                                        </div>
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
                                         {/* CAMPAIGN TYPE CARDS */}
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <button
-                                                onClick={() => setCampaignType('theme')}
-                                                className={`p-6 rounded-lg border text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'theme' ? 'bg-gray-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}
-                                            >
-                                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 text-lg ${campaignType === 'theme' ? 'bg-zinc-200 text-zinc-700' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 group-hover:text-gray-700'}`}>🎯</div>
-                                                <h3 className={`font-bold text-sm mb-1 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-700'}`}>Specific Theme</h3>
-                                                <p className="text-[11px] text-gray-500 leading-snug mb-2">Deep dive into a single topic or launch event.</p>
-                                                {/* Intelligence Hint */}
-                                                <div className="text-[9px] text-zinc-400 bg-zinc-100 p-1.5 rounded border border-zinc-200 leading-tight">
-                                                    Education-focused themes historically show +12% retention.
-                                                </div>
-                                            </button>
+                                        {/* LEFT COL: STRUCTURE */}
+                                        <div className="lg:col-span-4 space-y-4">
+                                            <div className="px-1">
+                                                <h2 className="text-lg font-bold text-gray-900">Structure</h2>
+                                                <p className="text-zinc-500 text-xs">Select the execution model.</p>
+                                            </div>
 
-                                            <button
-                                                onClick={() => setCampaignType('diverse')}
-                                                className={`p-6 rounded-lg border text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-gray-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}
-                                            >
-                                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 text-lg ${campaignType === 'diverse' ? 'bg-zinc-200 text-zinc-700' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 group-hover:text-gray-700'}`}>🌊</div>
-                                                <h3 className={`font-bold text-sm mb-1 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-700'}`}>Diverse Mix</h3>
-                                                <p className="text-[11px] text-gray-500 leading-snug mb-2">Balance of education, community, and updates.</p>
-                                                {/* Intelligence Hint */}
-                                                <div className="text-[9px] text-zinc-400 bg-zinc-100 p-1.5 rounded border border-zinc-200 leading-tight">
-                                                    Recommended when community signals are flat.
-                                                </div>
-                                            </button>
+                                            <div className="space-y-3">
+                                                <button
+                                                    onClick={() => setCampaignType('theme')}
+                                                    className={`w-full p-4 rounded-xl border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' ? 'bg-white border-zinc-400 ring-1 ring-zinc-400 shadow-md' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${campaignType === 'theme' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🎯</div>
+                                                        <div>
+                                                            <h3 className={`font-bold text-sm mb-0.5 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-600'}`}>Specific Theme</h3>
+                                                            <p className="text-[10px] text-gray-500 leading-snug">Deep dive into a single topic or launch event.</p>
+                                                        </div>
+                                                    </div>
+                                                    {campaignType === 'theme' && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-zinc-900" />}
+                                                </button>
 
-                                            <button
-                                                onClick={() => setCampaignType('notes')}
-                                                className={`p-6 rounded-lg border text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'notes' ? 'bg-gray-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'}`}
-                                            >
-                                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 text-lg ${campaignType === 'notes' ? 'bg-zinc-200 text-zinc-700' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 group-hover:text-gray-700'}`}>✨</div>
-                                                <h3 className={`font-bold text-sm mb-1 ${campaignType === 'notes' ? 'text-gray-900' : 'text-gray-700'}`}>Smart Plan</h3>
-                                                <p className="text-[11px] text-gray-500 leading-snug mb-2">AI creates a plan from your raw notes.</p>
-                                                {/* Intelligence Hint */}
-                                                <div className="text-[9px] text-zinc-400 bg-zinc-100 p-1.5 rounded border border-zinc-200 leading-tight">
-                                                    Analyzes raw notes against best-performing structures.
-                                                </div>
-                                            </button>
+                                                <button
+                                                    onClick={() => setCampaignType('diverse')}
+                                                    className={`w-full p-4 rounded-xl border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-white border-zinc-400 ring-1 ring-zinc-400 shadow-md' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${campaignType === 'diverse' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🌊</div>
+                                                        <div>
+                                                            <h3 className={`font-bold text-sm mb-0.5 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-600'}`}>Diverse Mix</h3>
+                                                            <p className="text-[10px] text-gray-500 leading-snug">Balance of education, community, and updates.</p>
+                                                        </div>
+                                                    </div>
+                                                    {campaignType === 'diverse' && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-zinc-900" />}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => setCampaignType('notes')}
+                                                    className={`w-full p-4 rounded-xl border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'notes' ? 'bg-white border-zinc-400 ring-1 ring-zinc-400 shadow-md' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${campaignType === 'notes' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>✨</div>
+                                                        <div>
+                                                            <h3 className={`font-bold text-sm mb-0.5 ${campaignType === 'notes' ? 'text-gray-900' : 'text-gray-600'}`}>Smart Plan</h3>
+                                                            <p className="text-[10px] text-gray-500 leading-snug">AI creates a plan from your raw notes.</p>
+                                                        </div>
+                                                    </div>
+                                                    {campaignType === 'notes' && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-zinc-900" />}
+                                                </button>
+                                            </div>
+
+                                            {/* Contextual Hint */}
+                                            <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-[10px] text-blue-700 leading-relaxed">
+                                                <strong>Tip:</strong> {campaignType === 'theme' ? 'Focus on one key message for maximum impact.' : campaignType === 'diverse' ? 'Great for general engagement maintenance.' : 'Paste rough bullet points, AI handles the rest.'}
+                                            </div>
                                         </div>
 
-                                        <div className="space-y-6">
-                                            {campaignType === 'theme' && (
-                                                <div className="animate-fadeIn">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Campaign Theme</label>
-                                                    <input
-                                                        type="text"
-                                                        value={campaignTheme}
-                                                        onChange={e => setCampaignTheme(e.target.value)}
-                                                        placeholder="e.g. Protocol v2 Launch Week"
-                                                        className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all placeholder:text-gray-400"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {campaignType === 'notes' && (
-                                                <div className="animate-fadeIn">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Raw Content Notes</label>
-                                                    <textarea
-                                                        value={campaignContext}
-                                                        onChange={e => setCampaignContext(e.target.value)}
-                                                        placeholder="Paste your rough notes here..."
-                                                        className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-900 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none min-h-[150px] font-mono placeholder:text-gray-400 leading-relaxed"
-                                                    />
-                                                    <div className="flex items-center gap-2 mt-2 text-gray-500 text-[10px]">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                        AI will parse links, instructions, and content into a structured plan.
+                                        {/* RIGHT COL: CONFIGURATION */}
+                                        <div className="lg:col-span-8">
+                                            <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm space-y-8 h-full">
+                                                <div className="flex justify-between items-start border-b border-gray-100 pb-6 mb-6">
+                                                    <div>
+                                                        <h2 className="text-lg font-bold text-gray-900">Configuration</h2>
+                                                        <p className="text-zinc-500 text-xs mt-1">Define the parameters for execution.</p>
                                                     </div>
                                                 </div>
-                                            )}
 
-                                            {campaignType !== 'notes' && (
-                                                <>
-                                                    <div className="grid grid-cols-2 gap-6">
-                                                        <div>
-                                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 flex justify-between items-center tracking-wider">
-                                                                <span>Campaign Goal</span>
-                                                                <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-100">System Choice</span>
-                                                            </label>
-                                                            <div className="relative">
-                                                                <select
-                                                                    value={campaignGoal}
-                                                                    onChange={(e) => setCampaignGoal(e.target.value)}
-                                                                    className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-900 appearance-none outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
-                                                                >
-                                                                    <option value="User Acquisition">User Acquisition (Recommended)</option>
-                                                                    <option value="Brand Awareness">Brand Awareness</option>
-                                                                    <option value="Community Engagement">Community Engagement</option>
-                                                                    <option value="Product Education">Product Education</option>
-                                                                </select>
-                                                                <div className="absolute right-3 top-3.5 pointer-events-none text-gray-500">▼</div>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 flex justify-between items-center tracking-wider">
-                                                                <span>Tweet Count</span>
-                                                                <span className="text-[9px] text-zinc-400 group relative cursor-help">
-                                                                    Why 3?
-                                                                    <div className="absolute bottom-full right-0 w-32 bg-gray-900 text-white p-2 rounded text-[10px] hidden group-hover:block mb-1">Based on similar acquisition campaigns, 3–5 posts perform best.</div>
-                                                                </span>
-                                                            </label>
+                                                <div className="space-y-6">
+                                                    {campaignType === 'theme' && (
+                                                        <div className="animate-fadeIn">
+                                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Campaign Theme</label>
                                                             <input
-                                                                type="number"
-                                                                min="1"
-                                                                max="50"
-                                                                value={campaignCount}
-                                                                onChange={e => setCampaignCount(e.target.value)}
-                                                                className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none"
+                                                                type="text"
+                                                                value={campaignTheme}
+                                                                onChange={e => setCampaignTheme(e.target.value)}
+                                                                placeholder="e.g. Protocol v2 Launch Week"
+                                                                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all placeholder:text-gray-400"
                                                             />
                                                         </div>
-                                                    </div>
+                                                    )}
 
-                                                    <div>
-                                                        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Additional constraints (optional)</label>
-                                                        <textarea
-                                                            value={campaignContext}
-                                                            onChange={e => setCampaignContext(e.target.value)}
-                                                            placeholder="Describe the specific situation..."
-                                                            className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none min-h-[80px] placeholder:text-gray-400"
-                                                        />
-                                                    </div>
-
-                                                    <div>
-                                                        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider flex justify-between">
-                                                            <span>Strategic Focus Doc</span>
-                                                            <button onClick={() => focusDocInputRef.current?.click()} className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-[10px] font-bold">
-                                                                {isUploadingFocusDoc ? 'Uploading...' : '+ Upload File'}
-                                                            </button>
-                                                        </label>
-                                                        <input type="file" ref={focusDocInputRef} onChange={handleFocusDocUpload} accept=".pdf,.txt,.md" className="hidden" />
-                                                        <textarea
-                                                            value={campaignFocusDoc}
-                                                            onChange={e => setCampaignFocusDoc(e.target.value)}
-                                                            placeholder="Paste strategy text or upload a doc..."
-                                                            className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none min-h-[100px] placeholder:text-gray-400 font-mono text-xs"
-                                                        />
-                                                    </div>
-                                                </>
-                                            )}
-
-                                            {/* Visual Style & Refs */}
-                                            <div className="pt-6 border-t border-gray-100 space-y-6">
-                                                <div className="grid grid-cols-2 gap-6">
-                                                    <div>
-                                                        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Visual Style</label>
-                                                        <div className="relative">
-                                                            <select
-                                                                value={campaignTemplate}
-                                                                onChange={(e) => setCampaignTemplate(e.target.value)}
-                                                                className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs text-gray-900 appearance-none outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
-                                                            >
-                                                                <option value="">No Template (Default)</option>
-                                                                {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
-                                                                    <>
-                                                                        <option value="Partnership">Partnership</option>
-                                                                        <option value="Campaign">Campaign Launch</option>
-                                                                        <option value="Giveaway">Giveaway</option>
-                                                                    </>
-                                                                )}
-                                                                {(brandConfig.graphicTemplates || []).map(t => (
-                                                                    <option key={t.id} value={t.label}>{t.label}</option>
-                                                                ))}
-                                                            </select>
-                                                            <div className="absolute right-3 top-3.5 pointer-events-none text-gray-500 text-[10px]">▼</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Reference Image</label>
-                                                    <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                                                        <div
-                                                            onClick={() => setCampaignReferenceImage(null)}
-                                                            className={`flex-shrink-0 w-16 h-16 rounded-xl border border-dashed cursor-pointer flex items-center justify-center transition-all ${!campaignReferenceImage ? 'border-purple-500 bg-purple-50 text-purple-600' : 'border-gray-200 bg-white text-gray-400 hover:border-gray-400'}`}
-                                                        >
-                                                            <span className="text-[10px]">None</span>
-                                                        </div>
-                                                        {brandConfig.referenceImages.map(img => (
-                                                            <div
-                                                                key={img.id}
-                                                                onClick={() => setCampaignReferenceImage(campaignReferenceImage === img.id ? null : img.id)}
-                                                                className={`flex-shrink-0 w-16 h-16 rounded-xl border cursor-pointer overflow-hidden relative group transition-all ${campaignReferenceImage === img.id ? 'border-purple-500 shadow-md ring-2 ring-purple-100' : 'border-gray-200 hover:border-gray-400'}`}
-                                                                title={img.name}
-                                                            >
-                                                                <img src={img.data || img.url} className="w-full h-full object-cover" />
-                                                                {campaignReferenceImage === img.id && (
-                                                                    <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
-                                                                        <div className="w-2 h-2 bg-purple-500 rounded-full shadow-sm" />
-                                                                    </div>
-                                                                )}
+                                                    {campaignType === 'notes' && (
+                                                        <div className="animate-fadeIn">
+                                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Raw Content Notes</label>
+                                                            <textarea
+                                                                value={campaignContext}
+                                                                onChange={e => setCampaignContext(e.target.value)}
+                                                                placeholder="Paste your rough notes here..."
+                                                                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-900 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none min-h-[150px] font-mono placeholder:text-gray-400 leading-relaxed"
+                                                            />
+                                                            <div className="flex items-center gap-2 mt-2 text-gray-500 text-[10px]">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                                AI will parse links, instructions, and content into a structured plan.
                                                             </div>
-                                                        ))}
+                                                        </div>
+                                                    )}
+
+                                                    {campaignType !== 'notes' && (
+                                                        <>
+                                                            <div className="grid grid-cols-2 gap-6">
+                                                                <div>
+                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 flex justify-between items-center tracking-wider">
+                                                                        <span>Campaign Goal</span>
+                                                                        <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-100">System Choice</span>
+                                                                    </label>
+                                                                    <div className="relative">
+                                                                        <select
+                                                                            value={campaignGoal}
+                                                                            onChange={(e) => setCampaignGoal(e.target.value)}
+                                                                            className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-900 appearance-none outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                                                                        >
+                                                                            <option value="User Acquisition">User Acquisition (Recommended)</option>
+                                                                            <option value="Brand Awareness">Brand Awareness</option>
+                                                                            <option value="Community Engagement">Community Engagement</option>
+                                                                            <option value="Product Education">Product Education</option>
+                                                                        </select>
+                                                                        <div className="absolute right-3 top-3.5 pointer-events-none text-gray-500">▼</div>
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 flex justify-between items-center tracking-wider">
+                                                                        <span>Tweet Count</span>
+                                                                        <span className="text-[9px] text-zinc-400 group relative cursor-help">
+                                                                            Why 3?
+                                                                            <div className="absolute bottom-full right-0 w-32 bg-gray-900 text-white p-2 rounded text-[10px] hidden group-hover:block mb-1">Based on similar acquisition campaigns, 3–5 posts perform best.</div>
+                                                                        </span>
+                                                                    </label>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="1"
+                                                                        max="50"
+                                                                        value={campaignCount}
+                                                                        onChange={e => setCampaignCount(e.target.value)}
+                                                                        className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Additional constraints (optional)</label>
+                                                                <textarea
+                                                                    value={campaignContext}
+                                                                    onChange={e => setCampaignContext(e.target.value)}
+                                                                    placeholder="Describe the specific situation..."
+                                                                    className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none min-h-[80px] placeholder:text-gray-400"
+                                                                />
+                                                            </div>
+
+                                                            <div>
+                                                                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider flex justify-between">
+                                                                    <span>Strategic Focus Doc</span>
+                                                                    <button onClick={() => focusDocInputRef.current?.click()} className="text-purple-600 hover:text-purple-700 flex items-center gap-1 text-[10px] font-bold">
+                                                                        {isUploadingFocusDoc ? 'Uploading...' : '+ Upload File'}
+                                                                    </button>
+                                                                </label>
+                                                                <input type="file" ref={focusDocInputRef} onChange={handleFocusDocUpload} accept=".pdf,.txt,.md" className="hidden" />
+                                                                <textarea
+                                                                    value={campaignFocusDoc}
+                                                                    onChange={e => setCampaignFocusDoc(e.target.value)}
+                                                                    placeholder="Paste strategy text or upload a doc..."
+                                                                    className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none min-h-[100px] placeholder:text-gray-400 font-mono text-xs"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {/* Visual Style & Refs */}
+                                                    <div className="pt-6 border-t border-gray-100 space-y-6">
+                                                        <div className="grid grid-cols-2 gap-6">
+                                                            <div>
+                                                                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Visual Style</label>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        value={campaignTemplate}
+                                                                        onChange={(e) => setCampaignTemplate(e.target.value)}
+                                                                        className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs text-gray-900 appearance-none outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"
+                                                                    >
+                                                                        <option value="">No Template (Default)</option>
+                                                                        {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
+                                                                            <>
+                                                                                <option value="Partnership">Partnership</option>
+                                                                                <option value="Campaign">Campaign Launch</option>
+                                                                                <option value="Giveaway">Giveaway</option>
+                                                                            </>
+                                                                        )}
+                                                                        {(brandConfig.graphicTemplates || []).map(t => (
+                                                                            <option key={t.id} value={t.label}>{t.label}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <div className="absolute right-3 top-3.5 pointer-events-none text-gray-500 text-[10px]">▼</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="text-xs font-bold text-gray-500 uppercase mb-2 block tracking-wider">Reference Image</label>
+                                                            <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                                                                <div
+                                                                    onClick={() => setCampaignReferenceImage(null)}
+                                                                    className={`flex-shrink-0 w-16 h-16 rounded-xl border border-dashed cursor-pointer flex items-center justify-center transition-all ${!campaignReferenceImage ? 'border-purple-500 bg-purple-50 text-purple-600' : 'border-gray-200 bg-white text-gray-400 hover:border-gray-400'}`}
+                                                                >
+                                                                    <span className="text-[10px]">None</span>
+                                                                </div>
+                                                                {brandConfig.referenceImages.map(img => (
+                                                                    <div
+                                                                        key={img.id}
+                                                                        onClick={() => setCampaignReferenceImage(campaignReferenceImage === img.id ? null : img.id)}
+                                                                        className={`flex-shrink-0 w-16 h-16 rounded-xl border cursor-pointer overflow-hidden relative group transition-all ${campaignReferenceImage === img.id ? 'border-purple-500 shadow-md ring-2 ring-purple-100' : 'border-gray-200 hover:border-gray-400'}`}
+                                                                        title={img.name}
+                                                                    >
+                                                                        <img src={img.data || img.url} className="w-full h-full object-cover" />
+                                                                        {campaignReferenceImage === img.id && (
+                                                                            <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
+                                                                                <div className="w-2 h-2 bg-purple-500 rounded-full shadow-sm" />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
                                                     </div>
+
+                                                </div>
+
+                                                {error && (
+                                                    <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm mb-4 flex items-center gap-2 animate-fadeIn">
+                                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                        {error}
+                                                    </div>
+                                                )}
+
+                                                <div className="pt-4">
+                                                    <Button onClick={handleGenerateStrategy} isLoading={isGeneratingStrategy} disabled={campaignType === 'theme' && !campaignTheme} className="w-full h-12 text-sm font-bold shadow-lg shadow-zinc-500/10 bg-zinc-900 text-white hover:bg-zinc-800 border-none rounded-lg">
+                                                        {campaignType === 'notes' ? 'Analyze & Create Plan' : 'Generate Strategy'}
+                                                    </Button>
                                                 </div>
                                             </div>
-
                                         </div>
-
-                                        {error && (
-                                            <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm mb-4 flex items-center gap-2 animate-fadeIn">
-                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                                {error}
-                                            </div>
-                                        )}
-
-                                        <Button onClick={handleGenerateStrategy} isLoading={isGeneratingStrategy} disabled={campaignType === 'theme' && !campaignTheme} className="w-full h-14 text-base font-bold shadow-xl shadow-zinc-500/10 bg-zinc-900 text-white hover:bg-zinc-800 border-none rounded-lg">
-                                            {campaignType === 'notes' ? 'Analyze & Create Plan' : 'Generate Strategy'}
-                                        </Button>
                                     </div>
                                 </div>
                             )}
