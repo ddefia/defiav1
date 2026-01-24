@@ -63,20 +63,24 @@ export const ActionCard: React.FC<ActionCardProps> = ({ campaign, onReview, onEx
 
             {/* Content Body */}
             <div className="p-4">
-                {/* Confidence Indicator */}
-                <div className="flex items-center justify-between mb-4">
-                    <div className="group/conf relative flex items-center gap-1.5 cursor-help">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Confidence</span>
-                        <div className={`h-1.5 w-1.5 rounded-full ${campaign.recommendation.confidence === 'High' ? 'bg-emerald-500' : campaign.recommendation.confidence === 'Med' ? 'bg-amber-500' : 'bg-rose-500'}`}></div>
-                        <span className={`text-[10px] font-bold ${campaign.recommendation.confidence === 'High' ? 'text-emerald-700' : campaign.recommendation.confidence === 'Med' ? 'text-amber-700' : 'text-rose-700'}`}>
-                            {campaign.recommendation.confidence}
-                        </span>
-
-                        {/* Tooltip */}
-                        <div className="absolute bottom-full left-0 mb-2 w-48 bg-gray-900 text-white text-[10px] p-2 rounded shadow-xl opacity-0 group-hover/conf:opacity-100 pointer-events-none transition-opacity z-10 transition-delay-75">
-                            System confidence based on ROI ({campaign.roi}x) and signal consistency.
+                {/* Confidence Indicator & Key Insight */}
+                <div className="flex flex-col gap-2 mb-4">
+                    <div className="flex items-center justify-between">
+                        <div className="group/conf relative flex items-center gap-1.5 cursor-help">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Confidence</span>
+                            <div className={`h-1.5 w-1.5 rounded-full ${campaign.recommendation.confidence === 'High' ? 'bg-emerald-500' : campaign.recommendation.confidence === 'Med' ? 'bg-amber-500' : 'bg-rose-500'}`}></div>
+                            <span className={`text-[10px] font-bold ${campaign.recommendation.confidence === 'High' ? 'text-emerald-700' : campaign.recommendation.confidence === 'Med' ? 'text-amber-700' : 'text-rose-700'}`}>
+                                {campaign.recommendation.confidence}
+                            </span>
                         </div>
                     </div>
+
+                    {/* KEY INSIGHT (First Reason) - Always Visible */}
+                    {campaign.recommendation.reasoning.length > 0 && (
+                        <div className="text-[10px] text-gray-500 font-medium border-l-2 border-gray-100 pl-2 italic">
+                            "{campaign.recommendation.reasoning[0]}"
+                        </div>
+                    )}
                 </div>
 
                 {/* Rationale Drawer */}

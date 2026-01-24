@@ -658,11 +658,41 @@ export const fetchCampaignPerformance = async (): Promise<DashboardCampaign[]> =
             type: d.campaign_type || (d.channel === 'Twitter' ? 'Newsjack' : 'Alpha'),
             expectedImpact: d.expected_impact || (d.roi > 2 ? '↑ volume, ↑ active wallets' : 'Optimize retention'),
 
-            recommendation: d.recommendation || { action: 'Test', confidence: 'Low', reasoning: [] }
+            // GENERATE SMART RATIONALE IF MISSING
+            recommendation: d.recommendation || {
+                action: d.status_label === 'Scale' ? 'Scale' : d.roi > 3 ? 'Scale' : 'Test',
+                confidence: d.confidence || (d.roi > 2 ? 'High' : 'Med'),
+                reasoning: generateSmartRationale(d.roi, d.cpa, d.retention, d.status_label)
+            }
         }));
     } catch (e) {
         console.error("Campaign Fetch Error", e);
         return [];
     }
+};
+
+// --- HELPER: GENERATE SMART REASONING ---
+const generateSmartRationale = (roi: number, cpa: number, retention: number, status: string): string[] => {
+    const reasoning = [];
+
+    // ROI Logic
+    if (roi > 4.0) reasoning.push(`ROI of ${roi}x significantly outperforms sector benchmark (2.5x).`);
+    else if (roi > 1.5) reasoning.push(`Positive ROI (${roi}x) indicates sustainable acquisition model.`);
+
+    // CPA Logic
+    if (cpa < 15) reasoning.push(`CPA of $${cpa} is highly efficient (Target: <$25).`);
+    else if (cpa > 50) reasoning.push(`CPA ($${cpa}) is elevated; primarily targeting high-value wallets.`);
+
+    // Retention Logic
+    if (retention > 30) reasoning.push(`${retention}% retention signals strong product-market fit.`);
+    else if (retention < 10) reasoning.push(`Retention (${retention}%) suggests low wallet quality; monitor closely.`);
+
+    // Signal Consistency
+    if (roi > 2 && retention > 15) reasoning.push("Convergence of High ROI and Retention confirms 'Alpha' status.");
+
+    // Fallback
+    if (reasoning.length === 0) reasoning.push("Metric stability warrants continued observation.");
+
+    return reasoning.slice(0, 3); // Top 3 reasons
 };
 
