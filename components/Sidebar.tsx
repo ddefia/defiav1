@@ -10,6 +10,13 @@ interface SidebarProps {
     onConnect: () => void;
 }
 
+interface NavItem {
+    id: string;
+    label: string;
+    icon: string;
+    children?: NavItem[];
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
     currentSection,
     onNavigate,
@@ -20,14 +27,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isBrandMenuOpen, setIsBrandMenuOpen] = useState(false);
-    // console.log("Sidebar: Copilot Nav Item Present");
+
+    // State for expanded parent items
+    const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
+        'studio': true // Default open for visibility if needed, or rely on effect
+    });
+
+    const toggleExpand = (id: string) => {
+        setExpandedItems(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     const navItems = [
         {
             group: 'Overview',
             items: [
                 { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
-                { id: 'copilot', label: 'Copilot', icon: 'sparkles' }, // NEW
+                { id: 'copilot', label: 'Copilot', icon: 'sparkles' },
                 { id: 'brain', label: 'Strategy', icon: 'brain' },
                 { id: 'growth', label: 'Growth', icon: 'trending-up' },
                 { id: 'analytics', label: 'Analytics', icon: 'bar-chart' },
@@ -36,11 +51,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
             group: 'Marketing',
             items: [
-                { id: 'studio', label: 'Studio', icon: 'edit' },
+                {
+                    id: 'studio',
+                    label: 'Studio',
+                    icon: 'edit',
+                    children: [
+                        { id: 'image-editor', label: 'Image Editor', icon: 'image' },
+                    ]
+                },
                 { id: 'campaigns', label: 'Campaigns', icon: 'target' },
                 { id: 'calendar', label: 'Calendar', icon: 'calendar' },
                 { id: 'social', label: 'Social Media', icon: 'message-circle' },
-                { id: 'image-editor', label: 'Image Editor', icon: 'edit' }, // NEW
             ]
         },
         {
@@ -63,7 +84,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         'users': <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
         'settings': <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
         'brain': <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3M3.343 15.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
-        'sparkles': <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+        'sparkles': <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>,
+        'image': <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
     };
 
     return (
@@ -143,37 +165,74 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="space-y-1">
                             {group.items.map(item => {
                                 const isActive = currentSection === item.id;
+                                const hasChildren = item.children && item.children.length > 0;
+                                const isExpanded = expandedItems[item.id];
+
+                                // Check if child is active
+                                const isChildActive = item.children?.some(c => c.id === currentSection);
+
                                 return (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => onNavigate(item.id)}
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative
-                                        ${isActive
-                                                ? 'bg-brand-text text-brand-surface shadow-md shadow-gray-200'
-                                                : 'text-brand-textSecondary hover:text-brand-text hover:bg-brand-surfaceHighlight'}`}
-                                    >
-                                        <span className={`${isActive ? 'text-brand-surface' : 'text-brand-muted group-hover:text-brand-text'} shrink-0 transition-colors`}>
-                                            {icons[item.icon]}
-                                        </span>
+                                    <div key={item.id}>
+                                        <button
+                                            onClick={() => {
+                                                onNavigate(item.id);
+                                                if (hasChildren) toggleExpand(item.id);
+                                            }}
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative
+                                            ${isActive || isChildActive
+                                                    ? 'bg-brand-text text-brand-surface shadow-md shadow-gray-200'
+                                                    : 'text-brand-textSecondary hover:text-brand-text hover:bg-brand-surfaceHighlight'}`}
+                                        >
+                                            <span className={`${isActive || isChildActive ? 'text-brand-surface' : 'text-brand-muted group-hover:text-brand-text'} shrink-0 transition-colors`}>
+                                                {icons[item.icon]}
+                                            </span>
 
-                                        {!isCollapsed && (
-                                            <span>{item.label}</span>
-                                        )}
+                                            {!isCollapsed && (
+                                                <span className="flex-1 text-left">{item.label}</span>
+                                            )}
 
-                                        {/* Status Dot for specific items (Example) */}
-                                        {!isCollapsed && item.id === 'pulse' && (
-                                            <span className="w-1.5 h-1.5 rounded-full bg-brand-accent ml-auto"></span>
-                                        )}
+                                            {/* Chevron for Parent */}
+                                            {!isCollapsed && hasChildren && (
+                                                <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''} ${isActive || isChildActive ? 'text-brand-surface' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            )}
 
-                                        {/* Tooltip on Collapsed */}
-                                        {isCollapsed && (
-                                            <div className="absolute left-full ml-4 px-3 py-1.5 bg-brand-text text-brand-surface text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl translate-x-[-10px] group-hover:translate-x-0 transition-all duration-200">
-                                                {item.label}
-                                                {/* Arrow */}
-                                                <div className="absolute top-1/2 -left-1 w-2 h-2 bg-brand-text transform -translate-y-1/2 rotate-45"></div>
+                                            {/* Tooltip on Collapsed */}
+                                            {isCollapsed && (
+                                                <div className="absolute left-full ml-4 px-3 py-1.5 bg-brand-text text-brand-surface text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-xl translate-x-[-10px] group-hover:translate-x-0 transition-all duration-200">
+                                                    {item.label}
+                                                    {/* Arrow */}
+                                                    <div className="absolute top-1/2 -left-1 w-2 h-2 bg-brand-text transform -translate-y-1/2 rotate-45"></div>
+                                                </div>
+                                            )}
+                                        </button>
+
+                                        {/* CHILDREN Rendering */}
+                                        {!isCollapsed && hasChildren && isExpanded && (
+                                            <div className="mt-1 ml-4 border-l border-gray-200 pl-2 space-y-1 animate-fadeIn">
+                                                {item.children?.map(child => {
+                                                    const isChildSelected = currentSection === child.id;
+                                                    return (
+                                                        <button
+                                                            key={child.id}
+                                                            onClick={() => onNavigate(child.id)}
+                                                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors
+                                                                ${isChildSelected
+                                                                    ? 'bg-gray-100 text-gray-900'
+                                                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                                                                }`}
+                                                        >
+                                                            <span className={isChildSelected ? 'text-gray-900' : 'text-gray-400'}>
+                                                                {icons[child.icon] || <span className="w-1.5 h-1.5 rounded-full bg-current"></span>}
+                                                            </span>
+                                                            {child.label}
+                                                        </button>
+                                                    )
+                                                })}
                                             </div>
                                         )}
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </div>
