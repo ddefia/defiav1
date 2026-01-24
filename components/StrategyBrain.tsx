@@ -344,7 +344,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                             <span className={`relative inline-flex rounded-full h-3 w-3 ${isLoading ? 'bg-emerald-500' : 'bg-emerald-500'}`}></span>
                         </div>
                         <div>
-                            <span className="text-xs font-bold text-brand-text uppercase tracking-wider block">Analysis Engine: Live</span>
+                            <span className="text-xs font-bold text-brand-text uppercase tracking-wider block">Strategic Opportunities: Live</span>
                             <span className="text-[10px] text-brand-muted block uppercase tracking-wide">
                                 {isLoading ? 'Scanning Signals...' : 'System Active'}
                             </span>

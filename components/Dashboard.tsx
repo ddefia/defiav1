@@ -439,7 +439,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="col-span-4">
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full flex flex-col sticky top-6">
                         <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Recommended Actions</h3>
+                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Campaign Optimization</h3>
                             <span className="text-[10px] text-gray-400 font-mono">{todaysCalls.length} Pending</span>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[600px]">
