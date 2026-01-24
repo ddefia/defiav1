@@ -4,7 +4,7 @@ import { fetchCampaignPerformance, fetchSocialMetrics, computeGrowthMetrics, com
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
 import { fetchMarketPulse } from '../services/pulse';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
-import { ActionCard } from './ActionCard';
+import { SmartActionCard } from './SmartActionCard';
 
 interface DashboardProps {
     brandName: string;
@@ -444,7 +444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             {todaysCalls.map((c) => (
-                                <ActionCard
+                                <SmartActionCard
                                     key={c.id}
                                     campaign={c}
                                     onReview={() => onNavigate('campaigns')}
