@@ -8,27 +8,24 @@ interface AnalyticsPageProps {
     chainMetrics: ComputedMetrics | null;
 }
 
-// Reusable "Premium" Stat Card (Matching Dashboard.tsx)
+// Reusable "Clean" Stat Card (Matching Dashboard.tsx)
 const StatCard = ({ title, value, subtext, trend, isPositive }: any) => (
-    <div className="bg-brand-surface p-6 rounded-2xl border border-brand-border shadow-premium hover:shadow-premium-hover transition-all duration-300 relative overflow-hidden group">
+    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start mb-4">
-            <h3 className="text-[11px] font-bold text-brand-muted uppercase tracking-widest font-display">{title}</h3>
-            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${isPositive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+            <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">{title}</h3>
+            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
                 <span>{isPositive ? '↗' : '↘'}</span>
                 {trend}
             </div>
         </div>
         <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-3xl font-display font-bold text-brand-text tracking-tight group-hover:text-brand-accent transition-colors">{value}</span>
+            <span className="text-3xl font-bold text-gray-900 tracking-tight">{value}</span>
         </div>
-        <p className="text-xs text-brand-textSecondary font-medium">{subtext}</p>
-
-        {/* Subtle Decor */}
-        <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-brand-surfaceHighlight rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+        <p className="text-xs text-gray-400 font-medium">{subtext}</p>
     </div>
 );
 
-// SVG Sparkline / Area Chart Component (Keep the logic, update colors to brand variables)
+// SVG Sparkline / Area Chart Component (Updated Colors)
 const GrowthChart = ({ data }: { data: number[] }) => {
     // Normalize data
     const max = Math.max(...data) || 100;
@@ -44,24 +41,24 @@ const GrowthChart = ({ data }: { data: number[] }) => {
     const fillPath = `0,100 ${points} 100,100`;
 
     return (
-        <div className="w-full h-72 relative overflow-hidden bg-brand-surfaceHighlight/30 rounded-xl border border-brand-border/50 p-4">
+        <div className="w-full h-80 relative overflow-hidden bg-white rounded-xl border border-gray-200 p-6">
             {/* Grid Lines */}
-            <div className="absolute inset-0 flex flex-col justify-between p-4 opacity-10 pointer-events-none">
-                <div className="w-full h-px bg-brand-text"></div>
-                <div className="w-full h-px bg-brand-text"></div>
-                <div className="w-full h-px bg-brand-text"></div>
-                <div className="w-full h-px bg-brand-text"></div>
+            <div className="absolute inset-0 flex flex-col justify-between p-6 opacity-30 pointer-events-none">
+                <div className="w-full h-px bg-gray-100"></div>
+                <div className="w-full h-px bg-gray-100"></div>
+                <div className="w-full h-px bg-gray-100"></div>
+                <div className="w-full h-px bg-gray-100"></div>
             </div>
 
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full relative z-10">
                 <defs>
                     <linearGradient id="growthGrad" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity="0.2" />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                        <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.1" />
+                        <stop offset="100%" stopColor="#4F46E5" stopOpacity="0" />
                     </linearGradient>
                 </defs>
                 <path d={`M ${fillPath}`} fill="url(#growthGrad)" />
-                <polyline points={points} fill="none" stroke="#6366f1" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points={points} fill="none" stroke="#4F46E5" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
         </div>
     );
@@ -80,22 +77,23 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
     const impressions = metrics?.weeklyImpressions || 0;
 
     return (
-        <div className="w-full p-6 font-sans animate-fadeIn max-w-[1600px] mx-auto min-h-screen">
+        <div className="w-full p-6 font-sans bg-[#F9FAFB] min-h-screen">
 
             {/* HEADER (Matching Dashboard) */}
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <div className="flex items-center gap-3 mb-1">
-                        <h1 className="text-2xl font-display font-bold text-brand-text tracking-tight">Analytics Command</h1>
-                        <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-bold uppercase tracking-wide">Live Data</span>
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                        Analytics Command
+                    </h1>
+                    <div className="text-[11px] text-gray-500 font-mono mt-1 tracking-tight flex items-center gap-2">
+                        {brandName} / System Status: <span className="text-emerald-500 font-bold">ONLINE</span>
                     </div>
-                    <p className="text-sm text-brand-textSecondary">Deep dive performance metrics for <span className="font-bold text-brand-text">{brandName}</span></p>
                 </div>
 
-                {/* Timeframe Toggle (Matching Dashboard) */}
-                <div className="flex bg-brand-surface rounded-lg p-1 border border-brand-border shadow-sm">
+                {/* Timeframe Toggle */}
+                <div className="flex bg-white rounded-lg p-1 border border-gray-200">
                     {['24H', '7D', '30D', '90D', 'All'].map((t, i) => (
-                        <button key={t} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${i === 2 ? 'bg-brand-text text-brand-surface shadow-sm' : 'text-brand-textSecondary hover:text-brand-text hover:bg-brand-surfaceHighlight'}`}>
+                        <button key={t} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${i === 2 ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
                             {t}
                         </button>
                     ))}
@@ -135,102 +133,112 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
             </div>
 
             {/* MAIN CONTENT GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                 {/* BIG CHART SECTION */}
-                <div className="lg:col-span-2 bg-brand-surface rounded-2xl border border-brand-border shadow-premium p-8">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-sm font-bold text-brand-muted uppercase tracking-widest font-display">Performance History</h3>
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 text-xs text-brand-textSecondary font-bold"><div className="w-2 h-2 rounded-full bg-indigo-500"></div> Engagement</div>
-                            <div className="flex items-center gap-2 text-xs text-brand-muted font-bold"><div className="w-2 h-2 rounded-full bg-brand-border"></div> Baseline</div>
+                <div className="lg:col-span-2">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Performance History</h3>
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold"><div className="w-2 h-2 rounded-full bg-indigo-500"></div> Engagement</div>
+                                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold"><div className="w-2 h-2 rounded-full bg-gray-300"></div> Baseline</div>
+                            </div>
+                        </div>
+                        <GrowthChart data={historyData} />
+                    </div>
+
+                    {/* TOP CONTENT TABLE */}
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Top Content Performance</h3>
+                            <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                                View All Posts →
+                            </button>
+                        </div>
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-50 text-gray-400 font-bold uppercase tracking-wider text-[10px]">
+                                <tr>
+                                    <th className="px-6 py-3">Content</th>
+                                    <th className="px-6 py-3 text-right">Impressions</th>
+                                    <th className="px-6 py-3 text-right">Engagement</th>
+                                    <th className="px-6 py-3 text-right">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {metrics?.recentPosts.slice(0, 5).map(post => (
+                                    <tr key={post.id} className="hover:bg-gray-50 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                {post.mediaUrl && (
+                                                    <div className="w-8 h-8 rounded-md bg-gray-100 bg-cover bg-center flex-shrink-0 border border-gray-200" style={{ backgroundImage: `url(${post.mediaUrl})` }}></div>
+                                                )}
+                                                <div className="min-w-0">
+                                                    <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-900 line-clamp-1 max-w-xs hover:text-blue-600 transition-colors">
+                                                        {post.content}
+                                                    </a>
+                                                    <div className="text-[10px] text-gray-500">{post.platform}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-xs font-mono text-gray-500">{post.impressions.toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold text-[10px]">{post.engagementRate}%</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-400 text-[10px] font-mono">{post.date}</td>
+                                    </tr>
+                                ))}
+                                {(!metrics?.recentPosts || metrics.recentPosts.length === 0) && (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                                            <div className="flex flex-col items-center justify-center gap-2 opacity-60">
+                                                <span className="text-xs font-medium">No recent content data available.</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* RIGHT COLUMN: DEMOGRAPHICS / BREAKDOWN */}
+                <div className="flex flex-col gap-6">
+                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 h-full">
+                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-6">Acquisition Sources</h3>
+                        <div className="flex flex-col gap-6">
+                            {/* Custom Progress Bars */}
+                            {[
+                                { label: 'Twitter / X', val: 65, color: 'bg-gray-900' },
+                                { label: 'Direct / Search', val: 20, color: 'bg-emerald-500' },
+                                { label: 'Telegram', val: 10, color: 'bg-blue-500' },
+                                { label: 'Other', val: 5, color: 'bg-gray-300' }
+                            ].map((item) => (
+                                <div key={item.label}>
+                                    <div className="flex justify-between text-xs font-bold text-gray-500 mb-2">
+                                        <span>{item.label}</span>
+                                        <span className="text-gray-900">{item.val}%</span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div className={`h-full ${item.color}`} style={{ width: `${item.val}%` }}></div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
-                    <GrowthChart data={historyData} />
-                </div>
 
-                {/* DEMOGRAPHICS / BREAKDOWN */}
-                <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-premium p-6 flex flex-col">
-                    <h3 className="text-sm font-bold text-brand-muted uppercase tracking-widest font-display mb-6">Acquisition Sources</h3>
-                    <div className="flex-1 flex flex-col justify-center gap-6">
-                        {/* Custom Progress Bars */}
-                        {[
-                            { label: 'Twitter / X', val: 65, color: 'bg-brand-text' },
-                            { label: 'Direct / Search', val: 20, color: 'bg-emerald-500' },
-                            { label: 'Telegram', val: 10, color: 'bg-blue-500' },
-                            { label: 'Other', val: 5, color: 'bg-gray-300' }
-                        ].map((item) => (
-                            <div key={item.label}>
-                                <div className="flex justify-between text-xs font-bold text-brand-textSecondary mb-2">
-                                    <span>{item.label}</span>
-                                    <span className="text-brand-text">{item.val}%</span>
-                                </div>
-                                <div className="w-full h-2 bg-brand-bg rounded-full overflow-hidden border border-brand-border/50">
-                                    <div className={`h-full ${item.color}`} style={{ width: `${item.val}%` }}></div>
-                                </div>
-                            </div>
-                        ))}
+                    {/* Insights Box */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl border border-indigo-100 p-6 shadow-sm">
+                        <h3 className="text-xs font-bold text-indigo-900 uppercase tracking-widest mb-3">AI Insight</h3>
+                        <p className="text-xs text-indigo-800/80 leading-relaxed">
+                            Engagement on Twitter has spiked <span className="font-bold text-indigo-700">+12%</span> this week due to the new roadmap announcement. Recommend doubling down on thread content.
+                        </p>
                     </div>
                 </div>
+
             </div>
 
-            {/* TOP CONTENT TABLE */}
-            <div className="bg-brand-surface rounded-2xl border border-brand-border shadow-premium overflow-hidden mt-8">
-                <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-bg/30">
-                    <h3 className="text-sm font-bold text-brand-muted uppercase tracking-widest font-display">Top Content Performance</h3>
-                    <button className="text-xs font-bold text-brand-accent hover:text-brand-accentHover bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100">
-                        View All Posts
-                    </button>
-                </div>
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-brand-surfaceHighlight text-brand-muted font-bold uppercase tracking-wider text-[10px]">
-                        <tr>
-                            <th className="px-6 py-4">Content</th>
-                            <th className="px-6 py-4 text-right">Impressions</th>
-                            <th className="px-6 py-4 text-right">Engagement</th>
-                            <th className="px-6 py-4 text-right">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-brand-border">
-                        {metrics?.recentPosts.slice(0, 5).map(post => (
-                            <tr key={post.id} className="hover:bg-brand-surfaceHighlight/50 transition-colors group">
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                        {post.mediaUrl && (
-                                            <div className="w-10 h-10 rounded-md bg-gray-100 bg-cover bg-center flex-shrink-0 border border-brand-border" style={{ backgroundImage: `url(${post.mediaUrl})` }}></div>
-                                        )}
-                                        <div className="min-w-0">
-                                            <a href={post.url} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-text line-clamp-1 max-w-xs hover:text-brand-accent transition-colors hover:underline decoration-brand-accent/50">
-                                                {post.content}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-right font-mono text-brand-textSecondary">{post.impressions.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-right">
-                                    <span className="inline-block px-2 py-0.5 rounded-md bg-indigo-50 text-brand-accent font-bold text-xs ring-1 ring-indigo-100">{post.engagementRate}%</span>
-                                </td>
-                                <td className="px-6 py-4 text-right text-brand-muted text-xs font-medium">{post.date}</td>
-                            </tr>
-                        ))}
-                        {(!metrics?.recentPosts || metrics.recentPosts.length === 0) && (
-                            <tr>
-                                <td colSpan={4} className="px-6 py-16 text-center text-brand-muted">
-                                    <div className="flex flex-col items-center justify-center gap-3 opacity-60">
-                                        <div className="w-12 h-12 bg-brand-bg rounded-xl flex items-center justify-center border border-brand-border">
-                                            <svg className="w-6 h-6 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                                        </div>
-                                        <span className="text-sm font-medium">No recent content detected.</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Footer Spacer */}
-            <div className="h-24"></div>
+            <div className="h-12"></div>
         </div>
     );
 };
