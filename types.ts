@@ -109,6 +109,10 @@ export interface StrategyTask {
   // NEW: Deep Strategy Fields
   strategicAlignment?: string; // Explanation of fit with Brand KB
   contentIdeas?: string[]; // 3 specific content angles
+
+  // New: Proof & Footnotes
+  logicExplanation?: string; // "Text explanation"
+  proof?: string; // "Proof/Footnote"
 }
 
 export interface TaskContextSource {

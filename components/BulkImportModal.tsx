@@ -26,16 +26,36 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
     const [step, setStep] = useState<'input' | 'review'>('input');
     const [error, setError] = useState<string | null>(null);
 
+    const [pastedImages, setPastedImages] = useState<string[]>([]);
+
     if (!isOpen) return null;
 
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                if (blob) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        if (event.target?.result) {
+                            setPastedImages(prev => [...prev, event.target!.result as string]);
+                        }
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            }
+        }
+    };
+
     const handleAnalyze = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() && pastedImages.length === 0) return;
         setIsAnalyzing(true);
         setError(null);
 
         try {
             // Use the existing AI service to parse the notes
-            const analysis = await analyzeContentNotes(input, brandName);
+            const analysis = await analyzeContentNotes(input, brandName, pastedImages);
 
             if (analysis && analysis.items) {
                 const today = new Date();
@@ -86,6 +106,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         // Reset state
         setStep('input');
         setInput('');
+        setPastedImages([]);
         setDrafts([]);
     };
 
@@ -103,7 +124,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                             <span className="text-xl">✨</span> Bulk Content Import
                         </h2>
-                        <p className="text-sm text-gray-500">Paste raw notes, drafts, or ideas. AI will organize them.</p>
+                        <p className="text-sm text-gray-500">Paste raw notes, drafts, or images (screenshots). AI will organize them.</p>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -114,12 +135,31 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                 <div className="p-6 flex-1 overflow-y-auto bg-white">
                     {step === 'input' ? (
                         <div className="space-y-4">
-                            <textarea
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="Example:&#10;1. Tweet about Ethereum scaling on Monday.&#10;2. Thread about DeFi yields on Wednesday.&#10;3. Meme about gas fees for Friday."
-                                className="w-full h-64 border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none bg-gray-50"
-                            />
+                            <div className="relative">
+                                <textarea
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onPaste={handlePaste}
+                                    placeholder="Example:&#10;1. Tweet about Ethereum scaling on Monday.&#10;2. Thread about DeFi yields on Wednesday.&#10;3. Meme about gas fees for Friday.&#10;&#10;(You can also paste screenshots!)"
+                                    className="w-full h-64 border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none bg-gray-50"
+                                />
+                                {/* Image Previews */}
+                                {pastedImages.length > 0 && (
+                                    <div className="absolute bottom-4 left-4 flex gap-2 overflow-x-auto max-w-[90%] p-1">
+                                        {pastedImages.map((img, idx) => (
+                                            <div key={idx} className="relative group shrink-0">
+                                                <img src={img} alt="Pasted" className="h-16 w-16 object-cover rounded-lg border border-gray-200 shadow-sm" />
+                                                <button
+                                                    onClick={() => setPastedImages(prev => prev.filter((_, i) => i !== idx))}
+                                                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                             {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
                         </div>
                     ) : (
@@ -170,7 +210,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                 <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
                     <Button variant="secondary" onClick={onClose}>Cancel</Button>
                     {step === 'input' ? (
-                        <Button onClick={handleAnalyze} isLoading={isAnalyzing} disabled={!input.trim()}>
+                        <Button onClick={handleAnalyze} isLoading={isAnalyzing} disabled={!input.trim() && pastedImages.length === 0}>
                             Analyze & Parse
                         </Button>
                     ) : (

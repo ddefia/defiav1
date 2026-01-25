@@ -776,25 +776,26 @@ export const generateTweet = async (
 /**
  * SMART CAMPAIGN: Analyzes raw notes to create a structured content plan.
  */
-export const analyzeContentNotes = async (notes: string, brandName: string): Promise<any> => {
-    dispatchThinking(`📝 Analyzing Content Notes`, { notesLength: notes.length });
+export const analyzeContentNotes = async (notes: string, brandName: string, images: string[] = []): Promise<any> => {
+    dispatchThinking(`📝 Analyzing Content Notes & Images`, { notesLength: notes.length, imageCount: images.length });
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
     const systemInstruction = `
     You are a Content Strategy Expert for ${brandName}.
 
-        TASK: Analyze the provided RAW NOTES and structure them into a concrete Campaign Plan.
+        TASK: Analyze the provided RAW NOTES and IMAGES (if any) and structure them into a concrete Campaign Plan.
 
-            INPUT:
-    ${notes}
+        INPUT:
+        - Text Notes: Provided in the prompt.
+        - Images: Screenshots of notes, chats, or diagrams. Extract all relevant text and context from them.
 
     INSTRUCTIONS:
-    1. EXTRACT discrete content items.Look for links, specific topic requests, or event mentions.
+    1. EXTRACT discrete content items. Look for links, specific topic requests, or event mentions.
     2. IGNORE general conversation filler.
     3. IDENTIFY global rules (e.g. "No GMs", "Don't use emojis").
     4. DETECT FINISHED TWEETS: If the user pasted a list of full tweets (e.g. "1. This is the tweet..."), extract the EXACT text into the "finalCopy" field. Do NOT summarize finished tweets.
-    5. For each item, capture specific instructions (e.g. "Credit the interviewer").
+    5. IMAGE ANALYSIS: If images are provided, OCR the text and interpret diagrams. Treat them as part of the raw notes.
     
     OUTPUT JSON FORMAT:
     {
@@ -813,9 +814,30 @@ export const analyzeContentNotes = async (notes: string, brandName: string): Pro
     `;
 
     try {
+        const parts: any[] = [];
+
+        // 1. Add Images
+        if (images && images.length > 0) {
+            images.forEach(imgBase64 => {
+                const mimeMatch = imgBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
+                const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+                const data = imgBase64.split(',')[1] || imgBase64;
+
+                parts.push({
+                    inlineData: {
+                        mimeType,
+                        data
+                    }
+                });
+            });
+        }
+
+        // 2. Add Text
+        parts.push({ text: `RAW NOTES:\n${notes || "(No text provided, analyze images)"}` });
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: "Analyze these notes.",
+            contents: [{ parts }],
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json"
@@ -2050,7 +2072,9 @@ export const generateStrategicAnalysis = async (
                         { "type": "TREND", "source": "CoinDesk", "headline": "ETH High", "relevance": 0.9 }
                     ],
                     "suggestedVisualTemplate": "Campaign Launch" | "Partnership" | "Deep Dive" | "Meme",
-                    "suggestedReferenceIds": ["ref-123"]
+                    "suggestedReferenceIds": ["ref-123"],
+                    "logicExplanation": "One sentence explaining the strategic logic model used (e.g. 'Game Theory: Retaliation').",
+                    "proof": "A short footnote/proof point citation (e.g. 'Based on 40% rise in competitor volume')."
                 }
             ]
     }
@@ -2457,12 +2481,12 @@ export const classifyAndPopulate = async (
 
     AVAILABLE TOOLS:
     1. GENERATE_IMAGE: Creating visuals, banners, memes, or graphics.
-       - Params: imagePrompt (string), imageStyle (optional), imageAspectRatio (1:1, 16:9, 4:5).
+       - Params: imagePrompt (string), imageStyle (optional - e.g. "Cyberpunk", "Minimal"), imageAspectRatio (1:1, 16:9, 4:5).
     2. CREATE_CAMPAIGN: planning content, tweets, or strategy.
        - Params: campaignTopic (string), campaignTheme (optional).
     3. ANALYZE_MARKET: Looking for trends, analyzing sentiment, or researching.
        - Params: analysisTopic (string).
-    4. GENERAL_CHAT: Just talking, asking "how to", or greetings.
+    4. GENERAL_CHAT: Just talking, asking "how to", greetings, or requests for advice.
        - Params: N/A.
 
     BRAND CONTEXT:
@@ -2475,11 +2499,10 @@ export const classifyAndPopulate = async (
     1. Analyze the conversation history, focusing on the LAST message: "${lastMessage}".
     2. Determine the Intent.
     3. DETECT VAGUENESS (CRITICALLY IMPORTANT):
-       - **BRAINSTORMING RULE**: If the user asks to "brainstorm", "help me think", or "ideas for", return GENERAL_CHAT. DO NOT use MISSING_INFO.
-       - If the user asks for "content" or "campaign" found GENERIC TOPIC -> Return MISSING_INFO.
-       - If the user asks for "image" but no visual details -> Return MISSING_INFO.
-       - DO NOT GUESS. If you are 90% sure, ask to confirm. 
-       - Users prefer to be asked "What style of image?" rather than getting a random one.
+       - If the user says "Create a campaign" or "Make content" WITHOUT a topic -> Return MISSING_INFO.
+       - If the user says "Generate an image" WITHOUT a description -> Return MISSING_INFO.
+       - **EXCEPTION**: If the user asks for *ideas* or *brainstorming* (e.g. "What should I post?"), use GENERAL_CHAT.
+       - **EXCEPTION**: If the user asks a question about the brand or strategy, use GENERAL_CHAT.
 
     4. EXAMPLE FLOWS:
        - User: "Help me brainstorm a campaign"
@@ -2523,7 +2546,7 @@ export const classifyAndPopulate = async (
 };
 
 /**
- * GENERAL CHAT: Answers questions using the Brand Context & Knowledge Base.
+ * GENERAL CHAT: Answers questions using the Brand Context & Knowledge Base (with RAG).
  */
 export const generateGeneralChatResponse = async (
     userHistory: { role: string, content: string }[],
@@ -2534,59 +2557,96 @@ export const generateGeneralChatResponse = async (
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
+    // Latest user message
+    const lastMessage = userHistory.length > 0 ? userHistory[userHistory.length - 1].content : "";
+
+    // --- 1. RAG RETRIEVAL (Connect the Dots) ---
+    let ragContext = "";
+    if (lastMessage.length > 5) {
+        try {
+            const embedding = await getEmbedding(lastMessage);
+            if (embedding.length > 0) {
+                const memories = await searchBrainMemory(brandContext.name, embedding, 0.65, 3);
+                if (memories && memories.length > 0) {
+                    ragContext = `RELEVANT MEMORY (From Database): \n${memories.map((m: any) => `- ${m.content} (Source: ${m.memory_type})`).join('\n')}`;
+                    console.log("Copilot RAG Hit:", memories.length);
+                }
+            }
+        } catch (e) {
+            console.warn("Copilot RAG Retrieval Skipped", e);
+        }
+    }
+
     const kb = brandContext.knowledgeBase.join('\n');
 
     // --- CONTEXT SERIALIZATION ---
-    const upcomingEvents = marketingContext?.calendar?.slice(0, 3).map(e => `- ${e.date}: ${e.content} (${e.platform})`).join('\n') || "No upcoming events.";
-    const growthSummary = marketingContext?.report?.executiveSummary || "No recent analysis available.";
-    const topTasks = marketingContext?.tasks?.slice(0, 3).map(t => `- ${t.title}: ${t.description}`).join('\n') || "No pending tasks.";
+    // Make the context richer so the AI can "Look out" for the brand
+    const upcomingEvents = marketingContext?.calendar?.slice(0, 5).map(e => `- ${new Date(e.date).toLocaleDateString()}: ${e.content} (${e.platform})`).join('\n') || "No upcoming events.";
+
+    // Parse Growth Report for intelligent chatter
+    let growthInsights = "No recent strategic analysis.";
+    if (marketingContext?.report) {
+        growthInsights = `
+        EXECUTIVE SUMMARY: ${marketingContext.report.executiveSummary}
+        RECOMMENDED STRATEGY: ${marketingContext.report.strategicPlan.map(p => `${p.action} on ${p.subject}`).join(', ')}
+        DISABLE ACTIONS: ${marketingContext.report.strategicPlan.filter(p => p.action === 'KILL').map(p => p.subject).join(', ') || "None"}
+        `;
+    }
 
     const systemPrompt = `
     You are the Chief Marketing Officer (CMO) for ${brandContext.name}.
-    You are NOT just a chatbot. You are a strategic partner.
     
+    RELATIONSHIP:
+    - You are NOT a generic assistant. You are a **Proactive Strategic Partner**.
+    - You "Look Out" for the brand. If the user suggests something off-brand, politely correct them.
+    - You "Connect the Dots". If the user talks about X, remind them of related Y from the database.
+
     YOUR KNOWLEDGE BASE (Source of Truth):
     ${kb}
 
-    LIVE MARKET DATA (Your Eyes & Ears):
-    - 📈 Growth Analysis: "${growthSummary}"
-    - 🗓️ Upcoming Calendar: 
-    ${upcomingEvents}
-    - 📋 Top Priorities (Tasks):
-    ${topTasks}
+    ${ragContext ? `\n    🧠 DEEP BRAIN MEMORY (Relevant History):\n    ${ragContext}\n` : ''}
+
+    LIVE MARKET INTELLIGENCE:
+    - 📈 Growth Analysis:
+      ${growthInsights}
+    
+    - 🗓️ Upcoming Calendar (Context for timing):
+      ${upcomingEvents}
     
     INSTRUCTIONS:
-    - Answer the user's question based strictly on the KNOWLEDGE BASE and CONTEXT.
-    - **DATA SYNTHESIS**: When giving advice, explicitly reference the data if relevant. (e.g., "Given the engagement spike mentioned in the Report, we should...")
-    - **ALIGNMENT**: Ensure your suggestions optimize for the Top Priorities listed above.
-    - If the answer is not in the knowledge base, admit it but try to be helpful based on general crypto knowledge.
-    - Be concise, professional, and friendly.
-    - Do NOT talk about "classification", "intents", or "json". Just answer.
+    1. **ANSWER & AMPLIFY**: Answer the user's question, then add value. "Yes, we can do that. And based on the Q1 Goals, this would also help us with..."
+    2. **CLARIFY**: If the user is vague (e.g. "Draft a post"), ask clarifying questions *before* offering a draft. "Who is the audience? Is this for the Alpha group or general public?"
+    3. **RECOMMEND**: If the user asks "What should I do?", look at the CALENDAR gaps and GROWTH REPORT. Suggest concrete actions. "I see a gap on Friday. Given the 'High Engagement' on technical posts (from report), I recommend a Thread about our Architecture."
+    4. **DATA-DRIVEN**: Explicitly reference the data provided. "I see in your Brain Memory that we decided to pause memes. Are you sure?"
+    
+    TONE:
+    - Professional, Concise, Insightful.
+    - Use the brand's voice (${brandContext.voiceGuidelines || "Standard"}).
     
     SPECIAL MODES:
-    - **BRAINSTORMING**: If the user asks for help thinking, ideas, or brainstorming:
-      1. Consult the Knowledge Base AND Live Data for context.
-      2. PROPOSE 3 distinct "strategic angles" or ideas.
+    - **BRAINSTORMING**: If asked for ideas:
+      1. Consult the Knowledge Base AND Live Data.
+      2. PROPOSE 3 distinct "strategic angles".
       3. For each idea, provide a "label" (short title) and an "action" (full prompt to execute it).
 
-    OUTPUT FORMAT:
-    You must return a JSON object.
+    OUTPUT FORMAT (JSON):
     {
-      "text": "Your conversational response here...",
+      "text": "Your conversational response here. Use markdown for bolding/lists.",
       "actions": [
         { "label": "Draft Tech Deep Dive", "action": "Draft a technical thread about Decentralized Sequencers" },
         { "label": "Create Meme Campaign", "action": "Create a viral meme campaign about Enki staking" }
       ]
     }
     
-    Always use this JSON format. If no actions are relevant, return an empty array for "actions".
+    If no actions are relevant, return an empty array for "actions".
     `;
 
     try {
-        // Simplified Single Turn approach for stability with this SDK version
-        // Or use the standard generateContent with history as context in the prompt
-        const contextHistory = userHistory.map(h => `${h.role}: ${h.content}`).join('\n');
-        const fullPrompt = `${systemPrompt}\n\nCHAT HISTORY:\n${contextHistory}\n\nAssistant:`;
+        // We pass the full history to maintain conversation thread
+        // Convert history to Gemini format
+        const historyParts = userHistory.map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n');
+
+        const fullPrompt = `${systemPrompt}\n\nCONVERSATION HISTORY:\n${historyParts}\n\nAssistant:`;
 
         const result = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
@@ -2604,7 +2664,7 @@ export const generateGeneralChatResponse = async (
 
     } catch (e) {
         console.error("General Chat Failed", e);
-        return { text: "Sorry, I'm having trouble connecting to my brain right now.", actions: [] };
+        return { text: "I'm having trouble connecting to my strategic brain right now. Please try again.", actions: [] };
     }
 };
 

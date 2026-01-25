@@ -57,6 +57,14 @@ export const StrategyActionCard: React.FC<StrategyActionCardProps> = ({ task, on
                         <p className="text-[11px] text-gray-600 leading-relaxed font-medium line-clamp-2">
                             {task.reasoning}
                         </p>
+                        {/* Proof / Footnote */}
+                        {task.proof && (
+                            <div className="mt-2 pt-2 border-t border-blue-50">
+                                <p className="text-[10px] text-gray-400 font-serif italic truncate">
+                                    Why: {task.proof}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

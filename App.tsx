@@ -15,7 +15,7 @@ import { Dashboard } from './components/Dashboard'; // Import Dashboard
 import { AnalyticsPage } from './components/AnalyticsPage'; // Import Analytics
 import { Campaigns } from './components/Campaigns'; // Import Campaigns
 import { SocialMedia } from './components/SocialMedia'; // Import SocialMedia
-import { BrainPage } from './components/Brain/BrainPage'; // Import BrainPage
+import { AIStrategicPosture } from './components/Strategy/AIStrategicPosture'; // Import AIStrategicPosture
 import { ContentStudio } from './components/ContentStudio'; // Import ContentStudio
 import { ImageEditor } from './components/ImageEditor'; // Import ImageEditor
 import { CopilotView } from './components/Copilot/CopilotView'; // Import Copilot
@@ -656,9 +656,13 @@ const App: React.FC = () => {
                     />
                 )}
 
-                {/* SECTION: BRAIN (NEW) */}
+                {/* SECTION: STRATEGY (AI STRATEGIC POSTURE) */}
                 {appSection === 'brain' && selectedBrand && (
-                    <BrainPage brandName={selectedBrand} />
+                    <AIStrategicPosture
+                        brandName={selectedBrand}
+                        tasks={strategyTasks}
+                        onSchedule={handleOpenScheduleModal}
+                    />
                 )}
 
                 {/* SECTION: ANALYTICS (NEW) */}

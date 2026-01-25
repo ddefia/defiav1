@@ -13,7 +13,6 @@ interface DashboardProps {
     brandConfig: BrandConfig;
     calendarEvents: CalendarEvent[];
     socialMetrics: SocialMetrics | null;
-    // strategyTasks removed, replaced by tasks
     chainMetrics: ComputedMetrics | null;
     socialSignals: SocialSignals;
     systemLogs: string[];
@@ -29,7 +28,6 @@ interface DashboardProps {
 const safeVal = (val: number | undefined, suffix = '') => val ? `${val.toLocaleString()}${suffix}` : '--';
 
 // --- HELPER: TRANSFORM METRICS TO KPIS ---
-// --- HELPER: TRANSFORM METRICS TO KPIS ---
 const transformMetricsToKPIs = (
     metrics: SocialMetrics | null,
     chain: ComputedMetrics | null,
@@ -44,7 +42,6 @@ const transformMetricsToKPIs = (
         ? campaigns.reduce((acc, c) => acc + c.attributedWallets, 0)
         : (chain?.netNewWallets || 0);
 
-    // 3. CPA (Weighted Average)
     // 3. CPA (Weighted Average)
     // CPA is tricky if we don't have spend, but we'll keep the calculation logic if needed or fallback
     // For now, let's keep CPA but base it on a hypothetical spend if real spend is gone, or just 0.
@@ -480,7 +477,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             </div>
 
-            {/* SECTION: AI STRATEGY DIRECTOR (MOVED TO BOTTOM) */}
+            {/* SECTION: AI STRATEGY DIRECTOR */}
             <div className="mb-8 animate-fadeIn">
                 <StrategyBrain
                     brandName={brandName}
@@ -491,6 +488,55 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     tasks={tasks}
                     onUpdateTasks={onUpdateTasks}
                     onNavigate={onNavigate}
+                    onRegenerate={async () => {
+                        try {
+                            const brainContext = {
+                                brand: { ...brandConfig, name: brandName },
+                                marketState: {
+                                    trends: socialSignals.trendingTopics || [],
+                                    analytics: socialMetrics || undefined,
+                                    mentions: []
+                                },
+                                memory: {
+                                    ragDocs: [],
+                                    recentPosts: socialMetrics?.recentPosts || [],
+                                    pastStrategies: tasks
+                                },
+                                userObjective: "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
+                            };
+
+                            const { executeMarketingAction } = await import('../services/gemini');
+                            const actions = await executeMarketingAction(brainContext);
+
+                            if (actions.length > 0) {
+                                const newTasks = actions.map(action => ({
+                                    id: crypto.randomUUID(),
+                                    title: action.hook || `Strategy: ${action.topic}`,
+                                    description: action.reasoning || `Execute ${action.type.toLowerCase()} for ${action.goal}`,
+                                    status: 'pending',
+                                    type: action.type as any,
+                                    contextSource: {
+                                        type: 'TREND',
+                                        source: 'Market Pulse',
+                                        headline: action.topic
+                                    },
+                                    impactScore: 85,
+                                    executionPrompt: action.topic,
+                                    suggestedVisualTemplate: 'Auto',
+                                    reasoning: action.reasoning,
+                                    strategicAlignment: action.strategicAlignment,
+                                    contentIdeas: action.contentIdeas,
+                                    proof: (action as any).proof,
+                                    logicExplanation: (action as any).logicExplanation
+                                }));
+
+                                onUpdateTasks(newTasks as any);
+                            }
+                        } catch (e) {
+                            console.error("Manual Regen Failed", e);
+                            alert("Failed to regenerate strategies. See console.");
+                        }
+                    }}
                 />
             </div>
         </div>

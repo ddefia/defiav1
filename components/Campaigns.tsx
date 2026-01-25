@@ -8,7 +8,7 @@ import { dispatchThinking } from './ThinkingConsole';
 
 import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs } from '../services/storage';
 import { saveBrainMemory } from '../services/supabase'; // History Sync
-import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy } from '../types';
+import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy, ActionPlan, MarketingAction } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -98,15 +98,17 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         }
 
         // Load Action Plan Recommendations
-        const plan = loadBrainState(brandName); // Reuse existing loadBrainState or similar storage util if loadActionPlan doesn't exist directly
+        // Load Action Plan Recommendations
+        // const plan = loadBrainState(brandName); // REMOVED: Causing ReferenceError
         // Just for safety if loadActionPlan is not exported, we can check localStorage directly or use a known util
         // Assuming loadActionPlan exists or we can get it from localStorage 'defia_action_plan_{brand}'
         try {
             const storedPlan = localStorage.getItem(`defia_action_plan_${brandName}`);
             if (storedPlan) {
                 const parsed = JSON.parse(storedPlan) as ActionPlan;
-                if (parsed && parsed.strategies) {
-                    setRecommendedStrategies(parsed.strategies.slice(0, 3));
+                if (parsed && parsed.actions) {
+                    const mappedActions = parsed.actions.map(a => ({ ...a, content: a.instructions }));
+                    setRecommendedStrategies(mappedActions.slice(0, 3));
                 }
             }
         } catch (e) {
@@ -1185,20 +1187,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                         key={idx}
                                                         onClick={() => {
                                                             setCampaignType('theme');
-                                                            setCampaignTheme(strategy.title);
-                                                            setCampaignGoal(strategy.objective);
-                                                            setCampaignContext(strategy.notes || '');
+                                                            setCampaignTheme(strategy.hook || strategy.topic);
+                                                            setCampaignGoal(strategy.goal);
+                                                            setCampaignContext(strategy.reasoning || '');
                                                         }}
-                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignTheme === strategy.title ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-green-50/30 border-green-200 hover:bg-white hover:border-green-300'}`}
+                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-green-50/30 border-green-200 hover:bg-white hover:border-green-300'}`}
                                                     >
                                                         <div className="flex items-start gap-3">
-                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignTheme === strategy.title ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-green-600 border border-green-100'}`}>🚀</div>
+                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-green-600 border border-green-100'}`}>🚀</div>
                                                             <div>
-                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignTheme === strategy.title ? 'text-gray-900' : 'text-gray-800'}`}>{strategy.title}</h3>
-                                                                <p className="text-[10px] text-gray-500 leading-tight">{strategy.description}</p>
+                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignTheme === (strategy.hook || strategy.topic) ? 'text-gray-900' : 'text-gray-800'}`}>{strategy.hook || strategy.topic}</h3>
+                                                                <p className="text-[10px] text-gray-500 leading-tight">{strategy.reasoning}</p>
                                                             </div>
                                                         </div>
-                                                        {campaignTheme === strategy.title && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
+                                                        {campaignTheme === (strategy.hook || strategy.topic) && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
                                                     </button>
                                                 ))}
 
@@ -1207,7 +1209,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     <>
                                                         <button
                                                             onClick={() => setCampaignType('theme')}
-                                                            className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => s.title === campaignTheme) ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                                                            className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => (s.hook || s.topic) === campaignTheme) ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
                                                         >
                                                             <div className="flex items-start gap-3">
                                                                 <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'theme' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🎯</div>
