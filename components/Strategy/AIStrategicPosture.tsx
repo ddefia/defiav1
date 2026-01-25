@@ -63,167 +63,138 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({ brandNam
     };
 
     return (
-        <div className="w-full h-full p-6 font-sans bg-[#F9FAFB] min-h-screen">
+        <div className="w-full h-full p-8 font-sans bg-[#F9FAFB] min-h-screen">
 
-            {/* HEADER */}
-            <div className="flex items-center justify-between mb-8">
+            {/* HEADER - Enterprise Style */}
+            <div className="flex items-end justify-between mb-8 border-b border-gray-200 pb-6">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-sm bg-gray-900"></span>
+                        Strategic Command
+                    </div>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight leading-none">
                         Strategic Posture
                     </h1>
-                    <div className="text-[11px] text-gray-500 font-mono mt-1 tracking-tight flex items-center gap-2">
-                        AI CMO / {brandName} / Status: <span className="text-emerald-500 font-bold">ACTIVE</span>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-right">
+                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Scope</div>
+                        <div className="text-xs font-bold text-gray-900">{brandName}</div>
                     </div>
-                </div>
-                <div className="text-[10px] text-gray-400 font-mono bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-sm">
-                    Last Reviewed: {posture.lastUpdated}
-                </div>
-            </div>
-
-            {/* SECTION 1: KEY METRICS (KPI Grid Style) */}
-            <div className="grid grid-cols-4 gap-4 mb-8">
-                {/* Confidence Card */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 font-black text-6xl text-gray-300 -mr-4 -mt-2 group-hover:scale-110 transition-transform">C</div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Confidence</div>
-                    <div className="text-2xl font-bold text-gray-900 mb-1">{posture.confidenceLevel}</div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span className="text-[10px] text-emerald-600 font-medium">Stable</span>
-                    </div>
-                </div>
-
-                {/* Horizon Card */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 font-black text-6xl text-gray-300 -mr-4 -mt-2 group-hover:scale-110 transition-transform">H</div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Time Horizon</div>
-                    <div className="text-2xl font-bold text-gray-900 mb-1">Q2 2026</div>
-                    <div className="text-[10px] text-gray-500 font-medium">Long Term Vision</div>
-                </div>
-
-                {/* Active Priorities Count */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 font-black text-6xl text-gray-300 -mr-4 -mt-2 group-hover:scale-110 transition-transform">P</div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Active Priorities</div>
-                    <div className="text-2xl font-bold text-gray-900 mb-1">{posture.priorities.length}</div>
-                    <div className="text-[10px] text-blue-600 font-medium cursor-pointer hover:underline">View Mandates →</div>
-                </div>
-
-                {/* Live Signals Count */}
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 font-black text-6xl text-gray-300 -mr-4 -mt-2 group-hover:scale-110 transition-transform">S</div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Live Signals</div>
-                    <div className="text-2xl font-bold text-gray-900 mb-1">{tasks.length}</div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span className="text-[10px] text-emerald-600 font-medium">Processing</span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-
-                {/* LEFT COLUMN: STRATEGIC CONTEXT (2/3 width) */}
-                <div className="md:col-span-2 space-y-8">
-                    {/* PRIMARY POSTURE CARD */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                        <div className="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                </div>
-                                <div>
-                                    <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Primary Objective</h2>
-                                    <p className="text-[10px] text-gray-400 font-medium">The North Star guiding all actions</p>
-                                </div>
-                            </div>
+                    <div className="h-6 w-px bg-gray-200"></div>
+                    <div className="text-right">
+                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Status</div>
+                        <div className="text-xs font-bold text-emerald-600 flex items-center justify-end gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Active
                         </div>
-                        <div className="mb-8">
-                            <p className="text-xl font-medium text-gray-900 leading-relaxed">
+                    </div>
+                </div>
+            </div>
+
+            {/* TOP ROW: KPI CARDS (Sharpened) */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+                {[
+                    { label: 'Confidence', value: posture.confidenceLevel, meta: 'Stable', color: 'text-emerald-600' },
+                    { label: 'Time Horizon', value: 'Q2 2026', meta: 'Long Term', color: 'text-gray-500' },
+                    { label: 'Mandates', value: posture.priorities.length, meta: 'Active', color: 'text-blue-600' },
+                    { label: 'Signal Stream', value: tasks.length, meta: 'Processing', color: 'text-purple-600' }
+                ].map((stat, i) => (
+                    <div key={i} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-gray-300 transition-colors">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{stat.label}</div>
+                        <div className="flex items-baseline justify-between">
+                            <div className="text-xl font-bold text-gray-900 tracking-tight">{stat.value}</div>
+                            <div className={`text-[10px] font-medium ${stat.color}`}>{stat.meta}</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+                {/* LEFT COLUMN: STRATEGY (8 Cols) */}
+                <div className="md:col-span-8 flex flex-col gap-6">
+
+                    {/* OBJECTIVE CARD (High Signal) */}
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                            <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Primary Objective</h3>
+                            <span className="text-[10px] font-mono text-gray-400">OBJ-01</span>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-lg font-medium text-gray-900 leading-relaxed tracking-tight mb-4">
                                 {posture.objective}
                             </p>
-                        </div>
-
-                        <div>
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Operating Thesis</h3>
-                            <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-lg border border-gray-100 italic">
-                                "{posture.thesis}"
-                            </p>
+                            <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-md border border-gray-100">
+                                <span className="text-gray-400 text-lg serif italic">"</span>
+                                <p className="text-sm text-gray-600 italic leading-relaxed">
+                                    {posture.thesis}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
-                    {/* NEURAL STREAM / ACTIVE STRATEGY */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 min-h-[400px]">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-                                </div>
-                                <div>
-                                    <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Neural Stream</h2>
-                                    <p className="text-[10px] text-gray-400 font-medium">Real-time strategic opportunities</p>
-                                </div>
+                    {/* NEURAL STREAM (Table/Feed Style) */}
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm min-h-[400px] flex flex-col">
+                        <div className="px-5 py-3 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Neural Stream</h3>
+                                <span className="bg-emerald-100 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded-sm">LIVE</span>
                             </div>
-                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">{tasks.length} New</span>
+                            <span className="text-[10px] font-mono text-gray-400">{tasks.length} EVENTS</span>
                         </div>
 
-                        <div className="space-y-4">
+                        <div className="flex-1 p-4 bg-gray-50/30">
                             {tasks.length > 0 ? (
-                                tasks.map(task => (
-                                    <StrategyActionCard
-                                        key={task.id}
-                                        task={task}
-                                        onConfigure={() => handleExecuteTask(task)}
-                                    />
-                                ))
+                                <div className="space-y-3">
+                                    {tasks.map(task => (
+                                        <StrategyActionCard
+                                            key={task.id}
+                                            task={task}
+                                            onConfigure={() => handleExecuteTask(task)}
+                                        />
+                                    ))}
+                                </div>
                             ) : (
-                                <div className="flex flex-col items-center justify-center py-12 text-center">
-                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                                        <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
-                                    </div>
-                                    <h3 className="text-sm font-bold text-gray-900">All Clear</h3>
-                                    <p className="text-xs text-gray-500 mt-1 max-w-[200px]">System is monitoring market signals. No immediate actions required.</p>
+                                <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2 opacity-60">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+                                    <div className="text-[10px] font-mono uppercase tracking-widest">Awaiting Signals</div>
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN: MANDATES (Sidebar Style) */}
-                <div className="space-y-6">
-                    {/* Active Priorities */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                            Strategic Mandates
-                        </h3>
-                        <ul className="space-y-3">
+                {/* RIGHT COLUMN: MANDATES (4 Cols) */}
+                <div className="md:col-span-4 space-y-6">
+                    {/* PRIORITIES */}
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                            <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Mandates</h3>
+                        </div>
+                        <div className="divide-y divide-gray-50">
                             {posture.priorities.map((item, i) => (
-                                <li key={i} className="flex items-start gap-3">
-                                    <span className="text-[10px] font-mono text-gray-300 mt-0.5">0{i + 1}</span>
-                                    <span className="text-sm font-medium text-gray-700 leading-snug">{item}</span>
-                                </li>
+                                <div key={i} className="p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors">
+                                    <span className="text-[10px] font-mono text-gray-400 font-bold bg-gray-100 px-1.5 rounded">{i + 1}</span>
+                                    <span className="text-xs font-medium text-gray-700 leading-snug">{item}</span>
+                                </div>
                             ))}
-                        </ul>
+                        </div>
                     </div>
 
-                    {/* Non-Goals */}
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 opacity-75">
-                        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 bg-red-400 rounded-full"></span>
-                            Restricted / Avoid
-                        </h3>
-                        <ul className="space-y-3">
+                    {/* CONSTRAINTS */}
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+                            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Restricted</h3>
+                        </div>
+                        <div className="divide-y divide-gray-50">
                             {posture.deprioritized.map((item, i) => (
-                                <li key={i} className="flex items-start gap-3">
-                                    <span className="text-[10px] font-mono text-gray-300 mt-0.5">X</span>
-                                    <span className="text-sm text-gray-500 leading-snug decoration-gray-300">{item}</span>
-                                </li>
+                                <div key={i} className="p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors opacity-75">
+                                    <span className="text-[10px] font-mono text-gray-300">✕</span>
+                                    <span className="text-xs text-gray-500 leading-snug">{item}</span>
+                                </div>
                             ))}
-                        </ul>
+                        </div>
                     </div>
                 </div>
 
