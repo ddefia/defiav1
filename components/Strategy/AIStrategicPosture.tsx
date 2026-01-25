@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../Button';
 import { StrategyTask } from '../../types';
-import { StrategyActionCard } from '../StrategyActionCard';
 
 interface StrategicPosture {
     lastUpdated: string;
@@ -57,16 +56,6 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({ brandNam
     // In a real app, this might come from a DB. For now, it's a static "Memo".
     const [posture] = useState<StrategicPosture>(INITIAL_POSTURE);
 
-    const handleAcknowledge = () => {
-        // Mock action
-        alert("Strategic posture acknowledged. AI execution will align with these mandates.");
-    };
-
-    const handleRequestRevision = () => {
-        // Mock action
-        alert("Revision request logged for Admin review.");
-    };
-
     const handleExecuteTask = (task: StrategyTask) => {
         if (onSchedule) {
             onSchedule(task.executionPrompt, task.suggestedVisualTemplate);
@@ -74,165 +63,149 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({ brandNam
     };
 
     return (
-        <div className="min-h-full bg-[#FAFAFA] text-gray-900 font-sans animate-fadeIn p-8 md:p-12 max-w-5xl mx-auto">
+        <div className="flex flex-col h-full bg-white text-gray-900 font-sans animate-fadeIn overflow-hidden rounded-tl-2xl">
 
-            {/* HEADER */}
-            <div className="mb-12 border-b border-gray-200 pb-8">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-3xl md:text-4xl font-serif font-medium text-gray-900 mb-2 tracking-tight">AI Strategic Posture</h1>
-                        <p className="text-gray-500 text-lg">Current strategic judgment guiding Defia’s recommendations</p>
+            {/* PART 1: THE MEMO (Static Context - Editorial Style) */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar bg-white p-8 md:p-12">
+                <div className="max-w-4xl mx-auto">
+                    {/* Header - Editorial */}
+                    <div className="mb-12 border-b border-gray-100 pb-6 flex justify-between items-end">
+                        <div>
+                            <h5 className="text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase mb-2">Internal Memo // Restricted</h5>
+                            <h1 className="text-4xl font-serif text-gray-900 tracking-tight leading-none">
+                                Strategic Posture
+                            </h1>
+                        </div>
+                        <div className="hidden md:block text-right">
+                            <div className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">Effective Date</div>
+                            <div className="text-sm font-bold text-gray-900">{posture.lastUpdated}</div>
+                        </div>
                     </div>
-                    <div className="flex flex-col items-end text-xs font-mono text-gray-400 uppercase tracking-widest gap-1">
-                        <div>Role: <span className="text-gray-900 font-bold">AI Chief Marketing Officer</span></div>
-                        <div>Scope: <span className="text-gray-900 font-bold">ENKI Protocol</span></div>
-                        <div>Status: <span className="text-emerald-600 font-bold">Active</span></div>
-                        <div>Reviewed: <span className="text-gray-900">{posture.lastUpdated}</span></div>
+
+                    {/* Core Thesis - The "Why" */}
+                    <section className="mb-12">
+                        <div className="prose prose-lg max-w-none">
+                            <p className="text-2xl font-serif leading-relaxed text-gray-800 antialiased">
+                                <span className="font-bold text-gray-900">Objective: </span>
+                                {posture.objective}
+                            </p>
+                            <div className="my-6 h-px w-16 bg-gray-200"></div>
+                            <p className="text-gray-600 text-lg leading-relaxed font-light">
+                                " {posture.thesis} "
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* Directives Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 border-t border-gray-100 pt-8">
+                        <div>
+                            <h3 className="text-xs font-bold text-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                Mandates (Prioritize)
+                            </h3>
+                            <ul className="space-y-3">
+                                {posture.priorities.map((p, i) => (
+                                    <li key={i} className="text-sm font-medium text-gray-800 flex items-start gap-2">
+                                        <span className="text-gray-300 font-serif italic">{i + 1}.</span>
+                                        {p}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-red-400 rounded-full"></span>
+                                Constraints (Avoid)
+                            </h3>
+                            <ul className="space-y-3">
+                                {posture.deprioritized.map((p, i) => (
+                                    <li key={i} className="text-sm text-gray-500 flex items-start gap-2 decoration-gray-300">
+                                        <span className="text-gray-300 font-serif italic">x</span>
+                                        {p}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* SECTION 1: CURRENT POSTURE */}
-            <section className="mb-12">
-                <div className="bg-white border border-gray-200 shadow-sm p-8 rounded-none"> {/* Intentionally boxy/memo-like */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                        <div className="md:col-span-3 space-y-6">
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Primary Objective</h3>
-                                <p className="text-xl font-medium text-gray-900 leading-relaxed font-serif">
-                                    {posture.objective}
-                                </p>
-                            </div>
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Operating Thesis</h3>
-                                <p className="text-lg text-gray-600 leading-relaxed">
-                                    {posture.thesis}
-                                </p>
-                            </div>
+            {/* PART 2: THE MACHINE (Neural Stream - Terminal Style) */}
+            <div className="h-[45%] bg-[#0A0A0B] border-t border-gray-800 flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.1)] relative z-10">
+                {/* Terminal Header */}
+                <div className="h-10 bg-[#111113] border-b border-white/5 flex items-center px-4 justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                        <div className="flex gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50"></div>
+                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/50"></div>
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/50"></div>
                         </div>
-                        <div className="space-y-6 border-l border-gray-100 pl-6 md:pl-8">
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Time Horizon</h3>
-                                <p className="text-sm font-bold text-gray-900">{posture.timeHorizon}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Confidence</h3>
-                                <p className="text-sm font-bold text-gray-900">{posture.confidenceLevel}</p>
-                            </div>
-                        </div>
+                        <div className="h-4 w-px bg-white/10 mx-2"></div>
+                        <span className="text-[10px] font-mono font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-2">
+                            <span className="animate-pulse">●</span> NEURAL_STREAM_ACTIVE
+                        </span>
+                    </div>
+                    <div className="text-[10px] font-mono text-gray-600">
+                        {tasks.length} PROCESSES RUNNING
                     </div>
                 </div>
-            </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
-                {/* SECTION 2: ACTIVE PRIORITIES */}
-                <section>
-                    <h2 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-6 border-b border-gray-200 pb-2">Active Priorities</h2>
-                    <ul className="space-y-4">
-                        {posture.priorities.map((item, i) => (
-                            <li key={i} className="flex items-baseline gap-4 group">
-                                <span className="text-xs font-mono text-gray-300 group-hover:text-gray-400">0{i + 1}</span>
-                                <span className="text-lg text-gray-800 font-medium">{item}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-
-                {/* SECTION 3: DEPRIORITIZED */}
-                <section>
-                    <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6 border-b border-gray-200 pb-2">Deprioritized / Non-Goals</h2>
-                    <ul className="space-y-4">
-                        {posture.deprioritized.map((item, i) => (
-                            <li key={i} className="flex items-baseline gap-4 text-gray-400">
-                                <span className="text-xs font-mono text-gray-200">X</span>
-                                <span className="text-lg decoration-gray-200">{item}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            </div>
-
-            {/* NEURAL STREAM SECTION (NEW) */}
-            <section className="mb-12 animate-fadeIn delay-100">
-                <div className="flex items-center justify-between mb-6 border-b border-gray-200 pb-2">
-                    <h2 className="text-sm font-bold text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Neural Stream / Live Strategy
-                    </h2>
-                    <span className="text-[10px] font-mono text-gray-400">
-                        {tasks.length} Active Thoughts
-                    </span>
-                </div>
-
-                <div className="space-y-4">
+                {/* Stream / Terminal Content */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-1 font-mono text-sm custom-scrollbar-dark">
                     {tasks.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-4">
-                            {tasks.map(task => (
-                                <StrategyActionCard
-                                    key={task.id}
-                                    task={task}
-                                    onConfigure={() => handleExecuteTask(task)}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="p-8 text-center border-2 border-dashed border-gray-100 rounded-lg bg-gray-50/50">
-                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                                <span className="text-xl">🧠</span>
+                        tasks.map((task, idx) => (
+                            <div
+                                key={task.id}
+                                className="group relative pl-4 border-l border-white/10 hover:border-emerald-500/50 transition-colors py-2"
+                            >
+                                {/* Timestamp & ID */}
+                                <div className="flex items-baseline gap-3 mb-1 opactiy-50">
+                                    <span className="text-[10px] text-gray-600">[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
+                                    <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+                                        {task.type.replace('_', ' ')}
+                                    </span>
+                                    <span className="text-[10px] text-gray-700">ID: {task.id.slice(0, 8)}</span>
+                                </div>
+
+                                {/* Content Line */}
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                        <div className="text-gray-300 font-medium group-hover:text-emerald-400 transition-colors">
+                                            <span className="text-emerald-500 mr-2">➜</span>
+                                            {task.title}
+                                        </div>
+                                        <div className="text-[11px] text-gray-500 mt-1 pl-5 line-clamp-1 group-hover:line-clamp-none transition-all">
+                                            {task.reasoning}
+                                        </div>
+                                    </div>
+
+                                    {/* Action Button (Hidden until hover) */}
+                                    <button
+                                        onClick={() => handleExecuteTask(task)}
+                                        className="opacity-0 group-hover:opacity-100 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap"
+                                    >
+                                        [ Execute ]
+                                    </button>
+                                </div>
                             </div>
-                            <p className="text-sm font-bold text-gray-500">Thinking...</p>
-                            <p className="text-xs text-gray-400 mt-1">Analyzing market signals for next strategic move.</p>
+                        ))
+                    ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-700 space-y-2 opacity-50">
+                            <div className="animate-pulse">_</div>
+                            <div className="text-xs">LISTENING FOR MARKET SIGNALS...</div>
                         </div>
                     )}
-                </div>
-            </section>
 
-            {/* SECTION 4 & 5: CONSTRAINTS & LOG */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
-                <div className="md:col-span-1">
-                    <h2 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-4 border-b border-gray-200 pb-2">Constraints</h2>
-                    <ul className="space-y-3">
-                        {posture.constraints.map((c, i) => (
-                            <li key={i} className="text-sm text-gray-600 leading-relaxed">• {c}</li>
-                        ))}
-                    </ul>
-                </div>
-                <div className="md:col-span-2">
-                    <h2 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-4 border-b border-gray-200 pb-2">Strategic Change Log</h2>
-                    <div className="space-y-0">
-                        {posture.changeLog.map((log, i) => (
-                            <div key={i} className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors px-2 -mx-2 rounded">
-                                <div className="col-span-3 text-xs font-mono text-gray-400 pt-1">{log.date}</div>
-                                <div className="col-span-4 text-sm font-bold text-gray-800">{log.change}</div>
-                                <div className="col-span-5 text-sm text-gray-500 italic">{log.reason}</div>
-                            </div>
-                        ))}
+                    {/* Fake Cursor at bottom */}
+                    <div className="pl-4 py-2 flex items-center gap-2 text-gray-600">
+                        <span className="text-emerald-500">➜</span>
+                        <span className="animate-pulse bg-emerald-500 w-2 h-4 block"></span>
                     </div>
                 </div>
+
+                {/* Visual Glint/Grid Background effect (Optional, keeping simple CSS for now) */}
+                <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,19,0)_2px,transparent_2px),linear-gradient(90deg,rgba(18,16,19,0)_2px,transparent_2px)] bg-[length:30px_30px] [background-position:center] opacity-[0.03]"></div>
             </div>
-
-            {/* SECTION 6: PRACTICAL APPLICATION */}
-            <section className="bg-indigo-50/50 p-8 border border-indigo-100 rounded-lg mb-12">
-                <h2 className="text-sm font-bold text-indigo-900 uppercase tracking-widest mb-4">Operational Impact</h2>
-                <p className="text-gray-700 leading-relaxed max-w-3xl">
-                    This posture enforces a <strong>check-gate on all high-velocity content</strong>.
-                    Campaign recommendations will favor deep-dive threads over single tweets.
-                    Action Center will suppress "reactionary" alerts unless they meet a relevance threshold of &gt;85.
-                </p>
-            </section>
-
-            {/* SECTION 7: USER ACTIONS */}
-            <section className="flex justify-end gap-4 pt-8 border-t border-gray-200">
-                <button
-                    onClick={handleRequestRevision}
-                    className="px-6 py-3 text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors uppercase tracking-wider"
-                >
-                    Request Revision
-                </button>
-                <Button onClick={handleAcknowledge}>
-                    Acknowledge Posture
-                </Button>
-            </section>
 
         </div>
     );
