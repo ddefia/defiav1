@@ -204,31 +204,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
 
                 {/* RIGHT COLUMN: DEMOGRAPHICS / BREAKDOWN */}
                 <div className="flex flex-col gap-6">
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 h-full">
-                        <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-6">Acquisition Sources</h3>
-                        <div className="flex flex-col gap-6">
-                            {/* Custom Progress Bars */}
-                            {[
-                                { label: 'Twitter / X', val: 65, color: 'bg-gray-900' },
-                                { label: 'Direct / Search', val: 20, color: 'bg-emerald-500' },
-                                { label: 'Telegram', val: 10, color: 'bg-blue-500' },
-                                { label: 'Other', val: 5, color: 'bg-gray-300' }
-                            ].map((item) => (
-                                <div key={item.label}>
-                                    <div className="flex justify-between text-xs font-bold text-gray-500 mb-2">
-                                        <span>{item.label}</span>
-                                        <span className="text-gray-900">{item.val}%</span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                        <div className={`h-full ${item.color}`} style={{ width: `${item.val}%` }}></div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Insights Box */}
-                    <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl border border-indigo-100 p-6 shadow-sm">
+                    {/* INSIGHTS BOX (Expanded to fill column) */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl border border-indigo-100 p-6 shadow-sm h-full">
                         <h3 className="text-xs font-bold text-indigo-900 uppercase tracking-widest mb-3">AI Insight</h3>
                         <p className="text-xs text-indigo-800/80 leading-relaxed">
                             Engagement on Twitter has spiked <span className="font-bold text-indigo-700">+12%</span> this week due to the new roadmap announcement. Recommend doubling down on thread content.

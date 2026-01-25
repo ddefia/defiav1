@@ -1182,6 +1182,11 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         </div>
                                     )}
 
+                                    {/* DEBUG: Temporary State Inspector */}
+                                    <div className="bg-red-50 border border-red-200 p-2 rounded text-[10px] font-mono text-red-800">
+                                        DEBUG: Brand={brandName} | Tasks={loadStrategyTasks(brandName)?.length} | Recs={recommendedStrategies.length}
+                                    </div>
+
                                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
                                         {/* CAMPAIGN TYPE CARDS */}
