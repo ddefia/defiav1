@@ -42,12 +42,6 @@ const transformMetricsToKPIs = (
         ? campaigns.reduce((acc, c) => acc + c.attributedWallets, 0)
         : (chain?.netNewWallets || 0);
 
-    // 3. CPA (Weighted Average)
-    // CPA is tricky if we don't have spend, but we'll keep the calculation logic if needed or fallback
-    // For now, let's keep CPA but base it on a hypothetical spend if real spend is gone, or just 0.
-    const realSpend = campaigns.reduce((acc, c) => acc + c.spend, 0);
-    const cpaVal = newWallets > 0 ? (realSpend / newWallets) : 0;
-
     // 4. NETWORK VOLUME (Chain Metrics)
     const netVol = chain ? chain.totalVolume : 0;
 
@@ -65,22 +59,13 @@ const transformMetricsToKPIs = (
             sparklineData: [impressionsVal * 0.8, impressionsVal * 0.9, impressionsVal]
         },
         {
-            label: 'Attr. Wallets',
+            label: 'New Users',
             value: newWallets.toLocaleString(),
             delta: 0,
             trend: 'flat',
             confidence: campaigns.length > 0 ? 'High' : 'Med',
             statusLabel: newWallets > 100 ? 'Strong' : 'Watch',
             sparklineData: [newWallets * 0.8, newWallets]
-        },
-        {
-            label: 'CPA (Average)',
-            value: `$${cpaVal.toFixed(2)}`,
-            delta: 0,
-            trend: 'flat',
-            confidence: 'High',
-            statusLabel: cpaVal < 50 ? 'Strong' : 'Watch',
-            sparklineData: [cpaVal * 1.1, cpaVal]
         },
         {
             label: 'Network Volume',
@@ -292,9 +277,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             />
 
             {/* LANE 1: PERFORMANCE (KPIs) */}
-            <div className="grid grid-cols-5 gap-3 mb-8">
-                {kpis.map((kpi, i) => (
-                    <div key={i} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm relative group">
+            <div className="grid grid-cols-4 gap-4 mb-8">
+                {kpis.slice(0, 4).map((kpi, i) => (
+                    <div key={i} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm relative group">
                         {/* Confidence Dot */}
                         <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${kpi.confidence === 'High' ? 'bg-emerald-500' : 'bg-amber-500'}`} title={`Confidence: ${kpi.confidence}`}></div>
 
@@ -331,7 +316,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 border-b border-gray-100">
                                     <tr>
-                                        {['Campaign', 'Trend', 'Spend', 'CPA', 'Retention', 'Value', 'ROI', 'Conf', 'Status'].map(h => (
+                                        {['Campaign', 'Trend', 'Retention', 'Value', 'Conf', 'Status'].map(h => (
                                             <th key={h} className="px-4 py-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider">{h}</th>
                                         ))}
                                     </tr>
@@ -340,8 +325,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     {campaigns.map(c => {
                                         // Row Color Logic
                                         let rowClass = "hover:bg-gray-50 transition-colors cursor-pointer group";
-                                        if (c.roi < 1 || (c.attributedWallets === 0 && c.spend > 1000)) rowClass += " bg-rose-50/30 hover:bg-rose-50/60";
-                                        else if (c.cpa > 50 || c.retention < 50) rowClass += " bg-amber-50/30 hover:bg-amber-50/60";
+                                        if (c.retention < 50) rowClass += " bg-amber-50/30 hover:bg-amber-50/60";
 
                                         return (
                                             <tr key={c.id} className={rowClass}>
@@ -354,15 +338,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                         {c.trendSignal === 'up' ? '↗' : c.trendSignal === 'down' ? '↘' : '→'}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-xs font-mono text-gray-600">${c.spend.toLocaleString()}</td>
-                                                <td className="px-4 py-3 text-xs font-mono font-medium">
-                                                    ${c.cpa.toFixed(2)}
-                                                </td>
                                                 <td className="px-4 py-3 text-xs font-mono">{c.retention}%</td>
                                                 <td className="px-4 py-3 text-xs font-mono font-bold">+${c.valueCreated.toLocaleString()}</td>
-                                                <td className="px-4 py-3 text-xs font-mono font-bold">
-                                                    <span className={c.roi > 5 ? 'text-emerald-600' : c.roi < 1 ? 'text-rose-600' : 'text-amber-600'}>{c.roi}x</span>
-                                                </td>
                                                 <td className="px-4 py-3">
                                                     <div className={`w-2 h-2 rounded-full mx-auto ${c.confidence === 'High' ? 'bg-emerald-400' : 'bg-gray-300'}`} title={c.confidence}></div>
                                                 </td>
@@ -419,9 +396,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse"></span>
                                 Live Market Pulse
                             </h3>
-                            <div className="-mx-2">
+                            <div className="-mx-2 h-[240px] overflow-y-auto no-scrollbar">
                                 <TrendFeed
-                                    trends={socialSignals?.trendingTopics || []}
+                                    trends={(socialSignals?.trendingTopics || []).slice(0, 2)}
                                     onReact={handleTrendReaction}
                                     isLoading={false}
                                 />
@@ -429,7 +406,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
 
                     </div>
-
                 </div>
 
                 {/* LANE 2 (RIGHT): DECISIONS & INTELLIGENCE */}

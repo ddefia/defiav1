@@ -6,7 +6,7 @@ import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy, 
 import { getBrainContext } from '../services/pulse'; // New Import
 import { dispatchThinking } from './ThinkingConsole';
 
-import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs } from '../services/storage';
+import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs, loadStrategyTasks } from '../services/storage';
 import { saveBrainMemory } from '../services/supabase'; // History Sync
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy, ActionPlan, MarketingAction } from '../types';
 import jsPDF from 'jspdf';
@@ -102,15 +102,27 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         // const plan = loadBrainState(brandName); // REMOVED: Causing ReferenceError
         // Just for safety if loadActionPlan is not exported, we can check localStorage directly or use a known util
         // Assuming loadActionPlan exists or we can get it from localStorage 'defia_action_plan_{brand}'
+        // Load Action Plan Recommendations via Strategy Tasks
         try {
-            const storedPlan = localStorage.getItem(`defia_action_plan_${brandName}`);
-            if (storedPlan) {
-                const parsed = JSON.parse(storedPlan) as ActionPlan;
-                if (parsed && parsed.actions) {
-                    const mappedActions = parsed.actions.map(a => ({ ...a, content: a.instructions }));
-                    setRecommendedStrategies(mappedActions.slice(0, 3));
-                }
-            }
+            const tasks = loadStrategyTasks(brandName);
+            // Filter for high impact tasks that haven't been dismissed
+            // Map StrategyTask -> MarketingAction for display
+            const recommendations: MarketingAction[] = tasks
+                .filter((t: any) => {
+                    const isHighImpact = (t.impactScore && t.impactScore >= 7) || t.priority === 'high';
+                    return t.status !== 'completed' && t.status !== 'dismissed' && isHighImpact;
+                })
+                .slice(0, 3)
+                .map((t: any) => ({
+                    type: 'CAMPAIGN',
+                    topic: t.executionPrompt || t.title,
+                    hook: t.title,
+                    goal: 'Strategic Growth', // Default goal, or infer from type
+                    reasoning: t.reasoning,
+                    content: null
+                }));
+
+            setRecommendedStrategies(recommendations);
         } catch (e) {
             console.error("Failed to load recommended campaigns", e);
         }
@@ -1181,61 +1193,34 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             </div>
 
                                             <div className="space-y-2">
-                                                {/* Recommended Strategies from Growth Engine */}
-                                                {recommendedStrategies.map((strategy, idx) => (
-                                                    <button
-                                                        key={idx}
-                                                        onClick={() => {
-                                                            setCampaignType('theme');
-                                                            setCampaignTheme(strategy.hook || strategy.topic);
-                                                            setCampaignGoal(strategy.goal);
-                                                            setCampaignContext(strategy.reasoning || '');
-                                                        }}
-                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-green-50/30 border-green-200 hover:bg-white hover:border-green-300'}`}
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-green-600 border border-green-100'}`}>🚀</div>
-                                                            <div>
-                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignTheme === (strategy.hook || strategy.topic) ? 'text-gray-900' : 'text-gray-800'}`}>{strategy.hook || strategy.topic}</h3>
-                                                                <p className="text-[10px] text-gray-500 leading-tight">{strategy.reasoning}</p>
-                                                            </div>
+                                                {/* ALWAYS SHOW MANUAL MODELS */}
+                                                <button
+                                                    onClick={() => setCampaignType('theme')}
+                                                    className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => (s.hook || s.topic) === campaignTheme) ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'theme' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🎯</div>
+                                                        <div>
+                                                            <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-600'}`}>Specific Theme</h3>
+                                                            <p className="text-[10px] text-gray-500 leading-tight">Deep dive into a single topic or launch event.</p>
                                                         </div>
-                                                        {campaignTheme === (strategy.hook || strategy.topic) && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
-                                                    </button>
-                                                ))}
+                                                    </div>
+                                                    {campaignType === 'theme' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
+                                                </button>
 
-                                                {/* Fallback / Static Options if no recommendations or just always show */}
-                                                {recommendedStrategies.length === 0 && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => setCampaignType('theme')}
-                                                            className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => (s.hook || s.topic) === campaignTheme) ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
-                                                        >
-                                                            <div className="flex items-start gap-3">
-                                                                <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'theme' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🎯</div>
-                                                                <div>
-                                                                    <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-600'}`}>Specific Theme</h3>
-                                                                    <p className="text-[10px] text-gray-500 leading-tight">Deep dive into a single topic or launch event.</p>
-                                                                </div>
-                                                            </div>
-                                                            {campaignType === 'theme' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
-                                                        </button>
-
-                                                        <button
-                                                            onClick={() => setCampaignType('diverse')}
-                                                            className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
-                                                        >
-                                                            <div className="flex items-start gap-3">
-                                                                <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'diverse' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🌊</div>
-                                                                <div>
-                                                                    <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-600'}`}>Diverse Mix</h3>
-                                                                    <p className="text-[10px] text-gray-500 leading-tight">Balance maintenance content with updates.</p>
-                                                                </div>
-                                                            </div>
-                                                            {campaignType === 'diverse' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
-                                                        </button>
-                                                    </>
-                                                )}
+                                                <button
+                                                    onClick={() => setCampaignType('diverse')}
+                                                    className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'diverse' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🌊</div>
+                                                        <div>
+                                                            <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-600'}`}>Diverse Mix</h3>
+                                                            <p className="text-[10px] text-gray-500 leading-tight">Balance maintenance content with updates.</p>
+                                                        </div>
+                                                    </div>
+                                                    {campaignType === 'diverse' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
+                                                </button>
 
                                                 <button
                                                     onClick={() => { setCampaignType('notes'); setCampaignTheme(''); }}
@@ -1251,6 +1236,45 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     {campaignType === 'notes' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
                                                 </button>
                                             </div>
+
+                                            {/* STRATEGIC OPPORTUNITIES (RECOMMENDATIONS) */}
+                                            {recommendedStrategies.length > 0 && (
+                                                <div className="mt-8 pt-6 border-t border-gray-200/60 animate-in slide-in-from-bottom-2 fade-in duration-700">
+                                                    <div className="px-1 mb-3 flex items-center justify-between">
+                                                        <div>
+                                                            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide flex items-center gap-2">
+                                                                Suggested
+                                                                <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded text-[9px] font-bold">AI</span>
+                                                            </h2>
+                                                            <p className="text-zinc-500 text-[10px]">High impact opportunities.</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        {recommendedStrategies.map((strategy, idx) => (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => {
+                                                                    setCampaignType('theme');
+                                                                    setCampaignTheme(strategy.hook || strategy.topic);
+                                                                    setCampaignGoal(strategy.goal);
+                                                                    setCampaignContext(strategy.reasoning || '');
+                                                                }}
+                                                                className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-purple-50 border-purple-200 ring-1 ring-purple-200' : 'bg-white border-dashed border-gray-300 hover:bg-purple-50/30 hover:border-purple-200'}`}
+                                                            >
+                                                                <div className="flex items-start gap-3">
+                                                                    <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-purple-100 text-purple-600' : 'bg-gray-50 text-gray-400'}`}>🚀</div>
+                                                                    <div>
+                                                                        <h3 className="font-bold text-xs text-gray-900 mb-0.5">{strategy.hook || strategy.topic}</h3>
+                                                                        <p className="text-[10px] text-gray-500 leading-tight line-clamp-2">{strategy.reasoning}</p>
+                                                                    </div>
+                                                                </div>
+                                                                {campaignTheme === (strategy.hook || strategy.topic) && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* RIGHT COL: CONFIGURATION */}

@@ -52,7 +52,7 @@ export const TrendFeed: React.FC<TrendFeedProps> = ({ trends, onReact, isLoading
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4">
                 {filteredTrends.map((trend) => {
                     // Cleaner Source Handling
                     const isNews = trend.source === 'LunarCrush';
