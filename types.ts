@@ -304,6 +304,19 @@ export interface GrowthReport {
   lastUpdated?: number; // Timestamp for cache invalidation
 }
 
+export interface StrategicPosture {
+  lastUpdated: number; // Unix timestamp
+  version: string;
+  objective: string;
+  thesis: string;
+  timeHorizon: string;
+  confidenceLevel: 'High' | 'Medium' | 'Low';
+  priorities: string[]; // "Mandates"
+  deprioritized: string[]; // "Restricted"
+  constraints: string[];
+  changeLog: { date: string; change: string; reason: string }[];
+}
+
 export interface CampaignStrategy {
   targetAudience: string;
   strategicRationale: string; // Added to match Usage

@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient';
 
 const STORAGE_KEY = 'ethergraph_brand_profiles_v17';
 const PULSE_STORAGE_PREFIX = 'defia_pulse_cache_v2_';
+const POSTURE_STORAGE_KEY = 'defia_strategic_posture_v1';
 const CALENDAR_STORAGE_KEY = 'defia_calendar_events_v1';
 const KEYS_STORAGE_KEY = 'defia_integrations_v1';
 const META_STORAGE_KEY = 'defia_storage_meta_v1';
@@ -66,6 +67,7 @@ const saveToCloud = async (key: string, value: any) => {
 export const STORAGE_EVENTS = {
     CALENDAR_UPDATE: 'defia_calendar_update',
     BRAND_UPDATE: 'defia_brand_update',
+    POSTURE_UPDATE: 'defia_posture_update',
 };
 
 const dispatchStorageEvent = (eventName: string, detail: any) => {
@@ -556,6 +558,71 @@ export const fetchGrowthReportFromCloud = async (brandName: string): Promise<any
         return null;
     } catch (e) {
         return null;
+    }
+};
+
+// --- STRATEGIC POSTURE PERSISTENCE ---
+
+export const loadStrategicPosture = (brandName: string): any => {
+    try {
+        const key = `${POSTURE_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+
+        // Background Sync
+        fetchFromCloud(key).then(res => {
+            if (res && res.value) {
+                // If cloud is newer/different, update local & dispatch
+                // Simple version: just overwrite local cache if exists
+                localStorage.setItem(key, JSON.stringify(res.value));
+            }
+        });
+
+        if (stored) return JSON.parse(stored);
+
+        // DEFAULT SEED (Migration from hardcoded component)
+        return {
+            lastUpdated: Date.now(),
+            version: "1.0",
+            objective: "Establish Defia as the premier authority on DeFi infrastructure and L2 scaling solutions.",
+            thesis: "The market is shifting from speculative trading to infrastructure maturity. Defia must position itself not just as a participant, but as a knowledgeable guide through this transition, prioritizing educational depth over engagement farming.",
+            timeHorizon: "Q1 - Q2 2026",
+            confidenceLevel: "High",
+            priorities: [
+                "Education before promotion",
+                "Retention over raw acquisition",
+                "Narrative consistency",
+                "Measured experimentation"
+            ],
+            deprioritized: [
+                "Short-term hype narratives",
+                "Influencer-led speculation",
+                "High-frequency posting",
+                "Reactionary commentary"
+            ],
+            constraints: [
+                "Adhere to strict compliance regarding financial advice",
+                "Maintain neutral tone during market volatility",
+                "Resource allocation focused on high-fidelity content"
+            ],
+            changeLog: [
+                { date: "Oct 12, 2025", change: "Shifted focus to L2 Scaling", reason: "Market maturity indicates consolidated interest in scaling solutions." },
+                { date: "Jan 10, 2026", change: "Deprioritized Meme-coin coverage", reason: "Brand risk and alignment with long-term infrastructure thesis." }
+            ]
+        };
+
+    } catch (e) {
+        return null; // Should fall back
+    }
+};
+
+export const saveStrategicPosture = (brandName: string, posture: any): void => {
+    try {
+        const key = `${POSTURE_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(posture));
+        saveToCloud(key, posture);
+        dispatchStorageEvent(STORAGE_EVENTS.POSTURE_UPDATE, { brandName });
+    } catch (e) {
+        console.error("Failed to save strategic posture", e);
     }
 };
 

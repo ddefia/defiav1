@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief, StrategicPosture } from "../types";
 import { saveBrainLog } from "./storage";
 import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
 
@@ -1632,6 +1632,84 @@ export const generateGrowthReport = async (
 
     } catch (e) {
         console.error("Growth Report generation failed", e);
+        throw e;
+    }
+};
+
+/**
+ * STRATEGIC POSTURE REFINEMENT
+ * Uses AI to review the "Constitution" based on recent market data + brand goals.
+ */
+export const refineStrategicPosture = async (
+    brandName: string,
+    currentPosture: StrategicPosture,
+    trends: TrendItem[],
+    growthReport: GrowthReport | null
+): Promise<StrategicPosture> => {
+    dispatchThinking("🧠 Refining Strategic Posture...", { brand: brandName });
+    const apiKey = getApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    const recentTrends = trends.slice(0, 5).map(t => `- ${t.headline}`).join('\n');
+    const briefing = growthReport ? `EXECUTIVE SUMMARY: ${growthReport.executiveSummary}` : "";
+
+    const systemInstruction = `
+    You are the Chief Strategy Officer (CSO) for ${brandName}.
+    
+    TASK: Review and Refine the "Strategic Posture" document (The Brand Constitution).
+    
+    INPUT POSTURE:
+    - Objective: "${currentPosture.objective}"
+    - Thesis: "${currentPosture.thesis}"
+    - Mandates: ${JSON.stringify(currentPosture.priorities)}
+    - Restricted: ${JSON.stringify(currentPosture.deprioritized)}
+    
+    MARKET CONTEXT:
+    ${recentTrends}
+    ${briefing}
+    
+    INSTRUCTIONS:
+    1. Analyze if the current Objective/Thesis is still valid given the market context.
+    2. Suggest updates ONLY if necessary. Do not change for the sake of changing.
+    3. If the market is shifting (e.g. from "Bear" to "Bull"), update the Mandates to be more aggressive (or defensive).
+    4. Maintain the "Change Log" properly.
+    
+    OUTPUT FORMAT (JSON):
+    Return the FULL StrategicPosture object with updates applied.
+    {
+        "objective": "...",
+        "thesis": "...",
+        "priorities": ["..."],
+        "deprioritized": ["..."],
+        "confidenceLevel": "High" | "Medium" | "Low",
+        "timeHorizon": "...",
+        "constraints": ["..."],
+        "changeLog": [ ...keep old logs..., { "date": "Today", "change": "Updated X", "reason": "Market shift..." } ]
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "Refine Posture.",
+            config: {
+                systemInstruction: systemInstruction,
+                responseMimeType: "application/json"
+            }
+        });
+
+        const text = response.text || "{}";
+        const newPosture = JSON.parse(text);
+
+        // Merge to ensure we don't lose fields if AI omits them
+        return {
+            ...currentPosture,
+            ...newPosture,
+            lastUpdated: Date.now(),
+            version: (parseFloat(currentPosture.version) + 0.1).toFixed(1)
+        };
+    } catch (e) {
+        console.error("Posture Refinement Failed", e);
         throw e;
     }
 };

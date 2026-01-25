@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis, executeMarketingAction, generateGrowthReport } from './services/gemini';
+import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis, executeMarketingAction, generateGrowthReport, refineStrategicPosture } from './services/gemini';
 import { fetchMarketPulse } from './services/pulse';
 import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { Button } from './components/Button';
 import { Select } from './components/Select';
@@ -21,7 +21,7 @@ import { ImageEditor } from './components/ImageEditor'; // Import ImageEditor
 import { CopilotView } from './components/Copilot/CopilotView'; // Import Copilot
 import { Sidebar } from './components/Sidebar';
 import { Settings } from './components/Settings'; // Import Settings
-import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals } from './types';
+import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals, StrategicPosture } from './types';
 
 
 const App: React.FC = () => {
@@ -74,6 +74,7 @@ const App: React.FC = () => {
     const [socialMetrics, setSocialMetrics] = useState<SocialMetrics | null>(null);
     const [chainMetrics, setChainMetrics] = useState<ComputedMetrics | null>(null); // Lifted for Defia Index
     const [growthReport, setGrowthReport] = useState<GrowthReport | null>(null); // Lifted for Dashboard
+    const [strategicPosture, setStrategicPosture] = useState<StrategicPosture | null>(null); // NEW: Dynamic Posture
 
     // NEW: Shared "War Room" Signals for Brain & UI
     const [socialSignals, setSocialSignals] = useState<SocialSignals>({
@@ -145,6 +146,10 @@ const App: React.FC = () => {
             });
         }
 
+        // Load Strategic Posture
+        const loadedPosture = loadStrategicPosture(selectedBrand);
+        setStrategicPosture(loadedPosture);
+
         // Load History (Logs + Alert Debug)
         console.log(`DEBUG: Selected Brand is [${selectedBrand}]`);
         fetchBrainHistoryEvents(selectedBrand).then(events => {
@@ -161,7 +166,16 @@ const App: React.FC = () => {
             }
         };
 
+        const handlePostureUpdate = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail?.brandName === selectedBrand) {
+                console.log("Live Sync: Reloading posture for", selectedBrand);
+                setStrategicPosture(loadStrategicPosture(selectedBrand));
+            }
+        };
+
         window.addEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
+        window.addEventListener(STORAGE_EVENTS.POSTURE_UPDATE, handlePostureUpdate);
 
         // Listen for Brand Updates
         const handleBrandUpdate = () => {
@@ -173,6 +187,7 @@ const App: React.FC = () => {
         return () => {
             window.removeEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
             window.removeEventListener(STORAGE_EVENTS.BRAND_UPDATE, handleBrandUpdate);
+            window.removeEventListener(STORAGE_EVENTS.POSTURE_UPDATE, handlePostureUpdate);
         };
     }, [selectedBrand]);
 
@@ -599,6 +614,29 @@ const App: React.FC = () => {
     // --- Other Logic ---
     // Campaign Workflow Functions (handleDraftCampaign, etc.) moved to Campaigns.tsx
 
+    const handleUpdatePosture = (newPosture: StrategicPosture) => {
+        setStrategicPosture(newPosture);
+        saveStrategicPosture(selectedBrand, newPosture);
+    };
+
+    const handleRefinePosture = async () => {
+        if (!strategicPosture) return;
+        // Mock loading state is handled by component prop, but we can prevent double click here
+        try {
+            // Fetch latest market data first if missing
+            let trends: TrendItem[] = [];
+            try {
+                trends = await fetchMarketPulse(selectedBrand);
+            } catch (e) { trends = []; }
+
+            const updated = await refineStrategicPosture(selectedBrand, strategicPosture, trends, growthReport);
+            setStrategicPosture(updated);
+            saveStrategicPosture(selectedBrand, updated);
+        } catch (e) {
+            console.error("Refine failed", e);
+        }
+    };
+
     // count moved
     // const approvedCount = campaignItems.filter(i => i.isApproved).length;
 
@@ -657,10 +695,13 @@ const App: React.FC = () => {
                 )}
 
                 {/* SECTION: STRATEGY (AI STRATEGIC POSTURE) */}
-                {appSection === 'brain' && selectedBrand && (
+                {appSection === 'brain' && selectedBrand && strategicPosture && (
                     <AIStrategicPosture
                         brandName={selectedBrand}
                         tasks={strategyTasks}
+                        posture={strategicPosture}
+                        onUpdate={handleUpdatePosture}
+                        onRefine={handleRefinePosture}
                         onSchedule={handleOpenScheduleModal}
                     />
                 )}
