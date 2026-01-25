@@ -177,7 +177,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                                     <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-900 line-clamp-1 max-w-xs hover:text-blue-600 transition-colors">
                                                         {post.content}
                                                     </a>
-                                                    <div className="text-[10px] text-gray-500">{post.platform}</div>
                                                 </div>
                                             </div>
                                         </td>
