@@ -753,7 +753,7 @@ const App: React.FC = () => {
 
 
                 {appSection === 'calendar' && selectedBrand && (
-                    <div className="w-full max-w-7xl mx-auto">
+                    <div className="w-full max-w-7xl mx-auto p-6">
                         <ContentCalendar
                             brandName={selectedBrand}
                             events={[...calendarEvents, ...historyEvents]}
