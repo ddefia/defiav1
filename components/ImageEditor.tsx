@@ -130,8 +130,8 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
         <div className="w-full max-w-7xl mx-auto p-6 space-y-6 animate-fadeIn h-full flex flex-col">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-display font-bold text-brand-text">AI Image Editor</h1>
-                    <p className="text-brand-muted">Upload an image and use magic prompts to edit it.</p>
+                    <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">AI Image Studio <span className="text-xs bg-black text-white px-2 py-0.5 rounded ml-2 align-middle font-sans uppercase tracking-widest">Beta</span></h1>
+                    <p className="text-zinc-500 text-sm max-w-lg">Upload an image and use magic prompts to edit it.</p>
                 </div>
                 {originalImage && (
                     <Button onClick={handleClear} variant="secondary">Start Over</Button>
@@ -146,7 +146,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
                     {/* Upload Section */}
                     {!originalImage ? (
                         <div
-                            className="border-2 border-dashed border-gray-200 rounded-xl p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors h-64"
+                            className="border-2 border-dashed border-zinc-200 rounded-xl p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-zinc-50 hover:border-zinc-300 transition-all duration-300 h-64 group"
                             onClick={() => fileInputRef.current?.click()}
                         >
                             <input
@@ -156,11 +156,11 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
                                 accept="image/*"
                                 className="hidden"
                             />
-                            <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-500 mb-4">
-                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            <div className="w-16 h-16 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:scale-110 transition-transform mb-4 border border-zinc-100">
+                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                             </div>
-                            <span className="font-bold text-gray-700">Click to Upload Image</span>
-                            <span className="text-xs text-gray-400 mt-2">JPG, PNG supported</span>
+                            <span className="font-bold text-zinc-700 text-sm">Click to Upload Image</span>
+                            <span className="text-xs text-zinc-400 mt-2">JPG, PNG supported</span>
                         </div>
                     ) : (
                         <div className="relative group rounded-xl overflow-hidden shadow-sm border border-brand-border">
@@ -173,12 +173,12 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
                     {originalImage && (
                         <div className="space-y-4 animate-fadeIn">
                             <div>
-                                <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Magic Instruction</label>
+                                <label className="text-[10px] font-bold text-zinc-400 uppercase mb-2 block tracking-widest pl-1">Magic Instruction</label>
                                 <textarea
                                     value={prompt}
                                     onChange={(e) => setPrompt(e.target.value)}
                                     placeholder="e.g. Change the background to a cyberpunk city, make the logo neon blue..."
-                                    className="w-full bg-gray-50 border border-brand-border rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-brand-accent outline-none resize-none h-32 transition-all"
+                                    className="w-full bg-white border-2 border-gray-100 rounded-xl p-4 text-sm text-gray-900 focus:border-zinc-900 focus:ring-0 outline-none resize-none h-32 transition-all font-medium placeholder:text-gray-400"
                                 />
                             </div>
 
@@ -196,7 +196,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
                                 onClick={handleEdit}
                                 isLoading={isProcessing}
                                 disabled={!prompt}
-                                className="w-full py-4 shadow-lg shadow-indigo-500/20"
+                                className="w-full py-4 shadow-lg shadow-zinc-900/10 bg-zinc-900 text-white hover:bg-zinc-800 border-none rounded-xl font-bold"
                             >
                                 ✨ Magic Edit
                             </Button>
@@ -212,10 +212,10 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
 
                 {/* RIGHT PANEL: PREVIEW */}
                 <div className="lg:col-span-2 flex flex-col gap-6">
-                    <div className="bg-gray-50/50 border border-brand-border rounded-xl p-8 flex items-center justify-center relative min-h-[400px] flex-1">
+                    <div className="bg-white border border-gray-100 rounded-xl p-8 flex items-center justify-center relative min-h-[400px] flex-1 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
 
-                        <div className="absolute top-4 right-4 bg-white/80 backdrop-blur border border-brand-border px-3 py-1.5 rounded-full text-[10px] font-bold text-brand-muted flex items-center gap-1.5 shadow-sm">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur border border-zinc-200 px-3 py-1.5 rounded-full text-[10px] font-bold text-zinc-500 flex items-center gap-1.5 shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                             Running on {currentModel}
                         </div>
 
@@ -254,8 +254,8 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
 
                     {/* HISTORY GALLERY */}
                     {history.length > 0 && (
-                        <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm">
-                            <h3 className="text-sm font-bold text-brand-muted uppercase tracking-wider mb-4">
+                        <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
+                            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">
                                 History for {brandName || 'Brand'}
                             </h3>
                             <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">

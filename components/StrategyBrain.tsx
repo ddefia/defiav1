@@ -46,53 +46,61 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             {/* Subtle Gradient Background for Header Area */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 via-blue-500 to-purple-500 opacity-80"></div>
 
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h2 className="text-xl font-display font-bold text-gray-900 flex items-center gap-3">
-                        <span className="text-2xl">🧠</span>
-                        Strategic Intelligence
+                    <h2 className="text-3xl font-display font-bold text-gray-900 flex items-center gap-3">
+                        Strategic Posture
                         {onRegenerate && (
                             <button
                                 onClick={handleRegenClick}
                                 disabled={isRegenerating}
-                                className={`ml-2 p-1.5 rounded-full border transition-all ${isRegenerating ? 'bg-gray-50 border-gray-100 text-gray-300' : 'bg-white border-gray-200 text-gray-400 hover:text-emerald-500 hover:border-emerald-200 shadow-sm'}`}
-                                title="Refresh Intelligence"
+                                className={`ml-2 p-2 rounded-full border transition-all ${isRegenerating ? 'bg-gray-50 border-gray-100 text-gray-300' : 'bg-white border-gray-200 text-gray-400 hover:text-emerald-500 hover:border-emerald-200 shadow-sm'}`}
+                                title="Refresh Neural Stream"
                             >
-                                <svg className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
                             </button>
                         )}
                     </h2>
-                    <p className="text-xs text-gray-500 mt-1 font-medium ml-1">
-                        AI-generated high-leverage opportunities based on market conditions.
+                    <p className="text-zinc-500 text-sm mt-1 max-w-xl">
+                        Real-time <span className="font-bold text-zinc-900">Neural Stream</span> of high-leverage opportunities based on live market conditions.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
+                        <div className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-800">
+                            Neural Stream Active
+                        </span>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100/50">
-                        {tasks.length} Active Signals
-                    </span>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
-                {tasks.map(task => (
-                    <StrategyActionCard
-                        key={task.id}
-                        task={task}
-                        onConfigure={() => setSelectedTask(task)}
-                    />
-                ))}
+            <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Incoming Signals</span>
+                    <div className="h-[1px] flex-1 bg-zinc-100"></div>
+                </div>
 
-                {tasks.length === 0 && (
-                    <div className="p-8 text-center border-2 border-dashed border-gray-100 rounded-lg">
-                        <p className="text-gray-400 text-sm">No strategic signals at this time.</p>
-                    </div>
-                )}
+                <div className="grid grid-cols-1 gap-4">
+                    {tasks.map(task => (
+                        <StrategyActionCard
+                            key={task.id}
+                            task={task}
+                            onConfigure={() => setSelectedTask(task)}
+                        />
+                    ))}
+
+                    {tasks.length === 0 && (
+                        <div className="p-12 text-center border-2 border-dashed border-gray-100 rounded-xl bg-gray-50/50">
+                            <p className="text-gray-400 text-sm font-medium">Neural Stream is calibrating. No active signals.</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Detailed View Modal */}

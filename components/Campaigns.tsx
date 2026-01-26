@@ -946,9 +946,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 {/* Header */}
                 <div className="flex justify-between items-end border-b border-white/10 pb-6">
                     <div>
-                        <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">Campaigns</h1>
-                        <p className="text-zinc-400 text-sm max-w-lg">Design a coordinated content sequence tied to a specific growth objective.</p>
-                        <p className="text-zinc-600 text-xs mt-1">Execution units derived from Defia system recommendations.</p>
+                        <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">Campaigns center</h1>
+                        <p className="text-zinc-500 text-sm max-w-lg">Create high-impact content sequences tied to specific growth objectives.</p>
+                        <p className="text-zinc-600 text-xs mt-1">Select an execution model below to begin.</p>
                     </div>
                     {viewMode === 'list' && (
                         <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }} className="shadow-lg shadow-purple-500/20 bg-white text-black hover:bg-zinc-200 border-none">
@@ -1151,45 +1151,48 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     <p className="text-zinc-500 text-[10px] mt-1">Select strategy type</p>
                                                 </div>
 
-                                                <div className="space-y-2.5">
+                                                <div className="space-y-3">
                                                     {/* ALWAYS SHOW MANUAL MODELS */}
                                                     <button
                                                         onClick={() => setCampaignType('theme')}
-                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => (s.hook || s.topic) === campaignTheme) ? 'bg-zinc-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => (s.hook || s.topic) === campaignTheme) ? 'bg-white border-zinc-900 shadow-xl shadow-zinc-900/10 transform scale-[1.02]' : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-md'}`}
                                                     >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'theme' ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-400'}`}>🎯</div>
+                                                        <div className="flex items-start gap-4 relative z-10">
+                                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0 transition-colors ${campaignType === 'theme' ? 'bg-zinc-900 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>🎯</div>
                                                             <div>
-                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-600'}`}>Specific Theme</h3>
-                                                                <p className="text-[10px] text-gray-500 leading-tight">Deep dive into a single topic.</p>
+                                                                <h3 className={`font-bold text-sm mb-1 ${campaignType === 'theme' ? 'text-zinc-900' : 'text-gray-600'}`}>Specific Theme</h3>
+                                                                <p className="text-xs text-zinc-500 leading-relaxed">Deep dive into a single high-value topic (e.g., Product Launch, Event).</p>
                                                             </div>
                                                         </div>
+                                                        {campaignType === 'theme' && <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-zinc-100 to-transparent -mr-8 -mt-8 rounded-full blur-xl pointer-events-none"></div>}
                                                     </button>
 
                                                     <button
                                                         onClick={() => setCampaignType('diverse')}
-                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-zinc-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-white border-zinc-900 shadow-xl shadow-zinc-900/10 transform scale-[1.02]' : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-md'}`}
                                                     >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'diverse' ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-400'}`}>🌊</div>
+                                                        <div className="flex items-start gap-4 relative z-10">
+                                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0 transition-colors ${campaignType === 'diverse' ? 'bg-zinc-900 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>🌊</div>
                                                             <div>
-                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-600'}`}>Diverse Mix</h3>
-                                                                <p className="text-[10px] text-gray-500 leading-tight">General maintenance content.</p>
+                                                                <h3 className={`font-bold text-sm mb-1 ${campaignType === 'diverse' ? 'text-zinc-900' : 'text-gray-600'}`}>Diverse Mix</h3>
+                                                                <p className="text-xs text-zinc-500 leading-relaxed">General maintenance content covering multiple pillars to keep engagement high.</p>
                                                             </div>
                                                         </div>
+                                                        {campaignType === 'diverse' && <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-zinc-100 to-transparent -mr-8 -mt-8 rounded-full blur-xl pointer-events-none"></div>}
                                                     </button>
 
                                                     <button
                                                         onClick={() => { setCampaignType('notes'); setCampaignTheme(''); }}
-                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'notes' ? 'bg-zinc-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-300 relative overflow-hidden group ${campaignType === 'notes' ? 'bg-white border-zinc-900 shadow-xl shadow-zinc-900/10 transform scale-[1.02]' : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-md'}`}
                                                     >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'notes' ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-400'}`}>✨</div>
+                                                        <div className="flex items-start gap-4 relative z-10">
+                                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0 transition-colors ${campaignType === 'notes' ? 'bg-zinc-900 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>✨</div>
                                                             <div>
-                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'notes' ? 'text-gray-900' : 'text-gray-600'}`}>Smart Plan</h3>
-                                                                <p className="text-[10px] text-gray-500 leading-tight">AI Generated from notes.</p>
+                                                                <h3 className={`font-bold text-sm mb-1 ${campaignType === 'notes' ? 'text-zinc-900' : 'text-gray-600'}`}>Smart Plan</h3>
+                                                                <p className="text-xs text-zinc-500 leading-relaxed">Let AI analyze your rough notes and construct a complete strategy.</p>
                                                             </div>
                                                         </div>
+                                                        {campaignType === 'notes' && <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-purple-100 to-transparent -mr-8 -mt-8 rounded-full blur-xl pointer-events-none"></div>}
                                                     </button>
                                                 </div>
 
@@ -1271,34 +1274,34 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     </div>
                                                 )}
 
-                                                <div className="space-y-4">
+                                                <div className="space-y-6">
                                                     {campaignType === 'theme' && (
                                                         <div className="animate-fadeIn">
-                                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block tracking-wider">Campaign Theme</label>
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-widest pl-1">Campaign Theme</label>
                                                             <div className="relative">
                                                                 <input
                                                                     type="text"
                                                                     value={campaignTheme}
                                                                     onChange={e => setCampaignTheme(e.target.value)}
                                                                     placeholder="e.g. Protocol v2 Launch Week"
-                                                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-xs text-gray-900 focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none transition-all placeholder:text-gray-400"
+                                                                    className="w-full bg-white border-2 border-gray-100 rounded-xl p-4 text-sm text-gray-900 focus:border-zinc-900 focus:ring-0 outline-none transition-all placeholder:text-gray-400 font-medium"
                                                                 />
-                                                                <div className="absolute right-3 top-2.5 text-[10px] text-gray-400 font-mono">Required</div>
+                                                                <div className="absolute right-4 top-4 text-[10px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded">Required</div>
                                                             </div>
                                                         </div>
                                                     )}
 
                                                     {campaignType === 'notes' && (
                                                         <div className="animate-fadeIn">
-                                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block tracking-wider">Raw Content Notes</label>
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-widest pl-1">Raw Content Notes</label>
                                                             <textarea
                                                                 value={campaignContext}
                                                                 onChange={e => setCampaignContext(e.target.value)}
                                                                 placeholder="Paste rough notes, links, or bullet points..."
-                                                                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none min-h-[120px] font-mono placeholder:text-gray-400 leading-relaxed resize-y"
+                                                                className="w-full bg-white border-2 border-gray-100 rounded-xl p-4 text-sm text-gray-900 focus:border-emerald-500 focus:ring-0 outline-none min-h-[160px] font-mono placeholder:text-gray-400 leading-relaxed resize-y"
                                                             />
-                                                            <div className="flex items-center gap-1.5 mt-1.5 text-gray-400 text-[9px]">
-                                                                <span className="w-1 h-1 rounded-full bg-emerald-500"></span>
+                                                            <div className="flex items-center gap-2 mt-2 pl-1 text-zinc-500 text-[10px]">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                                                 AI Agent will structure this into a coherent campaign.
                                                             </div>
                                                         </div>
@@ -1306,27 +1309,27 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                                                     {campaignType !== 'notes' && (
                                                         <>
-                                                            <div className="grid grid-cols-2 gap-4">
+                                                            <div className="grid grid-cols-2 gap-6">
                                                                 <div>
-                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 flex justify-between items-center tracking-wider">
+                                                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-widest pl-1">
                                                                         <span>Objective</span>
                                                                     </label>
                                                                     <div className="relative">
                                                                         <select
                                                                             value={campaignGoal}
                                                                             onChange={(e) => setCampaignGoal(e.target.value)}
-                                                                            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-xs text-gray-900 appearance-none outline-none focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 cursor-pointer"
+                                                                            className="w-full bg-white border-2 border-gray-100 rounded-xl p-4 text-sm text-gray-900 appearance-none outline-none focus:border-zinc-900 focus:ring-0 cursor-pointer font-medium"
                                                                         >
                                                                             <option value="User Acquisition">User Acquisition</option>
                                                                             <option value="Brand Awareness">Brand Awareness</option>
                                                                             <option value="Community Engagement">Community Engagement</option>
                                                                             <option value="Product Education">Product Education</option>
                                                                         </select>
-                                                                        <div className="absolute right-3 top-3 pointer-events-none text-gray-500 text-[8px]">▼</div>
+                                                                        <div className="absolute right-4 top-5 pointer-events-none text-gray-400 text-[8px]">▼</div>
                                                                     </div>
                                                                 </div>
                                                                 <div>
-                                                                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 flex justify-between items-center tracking-wider">
+                                                                    <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-widest pl-1">
                                                                         <span>Posts</span>
                                                                     </label>
                                                                     <input
@@ -1335,25 +1338,25 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                                         max="50"
                                                                         value={campaignCount}
                                                                         onChange={e => setCampaignCount(e.target.value)}
-                                                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-xs text-gray-900 focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none"
+                                                                        className="w-full bg-white border-2 border-gray-100 rounded-xl p-4 text-sm text-gray-900 focus:border-zinc-900 focus:ring-0 outline-none font-medium"
                                                                     />
                                                                 </div>
                                                             </div>
 
                                                             <div>
-                                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block tracking-wider">Additional Context (Optional)</label>
+                                                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-widest pl-1">Additional Context (Optional)</label>
                                                                 <textarea
                                                                     value={campaignContext}
                                                                     onChange={e => setCampaignContext(e.target.value)}
                                                                     placeholder="Any specific constraints or key phrases to include?"
-                                                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-900 focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none min-h-[60px] placeholder:text-gray-400 resize-none"
+                                                                    className="w-full bg-white border-2 border-gray-100 rounded-xl p-4 text-sm text-gray-900 focus:border-zinc-900 focus:ring-0 outline-none min-h-[80px] placeholder:text-gray-400 resize-none font-medium"
                                                                 />
                                                             </div>
 
                                                             <div>
-                                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block tracking-wider flex justify-between items-end">
+                                                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-widest pl-1 flex justify-between items-end">
                                                                     <span>Strategic Doc</span>
-                                                                    <span onClick={() => focusDocInputRef.current?.click()} className="text-purple-600 hover:text-purple-800 cursor-pointer hover:underline text-[9px] font-bold">
+                                                                    <span onClick={() => focusDocInputRef.current?.click()} className="text-purple-600 hover:text-purple-800 cursor-pointer hover:underline text-[9px] font-bold bg-purple-50 px-2 py-1 rounded">
                                                                         {isUploadingFocusDoc ? 'Uploading...' : '+ Upload PDF/TXT'}
                                                                     </span>
                                                                 </label>
@@ -1362,22 +1365,22 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                                     value={campaignFocusDoc}
                                                                     onChange={e => setCampaignFocusDoc(e.target.value)}
                                                                     placeholder="Paste strategy text or upload a doc to guide the AI..."
-                                                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-[10px] text-gray-900 focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 outline-none min-h-[80px] placeholder:text-gray-400 font-mono resize-y"
+                                                                    className="w-full bg-zinc-50/50 border-2 border-gray-100 rounded-xl p-4 text-[10px] text-gray-600 focus:border-purple-500 focus:ring-0 outline-none min-h-[80px] placeholder:text-gray-400 font-mono resize-y leading-relaxed"
                                                                 />
                                                             </div>
                                                         </>
                                                     )}
 
                                                     {/* Visual Style & Refs */}
-                                                    <div className="pt-4 border-t border-gray-100 space-y-4">
-                                                        <div className="grid grid-cols-2 gap-4">
+                                                    <div className="pt-6 border-t border-gray-100 space-y-6">
+                                                        <div className="grid grid-cols-2 gap-6">
                                                             <div>
-                                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block tracking-wider">Visual Style</label>
+                                                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-widest pl-1">Visual Style</label>
                                                                 <div className="relative">
                                                                     <select
                                                                         value={campaignTemplate}
                                                                         onChange={(e) => setCampaignTemplate(e.target.value)}
-                                                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 text-xs text-gray-900 appearance-none outline-none focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/10 cursor-pointer"
+                                                                        className="w-full bg-white border-2 border-gray-100 rounded-xl p-4 text-sm text-gray-900 appearance-none outline-none focus:border-zinc-900 focus:ring-0 cursor-pointer font-medium"
                                                                     >
                                                                         <option value="">No Template (Default)</option>
                                                                         {(!brandConfig.graphicTemplates || brandConfig.graphicTemplates.length === 0) && (
@@ -1391,31 +1394,31 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                                             <option key={t.id} value={t.label}>{t.label}</option>
                                                                         ))}
                                                                     </select>
-                                                                    <div className="absolute right-3 top-3 pointer-events-none text-gray-500 text-[8px]">▼</div>
+                                                                    <div className="absolute right-4 top-5 pointer-events-none text-gray-400 text-[8px]">▼</div>
                                                                 </div>
                                                             </div>
                                                         </div>
 
                                                         <div>
-                                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block tracking-wider">Reference Image</label>
-                                                            <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-widest pl-1">Reference Image</label>
+                                                            <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                                                                 <div
                                                                     onClick={() => setCampaignReferenceImage(null)}
-                                                                    className={`flex-shrink-0 w-12 h-12 rounded-lg border border-dashed cursor-pointer flex items-center justify-center transition-all ${!campaignReferenceImage ? 'border-purple-500 bg-purple-50 text-purple-600' : 'border-gray-200 bg-white text-gray-400 hover:border-gray-400'}`}
+                                                                    className={`flex-shrink-0 w-16 h-16 rounded-xl border-2 border-dashed cursor-pointer flex items-center justify-center transition-all ${!campaignReferenceImage ? 'border-zinc-900 bg-zinc-50 text-zinc-900' : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'}`}
                                                                 >
-                                                                    <span className="text-[9px]">None</span>
+                                                                    <span className="text-[10px] font-medium">None</span>
                                                                 </div>
                                                                 {brandConfig.referenceImages.map(img => (
                                                                     <div
                                                                         key={img.id}
                                                                         onClick={() => setCampaignReferenceImage(campaignReferenceImage === img.id ? null : img.id)}
-                                                                        className={`flex-shrink-0 w-16 h-16 rounded-xl border cursor-pointer overflow-hidden relative group transition-all ${campaignReferenceImage === img.id ? 'border-purple-500 shadow-md ring-2 ring-purple-100' : 'border-gray-200 hover:border-gray-400'}`}
+                                                                        className={`flex-shrink-0 w-16 h-16 rounded-xl border-2 cursor-pointer overflow-hidden relative group transition-all ${campaignReferenceImage === img.id ? 'border-zinc-900 shadow-lg scale-105' : 'border-gray-200 hover:border-gray-300'}`}
                                                                         title={img.name}
                                                                     >
                                                                         <img src={img.data || img.url} className="w-full h-full object-cover" />
                                                                         {campaignReferenceImage === img.id && (
-                                                                            <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
-                                                                                <div className="w-2 h-2 bg-purple-500 rounded-full shadow-sm" />
+                                                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                                                <div className="w-2.5 h-2.5 bg-white rounded-full shadow-sm" />
                                                                             </div>
                                                                         )}
                                                                     </div>
