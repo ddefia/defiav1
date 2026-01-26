@@ -119,23 +119,7 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                 </div>
             </div>
 
-            {/* TOP ROW: KPI CARDS (Sharpened) */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {[
-                    { label: 'Confidence', value: posture.confidenceLevel, meta: 'Stable', color: 'text-emerald-600' },
-                    { label: 'Time Horizon', value: posture.timeHorizon, meta: 'Target', color: 'text-gray-500' },
-                    { label: 'Mandates', value: posture.priorities.length, meta: 'Active', color: 'text-blue-600' },
-                    { label: 'Signal Stream', value: tasks.length, meta: 'Processing', color: 'text-purple-600' }
-                ].map((stat, i) => (
-                    <div key={i} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-gray-300 transition-colors">
-                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{stat.label}</div>
-                        <div className="flex items-baseline justify-between">
-                            <div className="text-xl font-bold text-gray-900 tracking-tight">{stat.value}</div>
-                            <div className={`text-[10px] font-medium ${stat.color}`}>{stat.meta}</div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            {/* TOP ROW: REMOVED as per user feedback ("why do i have those 4 components") */}
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
 
@@ -144,34 +128,48 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
 
                     {/* OBJECTIVE CARD (High Signal) */}
                     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                            <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Primary Objective</h3>
+                        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/30 flex justify-between items-start md:items-center flex-col md:flex-row gap-2">
+                            <div>
+                                <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Primary Objective</h3>
+
+                                {/* Moved Metadata Here */}
+                                <div className="flex items-center gap-3 mt-1.5">
+                                    <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-emerald-100 bg-emerald-50">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        <span className="text-[10px] font-bold text-emerald-700 uppercase">{posture.confidenceLevel} Confidence</span>
+                                    </div>
+                                    <span className="text-gray-300 text-[10px]">|</span>
+                                    <span className="text-[10px] font-mono text-gray-500 font-medium">Horizon: {posture.timeHorizon}</span>
+                                </div>
+                            </div>
 
                             {isEditing ? (
-                                <span className="text-[10px] text-blue-600 font-bold">EDITING</span>
+                                <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded border border-blue-100 animate-pulse">EDITING MODE</span>
                             ) : (
                                 <span className="text-[10px] font-mono text-gray-400">OBJ-01</span>
                             )}
                         </div>
                         <div className="p-6">
                             {isEditing ? (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase">Objective Statement</label>
+                                <div className="space-y-4 animate-in fade-in duration-200">
+                                    <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                                        <label className="text-[10px] font-bold text-blue-900 uppercase mb-2 block">Objective Statement</label>
                                         <textarea
                                             value={editState.objective}
                                             onChange={(e) => setEditState({ ...editState, objective: e.target.value })}
-                                            className="w-full text-lg font-medium text-gray-900 p-2 border border-gray-200 rounded focus:border-black outline-none bg-gray-50"
+                                            className="w-full text-lg font-medium text-gray-900 p-3 border border-gray-200 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white shadow-sm transition-all"
                                             rows={2}
+                                            placeholder="Define the primary strategic goal..."
                                         />
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase">Strategic Thesis</label>
+                                    <div className="bg-gray-50/50 p-4 rounded-lg border border-gray-100">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Strategic Thesis</label>
                                         <textarea
                                             value={editState.thesis}
                                             onChange={(e) => setEditState({ ...editState, thesis: e.target.value })}
-                                            className="w-full text-sm text-gray-600 italic leading-relaxed p-2 border border-gray-200 rounded focus:border-black outline-none bg-gray-50"
+                                            className="w-full text-sm text-gray-600 italic leading-relaxed p-3 border border-gray-200 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white shadow-sm transition-all"
                                             rows={3}
+                                            placeholder="Explain the reasoning behind this objective..."
                                         />
                                     </div>
                                 </div>
@@ -180,8 +178,8 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                     <p className="text-lg font-medium text-gray-900 leading-relaxed tracking-tight mb-4">
                                         {posture.objective}
                                     </p>
-                                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-md border border-gray-100">
-                                        <span className="text-gray-400 text-lg serif italic">"</span>
+                                    <div className="flex items-start gap-3 p-4 bg-gray-50/50 rounded-lg border border-gray-100">
+                                        <span className="text-gray-300 text-2xl serif leading-none">“</span>
                                         <p className="text-sm text-gray-600 italic leading-relaxed">
                                             {posture.thesis}
                                         </p>
@@ -239,9 +237,11 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                             <input
                                                 value={item}
                                                 onChange={(e) => updateList('priorities', i, e.target.value)}
-                                                className="flex-1 text-xs border border-gray-200 rounded px-1 py-0.5"
+                                                className="flex-1 text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none shadow-sm transition-all"
                                             />
-                                            <button onClick={() => removeListItem('priorities', i)} className="text-gray-400 hover:text-red-500">×</button>
+                                            <button onClick={() => removeListItem('priorities', i)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
                                         </div>
                                     ) : (
                                         <span className="text-xs font-medium text-gray-700 leading-snug">{item}</span>
@@ -266,9 +266,11 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                             <input
                                                 value={item}
                                                 onChange={(e) => updateList('deprioritized', i, e.target.value)}
-                                                className="flex-1 text-xs border border-gray-200 rounded px-1 py-0.5"
+                                                className="flex-1 text-xs border border-gray-200 rounded-md px-2 py-1.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none shadow-sm transition-all"
                                             />
-                                            <button onClick={() => removeListItem('deprioritized', i)} className="text-gray-400 hover:text-red-500">×</button>
+                                            <button onClick={() => removeListItem('deprioritized', i)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
                                         </div>
                                     ) : (
                                         <span className="text-xs text-gray-500 leading-snug">{item}</span>
