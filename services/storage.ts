@@ -647,6 +647,9 @@ export const fetchBrainHistoryEvents = async (brandName: string): Promise<Calend
             .select('id, created_at, metadata, content, brand_id')
             .ilike('brand_id', dbBrandId) // Case insensitive match ('Metis' == 'metis')
             .not('content', 'ilike', '%MIGRATED LOG%') // Filter out system logs
+            // FIX: Exclude Campaign assets from "History" view as they are managed in the Campaign Scheduler
+            // This prevents the "Double Entry" issue and keeps History clean for actual past posts.
+            .not('metadata->>source', 'eq', 'Campaigns')
             .order('created_at', { ascending: false })
             .limit(500);
 

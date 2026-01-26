@@ -249,7 +249,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
 
         // Empty cells for days before the 1st
         for (let i = 0; i < firstDay; i++) {
-            days.push(<div key={`empty-${i}`} className="h-36 bg-gray-50/30 border border-brand-border/50"></div>);
+            days.push(<div key={`empty-${i}`} className="min-h-[200px] bg-gray-50/50"></div>);
         }
 
         // Days of the month
@@ -265,19 +265,19 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                     onClick={() => onAddEvent(dateStr)}
                     onDragOver={(e) => handleDragOver(e, dateStr)}
                     onDrop={(e) => handleDrop(e, dateStr)}
-                    className={`h-36 border border-brand-border p-2 relative group hover:bg-white transition-colors overflow-hidden cursor-pointer hover:shadow-inner 
-                        ${isToday ? 'bg-indigo-50/30' : 'bg-white'}
-                        ${isDragOver ? 'bg-indigo-100 ring-2 ring-indigo-300 z-10' : ''}
+                    className={`min-h-[200px] p-4 relative group transition-colors overflow-hidden cursor-pointer 
+                        ${isToday ? 'bg-indigo-50/30' : 'bg-white hover:bg-gray-50'}
+                        ${isDragOver ? 'bg-indigo-100 ring-inset ring-2 ring-indigo-300 z-10' : ''}
                     `}
                 >
-                    <div className="flex justify-between items-start mb-1">
-                        <span className={`text-xs font-bold ${isToday ? 'text-brand-accent bg-indigo-100 px-1.5 py-0.5 rounded-full' : 'text-brand-muted'}`}>{day}</span>
+                    <div className="flex justify-between items-start mb-3">
+                        <span className={`text-sm font-bold ${isToday ? 'text-white bg-brand-accent px-2 py-0.5 rounded-full shadow-sm' : 'text-brand-muted'}`}>{day}</span>
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button className="text-[10px] bg-brand-accent text-white px-1.5 py-0.5 rounded hover:bg-indigo-700 font-bold">+</button>
+                            <button className="text-[10px] bg-brand-accent text-white px-2 py-1 rounded hover:bg-indigo-700 font-bold shadow-sm">+</button>
                         </div>
                     </div>
 
-                    <div className="space-y-1 overflow-y-auto max-h-[100px] custom-scrollbar pb-1">
+                    <div className="space-y-1.5 overflow-y-auto max-h-[140px] custom-scrollbar pb-1">
                         {dayEvents.map(ev => {
                             const style = getEventStyle(ev.campaignName, ev.color);
                             return (
@@ -287,13 +287,13 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                     onDragStart={(e) => handleDragStart(e, ev.id)}
                                     onDragEnd={handleDragEnd}
                                     onClick={(e) => { e.stopPropagation(); handleEventClick(ev); }}
-                                    className={`${!style.isExplicit ? style.bg : ''} ${!style.isExplicit ? style.border : ''} border rounded p-1.5 text-[10px] ${style.text} relative group/event cursor-grab active:cursor-grabbing hover:shadow-md transition-all z-20`}
+                                    className={`${!style.isExplicit ? style.bg : ''} ${!style.isExplicit ? style.border : ''} border rounded-md p-2 text-xs ${style.text} relative group/event cursor-grab active:cursor-grabbing hover:shadow-md transition-all z-20`}
                                     style={style.isExplicit ? { backgroundColor: style.hex, borderColor: style.hex, color: '#fff' } : {}}
                                 >
                                     <div className="flex flex-col gap-1">
                                         <div className="flex justify-between items-start">
-                                            <span className="font-bold truncate w-full pointer-events-none uppercase tracking-tight text-[9px]">
-                                                {ev.campaignName || 'No Campaign'}
+                                            <span className="font-bold truncate w-full pointer-events-none uppercase tracking-tight text-[10px] opacity-80">
+                                                {ev.campaignName || 'Single Post'}
                                             </span>
                                         </div>
 
@@ -302,11 +302,11 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                                 <img
                                                     src={ev.image}
                                                     alt="Preview"
-                                                    className="w-8 h-8 rounded object-cover border border-black/5 shrink-0 bg-white"
+                                                    className="w-10 h-10 rounded object-cover border border-black/5 shrink-0 bg-white shadow-sm"
                                                     draggable={false}
                                                 />
                                             )}
-                                            <p className="opacity-90 leading-snug line-clamp-2 pointer-events-none flex-1">
+                                            <p className="opacity-90 leading-snug line-clamp-3 pointer-events-none flex-1 font-medium">
                                                 {ev.content}
                                             </p>
                                         </div>
@@ -356,17 +356,16 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
             </div>
 
             {/* Grid */}
-            <div className="bg-white rounded-xl border border-brand-border shadow-sm overflow-hidden" onMouseLeave={() => setDragOverDate(null)}>
-                <div className="grid grid-cols-7 border-b border-brand-border bg-gray-50">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                        <div key={day} className="py-2 text-center text-xs font-bold text-brand-muted uppercase tracking-wider">
-                            {day}
-                        </div>
-                    ))}
-                </div>
-                <div className="grid grid-cols-7">
-                    {renderCalendarGrid()}
-                </div>
+            <div className="bg-gray-200 border border-brand-border shadow-sm overflow-hidden rounded-xl gap-px grid grid-cols-7" onMouseLeave={() => setDragOverDate(null)}>
+                {/* Header Row */}
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                    <div key={day} className="bg-gray-50 py-3 text-center text-xs font-bold text-brand-muted uppercase tracking-wider">
+                        {day}
+                    </div>
+                ))}
+
+                {/* Days */}
+                {renderCalendarGrid()}
             </div>
 
             {/* Stats Footer */}
