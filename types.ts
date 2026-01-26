@@ -412,6 +412,7 @@ export type CopilotIntentType =
   | 'CREATE_CAMPAIGN'
   | 'GENERATE_IMAGE'
   | 'ANALYZE_MARKET'
+  | 'DRAFT_CONTENT' // New: Quick content creation
   | 'MISSING_INFO'; // Needs follow-up
 
 export interface ChatIntentResponse {
@@ -426,6 +427,9 @@ export interface ChatIntentResponse {
     imagePrompt?: string;
     imageStyle?: string;
     imageAspectRatio?: AspectRatio;
+
+    // Content Params
+    contentTopic?: string; // New: For DRAFT_CONTENT
 
     // Analysis Params
     analysisTopic?: string;

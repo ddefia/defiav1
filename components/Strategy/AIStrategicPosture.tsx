@@ -62,29 +62,29 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
     };
 
     return (
-        <div className="w-full h-full p-8 font-sans bg-[#F9FAFB] min-h-screen">
+        <div className="w-full h-full p-6 font-sans bg-[#F9FAFB] min-h-screen">
 
             {/* HEADER - Enterprise Style */}
-            <div className="flex items-end justify-between mb-8 border-b border-gray-200 pb-6">
+            <div className="flex items-center justify-between mb-5 border-b border-gray-200 pb-4">
                 <div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-sm bg-gray-900"></span>
-                        Strategic Command
-                    </div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight leading-none">
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-none mb-1">
                         Strategic Posture
                     </h1>
+                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        Strategic Command Active for {brandName}
+                    </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
 
                     {/* ACTION BUTTONS */}
                     <div className="flex gap-2">
                         {isEditing ? (
                             <>
-                                <button onClick={handleCancel} className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50">
+                                <button onClick={handleCancel} className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                                     Cancel
                                 </button>
-                                <button onClick={handleSave} className="px-3 py-1.5 text-xs font-bold text-white bg-black border border-black rounded hover:bg-gray-800">
+                                <button onClick={handleSave} className="px-3 py-1.5 text-xs font-bold text-white bg-gray-900 border border-gray-900 rounded-lg hover:bg-black transition-colors shadow-sm">
                                     Save Changes
                                 </button>
                             </>
@@ -94,7 +94,7 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                     <button
                                         onClick={onRefine}
                                         disabled={isRefining}
-                                        className={`px-3 py-1.5 text-xs font-bold border rounded flex items-center gap-2 ${isRefining ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}
+                                        className={`px-3 py-1.5 text-xs font-bold border rounded-lg flex items-center gap-2 transition-colors ${isRefining ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}
                                     >
                                         {isRefining ? (
                                             <><span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping"></span> AI Refining...</>
@@ -103,32 +103,25 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                         )}
                                     </button>
                                 )}
-                                <button onClick={() => setIsEditing(true)} className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50">
+                                <button onClick={() => setIsEditing(true)} className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
                                     Edit
                                 </button>
                             </>
                         )}
-                    </div>
-
-                    <div className="h-6 w-px bg-gray-200"></div>
-
-                    <div className="text-right hidden sm:block">
-                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Scope</div>
-                        <div className="text-xs font-bold text-gray-900">{brandName}</div>
                     </div>
                 </div>
             </div>
 
             {/* TOP ROW: REMOVED as per user feedback ("why do i have those 4 components") */}
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
 
                 {/* LEFT COLUMN: STRATEGY (8 Cols) */}
                 <div className="md:col-span-8 flex flex-col gap-6">
 
                     {/* OBJECTIVE CARD (High Signal) */}
                     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/30 flex justify-between items-start md:items-center flex-col md:flex-row gap-2">
+                        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/30 flex justify-between items-start md:items-center flex-col md:flex-row gap-2">
                             <div>
                                 <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Primary Objective</h3>
 
@@ -149,7 +142,7 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                 <span className="text-[10px] font-mono text-gray-400">OBJ-01</span>
                             )}
                         </div>
-                        <div className="p-6">
+                        <div className="p-4">
                             {isEditing ? (
                                 <div className="space-y-4 animate-in fade-in duration-200">
                                     <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
@@ -175,13 +168,13 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                 </div>
                             ) : (
                                 <>
-                                    <p className="text-lg font-medium text-gray-900 leading-relaxed tracking-tight mb-6">
+                                    <p className="text-lg font-medium text-gray-900 leading-relaxed tracking-tight mb-4">
                                         {posture.objective}
                                     </p>
 
                                     {/* MARKET EVIDENCE / PROOF POINTS */}
                                     {posture.marketEvidence && posture.marketEvidence.length > 0 && (
-                                        <div className="flex flex-wrap gap-4 mb-6 pb-6 border-b border-gray-100">
+                                        <div className="flex flex-wrap gap-4 mb-4 pb-4 border-b border-gray-100">
                                             {posture.marketEvidence.map((ev, i) => (
                                                 <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2.5 py-1.5 shadow-sm">
                                                     <div className={`w-1.5 h-1.5 rounded-full ${ev.signal === 'positive' ? 'bg-emerald-500' : ev.signal === 'negative' ? 'bg-red-500' : 'bg-gray-400'}`}></div>
@@ -192,7 +185,7 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                         </div>
                                     )}
 
-                                    <div className="flex items-start gap-3 p-4 bg-gray-50/50 rounded-lg border border-gray-100">
+                                    <div className="flex items-start gap-3 p-3 bg-gray-50/50 rounded-lg border border-gray-100">
                                         <span className="text-gray-300 text-2xl serif leading-none">“</span>
                                         <p className="text-sm text-gray-600 italic leading-relaxed">
                                             {posture.thesis}
@@ -204,8 +197,8 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                     </div>
 
                     {/* NEURAL STREAM (Table/Feed Style) */}
-                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm min-h-[400px] flex flex-col">
-                        <div className="px-5 py-3 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm min-h-[300px] flex flex-col">
+                        <div className="px-5 py-2 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
                             <div className="flex items-center gap-2">
                                 <h3 className="text-[11px] font-bold text-gray-900 uppercase tracking-widest">Neural Stream</h3>
                                 <span className="bg-emerald-100 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded-sm">LIVE</span>
@@ -213,7 +206,7 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                             <span className="text-[10px] font-mono text-gray-400">{tasks.length} EVENTS</span>
                         </div>
 
-                        <div className="flex-1 p-4 bg-gray-50/30">
+                        <div className="flex-1 p-3 bg-gray-50/30">
                             {tasks.length > 0 ? (
                                 <div className="space-y-3">
                                     {tasks.map(task => (
@@ -244,7 +237,7 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                         </div>
                         <div className="divide-y divide-gray-50">
                             {(isEditing ? editState.priorities : posture.priorities).map((item, i) => (
-                                <div key={i} className="p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors group">
+                                <div key={i} className="px-3 py-2 flex items-start gap-3 hover:bg-gray-50 transition-colors group">
                                     <span className="text-[10px] font-mono text-gray-400 font-bold bg-gray-100 px-1.5 rounded flex-shrink-0 mt-0.5">{i + 1}</span>
                                     {isEditing ? (
                                         <div className="flex-1 flex gap-2">
@@ -273,7 +266,7 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                         </div>
                         <div className="divide-y divide-gray-50">
                             {(isEditing ? editState.deprioritized : posture.deprioritized).map((item, i) => (
-                                <div key={i} className="p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors opacity-75 group">
+                                <div key={i} className="px-3 py-2 flex items-start gap-3 hover:bg-gray-50 transition-colors opacity-75 group">
                                     <span className="text-[10px] font-mono text-gray-300 flex-shrink-0 mt-0.5">✕</span>
                                     {isEditing ? (
                                         <div className="flex-1 flex gap-2">

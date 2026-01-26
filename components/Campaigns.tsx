@@ -944,19 +944,18 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             <div className="max-w-7xl mx-auto space-y-8">
 
                 {/* Header */}
-                <div className="flex justify-between items-end border-b border-white/10 pb-6">
+                <div className="flex justify-between items-end border-b border-gray-200 pb-6">
                     <div>
-                        <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">Campaigns center</h1>
-                        <p className="text-zinc-500 text-sm max-w-lg">Create high-impact content sequences tied to specific growth objectives.</p>
-                        <p className="text-zinc-600 text-xs mt-1">Select an execution model below to begin.</p>
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight mb-2">Campaigns Center</h1>
+                        <p className="text-gray-500 text-sm max-w-lg">Create high-impact content sequences tied to specific growth objectives.</p>
                     </div>
                     {viewMode === 'list' && (
-                        <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }} className="shadow-lg shadow-purple-500/20 bg-white text-black hover:bg-zinc-200 border-none">
+                        <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }} className="shadow-lg shadow-zinc-900/10 bg-gray-900 text-white hover:bg-black border-none font-bold">
                             + New Campaign
                         </Button>
                     )}
                     {viewMode === 'wizard' && (
-                        <Button onClick={() => setViewMode('list')} variant="secondary" className="bg-zinc-800 text-zinc-300 hover:text-white border-none">
+                        <Button onClick={() => setViewMode('list')} variant="secondary" className="bg-white border-gray-200 text-gray-700 hover:text-gray-900 hover:bg-gray-50">
                             Back to List
                         </Button>
                     )}
@@ -966,45 +965,45 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 {viewMode === 'list' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
                         {activeCampaigns.map((camp, idx) => (
-                            <div key={idx} className="group bg-[#121214] border border-white/5 rounded-2xl p-6 hover:border-zinc-700 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/5 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-purple-500/10 transition-colors"></div>
+                            <div key={idx} className="group bg-white border border-gray-200 rounded-xl p-6 hover:border-gray-300 transition-all duration-300 hover:shadow-lg hover:shadow-gray-200/50 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-gray-100 transition-colors"></div>
 
                                 <div className="flex justify-between items-start mb-6 relative z-10">
-                                    <h3 className="font-bold text-lg text-white break-words line-clamp-2 pr-4">{camp.name}</h3>
-                                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">{camp.status}</span>
+                                    <h3 className="font-bold text-lg text-gray-900 break-words line-clamp-2 pr-4">{camp.name}</h3>
+                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">{camp.status}</span>
                                 </div>
 
                                 <div className="space-y-3 mb-8 relative z-10">
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-zinc-500 font-medium">Posts</span>
-                                        <span className="font-mono text-zinc-300">{camp.count}</span>
+                                        <span className="text-gray-500 font-medium">Posts</span>
+                                        <span className="font-mono text-gray-900 font-bold">{camp.count}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-zinc-500 font-medium">Latest Date</span>
-                                        <span className="font-mono text-zinc-300">{camp.nextDate}</span>
+                                        <span className="text-gray-500 font-medium">Latest Date</span>
+                                        <span className="font-mono text-gray-900 font-bold">{camp.nextDate}</span>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2 relative z-10">
-                                    <Button variant="secondary" className="bg-zinc-900 border-white/5 text-zinc-400 hover:text-white text-xs h-9" onClick={() => setViewingCampaignDetails(camp.name)}>View Posts</Button>
-                                    <Button variant="outline" className="border-white/10 text-zinc-400 hover:text-white text-xs h-9" onClick={() => handleExportPDF(camp.name)}>Report PDF</Button>
+                                    <Button variant="secondary" className="bg-gray-50 border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-white text-xs h-9 font-bold" onClick={() => setViewingCampaignDetails(camp.name)}>View Posts</Button>
+                                    <Button variant="outline" className="border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300 text-xs h-9 font-bold" onClick={() => handleExportPDF(camp.name)}>Report PDF</Button>
                                     <div className="col-span-2 grid grid-cols-2 gap-2">
-                                        <Button variant="secondary" className="bg-zinc-900 border-white/5 text-zinc-500 hover:text-white text-xs h-9" onClick={() => handleExportCSV(camp.name)}>CSV</Button>
-                                        <Button variant="secondary" className="bg-zinc-900 border-white/5 text-zinc-500 hover:text-white text-xs h-9" onClick={() => setAnalyzingCampaign(camp.name)}>Stats</Button>
+                                        <Button variant="secondary" className="bg-gray-50 border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-white text-xs h-9 font-medium" onClick={() => handleExportCSV(camp.name)}>CSV</Button>
+                                        <Button variant="secondary" className="bg-gray-50 border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-white text-xs h-9 font-medium" onClick={() => setAnalyzingCampaign(camp.name)}>Stats</Button>
                                     </div>
                                 </div>
                             </div>
                         ))}
                         {activeCampaigns.length === 0 && (
-                            <div className="col-span-full py-20 flex flex-col items-center justify-center text-center border border-dashed border-zinc-800 rounded-2xl bg-zinc-900/20">
-                                <div className="w-20 h-20 bg-zinc-900/50 rounded-full flex items-center justify-center mb-6 border border-white/5">
-                                    <span className="text-4xl">🚀</span>
+                            <div className="col-span-full py-20 flex flex-col items-center justify-center text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 border border-gray-200 shadow-sm">
+                                    <span className="text-3xl">🚀</span>
                                 </div>
-                                <h3 className="text-xl font-bold text-white mb-2">No Active Campaigns</h3>
-                                <p className="text-zinc-500 max-w-md mb-8">
+                                <h3 className="text-lg font-bold text-gray-900 mb-1">No Active Campaigns</h3>
+                                <p className="text-gray-500 max-w-sm mb-6 text-sm">
                                     Start a new campaign to schedule a sequence of strategic posts.
                                 </p>
-                                <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }} className="bg-white text-black hover:bg-zinc-200">Start Campaign</Button>
+                                <Button onClick={() => { setViewMode('wizard'); setCampaignStep(1); }} className="bg-gray-900 text-white hover:bg-black font-bold shadow-lg">Start Campaign</Button>
                             </div>
                         )}
                     </div>
@@ -1012,61 +1011,61 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                 {/* VIEW CAMPAIGN DETAILS MODAL */}
                 {viewingCampaignDetails && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-                        <div className="bg-[#121214] border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
-                            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#121214]">
+                    <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
                                 <div>
-                                    <h3 className="font-bold text-xl text-white mb-1">{viewingCampaignDetails}</h3>
+                                    <h3 className="font-bold text-xl text-gray-900 mb-1">{viewingCampaignDetails}</h3>
                                     <div className="flex items-center gap-2">
                                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                        <p className="text-xs text-zinc-400 font-mono">LIVE CAMPAIGN VIEW</p>
+                                        <p className="text-xs text-gray-500 font-mono font-medium">LIVE CAMPAIGN VIEW</p>
                                     </div>
                                 </div>
-                                <button onClick={() => setViewingCampaignDetails(null)} className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+                                <button onClick={() => setViewingCampaignDetails(null)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-black/20">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-gray-50/50">
                                 {events.filter(e => e.campaignName === viewingCampaignDetails).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(post => {
                                     const refImage = post.referenceImageId ? brandConfig.referenceImages.find(r => r.id === post.referenceImageId) : null;
                                     return (
-                                        <details key={post.id} className="group bg-[#18181b] border border-white/5 rounded-xl open:border-purple-500/30 transition-all duration-300">
-                                            <summary className="p-5 cursor-pointer list-none flex items-start gap-4 select-none hover:bg-white/[0.02] transition-colors rounded-xl">
+                                        <details key={post.id} className="group bg-white border border-gray-200 rounded-xl open:ring-1 open:ring-gray-200 transition-all duration-300 shadow-sm">
+                                            <summary className="p-5 cursor-pointer list-none flex items-start gap-4 select-none hover:bg-gray-50/50 transition-colors rounded-xl">
                                                 <div className="flex flex-col items-center min-w-[60px] pt-1">
-                                                    <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">{new Date(post.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                                                    <span className={`w-2 h-2 rounded-full mt-2 ${post.status === 'published' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]'}`}></span>
+                                                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{new Date(post.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                                    <span className={`w-2 h-2 rounded-full mt-2 ${post.status === 'published' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <p className="text-sm text-zinc-200 line-clamp-2 font-medium group-open:line-clamp-none leading-relaxed">{post.content}</p>
+                                                    <p className="text-sm text-gray-900 line-clamp-2 font-medium group-open:line-clamp-none leading-relaxed">{post.content}</p>
                                                     <div className="flex gap-2 mt-3 opacity-0 group-open:opacity-100 transition-opacity">
-                                                        {post.reasoning && <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded font-bold uppercase tracking-wider">AI Strategy</span>}
-                                                        {post.referenceImageId && <span className="text-[9px] bg-purple-500/10 border border-purple-500/20 text-purple-300 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Ref. Image</span>}
+                                                        {post.reasoning && <span className="text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded font-bold uppercase tracking-wider">AI Strategy</span>}
+                                                        {post.referenceImageId && <span className="text-[9px] bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Ref. Image</span>}
                                                     </div>
                                                 </div>
-                                                <svg className="w-5 h-5 text-zinc-600 group-open:rotate-180 transition-transform mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                                <svg className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                                             </summary>
 
-                                            <div className="p-5 pt-0 border-t border-white/5 mt-2">
+                                            <div className="p-5 pt-0 border-t border-gray-100 mt-2">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
 
                                                     {/* LEFT: STRATEGY */}
                                                     <div className="space-y-6">
                                                         {/* Thinking */}
                                                         <div>
-                                                            <label className="text-[10px] font-bold text-zinc-500 uppercase flex items-center gap-2 mb-2 tracking-wider">
-                                                                <span className="w-4 h-4 bg-indigo-500/20 text-indigo-400 rounded-full flex items-center justify-center text-[10px]">🧠</span>
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2 mb-2 tracking-wider">
+                                                                <span className="w-4 h-4 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center text-[10px]">🧠</span>
                                                                 AI Reasoning
                                                             </label>
-                                                            <div className="text-xs text-zinc-400 bg-[#09090b] border border-white/5 p-4 rounded-xl leading-relaxed whitespace-pre-wrap font-medium">
+                                                            <div className="text-xs text-gray-600 bg-gray-50 border border-gray-100 p-4 rounded-xl leading-relaxed whitespace-pre-wrap font-medium">
                                                                 {post.reasoning || "No strategic reasoning recorded."}
                                                             </div>
                                                         </div>
 
                                                         {/* Template & Rules */}
                                                         <div>
-                                                            <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Template Rule</label>
-                                                            <div className="text-xs text-zinc-300 bg-[#09090b] border border-white/5 p-3 rounded-lg flex items-center gap-2">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-wider">Template Rule</label>
+                                                            <div className="text-xs text-gray-700 bg-gray-50 border border-gray-100 p-3 rounded-lg flex items-center gap-2">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                                                                 {post.template || "Auto / Default"}
                                                             </div>
                                                         </div>
@@ -1076,29 +1075,29 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     <div className="space-y-6">
                                                         {/* Visual Prompt */}
                                                         <div>
-                                                            <label className="text-[10px] font-bold text-zinc-500 uppercase flex items-center gap-2 mb-2 tracking-wider">
-                                                                <span className="w-4 h-4 bg-purple-500/20 text-purple-400 rounded-full flex items-center justify-center text-[10px]">🎨</span>
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2 mb-2 tracking-wider">
+                                                                <span className="w-4 h-4 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center text-[10px]">🎨</span>
                                                                 Visual Prompt
                                                             </label>
-                                                            <div className="text-xs text-zinc-400 bg-[#09090b] border border-white/5 p-4 rounded-xl italic leading-relaxed">
+                                                            <div className="text-xs text-gray-600 bg-gray-50 border border-gray-100 p-4 rounded-xl italic leading-relaxed">
                                                                 "{post.visualDescription || post.content}"
                                                             </div>
                                                         </div>
 
                                                         {/* Reference Image */}
                                                         <div>
-                                                            <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block tracking-wider">Reference Anchor</label>
+                                                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block tracking-wider">Reference Anchor</label>
                                                             {refImage ? (
-                                                                <div className="flex items-start gap-4 bg-[#09090b] border border-white/5 p-3 rounded-xl hover:border-purple-500/30 transition-colors">
-                                                                    <img src={refImage.url || refImage.data} className="w-20 h-20 object-cover rounded-lg border border-white/5" />
+                                                                <div className="flex items-start gap-4 bg-gray-50 border border-gray-100 p-3 rounded-xl hover:border-purple-200 transition-colors">
+                                                                    <img src={refImage.url || refImage.data} className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
                                                                     <div>
-                                                                        <div className="text-sm font-bold text-white mb-1">{refImage.name}</div>
-                                                                        <div className="text-[10px] text-zinc-500 font-mono mb-2">ID: {refImage.id}</div>
-                                                                        <div className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 inline-block px-2 py-0.5 rounded font-bold uppercase">Style Enforced</div>
+                                                                        <div className="text-sm font-bold text-gray-900 mb-1">{refImage.name}</div>
+                                                                        <div className="text-[10px] text-gray-400 font-mono mb-2">ID: {refImage.id}</div>
+                                                                        <div className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 inline-block px-2 py-0.5 rounded font-bold uppercase">Style Enforced</div>
                                                                     </div>
                                                                 </div>
                                                             ) : (
-                                                                <div className="text-xs text-zinc-600 italic pl-2">No specific reference image linked.</div>
+                                                                <div className="text-xs text-gray-400 italic pl-2">No specific reference image linked.</div>
                                                             )}
                                                         </div>
                                                     </div>
@@ -1109,7 +1108,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 })}
 
                                 {events.filter(e => e.campaignName === viewingCampaignDetails).length === 0 && (
-                                    <div className="text-center py-12 text-zinc-500">No posts found for this campaign.</div>
+                                    <div className="text-center py-12 text-gray-400 text-sm">No posts found for this campaign.</div>
                                 )}
                             </div>
                         </div>

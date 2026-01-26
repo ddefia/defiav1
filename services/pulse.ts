@@ -54,19 +54,41 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
         // 3. Take Top 10 Topics (Increased from 5 to allow filtering)
         const candidates = topics.slice(0, 15);
 
-        // BLACKLIST: Generic consumer terms that pollute the "Smart CMO" vibe
-        const BLACKLIST = ['roblox', 'fortnite', 'minecraft', 'youtube', 'tiktok', 'netflix', 'disney', 'marvel', 'taylor swift'];
-        const WHITELIST = ['crypto', 'nft', 'web3', 'token', 'blockchain', 'defi', 'wallet', 'mining', 'airdrop'];
+        // STRICT WEB3 FILTERING
+        // 1. BLACKLIST: Kill mainstream tech/finance spam
+        const BLACKLIST = [
+            'roblox', 'fortnite', 'minecraft', 'youtube', 'tiktok', 'netflix', 'disney', 'marvel', 'taylor swift',
+            'nvidia', 'samsung', 'apple', 'google', 'microsoft', 'meta', 'stock', 'shares', 'earnings', 'revenue',
+            'nasdaq', 'sp500', 'dow jones', 'interest rates', 'fed', 'inflation', 'gdp'
+        ];
+
+        // 2. WHITELIST: Content MUST contain one of these to be considered "Web3"
+        const WEB3_KEYWORDS = [
+            'crypto', 'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'memecoin', 'pepe', 'doge', 'shib',
+            'bonk', 'wif', 'defi', 'nft', 'airdrop', 'token', 'altcoin', 'bull', 'bear', 'wallet', 'chain',
+            'l2', 'rollup', 'meme', 'gm', 'wagmi', 'dao', 'yield', 'staking', 'pixel', 'ordinals', 'runes',
+            'base', 'optimism', 'arb', 'sui', 'aptos', 'sei', 'injective', 'cosmos', 'atom', 'blast', 'pump'
+        ];
 
         const filteredTopics = candidates.filter((t: any) => {
             const topic = t.topic.toLowerCase();
-            // If it's a known generic term, ONLY allow if it explicitly mentions crypto keywords in the same object context (if available)
-            // For now, strict blacklist to be safe.
+
+            // A. CHECK BLACKLIST
             if (BLACKLIST.some(b => topic.includes(b))) {
-                // Check whitelist overrides if we had descriptions, but simpler to just nuke them for now.
                 return false;
             }
-            return true;
+
+            // B. CHECK WHITELIST (Strict Mode)
+            // If the topic is just "AI", it's risky. But "AI Agent" or "Crypto AI" is fine.
+            // We check if the topic matches a keyword OR if the topic itself is a known coin symbol (often length 3-4).
+            // Simplest robust check:
+            const isWeb3 = WEB3_KEYWORDS.some(k => topic.includes(k));
+
+            // Allow symbols naturally (length 3-4 uppercase in raw, but logical here) 
+            // Broaden: If it's not blacklisted, and passed LunarCrush crypto topics filter...
+            // Wait, LC "Topics" endpoint mixes everything. So we MUST enforce whitelist.
+
+            return isWeb3;
         }).slice(0, 5); // Take top 5 VALID ones
 
         // 4. Enrich with REAL NEWS (The "Why")

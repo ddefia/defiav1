@@ -10,11 +10,11 @@ interface ImageEditorProps {
     brandName?: string;
 }
 
-export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName = '' }) => {
+export const ImageEditor: React.FC<ImageEditorProps & { initialImage?: string, initialPrompt?: string }> = ({ brandConfig, brandName = '', initialImage, initialPrompt }) => {
     // State
-    const [originalImage, setOriginalImage] = useState<string | null>(null);
+    const [originalImage, setOriginalImage] = useState<string | null>(initialImage || null);
     const [editedImage, setEditedImage] = useState<string | null>(null);
-    const [prompt, setPrompt] = useState<string>('');
+    const [prompt, setPrompt] = useState<string>(initialPrompt || '');
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [history, setHistory] = useState<CalendarEvent[]>([]);
@@ -31,6 +31,12 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
             loadHistory();
         }
     }, [brandName]);
+
+    // Update state if props change (e.g. navigation from Copilot)
+    useEffect(() => {
+        if (initialImage) setOriginalImage(initialImage);
+        if (initialPrompt) setPrompt(initialPrompt);
+    }, [initialImage, initialPrompt]);
 
     const loadHistory = async () => {
         if (!brandName) return;
@@ -77,7 +83,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
                 else if (ratio > 1.1) finalRatio = '4:3';
                 else if (ratio < 0.9) finalRatio = '3:4';
 
-                console.log(`Examples: Detected Image Ratio: ${ratio.toFixed(2)} -> buketed to ${finalRatio}`);
+                console.log(`Examples: Detected Image Ratio: ${ratio.toFixed(2)} -> bucketed to ${finalRatio}`);
                 setAspectRatio(finalRatio);
             };
             img.src = base64;
@@ -109,13 +115,30 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
         }
     };
 
-    const handleDownload = (imageUrl: string) => {
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.download = `edited-image-${Date.now()}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const handleDownload = async (imageUrl: string) => {
+        const createDownloadLink = (url: string) => {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `edited-image-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        if (imageUrl.startsWith('http')) {
+            try {
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                createDownloadLink(blobUrl);
+                URL.revokeObjectURL(blobUrl);
+            } catch (e) {
+                console.error('Download failed, falling back to direct link', e);
+                createDownloadLink(imageUrl);
+            }
+        } else {
+            createDownloadLink(imageUrl);
+        }
     };
 
     const handleClear = () => {
@@ -128,10 +151,10 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
 
     return (
         <div className="w-full max-w-7xl mx-auto p-6 space-y-6 animate-fadeIn h-full flex flex-col">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center border-b border-gray-200 pb-6 mb-2">
                 <div>
-                    <h1 className="text-3xl font-display font-bold text-gray-900 tracking-tight mb-2">AI Image Studio <span className="text-xs bg-black text-white px-2 py-0.5 rounded ml-2 align-middle font-sans uppercase tracking-widest">Beta</span></h1>
-                    <p className="text-zinc-500 text-sm max-w-lg">Upload an image and use magic prompts to edit it.</p>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight mb-2">AI Image Studio <span className="text-[10px] bg-black text-white px-2 py-1 rounded ml-2 align-middle font-bold uppercase tracking-widest">Beta</span></h1>
+                    <p className="text-gray-500 text-sm max-w-lg">Upload an image and use magic prompts to edit it.</p>
                 </div>
                 {originalImage && (
                     <Button onClick={handleClear} variant="secondary">Start Over</Button>
@@ -182,15 +205,29 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({ brandConfig, brandName
                                 />
                             </div>
 
-                            <Select
-                                label="Quality"
-                                value={quality}
-                                onChange={(e) => setQuality(e.target.value as any)}
-                                options={[
-                                    { value: '1K', label: 'Standard (1K)' },
-                                    { value: '2K', label: 'High (2K) - Recommended' }
-                                ]}
-                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                <Select
+                                    label="Aspect Ratio"
+                                    value={aspectRatio}
+                                    onChange={(e) => setAspectRatio(e.target.value)}
+                                    options={[
+                                        { value: '1:1', label: 'Square (1:1)' },
+                                        { value: '16:9', label: 'Wide (16:9)' },
+                                        { value: '9:16', label: 'Story (9:16)' },
+                                        { value: '4:3', label: 'Classic (4:3)' },
+                                        { value: '3:4', label: 'Portrait (3:4)' }
+                                    ]}
+                                />
+                                <Select
+                                    label="Quality"
+                                    value={quality}
+                                    onChange={(e) => setQuality(e.target.value as any)}
+                                    options={[
+                                        { value: '1K', label: 'Standard (1K)' },
+                                        { value: '2K', label: 'High (2K)' }
+                                    ]}
+                                />
+                            </div>
 
                             <Button
                                 onClick={handleEdit}

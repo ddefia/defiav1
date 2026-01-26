@@ -106,6 +106,10 @@ const App: React.FC = () => {
     const [studioDraft, setStudioDraft] = useState<string>('');
     const [studioVisualPrompt, setStudioVisualPrompt] = useState<string>('');
 
+    // Image Editor Deep Link State
+    const [editorInitialImage, setEditorInitialImage] = useState<string | null>(null);
+    const [editorInitialPrompt, setEditorInitialPrompt] = useState<string | null>(null);
+
     useEffect(() => {
         if (Object.keys(profiles).length > 0) {
             saveBrandProfiles(profiles, true);
@@ -482,6 +486,12 @@ const App: React.FC = () => {
             if (params?.draft) setStudioDraft(params.draft);
             if (params?.visualPrompt) setStudioVisualPrompt(params.visualPrompt);
         }
+
+        // Image Editor: Deep Link with Image
+        if (section === 'image-editor') {
+            if (params?.image) setEditorInitialImage(params.image);
+            if (params?.prompt) setEditorInitialPrompt(params.prompt);
+        }
     }
 
     // --- Onboarding / Research ---
@@ -795,7 +805,12 @@ const App: React.FC = () => {
 
                 {/* SECTION: IMAGE EDITOR */}
                 {appSection === 'image-editor' && selectedBrand && profiles[selectedBrand] && (
-                    <ImageEditor brandConfig={profiles[selectedBrand]} brandName={selectedBrand} />
+                    <ImageEditor
+                        brandConfig={profiles[selectedBrand]}
+                        brandName={selectedBrand}
+                        initialImage={editorInitialImage ?? undefined}
+                        initialPrompt={editorInitialPrompt ?? undefined}
+                    />
                 )}
 
                 {/* SECTION: COPILOT */}

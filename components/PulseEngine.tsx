@@ -17,21 +17,21 @@ interface PulseEngineProps {
 
 // Reusable Components matching Dashboard
 const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-    <div className={`bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100/50 ${className}`}>
+    <div className={`bg-white rounded-xl p-5 md:p-6 shadow-sm border border-gray-200 ${className}`}>
         {children}
     </div>
 );
 
 const Badge = ({ children, variant = "neutral" }: { children: React.ReactNode, variant?: "neutral" | "ai" | "hot" | "positive" | "negative" }) => {
     const styles = {
-        neutral: "bg-gray-100 text-gray-600 border-gray-200",
-        ai: "bg-purple-50 text-purple-700 border-purple-200 ring-1 ring-purple-100",
-        hot: "bg-orange-50 text-orange-700 border-orange-200 ring-1 ring-orange-100",
-        positive: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        negative: "bg-red-50 text-red-700 border-red-200"
+        neutral: "bg-white text-gray-600 border-gray-200",
+        ai: "bg-white text-purple-600 border-purple-200",
+        hot: "bg-white text-orange-600 border-orange-200",
+        positive: "bg-white text-emerald-600 border-emerald-200",
+        negative: "bg-white text-red-600 border-red-200"
     };
     return (
-        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${styles[variant]} flex items-center gap-1.5`}>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${styles[variant]} flex items-center gap-1.5`}>
             {children}
         </span>
     );
@@ -234,11 +234,11 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
         <div className="w-full p-6 font-sans mx-auto animate-fadeIn max-w-[1920px]">
 
             {/* HEADER */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold text-black tracking-tight">Intelligence Feed</h1>
+                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">Intelligence Feed</h1>
                     <div className="flex items-center gap-2 mt-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                         <p className="text-xs text-gray-500 font-medium">Listening to {brandName} Market Signals...</p>
                     </div>
                 </div>
@@ -264,25 +264,27 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
                 <div className="lg:col-span-4 flex flex-col gap-6 h-full overflow-hidden">
 
                     {/* FILTER BAR w/ SEARCH */}
-                    <div className="flex gap-2 mb-2 p-1 bg-gray-100/50 rounded-xl overflow-x-auto scrollbar-hide">
+                    <div className="flex gap-2 mb-2 p-1 border-b border-gray-100 overflow-x-auto scrollbar-hide pb-3">
                         {(['All', 'Twitter', 'LunarCrush AI', 'News'] as const).map(filter => (
                             <button
                                 key={filter}
                                 onClick={() => setSourceFilter(filter)}
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sourceFilter === filter
-                                    ? 'bg-white text-black shadow-sm ring-1 ring-black/5'
-                                    : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
+                                className={`px-3 py-1.5 rounded textxs font-bold transition-all whitespace-nowrap ${sourceFilter === filter
+                                    ? 'bg-gray-900 text-white shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                                     }`}
                             >
-                                {filter === 'LunarCrush AI' ? ' ✨ AI Signals' : filter}
+                                {filter === 'LunarCrush AI' ? 'AI Signals' : filter}
                             </button>
                         ))}
                     </div>
 
                     <div className="overflow-y-auto custom-scrollbar flex-1 space-y-4 pr-2">
                         {/* Manual Input Inline */}
-                        <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm flex gap-2 items-center focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-                            <span className="text-gray-400 pl-2">🔎</span>
+                        <div className="bg-white p-3 rounded-xl border border-gray-200 hover:border-blue-400 shadow-sm flex gap-2 items-center focus-within:ring-1 focus-within:ring-blue-500 transition-all">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
                             <input
                                 type="text"
                                 value={manualSignal}
@@ -291,7 +293,7 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
                                 placeholder="Paste a URL or topic to analyze..."
                                 className="flex-1 bg-transparent border-none text-sm focus:ring-0 placeholder:text-gray-400"
                             />
-                            <button onClick={handleManualAdd} className="bg-black text-white px-3 py-1.5 rounded-lg text-xs font-bold">Add</button>
+                            <button onClick={handleManualAdd} className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-black transition-colors">Add</button>
                         </div>
 
                         {/* LOAD STATE */}
@@ -324,8 +326,8 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex items-center gap-2">
                                             <div className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${trend.source.includes('LunarCrush') ? 'bg-purple-100 text-purple-700 border-purple-200' :
-                                                    trend.source === 'Twitter' ? 'bg-sky-100 text-sky-700 border-sky-200' :
-                                                        'bg-gray-100 text-gray-600 border-gray-200'
+                                                trend.source === 'Twitter' ? 'bg-sky-100 text-sky-700 border-sky-200' :
+                                                    'bg-gray-100 text-gray-600 border-gray-200'
                                                 }`}>
                                                 {trend.source.replace('LunarCrush ', '')}
                                             </div>
@@ -409,28 +411,39 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-auto mb-auto">
                                         <button
                                             onClick={() => { setActionType('Tweet'); handleGenerateContent(); }}
-                                            className="group relative p-8 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-white hover:border-blue-300 hover:shadow-lg transition-all text-left"
+                                            className="group relative p-6 rounded-xl border border-gray-200 bg-white hover:border-blue-500 hover:shadow-md transition-all text-left"
                                         >
-                                            <div className="absolute top-4 right-4 text-2xl opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all">📢</div>
-                                            <h3 className="text-lg font-bold text-gray-900 mb-1">Official Response</h3>
-                                            <p className="text-sm text-gray-500">Draft a professional, brand-aligned announcement.</p>
+                                            <div className="absolute top-4 right-4 text-gray-200 group-hover:text-blue-500 transition-colors">
+                                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.664A2 2 0 017 12h0a2 2 0 012 2v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4z" />
+                                                </svg>
+                                            </div>
+                                            <h3 className="text-sm font-bold text-gray-900 mb-1">Official Response</h3>
+                                            <p className="text-xs text-gray-500">Draft a professional, brand-aligned announcement.</p>
                                         </button>
 
                                         <button
                                             onClick={() => { setActionType('Meme'); handleGenerateContent(); }}
-                                            className="group relative p-8 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-white hover:border-purple-300 hover:shadow-lg transition-all text-left"
+                                            className="group relative p-6 rounded-xl border border-gray-200 bg-white hover:border-purple-500 hover:shadow-md transition-all text-left"
                                         >
-                                            <div className="absolute top-4 right-4 text-2xl opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all">🐸</div>
-                                            <h3 className="text-lg font-bold text-gray-900 mb-1">Viral / Meme</h3>
-                                            <p className="text-sm text-gray-500">Draft a high-engagement, culture-fit post.</p>
+                                            <div className="absolute top-4 right-4 text-gray-200 group-hover:text-purple-500 transition-colors">
+                                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <h3 className="text-sm font-bold text-gray-900 mb-1">Viral / Meme</h3>
+                                            <p className="text-xs text-gray-500">Draft a high-engagement, culture-fit post.</p>
                                         </button>
 
                                         <div className="md:col-span-2 text-center mt-4">
                                             <button
                                                 onClick={() => onLaunchCampaign(selectedTrend)}
-                                                className="text-xs font-bold text-gray-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
+                                                className="text-[10px] font-bold text-gray-400 hover:text-blue-600 transition-colors uppercase tracking-widest flex items-center justify-center gap-1"
                                             >
-                                                Start Full Campaign &rarr;
+                                                Start Full Campaign
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                                </svg>
                                             </button>
                                         </div>
                                     </div>
@@ -493,15 +506,20 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
                             </div>
                         </Card>
                     ) : (
-                        <Card className="h-full flex flex-col items-center justify-center text-center p-12 bg-gray-50/50 border-dashed">
-                            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-100">
-                                <span className="text-4xl">📡</span>
+                        <Card className="h-full flex flex-col items-center justify-center text-center p-12 bg-white border-dashed border-gray-200">
+                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-100">
+                                <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                                </svg>
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">Awaiting Signal Selection</h2>
-                            <p className="text-gray-500 max-w-md mx-auto">Select any trending topic from the Intelligence Feed to activate the War Room.</p>
-                            <div className="mt-8 flex gap-2">
-                                <div className="h-2 w-2 rounded-full bg-purple-400 animate-ping"></div>
-                                <span className="text-xs text-purple-600 font-bold uppercase">AI Listening Active</span>
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">Awaiting Signal Selection</h2>
+                            <p className="text-sm text-gray-500 max-w-sm mx-auto">Select any trending topic from the Intelligence Feed to activate the War Room.</p>
+                            <div className="mt-8 flex gap-2 items-center">
+                                <span className="relative flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                </span>
+                                <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">AI Listening Active</span>
                             </div>
                         </Card>
                     )}

@@ -325,41 +325,43 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
     return (
         <div className="w-full h-full space-y-6 animate-fadeIn pb-10">
             {/* Header */}
-            <div className="flex justify-between items-end px-1">
+            <div className="flex justify-between items-end px-1 border-b border-gray-200 pb-6 mb-6">
                 <div>
-                    <h2 className="text-2xl font-display font-bold text-brand-text">Content Calendar</h2>
-                    <p className="text-sm text-brand-muted">Schedule and manage your upcoming content for <span className="font-bold">{brandName}</span></p>
+                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Content Calendar</h2>
+                    <p className="text-sm text-gray-500">Schedule and manage your upcoming content for <span className="font-bold">{brandName}</span></p>
                 </div>
-                <div className="flex items-center gap-4 bg-white p-2 rounded-lg border border-brand-border shadow-sm">
+                <div className="flex items-center gap-4 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
                     <button
                         onClick={() => setIsBulkImportOpen(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-colors border border-indigo-200"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold transition-colors border border-indigo-200"
                     >
                         <span className="text-sm">✨</span> Bulk Import
                     </button>
                     {/* Export Buttons */}
                     <div className="flex items-center gap-1 mr-2 border-r border-gray-200 pr-4">
-                        <button onClick={handleExportAllCSV} className="text-xs px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 text-brand-text font-medium" title="Export All to CSV">CSV</button>
-                        <button onClick={handleExportAllPDF} className="text-xs px-2 py-1 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 text-brand-text font-medium" title="Export All to PDF">PDF</button>
+                        <button onClick={handleExportAllCSV} className="text-xs px-2 py-1.5 bg-white hover:bg-gray-50 rounded border border-gray-200 text-gray-700 font-bold shadow-sm" title="Export All to CSV">CSV</button>
+                        <button onClick={handleExportAllPDF} className="text-xs px-2 py-1.5 bg-white hover:bg-gray-50 rounded border border-gray-200 text-gray-700 font-bold shadow-sm" title="Export All to PDF">PDF</button>
                     </div>
 
-                    <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-100 rounded-full text-brand-muted">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <span className="font-display font-bold text-brand-text w-32 text-center">
-                        {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                    </span>
-                    <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-100 rounded-full text-brand-muted">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                    </button>
+                    <div className="flex items-center gap-2 pl-2">
+                        <button onClick={() => changeMonth(-1)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <span className="font-bold text-gray-900 w-32 text-center text-sm">
+                            {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        </span>
+                        <button onClick={() => changeMonth(1)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Grid */}
-            <div className="bg-gray-200 border border-brand-border shadow-sm overflow-hidden rounded-xl gap-px grid grid-cols-7" onMouseLeave={() => setDragOverDate(null)}>
+            <div className="bg-gray-200 border border-gray-200 shadow-sm overflow-hidden rounded-xl gap-px grid grid-cols-7" onMouseLeave={() => setDragOverDate(null)}>
                 {/* Header Row */}
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="bg-gray-50 py-3 text-center text-xs font-bold text-brand-muted uppercase tracking-wider">
+                    <div key={day} className="bg-gray-50 py-3 text-center text-xs font-bold text-gray-400 uppercase tracking-wider">
                         {day}
                     </div>
                 ))}
@@ -370,13 +372,13 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
 
             {/* Stats Footer */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-brand-border">
-                    <h4 className="font-bold text-sm text-brand-text uppercase mb-2">Scheduled Posts</h4>
-                    <div className="text-3xl font-display font-bold text-indigo-600">{events.filter(e => e.status === 'scheduled').length}</div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+                    <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">Scheduled Posts</h4>
+                    <div className="text-3xl font-bold text-indigo-600">{events.filter(e => e.status === 'scheduled').length}</div>
                 </div>
-                <div className="bg-white p-6 rounded-xl border border-brand-border">
-                    <h4 className="font-bold text-sm text-brand-text uppercase mb-2">Campaigns Active</h4>
-                    <div className="text-3xl font-display font-bold text-green-600">{new Set(events.filter(e => e.campaignName).map(e => e.campaignName)).size}</div>
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+                    <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider mb-2">Campaigns Active</h4>
+                    <div className="text-3xl font-bold text-emerald-600">{new Set(events.filter(e => e.campaignName).map(e => e.campaignName)).size}</div>
                 </div>
             </div>
 

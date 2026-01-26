@@ -92,13 +92,14 @@ export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts,
         <div className="w-full h-full p-6 font-sans bg-[#F9FAFB] min-h-screen">
 
             {/* HEADER */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-8 border-b border-gray-200 pb-6">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight mb-1">
                         Social Command Center
                     </h1>
-                    <div className="text-[11px] text-gray-500 font-mono mt-1 tracking-tight flex items-center gap-2">
-                        {brandName} / Network Status: <span className="text-emerald-500 font-bold">LISTENING</span>
+                    <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Listening Pattern Active for {brandName}
                     </div>
                 </div>
 
@@ -122,18 +123,18 @@ export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts,
             </div>
 
             {/* KPI ROW */}
-            <div className="grid grid-cols-5 gap-3 mb-8">
+            <div className="grid grid-cols-5 gap-4 mb-8">
                 {kpis.map((kpi, i) => (
-                    <div key={i} className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm relative group">
+                    <div key={i} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm relative group hover:border-gray-300 transition-colors">
                         {/* Confidence Dot */}
-                        <div className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${kpi.confidence === 'High' ? 'bg-emerald-500' : 'bg-amber-500'}`} title={`Confidence: ${kpi.confidence}`}></div>
+                        <div className={`absolute top-3 right-3 w-1.5 h-1.5 rounded-full ${kpi.confidence === 'High' ? 'bg-emerald-500' : 'bg-amber-500'}`} title={`Confidence: ${kpi.confidence}`}></div>
 
                         <div className="mb-2">
-                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{kpi.label}</div>
-                            <div className="text-xl font-bold text-gray-900 tracking-tighter">{kpi.value}</div>
+                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{kpi.label}</div>
+                            <div className="text-2xl font-bold text-gray-900 tracking-tight">{kpi.value}</div>
                         </div>
 
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mt-4">
                             <div className={`text-[10px] font-bold flex items-center gap-1 ${kpi.trend === 'up' ? 'text-emerald-600' : kpi.trend === 'down' ? 'text-rose-600' : 'text-gray-500'}`}>
                                 {kpi.trend === 'up' ? '↑' : kpi.trend === 'down' ? '↓' : '→'} {Math.abs(kpi.delta)}%
                             </div>

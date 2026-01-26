@@ -12,20 +12,20 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange 
     const [activeTab, setActiveTab] = useState<'general' | 'brandkit'>('brandkit');
 
     return (
-        <div className="w-full h-full flex flex-col bg-brand-bg">
+        <div className="w-full h-full flex flex-col bg-[#F9FAFB]">
             {/* Header */}
-            <div className="px-8 py-6 border-b border-brand-border bg-brand-surface sticky top-0 z-10">
-                <h1 className="text-2xl font-display font-bold text-brand-text mb-2">Settings</h1>
-                <div className="flex gap-6 text-sm font-medium">
+            <div className="px-8 py-6 border-b border-gray-200 bg-white shadow-sm flex items-center justify-between shrink-0">
+                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Settings</h1>
+                <div className="flex gap-1 text-sm font-bold bg-gray-100 p-1 rounded-lg">
                     <button
                         onClick={() => setActiveTab('brandkit')}
-                        className={`pb-2 border-b-2 transition-colors ${activeTab === 'brandkit' ? 'border-brand-accent text-brand-text' : 'border-transparent text-brand-muted hover:text-brand-text'}`}
+                        className={`px-3 py-1.5 rounded-md transition-all ${activeTab === 'brandkit' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         Brand Kit
                     </button>
                     <button
                         onClick={() => setActiveTab('general')}
-                        className={`pb-2 border-b-2 transition-colors ${activeTab === 'general' ? 'border-brand-accent text-brand-text' : 'border-transparent text-brand-muted hover:text-brand-text'}`}
+                        className={`px-3 py-1.5 rounded-md transition-all ${activeTab === 'general' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                     >
                         General
                     </button>

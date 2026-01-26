@@ -87,6 +87,9 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
             else if (classification.type === 'GENERATE_IMAGE') {
                 aiContent = `Generating visual for: ${classification.params?.imagePrompt || 'your idea'}...`;
             }
+            else if (classification.type === 'DRAFT_CONTENT') {
+                aiContent = `I'll help you draft content for: ${classification.params?.contentTopic || 'your topic'}. Opening the studio...`;
+            }
             else {
                 // Fallback for weird edge cases or analysis
                 aiContent = classification.thoughtProcess || "Processing...";
@@ -119,20 +122,20 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
     return (
         <div className="flex flex-col h-full bg-gray-50 text-gray-900 relative overflow-hidden font-sans">
             {/* HEADER */}
-            <div className="absolute top-0 inset-x-0 h-16 border-b border-gray-200 bg-white/95 backdrop-blur-md z-30 flex items-center justify-between px-6 shadow-sm">
+            <div className="h-16 border-b border-gray-200 bg-white z-30 flex items-center justify-between px-6 shadow-sm sticky top-0">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center shadow-md shadow-purple-500/20">
                         <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                     </div>
                     <div>
-                        <h1 className="text-sm font-bold text-gray-900 tracking-tight">Copilot</h1>
+                        <h1 className="text-lg font-bold text-gray-900 tracking-tight">Copilot</h1>
                         <p className="text-[10px] text-gray-500 font-medium tracking-wide uppercase">Active Agent for {brandName}</p>
                     </div>
                 </div>
             </div>
 
             {/* CHAT STREAM */}
-            <div className="flex-1 overflow-y-auto pt-24 pb-32 px-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent custom-scrollbar">
+            <div className="flex-1 overflow-y-auto pb-32 px-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent custom-scrollbar pt-6">
                 <div className="max-w-3xl mx-auto space-y-8">
                     {messages.map((msg) => (
                         <div key={msg.id} className={`group flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn duration-300`}>
@@ -195,7 +198,29 @@ export const CopilotView: React.FC<CopilotViewProps> = ({ brandName, brandConfig
                                             )}
                                             {msg.intent.uiCard === 'ImageCard' && (
                                                 <div className="border border-gray-200 rounded-xl overflow-hidden shadow-lg shadow-gray-200/50 bg-white">
-                                                    <ImagePreviewCard params={msg.intent.params} brandName={brandName} brandConfig={brandConfig} />
+                                                    <ImagePreviewCard
+                                                        params={msg.intent.params}
+                                                        brandName={brandName}
+                                                        brandConfig={brandConfig}
+                                                        onNavigate={onNavigate}
+                                                    />
+                                                </div>
+                                            )}
+                                            {msg.intent.type === 'DRAFT_CONTENT' && (
+                                                <div className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm animate-fadeIn">
+                                                    <div className="flex items-center gap-2 mb-3 text-purple-600 font-semibold text-sm">
+                                                        <span className="text-lg">✍️</span>
+                                                        Drafting Assistant
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 mb-4">
+                                                        I've set up a writing session for: <span className="font-medium text-gray-900">{msg.intent.params?.contentTopic}</span>
+                                                    </p>
+                                                    <Button
+                                                        onClick={() => onNavigate('studio', { draft: msg.intent.params?.contentTopic })}
+                                                        className="w-full shadow-md shadow-purple-500/10"
+                                                    >
+                                                        Open Content Studio
+                                                    </Button>
                                                 </div>
                                             )}
                                         </div>

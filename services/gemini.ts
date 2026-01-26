@@ -568,6 +568,12 @@ export const editWeb3Graphic = async (
     - ONLY apply the requested change (e.g. change color, remove object, change background).
     - If the user asks to "change style", then you can be more creative with the composition.
     - Maintain high quality, professional "Web3/Tech" aesthetic unless instructed otherwise.
+
+    MATCHING & TEXT EDITING (CRITICAL):
+    - IF THE USER ASKS TO CHANGE TEXT: You MUST completely replace the old text with the NEW text. 
+    - MATCH THE FONT: Use a font that matches the visual style of the original image (e.g. if original is futuristic, use a modern sans-serif).
+    - EXACT SPELLING: You MUST use the exact key/value pair provided in the instruction. Do not hallucinate extra words.
+    - REMOVE OLD TEXT: Ensure the old text is completely erased/inpainted over before placing the new text.
     `;
 
     try {
@@ -2560,11 +2566,13 @@ export const classifyAndPopulate = async (
     AVAILABLE TOOLS:
     1. GENERATE_IMAGE: Creating visuals, banners, memes, or graphics.
        - Params: imagePrompt (string), imageStyle (optional - e.g. "Cyberpunk", "Minimal"), imageAspectRatio (1:1, 16:9, 4:5).
-    2. CREATE_CAMPAIGN: planning content, tweets, or strategy.
+    2. CREATE_CAMPAIGN: Planning COMPREHENSIVE content strategies, multiple posts, or themes.
        - Params: campaignTopic (string), campaignTheme (optional).
-    3. ANALYZE_MARKET: Looking for trends, analyzing sentiment, or researching.
+    3. DRAFT_CONTENT: Writing a SINGLE tweet, post, or thread. Quick content creation.
+       - Params: contentTopic (string).
+    4. ANALYZE_MARKET: Looking for trends, analyzing sentiment, or researching.
        - Params: analysisTopic (string).
-    4. GENERAL_CHAT: Just talking, asking "how to", greetings, or requests for advice.
+    5. GENERAL_CHAT: Just talking, asking "how to", greetings, or requests for advice.
        - Params: N/A.
 
     BRAND CONTEXT:
@@ -2587,14 +2595,20 @@ export const classifyAndPopulate = async (
        - You: Intent: GENERAL_CHAT (The user wants ideas, not a specific action yet).
 
        - User: "Make a tweet about ETH"
-       - You: Intent: MISSING_INFO, missingInfo: ["What is the specific angle? (Bullish, Bearish, Tech update?)", "Should I focus on price or dev activity?"]
+       - You: Intent: DRAFT_CONTENT (Params: contentTopic="Ethereum price action or update")
        
+       - User: "Write a thread about our new feature"
+       - You: Intent: DRAFT_CONTENT (Params: contentTopic="New Feature Launch Thread")
+
+       - User: "Plan a marketing strategy for Q1"
+       - You: Intent: CREATE_CAMPAIGN (Params: campaignTopic="Q1 Marketing Strategy")
+
        - User: "Make a cyberpunk banner for our new token launch"
        - You: Intent: GENERATE_IMAGE (Params: prompt="cyberpunk banner new token launch", style="Cyberpunk", ratio="16:9")
 
     OUTPUT FORMAT (JSON ONLY):
     {
-      "type": "GENERATE_IMAGE" | "CREATE_CAMPAIGN" | "GENERAL_CHAT" | "MISSING_INFO",
+      "type": "GENERATE_IMAGE" | "CREATE_CAMPAIGN" | "DRAFT_CONTENT" | "GENERAL_CHAT" | "MISSING_INFO",
       "params": { ... },
       "missingInfo": ["Question 1?", "Question 2?"], 
       "thoughtProcess": "Brief reasoning",
