@@ -1141,158 +1141,135 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             {campaignStep === 1 && (
                                 <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-500">
 
-                                    {/* CONTEXT BANNER (Compact) */}
-                                    <div className="w-full bg-blue-50/50 border border-blue-100 rounded-lg p-2.5 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-white border border-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shadow-sm">
-                                                Source
-                                            </div>
-                                            <div className="text-xs font-medium text-blue-900">
-                                                {promptProvenance} <span className="text-blue-400">/</span> <span className="opacity-70">Just Now</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            {/* Integrated Status Badge */}
-                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-100/50 border border-emerald-100 text-[9px] font-bold text-emerald-700 uppercase tracking-wide">
-                                                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></div>
-                                                Live Analysis
-                                            </div>
-                                            <button
-                                                onClick={() => setShowBrief(!showBrief)}
-                                                className="text-[10px] text-blue-600 hover:text-blue-800 font-bold uppercase tracking-wide hover:underline"
-                                            >
-                                                {showBrief ? 'Hide Signals' : 'View Signals'}
-                                            </button>
-                                        </div>
-                                    </div>
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mt-2">
 
-                                    {showBrief && (
-                                        <div className="bg-white border border-gray-200 rounded-lg p-3 text-xs text-gray-600 animate-in slide-in-from-top-1 shadow-sm">
-                                            <div className="flex items-start gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-1.5">
-                                                        <span className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">Topic Spike</span>
-                                                        <span className="text-[10px] text-gray-400">Confidence: 92%</span>
-                                                    </div>
-                                                    <p className="leading-relaxed text-zinc-700">
-                                                        Detected +15% increase in competitor mentions regarding "Protocol v2". Recommended action is a preemptive education campaign to capture Share of Voice.
-                                                    </p>
+                                        {/* LEFT COL: MODEL SELECTION (Now Boxed) */}
+                                        <div className="lg:col-span-4">
+                                            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm h-full">
+                                                <div className="mb-4 pb-4 border-b border-gray-100">
+                                                    <h2 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Execution Model</h2>
+                                                    <p className="text-zinc-500 text-[10px] mt-1">Select strategy type</p>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    )}
 
-                                    {/* CONTEXT ACTIVE INDICATOR for Theme Input */}
-                                    {promptProvenance !== 'Manual Creation' && (
-                                        <div className="mb-2 flex items-center gap-2 bg-blue-50 border border-blue-100 rounded px-2 py-1.5 animate-pulse">
-                                            <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Pre-filled from: {promptProvenance}</span>
-                                        </div>
-                                    )}
-
-                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-
-                                        {/* CAMPAIGN TYPE CARDS */}
-                                        {/* LEFT COL: STRUCTURE */}
-                                        <div className="lg:col-span-4 space-y-3">
-                                            <div className="px-1">
-                                                <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Model</h2>
-                                                <p className="text-zinc-500 text-[10px]">How should this executed?</p>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                {/* ALWAYS SHOW MANUAL MODELS */}
-                                                <button
-                                                    onClick={() => setCampaignType('theme')}
-                                                    className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => (s.hook || s.topic) === campaignTheme) ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'theme' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🎯</div>
-                                                        <div>
-                                                            <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-600'}`}>Specific Theme</h3>
-                                                            <p className="text-[10px] text-gray-500 leading-tight">Deep dive into a single topic or launch event.</p>
+                                                <div className="space-y-2.5">
+                                                    {/* ALWAYS SHOW MANUAL MODELS */}
+                                                    <button
+                                                        onClick={() => setCampaignType('theme')}
+                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'theme' && !recommendedStrategies.find(s => (s.hook || s.topic) === campaignTheme) ? 'bg-zinc-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'theme' ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-400'}`}>🎯</div>
+                                                            <div>
+                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'theme' ? 'text-gray-900' : 'text-gray-600'}`}>Specific Theme</h3>
+                                                                <p className="text-[10px] text-gray-500 leading-tight">Deep dive into a single topic.</p>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    {campaignType === 'theme' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
-                                                </button>
+                                                    </button>
 
-                                                <button
-                                                    onClick={() => setCampaignType('diverse')}
-                                                    className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'diverse' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>🌊</div>
-                                                        <div>
-                                                            <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-600'}`}>Diverse Mix</h3>
-                                                            <p className="text-[10px] text-gray-500 leading-tight">Balance maintenance content with updates.</p>
+                                                    <button
+                                                        onClick={() => setCampaignType('diverse')}
+                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'diverse' ? 'bg-zinc-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'diverse' ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-400'}`}>🌊</div>
+                                                            <div>
+                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'diverse' ? 'text-gray-900' : 'text-gray-600'}`}>Diverse Mix</h3>
+                                                                <p className="text-[10px] text-gray-500 leading-tight">General maintenance content.</p>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    {campaignType === 'diverse' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
-                                                </button>
+                                                    </button>
 
-                                                <button
-                                                    onClick={() => { setCampaignType('notes'); setCampaignTheme(''); }}
-                                                    className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'notes' ? 'bg-white border-zinc-500 ring-1 ring-zinc-500 shadow-sm' : 'bg-gray-50/50 border-gray-200 hover:bg-white hover:border-gray-300'}`}
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'notes' ? 'bg-zinc-100 text-zinc-900' : 'bg-white text-gray-400 border border-gray-100'}`}>✨</div>
-                                                        <div>
-                                                            <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'notes' ? 'text-gray-900' : 'text-gray-600'}`}>Smart Plan</h3>
-                                                            <p className="text-[10px] text-gray-500 leading-tight">AI creates a plan from your raw notes.</p>
+                                                    <button
+                                                        onClick={() => { setCampaignType('notes'); setCampaignTheme(''); }}
+                                                        className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignType === 'notes' ? 'bg-zinc-50 border-zinc-400 ring-1 ring-zinc-400' : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignType === 'notes' ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-400'}`}>✨</div>
+                                                            <div>
+                                                                <h3 className={`font-bold text-xs mb-0.5 ${campaignType === 'notes' ? 'text-gray-900' : 'text-gray-600'}`}>Smart Plan</h3>
+                                                                <p className="text-[10px] text-gray-500 leading-tight">AI Generated from notes.</p>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    {campaignType === 'notes' && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-zinc-900" />}
-                                                </button>
-                                            </div>
+                                                    </button>
+                                                </div>
 
-                                            {/* STRATEGIC OPPORTUNITIES (RECOMMENDATIONS) */}
-                                            {recommendedStrategies.length > 0 && (
-                                                <div className="mt-8 pt-6 border-t border-gray-200/60 animate-in slide-in-from-bottom-2 fade-in duration-700">
-                                                    <div className="px-1 mb-3 flex items-center justify-between">
-                                                        <div>
-                                                            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide flex items-center gap-2">
-                                                                Suggested
-                                                                <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded text-[9px] font-bold">AI</span>
+                                                {/* STRATEGIC OPPORTUNITIES (RECOMMENDATIONS) */}
+                                                {recommendedStrategies.length > 0 && (
+                                                    <div className="mt-6 pt-5 border-t border-gray-100">
+                                                        <div className="mb-3">
+                                                            <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                                                Opportunities
+                                                                <span className="bg-purple-100 text-purple-600 px-1 py-0.5 rounded text-[8px]">AI</span>
                                                             </h2>
-                                                            <p className="text-zinc-500 text-[10px]">High impact opportunities.</p>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            {recommendedStrategies.map((strategy, idx) => (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => {
+                                                                        setCampaignType('theme');
+                                                                        setCampaignTheme(strategy.hook || strategy.topic);
+                                                                        setCampaignGoal(strategy.goal);
+                                                                        setCampaignContext(strategy.reasoning || '');
+                                                                    }}
+                                                                    className={`w-full p-2.5 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-purple-50 border-purple-300 ring-1 ring-purple-300' : 'bg-white border-dashed border-gray-300 hover:bg-purple-50/30 hover:border-purple-200'}`}
+                                                                >
+                                                                    <div className="flex items-start gap-2.5">
+                                                                        <div className={`w-5 h-5 rounded flex items-center justify-center text-[10px] shrink-0 ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-purple-500 text-white' : 'bg-gray-50 text-gray-400'}`}>🚀</div>
+                                                                        <div>
+                                                                            <h3 className="font-bold text-[10px] text-gray-900 mb-0.5 leading-snug">{strategy.hook || strategy.topic}</h3>
+                                                                            {strategy.reasoning && <p className="text-[9px] text-gray-500 leading-tight line-clamp-1">{strategy.reasoning}</p>}
+                                                                        </div>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
                                                         </div>
                                                     </div>
-
-                                                    <div className="space-y-2">
-                                                        {recommendedStrategies.map((strategy, idx) => (
-                                                            <button
-                                                                key={idx}
-                                                                onClick={() => {
-                                                                    setCampaignType('theme');
-                                                                    setCampaignTheme(strategy.hook || strategy.topic);
-                                                                    setCampaignGoal(strategy.goal);
-                                                                    setCampaignContext(strategy.reasoning || '');
-                                                                }}
-                                                                className={`w-full p-3 rounded-lg border text-left transition-all duration-200 relative overflow-hidden group ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-purple-50 border-purple-200 ring-1 ring-purple-200' : 'bg-white border-dashed border-gray-300 hover:bg-purple-50/30 hover:border-purple-200'}`}
-                                                            >
-                                                                <div className="flex items-start gap-3">
-                                                                    <div className={`w-6 h-6 rounded flex items-center justify-center text-xs shrink-0 ${campaignTheme === (strategy.hook || strategy.topic) ? 'bg-purple-100 text-purple-600' : 'bg-gray-50 text-gray-400'}`}>🚀</div>
-                                                                    <div>
-                                                                        <h3 className="font-bold text-xs text-gray-900 mb-0.5">{strategy.hook || strategy.topic}</h3>
-                                                                        <p className="text-[10px] text-gray-500 leading-tight line-clamp-2">{strategy.reasoning}</p>
-                                                                    </div>
-                                                                </div>
-                                                                {campaignTheme === (strategy.hook || strategy.topic) && <div className="absolute right-2 top-2 w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                                )}
+                                            </div>
                                         </div>
 
-                                        {/* RIGHT COL: CONFIGURATION */}
+                                        {/* RIGHT COL: CONFIGURATION (Now includes Context Header) */}
                                         <div className="lg:col-span-8">
-                                            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-6 h-full">
+                                            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-6 h-full relative overflow-hidden">
+                                                {/* Context Indicator (Moved Inside) */}
+                                                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 opacity-20"></div>
+
                                                 <div className="flex justify-between items-start border-b border-gray-100 pb-4 mb-4">
                                                     <div>
-                                                        <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Params</h2>
+                                                        <h2 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Configuration</h2>
+                                                        <p className="text-zinc-500 text-[10px] mt-1 flex items-center gap-1.5">
+                                                            <span>Source:</span>
+                                                            <span className={`font-bold ${promptProvenance !== 'Manual Creation' ? 'text-blue-600' : 'text-gray-700'}`}>{promptProvenance}</span>
+                                                            {showBrief && promptProvenance !== 'Manual Creation' && (
+                                                                <span className="text-[8px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded ml-1">Signal Active</span>
+                                                            )}
+                                                        </p>
                                                     </div>
+                                                    {/* Toggle Signals Button */}
+                                                    {promptProvenance !== 'Manual Creation' && (
+                                                        <button
+                                                            onClick={() => setShowBrief(!showBrief)}
+                                                            className="text-[10px] font-bold text-blue-500 hover:text-blue-700 uppercase tracking-wide"
+                                                        >
+                                                            {showBrief ? 'Hide Context' : 'View Context'}
+                                                        </button>
+                                                    )}
                                                 </div>
+
+                                                {/* AI Context Panel (Inline) */}
+                                                {showBrief && (
+                                                    <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-xs text-gray-600 mb-4 animate-in slide-in-from-top-1">
+                                                        <div className="flex items-center gap-2 mb-1.5">
+                                                            <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">Strategy Signal</span>
+                                                            <div className="h-px bg-blue-200 flex-1"></div>
+                                                        </div>
+                                                        <p className="leading-relaxed text-zinc-700 text-[11px]">
+                                                            Detected market opportunity. Recommended action is a preemptive education campaign to capture Share of Voice.
+                                                        </p>
+                                                    </div>
+                                                )}
 
                                                 <div className="space-y-4">
                                                     {campaignType === 'theme' && (
