@@ -1182,10 +1182,13 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         </div>
                                     )}
 
-                                    {/* DEBUG: Temporary State Inspector */}
-                                    <div className="bg-red-50 border border-red-200 p-2 rounded text-[10px] font-mono text-red-800">
-                                        DEBUG: Brand={brandName} | Tasks={loadStrategyTasks(brandName)?.length} | Recs={recommendedStrategies.length}
-                                    </div>
+                                    {/* CONTEXT ACTIVE INDICATOR for Theme Input */}
+                                    {promptProvenance !== 'Manual Creation' && (
+                                        <div className="mb-2 flex items-center gap-2 bg-blue-50 border border-blue-100 rounded px-2 py-1.5 animate-pulse">
+                                            <svg className="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">Pre-filled from: {promptProvenance}</span>
+                                        </div>
+                                    )}
 
                                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 

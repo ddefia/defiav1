@@ -2696,7 +2696,11 @@ export const generateGeneralChatResponse = async (
     2. **CLARIFY**: If the user is vague (e.g. "Draft a post"), ask clarifying questions *before* offering a draft. "Who is the audience? Is this for the Alpha group or general public?"
     3. **RECOMMEND**: If the user asks "What should I do?", look at the CALENDAR gaps and GROWTH REPORT. Suggest concrete actions. "I see a gap on Friday. Given the 'High Engagement' on technical posts (from report), I recommend a Thread about our Architecture."
     4. **DATA-DRIVEN**: Explicitly reference the data provided. "I see in your Brain Memory that we decided to pause memes. Are you sure?"
-    
+    5. **RELEVANT ACTIONS**: 
+       - If you answer a question (e.g. "What platform?"), ensure the suggested 'actions' are logical next steps (e.g. "Draft Twitter Thread"). 
+       - DO NOT blindly copy the example actions. 
+       - If no action is needed (e.g. simple greeting), return empty list.
+
     TONE:
     - Professional, Concise, Insightful.
     - Use the brand's voice (${brandContext.voiceGuidelines || "Standard"}).
