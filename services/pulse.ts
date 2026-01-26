@@ -190,17 +190,24 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
                     }, apifyToken);
 
                     if (items && items.length > 0) {
-                        return items.map((item: any) => ({
-                            id: item.id_str || `trend-${Math.random()}`,
-                            source: 'Twitter',
-                            headline: item.full_text ? item.full_text.substring(0, 50) + "..." : "Trend",
-                            summary: item.full_text || "No summary",
-                            relevanceScore: 85, // Simple default
-                            relevanceReason: "Live market topic",
-                            sentiment: 'Neutral',
-                            timestamp: 'Live',
-                            createdAt: now
-                        }));
+                        return items.map((item: any) => {
+                            // Calculate Score from actual engagement (if available) or fallback depth
+                            const engagement = (item.retweet_count || 0) * 2 + (item.favorite_count || 0);
+                            const calcScore = Math.min(99, 60 + Math.ceil(engagement / 100)); // Baseline 60, +1 per 100 interactions
+
+                            return {
+                                id: item.id_str || `trend-${Math.random()}`,
+                                source: 'Twitter',
+                                headline: item.full_text ? item.full_text.substring(0, 50) + "..." : "Trend",
+                                summary: item.full_text || "No summary",
+                                relevanceScore: calcScore,
+                                relevanceReason: engagement > 1000 ? "High Engagement Velocity" : "Emerging Conversation",
+                                sentiment: 'Neutral',
+                                timestamp: 'Live',
+                                createdAt: now,
+                                rawData: item
+                            };
+                        });
                     }
                 } catch (e) {
                     console.warn("Apify fetch failed for Pulse, falling back to mock.", e);
