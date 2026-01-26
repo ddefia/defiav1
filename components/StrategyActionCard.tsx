@@ -27,80 +27,86 @@ export const StrategyActionCard: React.FC<StrategyActionCardProps> = ({ task, on
     };
 
     return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 relative group overflow-hidden mb-2">
+        <div className="bg-white border border-gray-200/60 rounded-xl p-0 shadow-sm hover:shadow-premium hover:-translate-y-0.5 transition-all duration-300 relative group overflow-hidden mb-3">
 
-            {/* CARD BODY - GRID LAYOUT */}
-            <div className="flex flex-col sm:flex-row">
+            {/* Type Indicator Line */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${getTagStyle(task.type).split(' ')[0].replace('bg-', 'bg-')}`}></div>
 
-                {/* LEFT: Main Context (Weighted 2/3) */}
-                <div className="flex-1 p-3 border-b sm:border-b-0 sm:border-r border-gray-100">
-                    {/* Header Line */}
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-1.5 py-0.5 rounded-[4px] text-[9px] font-bold uppercase tracking-wider border ${getTagStyle(task.type)}`}>
-                            {task.type.replace('_', ' ')}
-                        </span>
-                        <span className="text-[10px] text-gray-400 font-mono">Twitter</span>
-                        <div className="flex-1"></div>
-                        {/* Mobile Score (Hidden on Desktop usually, but good for responsive) */}
-                        <span className={`sm:hidden text-[9px] font-bold px-1.5 py-0.5 rounded border ${getImpactColor(task.impactScore)}`}>
-                            Impact: {task.impactScore}/10
-                        </span>
-                    </div>
+            <div className="flex flex-col sm:flex-row h-full">
 
-                    {/* Title */}
-                    <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 group-hover:text-blue-600 transition-colors cursor-pointer" onClick={onConfigure}>
-                        {task.title}
-                    </h3>
-
-                    {/* Reasoning - Compact */}
-                    <div className="relative pl-3 border-l-2 border-blue-100">
-                        <p className="text-[11px] text-gray-600 leading-relaxed font-medium line-clamp-2">
-                            {task.reasoning}
-                        </p>
-                        {/* Proof / Footnote */}
-                        {task.proof && (
-                            <div className="mt-2 pt-2 border-t border-blue-50">
-                                <p className="text-[10px] text-gray-400 font-serif italic truncate">
-                                    Why: {task.proof}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* RIGHT: Metrics & Actions (Weighted 1/3) */}
-                <div className="w-full sm:w-[180px] bg-gray-50/50 p-3 flex flex-col justify-between gap-3">
-
-                    {/* Metrics Block */}
+                {/* LEFT: Context & Content */}
+                <div className="flex-1 p-5 pl-7 flex flex-col justify-between">
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <span className="text-[9px] font-bold text-gray-400 uppercase">Confidence</span>
-                            <span className={`text-[9px] font-bold ${task.impactScore > 7 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                {task.impactScore > 7 ? 'High' : 'Med'}
+                            <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${getTagStyle(task.type)}`}>
+                                    {task.type.replace('_', ' ')}
+                                </span>
+                                <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
+                                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                                    Twitter
+                                </span>
+                            </div>
+
+                            {/* Mobile Impact Score */}
+                            <span className={`sm:hidden text-[9px] font-bold ${getImpactColor(task.impactScore)} px-1.5 py-0.5 rounded`}>
+                                Impact: {task.impactScore}
                             </span>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-bold text-gray-400 uppercase">Impact</span>
-                            <div className={`flex items-center px-1.5 py-0.5 rounded border ${getImpactColor(task.impactScore)}`}>
-                                <span className="text-xs font-bold">{task.impactScore}</span>
-                                <span className="text-[9px] opacity-70">/10</span>
+                        <h3
+                            className="text-base font-display font-bold text-gray-900 leading-tight mb-2 pr-4 group-hover:text-blue-600 transition-colors cursor-pointer"
+                            onClick={onConfigure}
+                        >
+                            {task.title}
+                        </h3>
+
+                        <div className="relative pl-3 border-l-2 border-brand-border mt-3">
+                            <p className="text-xs text-brand-textSecondary leading-relaxed line-clamp-2">
+                                {task.reasoning}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Proof Footnote (Bottom align) */}
+                    {task.proof && (
+                        <div className="mt-4 flex items-center gap-1.5 text-[9px] text-brand-muted uppercase tracking-wide font-medium opacity-60">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Signal: {task.proof}
+                        </div>
+                    )}
+                </div>
+
+                {/* RIGHT: Actions & Stats */}
+                <div className="w-full sm:w-[160px] bg-gray-50/80 border-l border-gray-100 p-4 flex flex-col justify-center gap-3">
+
+                    {/* Impact Stats */}
+                    <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1">
+                        <div className="text-right">
+                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Impact</div>
+                            <div className={`text-lg font-display font-bold leading-none ${task.impactScore > 8 ? 'text-emerald-500' : 'text-gray-700'}`}>
+                                {task.impactScore}<span className="text-xs text-gray-400 font-sans ml-0.5">/10</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Primary Action Button */}
+                    <div className="w-full h-px bg-gray-200 hidden sm:block opacity-50"></div>
+
+                    {/* Execute Button */}
                     <button
                         onClick={onConfigure}
-                        className="w-full group/btn relative overflow-hidden rounded flex items-center justify-center gap-2 bg-white hover:bg-black hover:text-white border border-gray-200 hover:border-black text-gray-700 text-[10px] font-bold uppercase tracking-wide py-2 transition-all shadow-sm"
+                        className="w-full h-9 bg-black text-white hover:bg-gray-800 text-[10px] font-bold uppercase tracking-widest rounded shadow-sm hover:shadow-lg transition-all flex items-center justify-center gap-2 group/btn"
                     >
-                        <span>Execute</span>
-                        <svg className="w-3 h-3 text-gray-400 group-hover/btn:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        Execute
+                        <svg className="w-3 h-3 text-gray-400 group-hover/btn:text-emerald-400 transition-colors transform group-hover/btn:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                         </svg>
                     </button>
 
                 </div>
+
             </div>
         </div>
     );

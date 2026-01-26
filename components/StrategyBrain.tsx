@@ -42,27 +42,40 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     };
 
     return (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm relative overflow-hidden">
+            {/* Subtle Gradient Background for Header Area */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 via-blue-500 to-purple-500 opacity-80"></div>
+
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        🧠 Strategic Intelligence
+                    <h2 className="text-xl font-display font-bold text-gray-900 flex items-center gap-3">
+                        <span className="text-2xl">🧠</span>
+                        Strategic Intelligence
                         {onRegenerate && (
                             <button
                                 onClick={handleRegenClick}
                                 disabled={isRegenerating}
-                                className={`ml-3 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide border rounded transition-all ${isRegenerating ? 'bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed' : 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
+                                className={`ml-2 p-1.5 rounded-full border transition-all ${isRegenerating ? 'bg-gray-50 border-gray-100 text-gray-300' : 'bg-white border-gray-200 text-gray-400 hover:text-emerald-500 hover:border-emerald-200 shadow-sm'}`}
+                                title="Refresh Intelligence"
                             >
-                                {isRegenerating ? 'Syncing...' : '↻ Refresh'}
+                                <svg className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
                             </button>
                         )}
                     </h2>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1 font-medium ml-1">
                         AI-generated high-leverage opportunities based on market conditions.
                     </p>
                 </div>
-                <div className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded font-mono">
-                    {tasks.length} Active Signals
+                <div className="flex items-center gap-2">
+                    <div className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100/50">
+                        {tasks.length} Active Signals
+                    </span>
                 </div>
             </div>
 

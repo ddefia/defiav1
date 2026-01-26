@@ -71,18 +71,24 @@ export const TrendFeed: React.FC<TrendFeedProps> = ({ trends, onReact, isLoading
                                     <div className="flex items-center gap-1.5 opacity-60">
                                         <span className="text-xs">{icon}</span>
                                         <span className="text-[10px] font-bold uppercase tracking-widest text-brand-textSecondary">{sourceLabel}</span>
+                                        {trend.topic && (
+                                            <>
+                                                <span className="text-gray-300">•</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-accent">{trend.topic}</span>
+                                            </>
+                                        )}
                                     </div>
                                     <span className="text-[10px] font-mono text-brand-muted bg-gray-50 px-1.5 py-0.5 rounded">
                                         {typeof trend.timestamp === 'number' ? new Date(trend.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
                                     </span>
                                 </div>
 
-                                <h4 className="font-display font-bold text-lg text-brand-text mb-2 leading-tight group-hover:text-brand-accent transition-colors">
-                                    {trend.headline.replace(' Trending', '')}
+                                <h4 className="font-display font-bold text-lg text-brand-text mb-2 leading-tight group-hover:text-brand-accent transition-colors line-clamp-2">
+                                    {trend.headline}
                                 </h4>
 
                                 <div className={`text-xs text-brand-textSecondary leading-relaxed mb-4 border-l-2 pl-3 ${isNews ? 'border-brand-accent/30' : 'border-blue-200'}`}>
-                                    {trend.summary.replace('News: ', '').replace('High momentum topic. ', '')}
+                                    {trend.summary}
                                 </div>
                             </div>
 

@@ -165,6 +165,7 @@ export interface TrendItem {
   timestamp: string; // Display string (e.g. "10m ago")
   createdAt: number; // Machine timestamp for 48h expiry logic
   rawData?: any; // Full original payload for backend processing/debugging
+  topic?: string; // New: High-level category (e.g. "AI", "GameFi")
 }
 
 export interface PulseCache {

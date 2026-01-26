@@ -87,11 +87,14 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
 
                     if (stories.length > 0) {
                         const topStory = stories[0];
-                        // Use the News Title as the summary logic
-                        context = `Insight: ${topStory.post_title}`;
-                        if (topStory.creator_display_name) {
-                            context += ` (Source: ${topStory.creator_display_name})`;
-                        }
+                        // Use the News Title as the HEADLINE (Fixing the "ai" issue)
+                        headline = topStory.post_title;
+
+                        // Use the rest as context
+                        context = `Source: ${topStory.creator_display_name || 'Market Wire'}`;
+
+                        // If title is too short, fall back
+                        if (headline.length < 10) headline = `${topicName}: Market Movement Detected`;
                     }
                 }
             } catch (e) {
@@ -107,7 +110,8 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
             return {
                 id: `lc-topic-${topicName}`,
                 source: 'LunarCrush',
-                headline: headline,
+                topic: topicName, // New: The high-level category
+                headline: headline, // Now the Real News Title or a better fallback
                 summary: context,
                 relevanceScore: Math.min(99, 75 + Math.floor(volume / 5000)), // Base score higher for valid topics
                 relevanceReason: aiReasoning,
@@ -119,7 +123,11 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
             };
         }));
 
-        return enrichedTrends;
+        // FINAL FILTER: Remove items where we couldn't find a real headline and it's just "Topic Trending"
+        // This prevents the "ai" issue where no news was found.
+        const validTrends = enrichedTrends.filter(t => !t.headline.endsWith(' Trending') || t.relevanceScore > 90);
+
+        return validTrends;
 
     } catch (e) {
         console.warn("LunarCrush fetch failed", e);
