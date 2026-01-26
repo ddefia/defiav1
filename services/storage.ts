@@ -587,6 +587,11 @@ export const loadStrategicPosture = (brandName: string): any => {
             thesis: "The market is shifting from speculative trading to infrastructure maturity. Defia must position itself not just as a participant, but as a knowledgeable guide through this transition, prioritizing educational depth over engagement farming.",
             timeHorizon: "Q1 - Q2 2026",
             confidenceLevel: "High",
+            marketEvidence: [
+                { label: "L2 Narrative Strength", value: "High", signal: "positive" },
+                { label: "Competitor Saturation", value: "Medium", signal: "neutral" },
+                { label: "DeFi Interest", value: "+15% YoY", signal: "positive" }
+            ],
             priorities: [
                 "Education before promotion",
                 "Retention over raw acquisition",

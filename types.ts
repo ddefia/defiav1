@@ -314,6 +314,7 @@ export interface StrategicPosture {
   priorities: string[]; // "Mandates"
   deprioritized: string[]; // "Restricted"
   constraints: string[];
+  marketEvidence: { label: string; value: string; signal: 'positive' | 'negative' | 'neutral' }[]; // New: Data backing
   changeLog: { date: string; change: string; reason: string }[];
 }
 

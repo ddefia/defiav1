@@ -175,9 +175,23 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                 </div>
                             ) : (
                                 <>
-                                    <p className="text-lg font-medium text-gray-900 leading-relaxed tracking-tight mb-4">
+                                    <p className="text-lg font-medium text-gray-900 leading-relaxed tracking-tight mb-6">
                                         {posture.objective}
                                     </p>
+
+                                    {/* MARKET EVIDENCE / PROOF POINTS */}
+                                    {posture.marketEvidence && posture.marketEvidence.length > 0 && (
+                                        <div className="flex flex-wrap gap-4 mb-6 pb-6 border-b border-gray-100">
+                                            {posture.marketEvidence.map((ev, i) => (
+                                                <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2.5 py-1.5 shadow-sm">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${ev.signal === 'positive' ? 'bg-emerald-500' : ev.signal === 'negative' ? 'bg-red-500' : 'bg-gray-400'}`}></div>
+                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">{ev.label}:</span>
+                                                    <span className="text-xs font-bold text-gray-900">{ev.value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     <div className="flex items-start gap-3 p-4 bg-gray-50/50 rounded-lg border border-gray-100">
                                         <span className="text-gray-300 text-2xl serif leading-none">“</span>
                                         <p className="text-sm text-gray-600 italic leading-relaxed">
