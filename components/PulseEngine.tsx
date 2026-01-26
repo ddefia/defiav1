@@ -303,48 +303,73 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
                             </>
                         )}
 
-                        {filteredTrends.map((trend) => (
-                            <div
-                                key={trend.id}
-                                onClick={() => { setSelectedTrend(trend); setGeneratedText(''); setGeneratedImage(''); }}
-                                className={`group relative p-5 rounded-2xl border transition-all cursor-pointer
+                        {filteredTrends.map((trend) => {
+                            // Clean up headline
+                            const cleanHeadline = trend.headline.replace(/ trending/i, '').trim();
+
+                            // Calculate signal strength (1-5 bars)
+                            const strength = Math.ceil((trend.relevanceScore / 100) * 5);
+
+                            return (
+                                <div
+                                    key={trend.id}
+                                    onClick={() => { setSelectedTrend(trend); setGeneratedText(''); setGeneratedImage(''); }}
+                                    className={`group relative p-4 rounded-xl border transition-all cursor-pointer mb-3
                                     ${selectedTrend?.id === trend.id
-                                        ? 'bg-white border-blue-500 ring-2 ring-blue-500/10 shadow-lg scale-[1.01]'
-                                        : 'bg-white border-gray-100 hover:border-blue-300 hover:shadow-md'
-                                    }
+                                            ? 'bg-blue-50/50 border-blue-500 ring-1 ring-blue-500/20 shadow-md'
+                                            : 'bg-white border-gray-100 hover:border-blue-300 hover:shadow-sm'
+                                        }
                                 `}
-                            >
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className="flex flex-wrap gap-2">
-                                        {trend.source.includes('LunarCrush') ? (
-                                            <Badge variant="ai">✨ AI Signal</Badge>
-                                        ) : (
-                                            <Badge>{trend.source}</Badge>
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${trend.source.includes('LunarCrush') ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                                    trend.source === 'Twitter' ? 'bg-sky-100 text-sky-700 border-sky-200' :
+                                                        'bg-gray-100 text-gray-600 border-gray-200'
+                                                }`}>
+                                                {trend.source.replace('LunarCrush ', '')}
+                                            </div>
+                                            <span className="text-[10px] text-gray-400 font-mono">{new Date(trend.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+
+                                        {/* Signal Strength Visual */}
+                                        <div className="flex items-end gap-0.5 h-3" title={`Signal Strength: ${trend.relevanceScore}%`}>
+                                            {[1, 2, 3, 4, 5].map(bar => (
+                                                <div
+                                                    key={bar}
+                                                    className={`w-1 rounded-sm ${bar <= strength
+                                                        ? (strength >= 4 ? 'bg-emerald-500' : 'bg-blue-500')
+                                                        : 'bg-gray-200'}`}
+                                                    style={{ height: `${bar * 20}%` }}
+                                                ></div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <h3 className="font-bold text-sm text-gray-900 leading-snug mb-1.5 group-hover:text-blue-600 transition-colors capitalize">
+                                        {cleanHeadline}
+                                    </h3>
+
+                                    <p className="text-[11px] text-gray-500 line-clamp-2 mb-3 leading-relaxed">
+                                        {trend.summary}
+                                    </p>
+
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-50/50">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Velocity</span>
+                                            <span className={`text-[10px] font-mono font-bold ${trend.relevanceScore > 80 ? 'text-emerald-600' : 'text-gray-600'}`}>
+                                                {trend.relevanceScore > 90 ? 'CRITICAL' : trend.relevanceScore > 75 ? 'HIGH' : 'NORMAL'}
+                                            </span>
+                                        </div>
+                                        {trend.relevanceScore > 80 && (
+                                            <span className="flex items-center gap-1 text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">
+                                                <span className="animate-pulse">🔥</span> Breakout
+                                            </span>
                                         )}
-                                        {trend.relevanceScore > 80 && <Badge variant="hot">High Velocity</Badge>}
                                     </div>
-                                    <span className="text-[10px] text-gray-400 font-mono pt-1">{new Date(trend.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
-
-                                <h3 className="font-bold text-gray-900 leading-snug mb-2 group-hover:text-blue-600 transition-colors">
-                                    {trend.headline}
-                                </h3>
-
-                                <p className="text-xs text-gray-500 line-clamp-2 mb-3">
-                                    {trend.summary}
-                                </p>
-
-                                <div className="flex items-center gap-2 pt-3 border-t border-gray-50">
-                                    <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-blue-500 rounded-full"
-                                            style={{ width: `${trend.relevanceScore}%` }}
-                                        ></div>
-                                    </div>
-                                    <span className="text-[10px] font-bold text-gray-400">{trend.relevanceScore}% Impact</span>
-                                </div>
-                            </div>
-                        ))}
+                            )
+                        })}
 
                         {filteredTrends.length === 0 && !isLoading && (
                             <div className="text-center py-20 text-gray-400">
