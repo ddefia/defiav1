@@ -376,6 +376,32 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
     const parts: any[] = [{ text: systemPrompt }];
 
+    // --- ADHOC ASSETS INTEGRATION ---
+    if (params.adhocAssets && params.adhocAssets.length > 0) {
+        console.log(`[Gemini] Including ${params.adhocAssets.length} adhoc assets`);
+
+        // 1. Add instructions
+        parts[0].text += `
+        
+        ADDITIONAL REQUIRED ASSETS:
+        - I have provided ${params.adhocAssets.length} specific image assets (e.g. Mascots, Logos) as input.
+        - TASK: You MUST incorporate these exact visual elements into the final image.
+        - IF MASCOT: Place them in the scene as the main character or companion, matching the requested style/lighting.
+        - IF LOGO: Place it clearly but artfully (e.g. on a billboard, shirt, or holographic overlay).
+        - CRITICAL: Do not alter the core identity/shape of these assets, but DO adjust lighting/shading to blend them into the scene.
+        `;
+
+        // 2. Add image parts
+        params.adhocAssets.forEach(asset => {
+            parts.push({
+                inlineData: {
+                    mimeType: asset.mimeType,
+                    data: asset.data
+                }
+            });
+        });
+    }
+
     // Conversion Helper
     const urlToBase64 = async (url: string): Promise<string | null> => {
         try {

@@ -48,6 +48,10 @@ export interface GenerateImageParams {
   selectedReferenceImages?: string[]; // UPDATED: Specific reference images to use (Multi-Select)
   templateType?: string; // Type of template (Partnership, etc.)
   negativePrompt?: string; // Things to avoid in the image
+  adhocAssets?: {
+    data: string;
+    mimeType: string;
+  }[];
 }
 
 export interface GeneratedImage {

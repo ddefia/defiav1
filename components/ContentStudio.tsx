@@ -53,6 +53,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     const [viewingImage, setViewingImage] = useState<string | null>(null);
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedReferenceImage, setSelectedReferenceImage] = useState<string | null>(null);
+    const [uploadedAssets, setUploadedAssets] = useState<{ id: string; data: string; mimeType: string }[]>([]);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [error, setError] = useState<string | null>(null);
 
     // --- PERSISTENCE & DEEP LINKS ---
@@ -152,7 +154,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                     brandConfig,
                     brandName,
                     templateType: selectedTemplate,
-                    selectedReferenceImages: selectedReferenceImage ? [selectedReferenceImage] : undefined
+                    selectedReferenceImages: selectedReferenceImage ? [selectedReferenceImage] : undefined,
+                    adhocAssets: uploadedAssets.map(a => ({ data: a.data, mimeType: a.mimeType }))
                 })
             );
             const images = await Promise.all(promises);
@@ -190,6 +193,37 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
 
     const handlePrepareTweet = (text: string) => {
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+    };
+
+    const handleAssetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+        try {
+            const base64 = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
+
+            const mimeMatch = base64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
+            const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+            const cleanBase64 = base64.split(',')[1] || base64;
+
+            setUploadedAssets(prev => [...prev, {
+                id: Date.now().toString(),
+                data: cleanBase64,
+                mimeType
+            }]);
+        } catch (err) {
+            console.error("Asset upload failed", err);
+            setError("Failed to upload asset");
+        }
+    };
+
+    const removeAsset = (id: string) => {
+        setUploadedAssets(assets => assets.filter(a => a.id !== id));
     };
 
     return (
@@ -354,6 +388,42 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                                 </div>
                             )}
 
+                            {/* Section 4: Ad-hoc Assets */}
+                            <div className="space-y-3">
+                                <label className="flex items-center justify-between text-xs font-bold text-brand-text">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-5 h-5 rounded bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]">4</span>
+                                        Assets (Mascots/Logos)
+                                    </div>
+                                    <button onClick={() => fileInputRef.current?.click()} className="text-[10px] text-indigo-600 font-bold hover:underline">+ Add Asset</button>
+                                </label>
+
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleAssetUpload}
+                                />
+
+                                {uploadedAssets.length > 0 ? (
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {uploadedAssets.map((asset) => (
+                                            <div key={asset.id} className="aspect-square rounded-lg overflow-hidden border border-gray-200 relative group">
+                                                <img src={`data:${asset.mimeType};base64,${asset.data}`} className="w-full h-full object-contain bg-gray-50/50" />
+                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <button onClick={() => removeAsset(asset.id)} className="text-white text-xs hover:text-red-300">Remove</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div onClick={() => fileInputRef.current?.click()} className="border border-dashed border-gray-200 rounded-lg p-3 text-center cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <span className="text-[10px] text-gray-400">Upload mascots or logos to include</span>
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-3 gap-2">
                                 <Select label="Qty" value={variationCount} onChange={e => setVariationCount(e.target.value)} options={[{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }]} />
                                 <Select label="Ratio" value={aspectRatio} onChange={e => setAspectRatio(e.target.value as any)} options={[{ value: '16:9', label: '16:9' }, { value: '1:1', label: '1:1' }, { value: '4:5', label: '4:5' }]} />
@@ -444,18 +514,20 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
                         )
                     )}
                 </div>
-            </div>
+            </div >
 
             {/* Lightbox */}
-            {viewingImage && (
-                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 animate-fadeIn backdrop-blur-sm" onClick={() => setViewingImage(null)}>
-                    <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
-                    <button onClick={() => setViewingImage(null)} className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center">✕</button>
-                    <div className="absolute bottom-10 flex gap-4">
-                        <Button onClick={(e) => { e.stopPropagation(); handleDownload(viewingImage); }} className="bg-white text-black hover:bg-gray-200 border-none">Download High-Res</Button>
+            {
+                viewingImage && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 animate-fadeIn backdrop-blur-sm" onClick={() => setViewingImage(null)}>
+                        <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+                        <button onClick={() => setViewingImage(null)} className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center">✕</button>
+                        <div className="absolute bottom-10 flex gap-4">
+                            <Button onClick={(e) => { e.stopPropagation(); handleDownload(viewingImage); }} className="bg-white text-black hover:bg-gray-200 border-none">Download High-Res</Button>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div>
     );
 };
