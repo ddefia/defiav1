@@ -22,6 +22,7 @@ export interface BrandConfig {
   referenceImages: ReferenceImage[];
   tweetExamples: string[]; // List of "Gold Standard" tweets for style
   knowledgeBase: string[]; // List of text content (docs/whitepapers)
+  brandCollectorProfile?: any; // Optional: Raw enrichment profile from brand-collector
   name?: string; // New: Brand Name (injected from ID)
   voiceGuidelines?: string; // New: Tone/Voice instructions (e.g. "Formal, Trustworthy")
   targetAudience?: string; // New: Who is this for? (e.g. "Institutions")
