@@ -4,7 +4,8 @@ import { fetchMarketPulse } from './services/pulse';
 import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture } from './services/storage';
+import { fetchActionCenter } from './services/actionCenter';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { Button } from './components/Button';
 import { Select } from './components/Select';
@@ -141,6 +142,7 @@ const App: React.FC = () => {
     });
 
     const [systemLogs, setSystemLogs] = useState<string[]>([]); // New: Activity Logs for Dashboard
+    const [automationEnabled, setAutomationEnabled] = useState<boolean>(true);
 
     // Campaign Intent State (Handover from Pulse)
     const [campaignIntent, setCampaignIntent] = useState<{ type: 'theme' | 'diverse', theme: string } | null>(null);
@@ -174,6 +176,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
+        setAutomationEnabled(loadAutomationSettings(selectedBrand).enabled);
 
         // AGGRESSIVE PURGE: Remove legacy "Autopilot" generic tasks
         const rawTasks = loadStrategyTasks(selectedBrand);
@@ -234,8 +237,16 @@ const App: React.FC = () => {
             }
         };
 
+        const handleAutomationUpdate = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail?.brandName === selectedBrand) {
+                setAutomationEnabled(loadAutomationSettings(selectedBrand).enabled);
+            }
+        };
+
         window.addEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
         window.addEventListener(STORAGE_EVENTS.POSTURE_UPDATE, handlePostureUpdate);
+        window.addEventListener(STORAGE_EVENTS.AUTOMATION_UPDATE, handleAutomationUpdate);
 
         // Listen for Brand Updates
         const handleBrandUpdate = () => {
@@ -248,6 +259,7 @@ const App: React.FC = () => {
             window.removeEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
             window.removeEventListener(STORAGE_EVENTS.BRAND_UPDATE, handleBrandUpdate);
             window.removeEventListener(STORAGE_EVENTS.POSTURE_UPDATE, handlePostureUpdate);
+            window.removeEventListener(STORAGE_EVENTS.AUTOMATION_UPDATE, handleAutomationUpdate);
         };
     }, [selectedBrand]);
 
@@ -262,6 +274,37 @@ const App: React.FC = () => {
         if (growthReport) saveGrowthReport(selectedBrand, growthReport);
     }, [growthReport, selectedBrand]);
 
+    const normalizeDecisionType = (action?: string): StrategyTask['type'] => {
+        const normalized = action?.toUpperCase() || '';
+        switch (normalized) {
+            case 'REPLY':
+                return 'REPLY';
+            case 'TREND_JACK':
+                return 'TREND_JACK';
+            case 'CAMPAIGN':
+                return 'CAMPAIGN_IDEA';
+            default:
+                return 'EVERGREEN';
+        }
+    };
+
+    const mapDecisionToTask = (decision: any): StrategyTask => {
+        const actionLabel = decision.action ? decision.action.toString().toUpperCase() : 'ACTION';
+        return {
+            id: decision.id || crypto.randomUUID(),
+            type: normalizeDecisionType(decision.action),
+            title: `${actionLabel}: ${decision.reason || 'Strategic opportunity detected'}`,
+            description: decision.reason || 'Automated decision from server brain.',
+            reasoning: decision.reason || 'Automated decision from server brain.',
+            impactScore: 7,
+            executionPrompt: decision.draft || decision.reason || 'Draft a response to the detected opportunity.'
+        };
+    };
+
+    const hasOnlyWelcomeTask = (tasks: StrategyTask[]) => {
+        return tasks.length === 1 && tasks[0].id === 'welcome-1';
+    };
+
     // --- AUTO-PILOT LOGIC (Formerly in GrowthEngine) ---
     // Persistent background scanning regardless of active tab
     useEffect(() => {
@@ -269,10 +312,33 @@ const App: React.FC = () => {
             // Only run if we lack critical data or want to force a refresh
             // REMOVED BLOCKER: if (strategyTasks.length > 0) return; -> We want it to run to get the Growth Report
             if (!selectedBrand || !profiles[selectedBrand]) return;
+            if (!automationEnabled) {
+                setSystemLogs(prev => ["Automation disabled. Skipping background scan.", ...prev]);
+                return;
+            }
 
             setSystemLogs(prev => ["Initializing Auto-Pilot Sentinel...", ...prev]);
 
             try {
+                const actionCenter = await fetchActionCenter(selectedBrand);
+                if (actionCenter) {
+                    if (actionCenter.growthReport && (!growthReport || growthReport.lastUpdated === 0)) {
+                        setGrowthReport(actionCenter.growthReport);
+                        setSystemLogs(prev => ["Loaded server-side Daily Briefing.", ...prev]);
+                    }
+
+                    if (actionCenter.decisions?.length && hasOnlyWelcomeTask(strategyTasks)) {
+                        const mappedTasks = actionCenter.decisions.map(mapDecisionToTask);
+                        setStrategyTasks(mappedTasks);
+                        setSystemLogs(prev => ["Loaded server-side Action Center recommendations.", ...prev]);
+                    }
+
+                    if (actionCenter.decisions?.length && actionCenter.growthReport) {
+                        setSystemLogs(prev => ["Server brain is active. Skipping local scan.", ...prev]);
+                        return;
+                    }
+                }
+
                 // 1. Ingest Market Data
                 setSystemLogs(prev => ["Scanning Social Graph (Twitter/Farcaster) & On-Chain...", ...prev]);
                 await runMarketScan(selectedBrand);

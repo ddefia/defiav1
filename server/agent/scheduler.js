@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { fetchDuneMetrics, fetchLunarCrushTrends, fetchMentions, fetchPulseTrends, updateAllBrands, TRACKED_BRANDS } from './ingest.js'; // Imported TRACKED_BRANDS directly
 import { analyzeState } from './brain.js';
 import { generateDailyBriefing } from './generator.js'; // Import Generator
+import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
 
 /**
  * SCHEDULER SERVICE
@@ -46,17 +47,10 @@ const saveDecision = (decision) => {
 
 export const startAgent = () => {
     console.log("🤖 Agent Scheduled: Online & Monitoring...");
+    const supabase = getSupabaseClient();
 
-    // 0. Initial Run (Bootup) - Run once immediately after 5s
-    setTimeout(async () => {
-        console.log("🚀 Bootup Sequence: Initializing Social Sync...");
-        const apifyKey = process.env.APIFY_API_TOKEN;
-        if (apifyKey) await updateAllBrands(apifyKey);
-    }, 5000);
-
-    // 1. Core Agent Loop (Decision Making) - Daily at Midnight
-    cron.schedule('0 0 * * *', async () => {
-        console.log(`\n[${new Date().toISOString()}] 🧠 Agent Waking Up (Testing Mode)...`);
+    const runBrainCycle = async (label) => {
+        console.log(`\n[${new Date().toISOString()}] 🧠 Agent Cycle: ${label}`);
 
         const duneKey = process.env.DUNE_API_KEY;
         const lunarKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
@@ -74,6 +68,15 @@ export const startAgent = () => {
             // Use imported TRACKED_BRANDS
             for (const [brandId, handle] of Object.entries(TRACKED_BRANDS)) {
                 console.log(`   > Analyzing Brand: ${brandId} (@${handle})...`);
+                if (supabase) {
+                    const automation = await fetchAutomationSettings(supabase, brandId);
+                    if (!automation.enabled) {
+                        console.log(`     - ⏸️ Automation disabled for ${brandId}. Skipping.`);
+                        continue;
+                    }
+                }
+
+                const brandProfile = supabase ? await fetchBrandProfile(supabase, brandId) : null;
 
                 // 1. Brand Specific Data
                 const [dune, mentions] = await Promise.all([
@@ -82,7 +85,7 @@ export const startAgent = () => {
                 ]);
 
                 // 2. Analyze
-                const decision = await analyzeState(dune, lunarTrends, mentions, pulse);
+                const decision = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || {});
 
                 // 3. Act & Save
                 if (decision.action !== 'NO_ACTION') {
@@ -100,6 +103,22 @@ export const startAgent = () => {
         } catch (error) {
             console.error("   - ❌ Agent Loop Failed:", error.message);
         }
+    };
+
+    // 0. Initial Run (Bootup) - Run once immediately after 5s
+    setTimeout(async () => {
+        console.log("🚀 Bootup Sequence: Initializing Social Sync...");
+        const apifyKey = process.env.APIFY_API_TOKEN;
+        if (apifyKey) await updateAllBrands(apifyKey);
+    }, 5000);
+
+    setTimeout(async () => {
+        await runBrainCycle('Bootup Decision Scan');
+    }, 8000);
+
+    // 1. Core Agent Loop (Decision Making) - Hourly
+    cron.schedule('0 * * * *', async () => {
+        await runBrainCycle('Hourly Decision Scan');
     });
 
     // 2. Data Sync Loop (Data Freshness) - Daily at Noon
@@ -119,6 +138,13 @@ export const startAgent = () => {
         try {
             // Generate for all tracked brands
             for (const brandId of Object.keys(TRACKED_BRANDS)) {
+                if (supabase) {
+                    const automation = await fetchAutomationSettings(supabase, brandId);
+                    if (!automation.enabled) {
+                        console.log(`   - ⏸️ Automation disabled for ${brandId}. Skipping briefing.`);
+                        continue;
+                    }
+                }
                 await generateDailyBriefing(brandId);
             }
         } catch (e) {

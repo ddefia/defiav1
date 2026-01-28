@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrandKit } from './BrandKit';
 import { BrandConfig } from '../types';
+import { loadAutomationSettings, saveAutomationSettings } from '../services/storage';
 
 interface SettingsProps {
     brandName: string;
@@ -10,6 +11,18 @@ interface SettingsProps {
 
 export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange }) => {
     const [activeTab, setActiveTab] = useState<'general' | 'brandkit'>('brandkit');
+    const [automationEnabled, setAutomationEnabled] = useState(true);
+
+    useEffect(() => {
+        const settings = loadAutomationSettings(brandName);
+        setAutomationEnabled(settings.enabled);
+    }, [brandName]);
+
+    const handleAutomationToggle = () => {
+        const nextValue = !automationEnabled;
+        setAutomationEnabled(nextValue);
+        saveAutomationSettings(brandName, { enabled: nextValue, updatedAt: Date.now() });
+    };
 
     return (
         <div className="w-full h-full flex flex-col bg-[#F9FAFB]">
@@ -46,10 +59,30 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange 
                     )}
 
                     {activeTab === 'general' && (
-                        <div className="animate-fadeIn bg-brand-surface border border-brand-border rounded-xl p-8 text-center text-brand-muted">
-                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">⚙️</div>
-                            <h3 className="text-lg font-bold text-brand-text mb-2">General Settings</h3>
-                            <p>Global application settings and user preferences will appear here.</p>
+                        <div className="animate-fadeIn bg-brand-surface border border-brand-border rounded-xl p-8">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-xl">⚙️</div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-brand-text">General Settings</h3>
+                                    <p className="text-sm text-brand-muted">Control automation and system behavior.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between border border-brand-border rounded-xl p-4 bg-white">
+                                <div>
+                                    <div className="text-sm font-semibold text-brand-text">Automation mode</div>
+                                    <p className="text-xs text-brand-muted">Enable always-on recommendations in the Action Center.</p>
+                                </div>
+                                <button
+                                    onClick={handleAutomationToggle}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${automationEnabled ? 'bg-brand-accent' : 'bg-gray-300'}`}
+                                    aria-pressed={automationEnabled}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${automationEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                                    />
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

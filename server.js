@@ -3,6 +3,7 @@ import 'dotenv/config'; // Load .env file
 import express from 'express';
 import cors from 'cors';
 import { GoogleAuth } from 'google-auth-library';
+import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,6 +19,17 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+const KEY_FILE_PATH = path.join(__dirname, 'service-account.json');
+const DECISIONS_FILE = path.join(__dirname, 'server/cache/decisions.json');
+const CACHE_FILE = path.join(__dirname, 'server/cache/social_metrics.json');
+
+const getSupabaseClient = () => {
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return null;
+    return createClient(supabaseUrl, supabaseKey);
+};
+
 // --- Health Check ---
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), agent: 'active' });
@@ -25,7 +37,6 @@ app.get('/api/health', (req, res) => {
 
 // --- Agent Decisions Bridge ---
 app.get('/api/decisions', (req, res) => {
-    const DECISIONS_FILE = path.join(__dirname, 'server/cache/decisions.json');
     try {
         if (fs.existsSync(DECISIONS_FILE)) {
             const data = fs.readFileSync(DECISIONS_FILE, 'utf-8');
@@ -37,8 +48,6 @@ app.get('/api/decisions', (req, res) => {
         res.status(500).json({ error: "Failed to read decisions" });
     }
 });
-
-const KEY_FILE_PATH = path.join(__dirname, 'service-account.json');
 
 // Helper to get Credentials
 const getCredentials = () => {
@@ -209,8 +218,6 @@ app.get('/api/lunarcrush/posts/:screen_name', async (req, res) => {
 
 // --- Internal Cache Endpoints ---
 
-const CACHE_FILE = path.join(__dirname, 'server/cache/social_metrics.json');
-
 app.get('/api/social-metrics/:brand', (req, res) => {
     const { brand } = req.params;
 
@@ -231,6 +238,64 @@ app.get('/api/social-metrics/:brand', (req, res) => {
     } catch (e) {
         res.status(500).json({ error: "Cache read failed" });
     }
+});
+
+// --- Action Center (Server Brain Output) ---
+
+app.get('/api/action-center/:brand', async (req, res) => {
+    const brand = req.params.brand || '';
+    const brandKey = brand.toLowerCase();
+    let decisions = [];
+
+    try {
+        if (fs.existsSync(DECISIONS_FILE)) {
+            const data = JSON.parse(fs.readFileSync(DECISIONS_FILE, 'utf-8'));
+            decisions = Array.isArray(data)
+                ? data.filter(item => (item.brandId || '').toLowerCase() === brandKey)
+                : [];
+        }
+    } catch (e) {
+        console.warn("[ActionCenter] Failed to read decisions:", e.message);
+    }
+
+    let socialMetrics = null;
+    try {
+        if (fs.existsSync(CACHE_FILE)) {
+            const cache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+            socialMetrics = cache[brandKey] || null;
+        }
+    } catch (e) {
+        console.warn("[ActionCenter] Failed to read social metrics:", e.message);
+    }
+
+    let growthReport = null;
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const storageKey = `defia_growth_report_v1_${brandKey}`;
+            const { data, error } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', storageKey)
+                .maybeSingle();
+
+            if (error) {
+                console.warn("[ActionCenter] Supabase fetch error:", error.message);
+            } else if (data?.value) {
+                growthReport = data.value;
+            }
+        }
+    } catch (e) {
+        console.warn("[ActionCenter] Growth report fetch failed:", e.message);
+    }
+
+    res.json({
+        brand,
+        decisions,
+        socialMetrics,
+        growthReport,
+        generatedAt: new Date().toISOString()
+    });
 });
 
 // Only start server if NOT running in Vercel (Vercel handles the server via 'api' folder)

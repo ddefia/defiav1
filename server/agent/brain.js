@@ -8,10 +8,19 @@ import { GoogleGenAI } from '@google/genai';
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends) => {
+export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends, brandProfile = {}) => {
     try {
+        const brandName = brandProfile.name || brandProfile.brandName || "Web3 Protocol";
+        const voice = brandProfile.voiceGuidelines || "Professional";
+        const knowledgeBase = Array.isArray(brandProfile.knowledgeBase)
+            ? brandProfile.knowledgeBase.slice(0, 5).join('\n')
+            : "No additional brand context provided.";
+
         const prompt = `
-        You are the Autonomous Marketing Agent for a Web3 Protocol.
+        You are the Autonomous Marketing Agent for ${brandName}.
+        BRAND VOICE: ${voice}
+        BRAND KNOWLEDGE BASE:
+        ${knowledgeBase}
         
         CURRENT STATE:
         - On-Chain Volume: $${duneMetrics?.totalVolume?.toLocaleString() || 'N/A'}

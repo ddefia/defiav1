@@ -1,7 +1,7 @@
 
 import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
 import { fetchPulseTrends, fetchMentions, TRACKED_BRANDS } from './ingest.js';
+import { fetchBrandProfile, getSupabaseClient } from './brandContext.js';
 
 /**
  * GENERATOR SERVICE (Server-Side)
@@ -9,38 +9,6 @@ import { fetchPulseTrends, fetchMentions, TRACKED_BRANDS } from './ingest.js';
  * 
  * Replicates the logic of the Frontend's `generateGrowthReport` but runs autonomously.
  */
-
-const getSupabase = () => {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseKey) return null;
-    return createClient(supabaseUrl, supabaseKey);
-};
-
-const getBrandProfile = async (supabase, brandId) => {
-    // Fetch the huge JSON object that stores all profiles
-    // Key matches services/storage.ts
-    const STORAGE_KEY = 'ethergraph_brand_profiles_v17';
-
-    try {
-        const { data, error } = await supabase
-            .from('app_storage')
-            .select('value')
-            .eq('key', STORAGE_KEY)
-            .maybeSingle();
-
-        if (error || !data) return null;
-
-        const allProfiles = data.value;
-        // Search case-insensitive
-        const key = Object.keys(allProfiles).find(k => k.toLowerCase() === brandId.toLowerCase());
-        return key ? allProfiles[key] : null;
-
-    } catch (e) {
-        console.error("Failed to load brand profiles from DB", e);
-        return null;
-    }
-};
 
 export const generateDailyBriefing = async (brandId) => {
     console.log(`[Generator] Starting Daily Briefing for ${brandId}...`);
@@ -51,20 +19,22 @@ export const generateDailyBriefing = async (brandId) => {
         return;
     }
 
-    const supabase = getSupabase();
+    const supabase = getSupabaseClient();
     if (!supabase) {
         console.error("[Generator] Missing Supabase Config");
         return;
     }
 
     // 1. Fetch Context
-    const profile = await getBrandProfile(supabase, brandId);
+    const profile = await fetchBrandProfile(supabase, brandId);
     if (!profile) {
         console.warn(`[Generator] No profile found for ${brandId}. Skipping.`);
         return;
     }
 
     const brandName = profile.name || brandId;
+    const voice = profile.voiceGuidelines || "Professional";
+    const positioning = profile.positioning || "";
 
     // 2. Fetch Live Market Data
     // We use the ingest keys/functions
@@ -97,6 +67,8 @@ export const generateDailyBriefing = async (brandId) => {
 
     const systemInstruction = `
     You are the Chief Strategy Officer for ${brandName}.
+    BRAND VOICE: ${voice}
+    ${positioning ? `POSITIONING: ${positioning}` : ''}
     
     TASK: Generate the "Daily Strategic Briefing" based on real-time market signals.
     
