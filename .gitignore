@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 .vercel
 .env*.local
+
+node_modules
+.next
+.env
+.DS_Store
+__MACOSX
+*.zip
+data/
