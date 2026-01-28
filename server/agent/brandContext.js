@@ -12,6 +12,18 @@ export const getSupabaseClient = () => {
 
 export const fetchBrandProfile = async (supabase, brandId) => {
     try {
+        const { data: configRow, error: configError } = await supabase
+            .from('brand_configs')
+            .select('config')
+            .eq('brand_id', brandId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (!configError && configRow?.config) {
+            return configRow.config;
+        }
+
         const { data, error } = await supabase
             .from('app_storage')
             .select('value')
@@ -31,6 +43,16 @@ export const fetchBrandProfile = async (supabase, brandId) => {
 
 export const fetchAutomationSettings = async (supabase, brandId) => {
     try {
+        const { data: policy, error: policyError } = await supabase
+            .from('automation_policies')
+            .select('enabled')
+            .eq('brand_id', brandId)
+            .maybeSingle();
+
+        if (!policyError && policy) {
+            return { enabled: policy.enabled !== false };
+        }
+
         const key = `${AUTOMATION_STORAGE_KEY}_${brandId.toLowerCase()}`;
         const { data, error } = await supabase
             .from('app_storage')

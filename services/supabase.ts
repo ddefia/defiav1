@@ -63,7 +63,7 @@ export const saveBrainMemory = async (
         }
 
         const { error } = await supabase
-            .from('brain_memory')
+            .from('brand_memory')
             .insert(payload);
 
         if (error) throw error;
@@ -75,7 +75,7 @@ export const saveBrainMemory = async (
 
 /**
  * FETCH RELEVANT CONTEXT (Vector Search)
- * Note: Requires 'match_brain_memory' RPC function in DB
+ * Note: Requires 'match_brand_memory' RPC function in DB
  */
 export const searchBrainMemory = async (
     brandId: string,
@@ -84,7 +84,7 @@ export const searchBrainMemory = async (
     limit = 5
 ) => {
     try {
-        const { data, error } = await supabase.rpc('match_brain_memory', {
+        const { data, error } = await supabase.rpc('match_brand_memory', {
             match_threshold: threshold,
             match_count: limit,
             query_embedding: queryEmbedding,

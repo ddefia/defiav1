@@ -1,8 +1,9 @@
 import cron from 'node-cron';
-import { fetchDuneMetrics, fetchLunarCrushTrends, fetchMentions, fetchPulseTrends, updateAllBrands, TRACKED_BRANDS } from './ingest.js'; // Imported TRACKED_BRANDS directly
+import { fetchDuneMetrics, fetchLunarCrushTrends, fetchMentions, fetchPulseTrends, updateAllBrands, TRACKED_BRANDS } from './ingest.js'; // Legacy fallback
 import { analyzeState } from './brain.js';
 import { generateDailyBriefing } from './generator.js'; // Import Generator
 import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
+import { fetchActiveBrands } from './brandRegistry.js';
 
 /**
  * SCHEDULER SERVICE
@@ -18,7 +19,7 @@ const CACHE_DIR = path.join(__dirname, '../cache');
 const DECISIONS_FILE = path.join(CACHE_DIR, 'decisions.json');
 
 // Helper to save decision
-const saveDecision = (decision) => {
+const saveDecisionToFile = (decision) => {
     try {
         if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
@@ -45,6 +46,71 @@ const saveDecision = (decision) => {
     }
 };
 
+const saveDecisionToDb = async (supabase, decision, brandId) => {
+    if (!supabase || !brandId) return;
+    try {
+        const payload = {
+            brand_id: brandId,
+            action: decision.action,
+            target_id: decision.targetId || null,
+            reason: decision.reason || null,
+            draft: decision.draft || null,
+            status: 'pending',
+            metadata: decision.metadata || null
+        };
+
+        const { error } = await supabase.from('agent_decisions').insert(payload);
+        if (error) {
+            console.warn("[Agent] Failed to save decision to DB:", error.message);
+        }
+    } catch (e) {
+        console.warn("[Agent] Decision DB insert failed:", e.message);
+    }
+};
+
+const backupAgentDecisions = async (supabase) => {
+    if (!supabase) return;
+    try {
+        const { data, error } = await supabase
+            .from('agent_decisions')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(500);
+
+        if (error) {
+            console.warn("[Agent] Backup fetch failed:", error.message);
+            return;
+        }
+
+        await supabase
+            .from('app_storage')
+            .upsert({
+                key: 'backup_agent_decisions_v1',
+                value: { capturedAt: new Date().toISOString(), decisions: data || [] },
+                updated_at: new Date().toISOString()
+            });
+    } catch (e) {
+        console.warn("[Agent] Backup failed:", e.message);
+    }
+};
+
+const pruneOldDecisions = async (supabase, days = 30) => {
+    if (!supabase) return;
+    try {
+        const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+        const { error } = await supabase
+            .from('agent_decisions')
+            .delete()
+            .lt('created_at', cutoff);
+
+        if (error) {
+            console.warn("[Agent] Decision pruning failed:", error.message);
+        }
+    } catch (e) {
+        console.warn("[Agent] Decision pruning error:", e.message);
+    }
+};
+
 export const startAgent = () => {
     console.log("🤖 Agent Scheduled: Online & Monitoring...");
     const supabase = getSupabaseClient();
@@ -64,9 +130,19 @@ export const startAgent = () => {
                 fetchLunarCrushTrends(lunarKey, 'ETH') // Global sentiment
             ]);
 
+            const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+            const registry = activeBrands.length > 0
+                ? activeBrands
+                : Object.entries(TRACKED_BRANDS).map(([brandId, handle]) => ({
+                    id: brandId,
+                    name: brandId,
+                    xHandle: handle
+                }));
+
             // B. Per-Brand Analysis (Multi-Tenant)
-            // Use imported TRACKED_BRANDS
-            for (const [brandId, handle] of Object.entries(TRACKED_BRANDS)) {
+            for (const brand of registry) {
+                const brandId = brand.id;
+                const handle = brand.xHandle || brand.name;
                 console.log(`   > Analyzing Brand: ${brandId} (@${handle})...`);
                 if (supabase) {
                     const automation = await fetchAutomationSettings(supabase, brandId);
@@ -92,10 +168,9 @@ export const startAgent = () => {
                     const icon = decision.action === 'REPLY' ? '↩️' : decision.action === 'TREND_JACK' ? '⚡' : '📢';
                     console.log(`     - ${icon} [${brandId}] ACTION: ${decision.action}`);
 
-                    saveDecision({
-                        ...decision,
-                        brandId: brandId // Critical for Isolation
-                    });
+                    const record = { ...decision, brandId };
+                    saveDecisionToFile(record);
+                    await saveDecisionToDb(supabase, decision, brandId);
                 }
             }
             console.log("   - 💤 Agent Cycle Complete.");
@@ -109,7 +184,8 @@ export const startAgent = () => {
     setTimeout(async () => {
         console.log("🚀 Bootup Sequence: Initializing Social Sync...");
         const apifyKey = process.env.APIFY_API_TOKEN;
-        if (apifyKey) await updateAllBrands(apifyKey);
+        const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+        if (apifyKey) await updateAllBrands(apifyKey, activeBrands);
     }, 5000);
 
     setTimeout(async () => {
@@ -126,7 +202,8 @@ export const startAgent = () => {
         console.log(`\n[${new Date().toISOString()}] 🔄 Hourly Sync: Updating Social Cache...`);
         try {
             const apifyKey = process.env.APIFY_API_TOKEN;
-            await updateAllBrands(apifyKey);
+            const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+            await updateAllBrands(apifyKey, activeBrands);
         } catch (e) {
             console.error("   - Sync Failed:", e.message);
         }
@@ -137,7 +214,13 @@ export const startAgent = () => {
         console.log(`\n[${new Date().toISOString()}] 🌤️ Morning Briefing: Generating Reports...`);
         try {
             // Generate for all tracked brands
-            for (const brandId of Object.keys(TRACKED_BRANDS)) {
+            const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+            const registry = activeBrands.length > 0
+                ? activeBrands
+                : Object.keys(TRACKED_BRANDS).map((brandId) => ({ id: brandId }));
+
+            for (const brand of registry) {
+                const brandId = brand.id;
                 if (supabase) {
                     const automation = await fetchAutomationSettings(supabase, brandId);
                     if (!automation.enabled) {
@@ -150,5 +233,15 @@ export const startAgent = () => {
         } catch (e) {
             console.error("   - Morning Generation Failed:", e.message);
         }
+    });
+
+    // 4. Retention (Decision Cleanup) - Daily at 01:00 AM
+    cron.schedule('0 1 * * *', async () => {
+        await pruneOldDecisions(supabase, 30);
+    });
+
+    // 5. Nightly backup for decisions (02:00 AM)
+    cron.schedule('0 2 * * *', async () => {
+        await backupAgentDecisions(supabase);
     });
 };

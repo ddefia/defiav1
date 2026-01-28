@@ -128,7 +128,7 @@ export const TRACKED_BRANDS = {
     'meme': 'MetisL2'
 };
 
-export const updateAllBrands = async (apiKey) => {
+export const updateAllBrands = async (apiKey, brands = []) => {
     if (!apiKey) {
         console.log("[Agent/Ingest] No API Key for daily sync.");
         return;
@@ -163,7 +163,11 @@ export const updateAllBrands = async (apiKey) => {
 
     const ACTOR_GENERIC = '61RPP7dywgiy0JPD0'; // Generic Twitter Scraper (quacker)
 
-    for (const [key, handle] of Object.entries(TRACKED_BRANDS)) {
+    const registry = brands.length > 0
+        ? brands.map((brand) => ({ key: brand.id, handle: brand.xHandle || brand.name }))
+        : Object.entries(TRACKED_BRANDS).map(([key, handle]) => ({ key, handle }));
+
+    for (const { key, handle } of registry) {
         try {
             console.log(`[Agent/Ingest] Syncing ${key} (@${handle})...`);
 
@@ -213,14 +217,14 @@ export const updateAllBrands = async (apiKey) => {
                         console.log(`   > Success: ${followers} followers found for ${key}.`);
                     }
 
-                    // SYNC TO BRAIN_MEMORY (If Supabase is active)
+                    // SYNC TO BRAND_MEMORY (If Supabase is active)
                     if (supabase) {
                         let newCount = 0;
                         for (const item of items) {
                             const tweetId = item.id_str || item.id;
                             // Check existence
                             const { data: exist } = await supabase
-                                .from('brain_memory')
+                                .from('brand_memory')
                                 .select('id')
                                 .eq('brand_id', key)
                                 .contains('metadata', { external_id: tweetId })
@@ -231,10 +235,10 @@ export const updateAllBrands = async (apiKey) => {
                                 const content = item.full_text || item.text || item.caption;
                                 if (!content) continue;
 
-                                await supabase.from('brain_memory').insert({
+                                await supabase.from('brand_memory').insert({
                                     brand_id: key,
                                     content: content,
-                                    memory_type: 'social_history',
+                                    source: 'social_history',
                                     metadata: {
                                         external_id: tweetId,
                                         author: item.user?.screen_name || handle,
@@ -252,7 +256,7 @@ export const updateAllBrands = async (apiKey) => {
                                 newCount++;
                             }
                         }
-                        console.log(`   > [DB Sync] Added ${newCount} new tweets to brain_memory.`);
+                        console.log(`   > [DB Sync] Added ${newCount} new tweets to brand_memory.`);
                     }
 
                 } else {

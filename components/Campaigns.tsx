@@ -6,7 +6,7 @@ import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy, 
 import { getBrainContext } from '../services/pulse'; // New Import
 import { dispatchThinking } from './ThinkingConsole';
 
-import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs, loadStrategyTasks } from '../services/storage';
+import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs, loadStrategyTasks, getBrandRegistryEntry } from '../services/storage';
 import { saveBrainMemory } from '../services/supabase'; // History Sync
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy, ActionPlan, MarketingAction } from '../types';
 import jsPDF from 'jspdf';
@@ -303,7 +303,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     return {
                         id: `draft-${Date.now()}-${i}`,
                         tweet: d.tweet,
-                        isApproved: true,
+                        isApproved: false,
+                        approvalStatus: 'review',
                         status: 'draft',
                         images: [],
                         campaignColor: undefined,
@@ -339,7 +340,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             const recentLogs = brainLogs.slice(0, 5).map(l => `[${new Date(l.timestamp).toLocaleDateString()}] ${l.type}: ${l.context}`).join('\n');
 
             // CONTEXT 3: DEEP RAG (Supabase)
-            const { context: ragContext, strategyCount, memoryCount } = await getBrainContext(brandName);
+            const registry = getBrandRegistryEntry(brandName);
+            const { context: ragContext, strategyCount, memoryCount } = await getBrainContext(registry?.brandId);
 
             // UPDATE UI STATS FOR TRANSPARENCY
             setContextStats({
@@ -486,7 +488,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     return {
                         id: `draft-${Date.now()}-${b}-${i}`,
                         tweet: d.tweet,
-                        isApproved: true,
+                        isApproved: false,
+                        approvalStatus: 'review',
                         status: 'draft',
                         images: [],
                         campaignColor: undefined,
@@ -522,7 +525,23 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     };
 
     const handleToggleApproval = (id: string) => {
-        setCampaignItems(prev => prev.map(item => item.id === id ? { ...item, isApproved: !item.isApproved } : item));
+        setCampaignItems(prev => prev.map(item => {
+            if (item.id !== id) return item;
+            const isApproved = item.approvalStatus === 'approved';
+            return {
+                ...item,
+                isApproved: !isApproved,
+                approvalStatus: isApproved ? 'review' : 'approved'
+            };
+        }));
+    };
+
+    const handleApproveAll = () => {
+        setCampaignItems(prev => prev.map(item => ({
+            ...item,
+            isApproved: true,
+            approvalStatus: 'approved'
+        })));
     };
 
     const handleDeleteDraft = (id: string) => {
@@ -530,7 +549,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     };
 
     const handleGenerateApproved = async () => {
-        const approvedItems = campaignItems.filter(i => i.isApproved);
+        const approvedItems = campaignItems.filter(i => i.approvalStatus === 'approved');
         if (approvedItems.length === 0) {
             setError("No tweets approved for generation.");
             return;
@@ -538,7 +557,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
         setCampaignStep(4);
         setIsBatchProcessing(true);
-        setCampaignItems(prev => prev.map(item => item.isApproved ? { ...item, status: 'pending' } : item));
+        setCampaignItems(prev => prev.map(item => item.approvalStatus === 'approved' ? { ...item, status: 'pending' } : item));
 
         // Chunking for Image Generation (Concurrency: 3 items = 6 images at a time)
         const CHUNK_SIZE = 3;
@@ -581,13 +600,16 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     } : p));
 
                     // History Sync
-                    images.forEach(img => {
-                        saveBrainMemory(brandName, 'FACT', `Campaign Asset: ${item.visualHeadline || item.tweet.substring(0, 30)}`, undefined, {
-                            mediaUrl: img,
-                            source: 'Campaigns',
-                            campaign: campaignTheme
+                    const registry = getBrandRegistryEntry(brandName);
+                    if (registry?.brandId) {
+                        images.forEach(img => {
+                            saveBrainMemory(registry.brandId, 'FACT', `Campaign Asset: ${item.visualHeadline || item.tweet.substring(0, 30)}`, undefined, {
+                                mediaUrl: img,
+                                source: 'Campaigns',
+                                campaign: campaignTheme
+                            });
                         });
-                    });
+                    }
                 } catch (err) {
                     setCampaignItems(prev => prev.map(p => p.id === item.id ? { ...p, status: 'error' } : p));
                 }
@@ -627,13 +649,16 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             setCampaignItems(prev => prev.map(p => p.id === id ? { ...p, status: 'completed', images: images, selectedImageIndex: 0 } : p));
 
             // History Sync
-            images.forEach(img => {
-                saveBrainMemory(brandName, 'FACT', `Campaign Asset (Regen): ${item.visualHeadline || item.tweet.substring(0, 30)}`, undefined, {
-                    mediaUrl: img,
-                    source: 'Campaigns',
-                    campaign: campaignTheme
+            const registry = getBrandRegistryEntry(brandName);
+            if (registry?.brandId) {
+                images.forEach(img => {
+                    saveBrainMemory(registry.brandId, 'FACT', `Campaign Asset (Regen): ${item.visualHeadline || item.tweet.substring(0, 30)}`, undefined, {
+                        mediaUrl: img,
+                        source: 'Campaigns',
+                        campaign: campaignTheme
+                    });
                 });
-            });
+            }
         } catch (err) {
             setCampaignItems(prev => prev.map(p => p.id === id ? { ...p, status: 'error' } : p));
         }
@@ -718,6 +743,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 image: selectedImage,
                 platform: 'Twitter',
                 status: 'scheduled',
+                approvalStatus: 'approved',
                 campaignName: campaignTheme || 'Campaign',
                 color: '#4F46E5',
                 reasoning: item.reasoning,
@@ -937,7 +963,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
     // --- RENDER ---
     const activeCampaigns = getActiveCampaigns();
-    const approvedCount = campaignItems.filter(i => i.isApproved).length;
+    const approvedCount = campaignItems.filter(i => i.approvalStatus === 'approved').length;
 
     return (
         <div className="w-full min-h-screen bg-gray-50 text-gray-900 p-8 font-sans">
@@ -1593,6 +1619,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                                         <div className="flex gap-4">
                                             <button onClick={() => setCampaignStep(2)} className="text-sm text-gray-500 hover:text-gray-900 px-4 py-2 transition-colors">Back</button>
+                                            <Button variant="secondary" onClick={handleApproveAll} className="border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">
+                                                Approve All
+                                            </Button>
                                             <Button onClick={handleGenerateApproved} className="shadow-lg shadow-zinc-500/20 bg-zinc-900 text-white hover:bg-zinc-800 border-none font-bold">
                                                 Queue for Execution
                                             </Button>
@@ -1614,16 +1643,18 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     </div>
 
                                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                        {campaignItems.map((item, idx) => (
-                                            <div key={item.id} className={`group bg-white border rounded-2xl overflow-hidden transition-all duration-300 ${item.isApproved ? 'border-purple-500/50 shadow-md ring-1 ring-purple-100' : 'border-gray-200 opacity-60 grayscale-[0.5]'}`}>
+                                        {campaignItems.map((item, idx) => {
+                                            const isApproved = item.approvalStatus === 'approved';
+                                            return (
+                                                <div key={item.id} className={`group bg-white border rounded-2xl overflow-hidden transition-all duration-300 ${isApproved ? 'border-purple-500/50 shadow-md ring-1 ring-purple-100' : 'border-gray-200 opacity-60 grayscale-[0.5]'}`}>
                                                 <div className="p-3 pl-5 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
                                                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Post {idx + 1}</span>
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => handleToggleApproval(item.id)}
-                                                            className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors border ${item.isApproved ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'}`}
+                                                            className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors border ${isApproved ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'}`}
                                                         >
-                                                            {item.isApproved ? '✓ Approved' : '✕ Discarded'}
+                                                            {isApproved ? '✓ Approved' : 'Needs Review'}
                                                         </button>
                                                         {/* Delete button option */}
                                                         <button onClick={() => handleDeleteDraft(item.id)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors">
@@ -1741,7 +1772,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
@@ -1768,7 +1800,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             <div className="h-6 w-[1px] bg-gray-200 mx-2"></div>
 
                                             <Button
-                                                onClick={() => handleDownloadDraftsPDF(campaignItems.filter(i => i.isApproved))}
+                                                onClick={() => handleDownloadDraftsPDF(campaignItems.filter(i => i.approvalStatus === 'approved'))}
                                                 variant="secondary"
                                                 className="text-xs py-1.5 px-3 h-8 flex items-center gap-1 bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                             >
@@ -1777,7 +1809,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             </Button>
 
                                             <Button
-                                                onClick={() => handleBatchScheduleCampaign(campaignItems.filter(i => i.isApproved))}
+                                                onClick={() => handleBatchScheduleCampaign(campaignItems.filter(i => i.approvalStatus === 'approved'))}
                                                 className="text-xs py-1.5 px-4 h-8 bg-emerald-600 hover:bg-emerald-700 text-white border-none flex items-center gap-2 font-bold shadow-md shadow-emerald-500/20"
                                             >
                                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -1787,7 +1819,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         {isBatchProcessing && <span className="text-xs text-purple-600 animate-pulse font-bold">Generating Graphics...</span>}
                                     </div>
 
-                                    {campaignItems.filter(i => i.isApproved).map((item, idx) => (
+                                    {campaignItems.filter(i => i.approvalStatus === 'approved').map((item, idx) => (
                                         <div key={item.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                                             {/* Edit / Refine Section */}
                                             <div className="p-6 border-b border-gray-100 bg-gray-50">

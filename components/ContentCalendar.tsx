@@ -67,6 +67,13 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
         setIsEditing(false);
     };
 
+    const handleMarkPublished = () => {
+        if (!selectedEvent) return;
+        const updated = { ...selectedEvent, status: 'published', approvalStatus: 'published' };
+        setSelectedEvent(updated);
+        onUpdateEvent(selectedEvent.id, { status: 'published', approvalStatus: 'published' });
+    };
+
     const handleCalendarImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0 || !selectedEvent) return;
@@ -444,6 +451,11 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                         <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-md tracking-wider ${selectedEvent.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                                             {selectedEvent.status}
                                         </span>
+                                        {selectedEvent.approvalStatus && (
+                                            <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-md tracking-wider ${selectedEvent.approvalStatus === 'published' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                {selectedEvent.approvalStatus}
+                                            </span>
+                                        )}
                                     </div>
                                     <h3 className="text-xl font-display font-bold text-brand-text mb-1">
                                         {selectedEvent.campaignName || 'No Campaign (Single Post)'}
@@ -502,6 +514,14 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                         >
                                             Post Now
                                         </Button>
+                                        {selectedEvent.status !== 'published' && (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={handleMarkPublished}
+                                            >
+                                                Mark Published
+                                            </Button>
+                                        )}
                                         <Button
                                             variant="danger"
                                             onClick={() => { onDeleteEvent(selectedEvent.id); setSelectedEvent(null); }}

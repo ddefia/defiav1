@@ -1,6 +1,7 @@
 
 import { TrendItem } from "../types";
 import { getSupabase } from './supabaseClient';
+import { loadIntegrationKeys } from './storage';
 
 
 // Real-time market data fetching
@@ -23,7 +24,7 @@ const runApifyActor = async (actorId: string, input: any, token: string) => {
     return await itemsRes.json();
 };
 
-const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
+const fetchLunarCrushTrends = async (focusSymbol?: string, brandName?: string): Promise<TrendItem[]> => {
     const token = process.env.VITE_LUNARCRUSH_API_KEY || (import.meta as any).env?.VITE_LUNARCRUSH_API_KEY;
     if (!token) return [];
 
@@ -70,8 +71,11 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
             'base', 'optimism', 'arb', 'sui', 'aptos', 'sei', 'injective', 'cosmos', 'atom', 'blast', 'pump'
         ];
 
+        const focusTerms = [focusSymbol, brandName].filter(Boolean).map(term => term!.toLowerCase());
+
         const filteredTopics = candidates.filter((t: any) => {
-            const topic = t.topic.toLowerCase();
+            const topic = (t.topic || '').toLowerCase();
+            if (!topic) return false;
 
             // A. CHECK BLACKLIST
             if (BLACKLIST.some(b => topic.includes(b))) {
@@ -83,12 +87,20 @@ const fetchLunarCrushTrends = async (): Promise<TrendItem[]> => {
             // We check if the topic matches a keyword OR if the topic itself is a known coin symbol (often length 3-4).
             // Simplest robust check:
             const isWeb3 = WEB3_KEYWORDS.some(k => topic.includes(k));
+            const isFocusMatch = focusTerms.some(term => term && topic.includes(term));
 
             // Allow symbols naturally (length 3-4 uppercase in raw, but logical here) 
             // Broaden: If it's not blacklisted, and passed LunarCrush crypto topics filter...
             // Wait, LC "Topics" endpoint mixes everything. So we MUST enforce whitelist.
 
-            return isWeb3;
+            return isWeb3 || isFocusMatch;
+        }).sort((a: any, b: any) => {
+            const aTopic = (a.topic || '').toLowerCase();
+            const bTopic = (b.topic || '').toLowerCase();
+            const aFocus = focusTerms.some(term => term && aTopic.includes(term));
+            const bFocus = focusTerms.some(term => term && bTopic.includes(term));
+            if (aFocus !== bFocus) return aFocus ? -1 : 1;
+            return (b.interactions_24h || 0) - (a.interactions_24h || 0);
         }).slice(0, 5); // Take top 5 VALID ones
 
         // 4. Enrich with REAL NEWS (The "Why")
@@ -197,8 +209,32 @@ export const getCreatorPosts = async (screenName: string): Promise<any[]> => {
     }
 };
 
+const cleanHandle = (handle?: string) => handle?.replace(/^@/, '').trim() || '';
+
+const buildSearchTerms = (brandName: string, handle?: string, focusSymbol?: string) => {
+    const keywords = new Set<string>();
+    if (brandName) keywords.add(`"${brandName}"`);
+    const normalizedHandle = cleanHandle(handle);
+    if (normalizedHandle) {
+        keywords.add(normalizedHandle);
+        keywords.add(`@${normalizedHandle}`);
+    }
+    if (focusSymbol) {
+        const normalizedSymbol = focusSymbol.replace(/^#/, '').trim();
+        if (normalizedSymbol) {
+            keywords.add(normalizedSymbol);
+            keywords.add(`#${normalizedSymbol}`);
+        }
+    }
+    ['#web3', '#crypto', 'Ethereum', 'Bitcoin'].forEach(term => keywords.add(term));
+    return Array.from(keywords).join(' OR ');
+};
+
 export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> => {
-    const apifyToken = process.env.APIFY_API_TOKEN;
+    const integrationKeys = loadIntegrationKeys(brandName);
+    const apifyToken = process.env.VITE_APIFY_API_TOKEN || (import.meta as any).env?.VITE_APIFY_API_TOKEN || process.env.APIFY_API_TOKEN;
+    const apifyHandle = integrationKeys.apify;
+    const lunarSymbol = integrationKeys.lunarCrush;
     const now = Date.now();
     let items: TrendItem[] = [];
 
@@ -211,7 +247,7 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
                     console.log("Fetching live trends via Apify...");
                     // Using a generic Twitter Scraper for "Crypto Trends" or specific brand keywords
                     // Actor: 'quacker/twitter-scraper' or similar (using the one from analytics for consistency: 61RPP7dywgiy0JPD0)
-                    const keywords = ['#web3', '#crypto', brandName, 'Ethereum', 'Bitcoin'].join(' OR ');
+                    const keywords = buildSearchTerms(brandName, apifyHandle, lunarSymbol);
 
                     const items = await runApifyActor('61RPP7dywgiy0JPD0', {
                         "searchTerms": [keywords],
@@ -245,7 +281,7 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
             }
             return null;
         })(),
-        fetchLunarCrushTrends()
+        fetchLunarCrushTrends(lunarSymbol, brandName)
     ]);
 
     if (apifyItems) items = [...items, ...apifyItems];
@@ -259,18 +295,18 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
 };
 
 // --- DEEP BRAIN CONTEXT (RAG/SUPABASE) ---
-export const getBrainContext = async (brandName: string): Promise<{ context: string, strategyCount: number, memoryCount: number }> => {
+export const getBrainContext = async (brandId?: string): Promise<{ context: string, strategyCount: number, memoryCount: number }> => {
     const supabase = getSupabase();
-    if (!supabase) return { context: "", strategyCount: 0, memoryCount: 0 };
+    if (!supabase || !brandId) return { context: "", strategyCount: 0, memoryCount: 0 };
 
     try {
-        console.log(`[Pulse] Fetching Deep Context for ${brandName}...`);
+        console.log(`[Pulse] Fetching Deep Context for ${brandId}...`);
 
         // 1. Fetch Strategy Docs (Goals/Mandates)
         const { data: strategies } = await supabase
             .from('strategy_docs')
             .select('title, content, category')
-            .eq('brand_id', brandName)
+            .eq('brand_id', brandId)
             .order('created_at', { ascending: false }) // Prioritize Newest Mandates
             .limit(3);
 
@@ -278,9 +314,9 @@ export const getBrainContext = async (brandName: string): Promise<{ context: str
         // Note: metrics is jsonb, so we cast to compare. Or just sort by created_at for now if simple.
         // Doing a simple "Recent" fetch for now as 'metrics->likes' sorting might tricky without index in raw SQL setup.
         const { data: memories } = await supabase
-            .from('brain_memory')
+            .from('brand_memory')
             .select('content, metrics, created_at')
-            .eq('brand_id', brandName)
+            .eq('brand_id', brandId)
             .order('created_at', { ascending: false })
             .limit(5);
 
@@ -304,4 +340,3 @@ export const getBrainContext = async (brandName: string): Promise<{ context: str
         return { context: "", strategyCount: 0, memoryCount: 0 };
     }
 };
-

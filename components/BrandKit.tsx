@@ -3,13 +3,14 @@ import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { BrandConfig, BrandColor, ReferenceImage } from '../types';
 import { Button } from './Button';
-import { getBrandDefault, importHistoryToReferences } from '../services/storage';
+import { getBrandDefault, importHistoryToReferences, getBrandRegistryEntry } from '../services/storage';
 // @ts-ignore
 import { analyzeBrandKit } from '../services/gemini';
 import { parseDocumentFile } from '../services/documentParser';
 import * as pdfjsLib from 'pdfjs-dist';
 // import { syncHistoryToReferenceImages } from '../services/ingestion';
 import { indexEmptyEmbeddings, ingestContext } from '../services/rag';
+import { getBrainContext } from '../services/pulse';
 
 
 
@@ -44,6 +45,17 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
 
   // Sync State
   const [isSyncingHistory, setIsSyncingHistory] = useState(false);
+
+  // RAG Memory State
+  const [ragStats, setRagStats] = useState<{ memoryCount: number; strategyCount: number; lastUpdated: Date | null }>({
+    memoryCount: 0,
+    strategyCount: 0,
+    lastUpdated: null
+  });
+  const [ragPreview, setRagPreview] = useState('');
+  const [isRefreshingRag, setIsRefreshingRag] = useState(false);
+  const [isBackfillingRag, setIsBackfillingRag] = useState(false);
+  const [ragError, setRagError] = useState<string | null>(null);
 
   // Example State
   const [newExample, setNewExample] = useState('');
@@ -233,7 +245,8 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
           if (!confirmed) return;
 
           // Ingest into Supabase/RAG
-          await ingestContext(text, 'KNOWLEDGE_BASE', { filename: file.name, type: 'document' }, brandName);
+          const registry = getBrandRegistryEntry(brandName);
+          await ingestContext(text, 'KNOWLEDGE_BASE', { filename: file.name, type: 'document' }, registry?.brandId);
 
           // Add a "Pointer" to the local list so the user sees it exists
           const pointer = `[INDEXED DOCUMENT]: ${file.name} (Searchable by AI)`;
@@ -259,6 +272,54 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
       if (kbFileInputRef.current) kbFileInputRef.current.value = '';
     }
   };
+
+  const refreshRagSummary = async () => {
+    setIsRefreshingRag(true);
+    setRagError(null);
+
+    try {
+      const registry = getBrandRegistryEntry(brandName);
+      if (!registry?.brandId) {
+        setRagError('Brand ID not linked yet. Save integrations to sync memory.');
+        setRagPreview('');
+        setRagStats({ memoryCount: 0, strategyCount: 0, lastUpdated: new Date() });
+        return;
+      }
+
+      const { context, memoryCount, strategyCount } = await getBrainContext(registry.brandId);
+      setRagPreview(context || '');
+      setRagStats({ memoryCount, strategyCount, lastUpdated: new Date() });
+    } catch (err) {
+      console.error("Failed to refresh RAG summary", err);
+      setRagError('Unable to fetch memory snapshot.');
+    } finally {
+      setIsRefreshingRag(false);
+    }
+  };
+
+  const handleBackfillEmbeddings = async () => {
+    setIsBackfillingRag(true);
+    setRagError(null);
+    try {
+      const registry = getBrandRegistryEntry(brandName);
+      if (!registry?.brandId) {
+        setRagError('Brand ID not linked yet. Save integrations to sync memory.');
+        return;
+      }
+      const indexed = await indexEmptyEmbeddings(registry.brandId);
+      await refreshRagSummary();
+      alert(`Backfill complete: ${indexed} records indexed.`);
+    } catch (err) {
+      console.error("Failed to backfill embeddings", err);
+      setRagError('Backfill failed. Check console for details.');
+    } finally {
+      setIsBackfillingRag(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshRagSummary();
+  }, [brandName]);
 
 
   // --- Examples ---
@@ -317,7 +378,8 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
       console.log(`[Auto-Sync] Backfilling AI Memory...`);
       let indexed = 0;
       for (let i = 0; i < 3; i++) {
-        indexed += await indexEmptyEmbeddings(brandName);
+        const registry = getBrandRegistryEntry(brandName);
+        indexed += await indexEmptyEmbeddings(registry?.brandId);
       }
 
       alert(`Sync Complete! \n- Imported Images\n- Indexed ${indexed} items for AI Memory.`);
@@ -648,6 +710,65 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
               No documents added. Upload a PDF or add text to give the AI writer context about your protocol.
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="border-t border-brand-border"></div>
+
+      <div className="bg-brand-surface border border-brand-border rounded-xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-display font-medium text-brand-muted uppercase tracking-wider">AI Memory (RAG)</h3>
+            <p className="text-[10px] text-gray-400">Tracks long-term memory in Supabase for this brand.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={refreshRagSummary}
+              disabled={isRefreshingRag}
+              className="text-xs text-brand-muted hover:text-brand-text border border-brand-border px-2 py-1 rounded flex items-center gap-1"
+            >
+              {isRefreshingRag ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button
+              onClick={handleBackfillEmbeddings}
+              disabled={isBackfillingRag}
+              className="text-xs text-brand-accent hover:text-brand-text border border-brand-accent/30 px-2 py-1 rounded"
+            >
+              {isBackfillingRag ? 'Backfilling...' : 'Backfill Embeddings'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-white border border-brand-border rounded-lg p-3">
+            <div className="text-[10px] text-brand-muted uppercase tracking-wider">Memory Entries</div>
+            <div className="text-lg font-semibold text-brand-text">{ragStats.memoryCount}</div>
+          </div>
+          <div className="bg-white border border-brand-border rounded-lg p-3">
+            <div className="text-[10px] text-brand-muted uppercase tracking-wider">Strategy Docs</div>
+            <div className="text-lg font-semibold text-brand-text">{ragStats.strategyCount}</div>
+          </div>
+          <div className="bg-white border border-brand-border rounded-lg p-3">
+            <div className="text-[10px] text-brand-muted uppercase tracking-wider">Last Updated</div>
+            <div className="text-xs text-brand-text">
+              {ragStats.lastUpdated ? ragStats.lastUpdated.toLocaleString() : 'Not synced'}
+            </div>
+          </div>
+        </div>
+
+        {ragError && (
+          <div className="text-[11px] text-red-500 bg-red-50 border border-red-200 rounded p-2">
+            {ragError}
+          </div>
+        )}
+
+        <div>
+          <label className="text-[10px] text-brand-muted uppercase tracking-wider block mb-2">Memory Snapshot</label>
+          <textarea
+            readOnly
+            value={ragPreview || 'No memory snapshot available yet.'}
+            className="w-full h-32 bg-gray-900 border border-gray-700 text-gray-200 p-3 rounded-lg text-xs font-mono focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none"
+          />
         </div>
       </div>
 

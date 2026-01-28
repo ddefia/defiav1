@@ -65,6 +65,7 @@ export interface CampaignItem {
   tweet: string;
   artPrompt?: string; // Specific instruction for regeneration
   isApproved: boolean;
+  approvalStatus?: 'draft' | 'review' | 'approved' | 'published';
   status: 'draft' | 'pending' | 'generating' | 'completed' | 'error';
   images: string[];
   selectedImageIndex?: number; // Index of the chosen image for scheduling
@@ -84,6 +85,7 @@ export interface CalendarEvent {
   image?: string;
   platform: 'Twitter';
   status: 'scheduled' | 'published';
+  approvalStatus?: 'approved' | 'published';
   campaignName?: string;
   color?: string; // Hex code or Tailwind class
   // New: Metadata for "Thinking" View
