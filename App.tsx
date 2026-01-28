@@ -21,7 +21,44 @@ import { ImageEditor } from './components/ImageEditor'; // Import ImageEditor
 import { CopilotView } from './components/Copilot/CopilotView'; // Import Copilot
 import { Sidebar } from './components/Sidebar';
 import { Settings } from './components/Settings'; // Import Settings
+import { LandingPage } from './components/LandingPage';
+import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
+import { OnboardingPrompt } from './components/onboarding/OnboardingPrompt';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals, StrategicPosture } from './types';
+
+const ONBOARDING_STORAGE_KEY = 'defia_onboarding_state_v1';
+
+interface OnboardingState {
+    dismissed: boolean;
+    completed: boolean;
+    lastStep: number;
+    updatedAt: number;
+}
+
+const loadOnboardingState = (): OnboardingState => {
+    try {
+        const stored = localStorage.getItem(ONBOARDING_STORAGE_KEY);
+        if (stored) {
+            return JSON.parse(stored) as OnboardingState;
+        }
+    } catch (e) {
+        console.warn("Failed to load onboarding state", e);
+    }
+    return {
+        dismissed: false,
+        completed: false,
+        lastStep: 0,
+        updatedAt: Date.now(),
+    };
+};
+
+const saveOnboardingState = (state: OnboardingState) => {
+    try {
+        localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.warn("Failed to save onboarding state", e);
+    }
+};
 
 
 const App: React.FC = () => {
@@ -30,6 +67,25 @@ const App: React.FC = () => {
     console.log('App: Copilot Integration Loaded v2'); // Debug: Force Rebuild
     const [checkingKey, setCheckingKey] = useState<boolean>(true);
     const [isConnecting, setIsConnecting] = useState<boolean>(false);
+    const [route, setRoute] = useState<string>(() => window.location.pathname);
+    const [onboardingState, setOnboardingState] = useState<OnboardingState>(() => loadOnboardingState());
+
+    useEffect(() => {
+        const handlePopState = () => setRoute(window.location.pathname);
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
+    useEffect(() => {
+        saveOnboardingState(onboardingState);
+    }, [onboardingState]);
+
+    const navigate = (path: string) => {
+        if (window.location.pathname !== path) {
+            window.history.pushState({}, '', path);
+            setRoute(path);
+        }
+    };
 
     // --- AUTOMATIC BRAIN SYNC (BACKGROUND) ---
     useEffect(() => {
@@ -455,6 +511,57 @@ const App: React.FC = () => {
         } catch (e) { setError("Failed to connect API Key."); } finally { setIsConnecting(false); }
     };
 
+    const handleStartOnboarding = () => {
+        setOnboardingState(prev => ({
+            ...prev,
+            dismissed: false,
+            lastStep: 0,
+            updatedAt: Date.now(),
+        }));
+        navigate('/onboarding');
+    };
+
+    const handleSkipOnboarding = () => {
+        setOnboardingState(prev => ({
+            ...prev,
+            dismissed: true,
+            updatedAt: Date.now(),
+        }));
+        navigate('/dashboard');
+    };
+
+    const mergeBrandConfig = (existing: BrandConfig | undefined, incoming: BrandConfig): BrandConfig => {
+        const safeExisting = existing || { colors: [], knowledgeBase: [], tweetExamples: [], referenceImages: [] };
+        return {
+            ...safeExisting,
+            colors: safeExisting.colors?.length ? safeExisting.colors : incoming.colors,
+            knowledgeBase: safeExisting.knowledgeBase?.length ? safeExisting.knowledgeBase : incoming.knowledgeBase,
+            tweetExamples: safeExisting.tweetExamples?.length ? safeExisting.tweetExamples : incoming.tweetExamples,
+            referenceImages: safeExisting.referenceImages?.length ? safeExisting.referenceImages : incoming.referenceImages,
+            brandCollectorProfile: safeExisting.brandCollectorProfile || incoming.brandCollectorProfile,
+            voiceGuidelines: safeExisting.voiceGuidelines || incoming.voiceGuidelines,
+            targetAudience: safeExisting.targetAudience || incoming.targetAudience,
+            bannedPhrases: safeExisting.bannedPhrases?.length ? safeExisting.bannedPhrases : incoming.bannedPhrases,
+            visualIdentity: safeExisting.visualIdentity || incoming.visualIdentity,
+            graphicTemplates: safeExisting.graphicTemplates?.length ? safeExisting.graphicTemplates : incoming.graphicTemplates,
+        };
+    };
+
+    const handleCompleteOnboarding = (payload: { brandName: string; config: BrandConfig; sources: { domains: string[]; xHandles: string[]; youtube?: string } }) => {
+        const mergedConfig = mergeBrandConfig(profiles[payload.brandName], payload.config);
+        const nextProfiles = { ...profiles, [payload.brandName]: mergedConfig };
+        setProfiles(nextProfiles);
+        saveBrandProfiles(nextProfiles, true);
+        setSelectedBrand(payload.brandName);
+        setOnboardingState({
+            dismissed: false,
+            completed: true,
+            lastStep: 3,
+            updatedAt: Date.now(),
+        });
+        navigate('/dashboard');
+    };
+
     const handleUpdateCurrentBrandConfig = (newConfig: BrandConfig) => {
         setProfiles(prev => ({ ...prev, [selectedBrand]: newConfig }));
     };
@@ -650,6 +757,15 @@ const App: React.FC = () => {
     // count moved
     // const approvedCount = campaignItems.filter(i => i.isApproved).length;
 
+    const isLanding = route === '/';
+    const isOnboardingRoute = route.startsWith('/onboarding');
+    const isDashboardRoute = !isLanding && !isOnboardingRoute;
+    const shouldShowOnboardingPrompt = isDashboardRoute && !onboardingState.completed && !onboardingState.dismissed;
+
+    if (isLanding) {
+        return <LandingPage onOpenDashboard={() => navigate('/dashboard')} />;
+    }
+
     if (checkingKey) return <div className="min-h-screen bg-white flex items-center justify-center text-brand-text">Loading Defia Studio...</div>;
     if (!hasKey) return (
         <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center p-6 text-center">
@@ -658,6 +774,15 @@ const App: React.FC = () => {
             <Button onClick={handleConnectKey} isLoading={isConnecting}>Connect API Key</Button>
         </div>
     );
+
+    if (isOnboardingRoute) {
+        return (
+            <OnboardingFlow
+                onExit={() => navigate('/dashboard')}
+                onComplete={handleCompleteOnboarding}
+            />
+        );
+    }
 
     return (
         <div className="min-h-screen bg-brand-bg text-brand-text font-sans flex flex-row h-screen overflow-hidden">
@@ -674,6 +799,24 @@ const App: React.FC = () => {
             )}
 
             <main className="flex-1 w-full h-full flex flex-col relative overflow-auto">
+                {isDashboardRoute && !onboardingState.completed && (
+                    <div className="px-6 pt-6">
+                        {shouldShowOnboardingPrompt ? (
+                            <OnboardingPrompt
+                                onStart={handleStartOnboarding}
+                                onSkip={handleSkipOnboarding}
+                            />
+                        ) : (
+                            <div className="rounded-2xl border border-brand-border bg-white p-4 shadow-sm flex items-center justify-between">
+                                <div>
+                                    <div className="text-sm font-semibold text-brand-text">Resume onboarding anytime</div>
+                                    <p className="text-xs text-brand-muted mt-1">Pick up where you left off and enrich your brand profile.</p>
+                                </div>
+                                <Button onClick={handleStartOnboarding} className="px-4 py-2">Resume onboarding</Button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* EMPTY STATE */}
                 {(!selectedBrand || !profiles[selectedBrand]) && !showOnboarding && (
