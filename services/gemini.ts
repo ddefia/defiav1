@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief, StrategicPosture } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief, StrategicPosture, Mention, AgentInsight } from "../types";
 import { saveBrainLog } from "./storage";
 import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
 
@@ -2504,6 +2504,133 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
         console.error("Brain Phase 2 Failed", e);
         return { analysis, actions: [] };
     }
+};
+
+interface OrchestrationInputs {
+    calendarEvents: CalendarEvent[];
+    mentions: Mention[];
+}
+
+const runAgentInsight = async (prompt: string, fallback: AgentInsight): Promise<AgentInsight> => {
+    try {
+        const apiKey = getApiKey();
+        const ai = new GoogleGenAI({ apiKey });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        });
+        return JSON.parse(response.text || "{}");
+    } catch (e) {
+        console.warn("Agent insight failed, falling back.", e);
+        return fallback;
+    }
+};
+
+export const orchestrateMarketingDecision = async (
+    context: BrainContext,
+    inputs: OrchestrationInputs
+): Promise<{ analysis: AnalysisReport; actions: ActionPlan['actions']; agentInsights: AgentInsight[] }> => {
+    const calendarPreview = inputs.calendarEvents
+        .slice(0, 5)
+        .map(e => `${e.date}: ${e.platform} - ${e.content}`)
+        .join('\n');
+    const mentionPreview = inputs.mentions
+        .slice(0, 5)
+        .map(m => `@${m.author}: ${m.text}`)
+        .join('\n');
+    const trendPreview = context.marketState.trends.slice(0, 5).map(t => t.headline).join(', ');
+    const analyticsPreview = context.marketState.analytics
+        ? `Top Post: ${context.marketState.analytics.topPost} | Engagement: ${context.marketState.analytics.engagementRate}%`
+        : 'No analytics available.';
+
+    const agentPrompts = [
+        {
+            prompt: `
+ROLE: Social Listener Agent.
+INPUTS:
+- Trends: ${trendPreview}
+- Mentions: ${mentionPreview || 'No recent mentions.'}
+TASK: Summarize the top narrative shifts and high-signal conversations.
+OUTPUT JSON:
+{"agent":"Social Listener","focus":"Narratives + Mentions","summary":"...","keySignals":["...","..."]}`,
+            fallback: {
+                agent: 'Social Listener',
+                focus: 'Narratives + Mentions',
+                summary: 'No fresh mentions detected. Lean on current trend headlines.',
+                keySignals: trendPreview ? [trendPreview] : []
+            }
+        },
+        {
+            prompt: `
+ROLE: Performance Analyst Agent.
+INPUTS:
+- Analytics: ${analyticsPreview}
+TASK: Identify the best-performing pattern and where momentum is decaying.
+OUTPUT JSON:
+{"agent":"Performance Analyst","focus":"Engagement + Performance","summary":"...","keySignals":["...","..."]}`,
+            fallback: {
+                agent: 'Performance Analyst',
+                focus: 'Engagement + Performance',
+                summary: 'Analytics missing. Recommend validating performance before scaling.',
+                keySignals: []
+            }
+        },
+        {
+            prompt: `
+ROLE: Content Planner Agent.
+INPUTS:
+- Calendar: ${calendarPreview || 'No upcoming content scheduled.'}
+TASK: Identify gaps or launch opportunities in the content plan.
+OUTPUT JSON:
+{"agent":"Content Planner","focus":"Calendar + Cadence","summary":"...","keySignals":["...","..."]}`,
+            fallback: {
+                agent: 'Content Planner',
+                focus: 'Calendar + Cadence',
+                summary: 'No upcoming calendar items. Prioritize scheduling the next high-impact thread.',
+                keySignals: []
+            }
+        },
+        {
+            prompt: `
+ROLE: Knowledge Curator Agent.
+INPUTS:
+- Brand Memory: ${context.memory.ragDocs.join('\n') || 'No recent knowledge base context.'}
+TASK: Surface brand principles or strategic constraints to honor.
+OUTPUT JSON:
+{"agent":"Knowledge Curator","focus":"Brand Memory","summary":"...","keySignals":["...","..."]}`,
+            fallback: {
+                agent: 'Knowledge Curator',
+                focus: 'Brand Memory',
+                summary: 'No knowledge base context available. Use brand values and positioning defaults.',
+                keySignals: []
+            }
+        }
+    ];
+
+    const agentInsights = await Promise.all(
+        agentPrompts.map(({ prompt, fallback }) => runAgentInsight(prompt, fallback))
+    );
+
+    const agentSummaryBlock = agentInsights
+        .map(insight => `- ${insight.agent} (${insight.focus}): ${insight.summary} | Signals: ${insight.keySignals.join('; ')}`)
+        .join('\n');
+
+    const enrichedContext: BrainContext = {
+        ...context,
+        memory: {
+            ...context.memory,
+            ragDocs: [
+                ...context.memory.ragDocs,
+                `AGENT COUNCIL SUMMARY:\n${agentSummaryBlock}`.trim()
+            ]
+        }
+    };
+
+    const analysis = await analyzeMarketContext(enrichedContext);
+    const plan = await formulateStrategy(enrichedContext, analysis);
+
+    return { analysis, actions: plan.actions || [], agentInsights };
 };
 
 /**

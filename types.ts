@@ -390,6 +390,13 @@ export interface BrainContext {
   userObjective: string;
 }
 
+export interface AgentInsight {
+  agent: string;
+  focus: string;
+  summary: string;
+  keySignals: string[];
+}
+
 export interface AnalysisReport {
   summary: string;
   keyThemes: string[];
@@ -506,4 +513,3 @@ export interface DailyBrief {
   };
   timestamp: number;
 }
-

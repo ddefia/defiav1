@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief } from '../types';
-import { fetchCampaignPerformance, fetchSocialMetrics, computeGrowthMetrics, computeSocialSignals } from '../services/analytics';
-import { generateDailyBrief as generateBriefService } from '../services/gemini';
+import { AnalysisReport, SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief } from '../types';
+import { fetchCampaignPerformance, fetchSocialMetrics, computeGrowthMetrics, computeSocialSignals, fetchMentions } from '../services/analytics';
+import { generateDailyBrief as generateBriefService, orchestrateMarketingDecision } from '../services/gemini';
 import { fetchMarketPulse } from '../services/pulse';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
 import { SmartActionCard } from './SmartActionCard';
 import { TrendFeed } from './TrendFeed';
 import { StrategyBrain } from './StrategyBrain';
+import { MarketingBrainPanel } from './MarketingBrainPanel';
 
 interface DashboardProps {
     brandName: string;
@@ -125,6 +126,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([]);
     const [isThinking, setIsThinking] = useState<string | null>(null);
+    const [decisionSummary, setDecisionSummary] = useState<{
+        analysis?: AnalysisReport | null;
+        actionCount: number;
+        lastUpdated?: number | null;
+        agentInsights?: {
+            agent: string;
+            focus: string;
+            summary: string;
+            keySignals: string[];
+        }[];
+        inputCoverage?: {
+            calendarItems: number;
+            mentions: number;
+            trends: number;
+            knowledgeSignals: number;
+            recentPosts: number;
+        };
+    }>({ analysis: null, actionCount: 0, lastUpdated: null });
 
     // Daily Brief State
     const [isBriefOpen, setIsBriefOpen] = useState(false);
@@ -275,6 +294,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 brief={briefData}
                 loading={briefLoading}
             />
+
+            <div className="mb-8">
+                <MarketingBrainPanel
+                    brandName={brandName}
+                    brandConfig={brandConfig}
+                    calendarEvents={calendarEvents}
+                    socialMetrics={socialMetrics}
+                    chainMetrics={chainMetrics}
+                    socialSignals={socialSignals}
+                    tasks={tasks}
+                    growthReport={growthReport}
+                    campaignsCount={campaigns.length}
+                    briefReady={!!briefData}
+                    briefLoading={briefLoading}
+                    decisionSummary={decisionSummary}
+                />
+            </div>
 
             {/* LANE 1: PERFORMANCE (KPIs) */}
             <div className="grid grid-cols-4 gap-4 mb-8">
@@ -481,8 +517,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 userObjective: "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
                             };
 
-                            const { executeMarketingAction } = await import('../services/gemini');
-                            const actions = await executeMarketingAction(brainContext);
+                            const mentions = await fetchMentions(brandName);
+                            const calendarSignal = calendarEvents
+                                .slice(0, 5)
+                                .map(event => `${event.date} • ${event.platform}: ${event.content}`);
+                            const mentionSignal = mentions
+                                .slice(0, 5)
+                                .map(mention => `@${mention.author}: ${mention.text}`);
+                            const enrichedContext = {
+                                ...brainContext,
+                                marketState: {
+                                    ...brainContext.marketState,
+                                    mentions
+                                },
+                                memory: {
+                                    ...brainContext.memory,
+                                    ragDocs: [
+                                        calendarSignal.length ? `CALENDAR:\n${calendarSignal.join('\n')}` : '',
+                                        mentionSignal.length ? `MENTIONS:\n${mentionSignal.join('\n')}` : ''
+                                    ].filter(Boolean)
+                                }
+                            };
+
+                            const { analysis, actions, agentInsights } = await orchestrateMarketingDecision(enrichedContext, {
+                                calendarEvents,
+                                mentions
+                            });
+                            setDecisionSummary({
+                                analysis,
+                                actionCount: actions.length,
+                                lastUpdated: Date.now(),
+                                agentInsights,
+                                inputCoverage: {
+                                    calendarItems: calendarEvents.length,
+                                    mentions: mentions.length,
+                                    trends: socialSignals.trendingTopics?.length || 0,
+                                    knowledgeSignals: enrichedContext.memory.ragDocs.length,
+                                    recentPosts: socialMetrics?.recentPosts?.length || 0
+                                }
+                            });
 
                             if (actions.length > 0) {
                                 const newTasks = actions.map(action => ({
@@ -499,7 +572,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     impactScore: 85,
                                     executionPrompt: action.topic,
                                     suggestedVisualTemplate: 'Auto',
-                                    reasoning: action.reasoning,
+                                    reasoning: action.reasoning || 'Decision loop produced this action based on current signals.',
                                     strategicAlignment: action.strategicAlignment,
                                     contentIdeas: action.contentIdeas,
                                     proof: (action as any).proof,

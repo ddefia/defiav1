@@ -49,7 +49,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h2 className="text-3xl font-display font-bold text-gray-900 flex items-center gap-3">
-                        Strategic Posture
+                        Main Marketing Brain
                         {onRegenerate && (
                             <button
                                 onClick={handleRegenClick}
@@ -64,7 +64,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                         )}
                     </h2>
                     <p className="text-zinc-500 text-sm mt-1 max-w-xl">
-                        Real-time <span className="font-bold text-zinc-900">Neural Stream</span> of high-leverage opportunities based on live market conditions.
+                        Strategic posture and execution-ready actions generated from live market signals, brand memory, and performance metrics.
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
