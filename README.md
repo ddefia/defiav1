@@ -22,3 +22,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1S7qJTKuchPy-D_FWHVvMKj
 ## Status
 - Vercel Deployment: Active
 - Supabase: Connected
+
+## Repository Notes
+- One-off diagnostics and maintenance utilities are kept under `scripts/` to keep the project root focused on runtime entrypoints and configuration.
+- Legacy root-level check/debug artifacts have been removed in favor of the maintained scripts directory.
