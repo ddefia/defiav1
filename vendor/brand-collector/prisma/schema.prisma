@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceType {
+  x
+  youtube
+  website
+}
+
+enum SourceStatus {
+  pending
+  connected
+  error
+}
+
+enum JobStatus {
+  queued
+  running
+  complete
+  error
+}
+
+enum ContentType {
+  post
+  image
+  video
+  page
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  brandSources  BrandSource[]
+  brandJobs     BrandJob[]
+  contentItems  ContentItem[]
+  brandProfiles BrandProfile[]
+
+  @@map("users")
+}
+
+model BrandSource {
+  id                String       @id @default(uuid())
+  userId            String
+  type              SourceType
+  handleOrUrl       String
+  oauthAccessToken  String?      @db.Text // Encrypted
+  oauthRefreshToken String?      @db.Text // Encrypted
+  tokenExpiry       DateTime?
+  status            SourceStatus @default(pending)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, handleOrUrl])
+  @@map("brand_sources")
+}
+
+model BrandJob {
+  id           String    @id @default(uuid())
+  userId       String
+  status       JobStatus @default(queued)
+  progress     Int       @default(0) // 0-100
+  errorMessage String?   @db.Text
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("brand_jobs")
+}
+
+model ContentItem {
+  id          String      @id @default(uuid())
+  userId      String
+  sourceType  SourceType
+  contentType ContentType
+  externalId  String?
+  url         String?
+  text        String?     @db.Text
+  timestamp   DateTime?
+  metricsJson Json?       // Likes, views, etc.
+  mediaJson   Json?       // Array of media objects
+  rawJson     Json?       // Provider response (tokens scrubbed)
+  createdAt   DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sourceType])
+  @@index([userId, createdAt])
+  @@map("content_items")
+}
+
+model BrandProfile {
+  id          String   @id @default(uuid())
+  userId      String
+  version     Int      @default(1)
+  profileJson Json     @db.JsonB
+  brandHandle String?  // e.g., "@netswapofficial" or "@defiaxyz"
+  isExternal  Boolean  @default(false) // true for external branding, false for connected accounts
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, brandHandle])
+  @@index([brandHandle])
+  @@map("brand_profiles")
+}
