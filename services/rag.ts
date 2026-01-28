@@ -15,7 +15,7 @@ export interface RAGContext {
  * "The Memory Layer"
  */
 
-export const ingestContext = async (content: string, source: string, metadata: any = {}, brandId?: string) => {
+export const ingestContext = async (content: string, source: string, metadata: any = {}, brandId?: string, ownerId?: string) => {
     if (!content || content.length < 5) return;
 
     // 1. Generate Embedding
@@ -32,9 +32,10 @@ export const ingestContext = async (content: string, source: string, metadata: a
     // 2. Deduplication Check
     // We don't want to store the exact same text twice.
     const { data: existing } = await supabase
-        .from('brain_memory') // ALIGNED WITH SCHEMA
+        .from('brand_memory')
         .select('id')
         .eq('content', content)
+        .eq('brand_id', brandId || null)
         .limit(1);
 
     if (existing && existing.length > 0) {
@@ -45,12 +46,13 @@ export const ingestContext = async (content: string, source: string, metadata: a
 
     // 3. Store in Supabase
     const { error } = await supabase
-        .from('brain_memory')
+        .from('brand_memory')
         .insert({
-            brand_id: brandId, // Optional, can be null
+            brand_id: brandId || null,
+            owner_id: ownerId || null,
             content,
-            memory_type: source, // Map 'source' to 'memory_type' column
-            metadata: { ...metadata, source }, // Ensure source is in metadata too
+            source,
+            metadata: { ...metadata, source },
             embedding
         });
 
@@ -64,21 +66,22 @@ export const ingestContext = async (content: string, source: string, metadata: a
 /**
  * Log a strategic decision into long-term memory.
  */
-export const logDecision = async (action: string, reasoning: string) => {
+export const logDecision = async (action: string, reasoning: string, brandId?: string, ownerId?: string) => {
     const content = `DECISION TAKEN: ${action}. REASONING: ${reasoning}`;
-    await ingestContext(content, 'AI_DECISION_LOG', { type: 'decision', timestamp: Date.now() });
+    await ingestContext(content, 'AI_DECISION_LOG', { type: 'decision', timestamp: Date.now() }, brandId, ownerId);
 };
 
-export const searchContext = async (query: string, limit: number = 3): Promise<RAGContext[]> => {
+export const searchContext = async (query: string, limit: number = 3, brandId?: string): Promise<RAGContext[]> => {
     // 1. Embed Query
     const embedding = await getEmbedding(query);
     if (!embedding || embedding.length === 0) return [];
 
     // 2. RPC call for cosine similarity (MATCHES DB SCHEMA)
-    const { data, error } = await supabase.rpc('match_brain_memory', {
+    const { data, error } = await supabase.rpc('match_brand_memory', {
         query_embedding: embedding,
         match_threshold: 0.7, // Only relevant matches
-        match_count: limit
+        match_count: limit,
+        filter_brand_id: brandId || null
     });
 
     if (error) {
@@ -105,14 +108,15 @@ ${contexts.map(c => `- [${c.source}] ${c.content}`).join('\n')}
  * DB MAINTENANCE: Backfill missing embeddings.
  * OPTIMIZED: Process in parallel batches for speed.
  */
-export const indexEmptyEmbeddings = async (brandName: string): Promise<number> => {
-    console.log(`[RAG] Starting FAST backfill for ${brandName}...`);
+export const indexEmptyEmbeddings = async (brandId?: string): Promise<number> => {
+    if (!brandId) return 0;
+    console.log(`[RAG] Starting FAST backfill for ${brandId}...`);
 
     // 1. Fetch larger batch (50)
     const { data: rows, error } = await supabase
-        .from('brain_memory')
+        .from('brand_memory')
         .select('id, content')
-        .ilike('brand_id', brandName)
+        .eq('brand_id', brandId)
         .is('embedding', null)
         .limit(50);
 
@@ -132,7 +136,7 @@ export const indexEmptyEmbeddings = async (brandName: string): Promise<number> =
             const embedding = await getEmbedding(row.content);
             if (embedding && embedding.length > 0) {
                 const { error: updateError } = await supabase
-                    .from('brain_memory')
+                    .from('brand_memory')
                     .update({ embedding })
                     .eq('id', row.id);
                 if (!updateError) successCount++;

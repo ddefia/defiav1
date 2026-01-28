@@ -1,5 +1,6 @@
 import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost, SocialSignals, TrendItem, Mention, DashboardCampaign } from "../types";
 import { getIntegrationConfig } from "../config/integrations";
+import { loadIntegrationKeys } from "./storage";
 
 
 /**
@@ -18,7 +19,8 @@ const ACTOR_TWEETS = '61RPP7dywgiy0JPD0';
 
 export const getHandle = (brandName: string) => {
     const config = getIntegrationConfig(brandName);
-    return config?.apify?.twitterHandle || 'MetisL2';
+    const localKeys = loadIntegrationKeys(brandName);
+    return localKeys.apify || config?.apify?.twitterHandle || 'MetisL2';
 };
 
 /**
@@ -698,4 +700,3 @@ const generateSmartRationale = (roi: number, cpa: number, retention: number, sta
 
     return reasoning.slice(0, 3); // Top 3 reasons
 };
-

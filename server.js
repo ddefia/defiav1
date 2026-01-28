@@ -19,6 +19,20 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+const requestLog = [];
+const pushRequestLog = (entry) => {
+    requestLog.unshift(entry);
+    if (requestLog.length > 200) requestLog.length = 200;
+};
+
+app.use((req, res, next) => {
+    const entry = { time: new Date().toISOString(), method: req.method, path: req.path };
+    res.on('finish', () => {
+        pushRequestLog({ ...entry, status: res.statusCode });
+    });
+    next();
+});
+
 const KEY_FILE_PATH = path.join(__dirname, 'service-account.json');
 const DECISIONS_FILE = path.join(__dirname, 'server/cache/decisions.json');
 const CACHE_FILE = path.join(__dirname, 'server/cache/social_metrics.json');
@@ -30,14 +44,432 @@ const getSupabaseClient = () => {
     return createClient(supabaseUrl, supabaseKey);
 };
 
+const getSupabaseServiceClient = () => {
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return null;
+    return createClient(supabaseUrl, supabaseKey);
+};
+
+const normalizeHandle = (value = '') => value.replace(/^@/, '').trim();
+
+const isValidHandle = (value = '') => /^[A-Za-z0-9_]{1,15}$/.test(normalizeHandle(value));
+
+const normalizeDomain = (value = '') => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    if (!/^https?:\/\//i.test(trimmed)) {
+        return `https://${trimmed}`;
+    }
+    return trimmed;
+};
+
+const isValidUrl = (value = '') => {
+    try {
+        new URL(value);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+const sanitizeText = (value = '') => value.trim().slice(0, 255);
+
+const sanitizeFileName = (value = '') => value.replace(/[^a-zA-Z0-9-_\.]/g, '-').slice(0, 120);
+
+const decodeBase64File = (input = '') => {
+    const raw = input.includes('base64,') ? input.split('base64,')[1] : input;
+    return Buffer.from(raw, 'base64');
+};
+
 // --- Health Check ---
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), agent: 'active' });
 });
 
+app.get('/api/health/extended', async (req, res) => {
+    const supabase = getSupabaseClient();
+    let dbStatus = 'unconfigured';
+    let dbError = null;
+
+    if (supabase) {
+        try {
+            const { error } = await supabase
+                .from('brands')
+                .select('id')
+                .limit(1);
+            dbStatus = error ? 'error' : 'ok';
+            dbError = error?.message || null;
+        } catch (e) {
+            dbStatus = 'error';
+            dbError = e?.message || 'Unknown error';
+        }
+    }
+
+    res.json({
+        status: 'ok',
+        uptime: process.uptime(),
+        agent: 'active',
+        database: { status: dbStatus, error: dbError },
+        version: process.env.npm_package_version || null
+    });
+});
+
+app.get('/api/logs', (req, res) => {
+    res.json({ entries: requestLog });
+});
+
+app.post('/api/brands/register', async (req, res) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+        return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    try {
+        const { name, ownerId, websiteUrl, sources = {}, config, enrichment } = req.body || {};
+        const normalizedName = sanitizeText(name || '');
+
+        if (!normalizedName || normalizedName.length < 2) {
+            return res.status(400).json({ error: 'Brand name is required.' });
+        }
+
+        const { data: existingBrand } = await supabase
+            .from('brands')
+            .select('id, name')
+            .ilike('name', normalizedName)
+            .maybeSingle();
+
+        if (existingBrand) {
+            return res.json({ id: existingBrand.id, name: existingBrand.name });
+        }
+
+        const domains = Array.isArray(sources.domains) ? sources.domains : [];
+        const xHandles = Array.isArray(sources.xHandles) ? sources.xHandles : [];
+        const youtube = sources.youtube ? String(sources.youtube) : null;
+
+        const normalizedDomains = domains
+            .map((domain) => normalizeDomain(String(domain)))
+            .filter(Boolean)
+            .filter(isValidUrl);
+
+        const normalizedHandles = xHandles
+            .map((handle) => normalizeHandle(String(handle)))
+            .filter((handle) => handle && isValidHandle(handle));
+
+        if (normalizedDomains.length === 0) {
+            return res.status(400).json({ error: 'At least one valid domain is required.' });
+        }
+
+        const website = websiteUrl ? normalizeDomain(String(websiteUrl)) : normalizedDomains[0];
+        if (website && !isValidUrl(website)) {
+            return res.status(400).json({ error: 'Website URL is invalid.' });
+        }
+
+        const { data: brand, error: brandError } = await supabase
+            .from('brands')
+            .insert({
+                owner_id: ownerId ? sanitizeText(ownerId) : null,
+                name: normalizedName,
+                slug: normalizedName.toLowerCase().replace(/\s+/g, '-'),
+                website_url: website || null,
+                updated_at: new Date().toISOString()
+            })
+            .select('id, name')
+            .single();
+
+        if (brandError) {
+            return res.status(500).json({ error: brandError.message });
+        }
+
+        const sourceRows = [
+            ...normalizedDomains.map((domain) => ({
+                brand_id: brand.id,
+                source_type: 'domain',
+                value: domain,
+                normalized_value: domain.toLowerCase()
+            })),
+            ...normalizedHandles.map((handle) => ({
+                brand_id: brand.id,
+                source_type: 'x_handle',
+                value: `@${handle}`,
+                normalized_value: handle
+            }))
+        ];
+
+        if (youtube) {
+            sourceRows.push({
+                brand_id: brand.id,
+                source_type: 'youtube',
+                value: youtube,
+                normalized_value: youtube
+            });
+        }
+
+        if (sourceRows.length > 0) {
+            const { error: sourcesError } = await supabase
+                .from('brand_sources')
+                .insert(sourceRows);
+            if (sourcesError) {
+                console.warn('[BrandRegister] Failed to insert sources:', sourcesError.message);
+            }
+        }
+
+        if (config) {
+            const { error: configError } = await supabase
+                .from('brand_configs')
+                .insert({ brand_id: brand.id, config });
+            if (configError) {
+                console.warn('[BrandRegister] Failed to insert config:', configError.message);
+            }
+        }
+
+        if (enrichment) {
+            const { error: enrichError } = await supabase
+                .from('brand_enrichments')
+                .insert({
+                    brand_id: brand.id,
+                    mode: enrichment.mode || null,
+                    summary: enrichment.summary || null,
+                    raw_profile: enrichment.profile || enrichment
+                });
+            if (enrichError) {
+                console.warn('[BrandRegister] Failed to insert enrichment:', enrichError.message);
+            }
+        }
+
+        return res.json({ id: brand.id, name: brand.name });
+    } catch (e) {
+        console.error('[BrandRegister] Unexpected error:', e);
+        return res.status(500).json({ error: 'Registration failed' });
+    }
+});
+
+app.post('/api/brands/resolve', async (req, res) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+        return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    try {
+        const { name, ownerId, websiteUrl, sources = {} } = req.body || {};
+        const normalizedName = sanitizeText(name || '');
+        if (!normalizedName || normalizedName.length < 2) {
+            return res.status(400).json({ error: 'Brand name is required.' });
+        }
+
+        const { data: existingBrand } = await supabase
+            .from('brands')
+            .select('id, name')
+            .ilike('name', normalizedName)
+            .maybeSingle();
+
+        if (existingBrand) {
+            return res.json({ id: existingBrand.id, name: existingBrand.name });
+        }
+
+        const domains = Array.isArray(sources.domains) ? sources.domains : [];
+        const normalizedDomains = domains
+            .map((domain) => normalizeDomain(String(domain)))
+            .filter(Boolean)
+            .filter(isValidUrl);
+
+        if (normalizedDomains.length === 0) {
+            return res.status(400).json({ error: 'Brand not found. Provide at least one valid domain to create.' });
+        }
+
+        const website = websiteUrl ? normalizeDomain(String(websiteUrl)) : normalizedDomains[0];
+
+        const { data: brand, error: brandError } = await supabase
+            .from('brands')
+            .insert({
+                owner_id: ownerId ? sanitizeText(ownerId) : null,
+                name: normalizedName,
+                slug: normalizedName.toLowerCase().replace(/\s+/g, '-'),
+                website_url: website || null,
+                updated_at: new Date().toISOString()
+            })
+            .select('id, name')
+            .single();
+
+        if (brandError) {
+            return res.status(500).json({ error: brandError.message });
+        }
+
+        return res.json({ id: brand.id, name: brand.name });
+    } catch (e) {
+        console.error('[BrandResolve] Unexpected error:', e);
+        return res.status(500).json({ error: 'Brand resolve failed' });
+    }
+});
+
+app.patch('/api/brands/:id/integrations', async (req, res) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+        return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    try {
+        const brandId = req.params.id;
+        const { apifyHandle, lunarcrushSymbol, duneQueryIds } = req.body || {};
+
+        const normalizedHandle = apifyHandle ? normalizeHandle(String(apifyHandle)) : null;
+        if (normalizedHandle && !isValidHandle(normalizedHandle)) {
+            return res.status(400).json({ error: 'Invalid Apify/X handle.' });
+        }
+
+        const payload = {
+            brand_id: brandId,
+            apify_handle: normalizedHandle || null,
+            lunarcrush_symbol: lunarcrushSymbol ? sanitizeText(String(lunarcrushSymbol)) : null,
+            dune_query_ids: duneQueryIds || null,
+            updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+            .from('brand_integrations')
+            .upsert(payload, { onConflict: 'brand_id' })
+            .select('brand_id, apify_handle, lunarcrush_symbol, dune_query_ids')
+            .single();
+
+        if (error) {
+            return res.status(500).json({ error: error.message });
+        }
+
+        return res.json({ integration: data });
+    } catch (e) {
+        console.error('[BrandIntegrations] Unexpected error:', e);
+        return res.status(500).json({ error: 'Failed to update integrations' });
+    }
+});
+
+app.patch('/api/brands/:id/automation', async (req, res) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+        return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    try {
+        const brandId = req.params.id;
+        const { ownerId, enabled, scheduleWindow, postingLimits, riskThresholds } = req.body || {};
+
+        const payload = {
+            brand_id: brandId,
+            owner_id: ownerId ? sanitizeText(String(ownerId)) : null,
+            enabled: enabled !== undefined ? Boolean(enabled) : true,
+            schedule_window: scheduleWindow || null,
+            posting_limits: postingLimits || null,
+            risk_thresholds: riskThresholds || null,
+            updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+            .from('automation_policies')
+            .upsert(payload, { onConflict: 'brand_id,owner_id' })
+            .select('brand_id, owner_id, enabled, schedule_window, posting_limits, risk_thresholds')
+            .single();
+
+        if (error) {
+            return res.status(500).json({ error: error.message });
+        }
+
+        return res.json({ automation: data });
+    } catch (e) {
+        console.error('[AutomationPolicy] Unexpected error:', e);
+        return res.status(500).json({ error: 'Failed to update automation settings' });
+    }
+});
+
+app.post('/api/assets/upload', async (req, res) => {
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+        return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
+    try {
+        const { brandId, fileName, mimeType, base64Data, metadata } = req.body || {};
+        if (!brandId || !fileName || !base64Data) {
+            return res.status(400).json({ error: 'brandId, fileName, and base64Data are required.' });
+        }
+
+        const safeName = sanitizeFileName(String(fileName));
+        const extension = safeName.includes('.') ? safeName.split('.').pop() : 'png';
+        const storagePath = `${brandId}/${Date.now()}-${safeName || 'asset'}.${extension}`;
+
+        const buffer = decodeBase64File(String(base64Data));
+        const { error: uploadError } = await supabase
+            .storage
+            .from('brand-assets')
+            .upload(storagePath, buffer, {
+                contentType: mimeType || 'image/png',
+                upsert: true
+            });
+
+        if (uploadError) {
+            return res.status(500).json({ error: uploadError.message });
+        }
+
+        const { data: publicData } = supabase
+            .storage
+            .from('brand-assets')
+            .getPublicUrl(storagePath);
+
+        const publicUrl = publicData?.publicUrl || null;
+
+        const { data: assetRow, error: assetError } = await supabase
+            .from('brand_assets')
+            .insert({
+                brand_id: brandId,
+                asset_type: mimeType ? mimeType.split('/')[0] : 'image',
+                storage_path: storagePath,
+                public_url: publicUrl,
+                metadata: metadata || null
+            })
+            .select('id, brand_id, storage_path, public_url')
+            .single();
+
+        if (assetError) {
+            return res.status(500).json({ error: assetError.message });
+        }
+
+        return res.json({ asset: assetRow });
+    } catch (e) {
+        console.error('[AssetUpload] Unexpected error:', e);
+        return res.status(500).json({ error: 'Asset upload failed' });
+    }
+});
+
 // --- Agent Decisions Bridge ---
 app.get('/api/decisions', (req, res) => {
     try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            supabase
+                .from('agent_decisions')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(100)
+                .then(({ data, error }) => {
+                    if (!error && data) {
+                        return res.json(data);
+                    }
+
+                    if (fs.existsSync(DECISIONS_FILE)) {
+                        const fileData = fs.readFileSync(DECISIONS_FILE, 'utf-8');
+                        return res.json(JSON.parse(fileData));
+                    }
+
+                    return res.json([]);
+                })
+                .catch(() => {
+                    if (fs.existsSync(DECISIONS_FILE)) {
+                        const fileData = fs.readFileSync(DECISIONS_FILE, 'utf-8');
+                        return res.json(JSON.parse(fileData));
+                    }
+                    return res.json([]);
+                });
+            return;
+        }
+
         if (fs.existsSync(DECISIONS_FILE)) {
             const data = fs.readFileSync(DECISIONS_FILE, 'utf-8');
             res.json(JSON.parse(data));
@@ -248,7 +680,34 @@ app.get('/api/action-center/:brand', async (req, res) => {
     let decisions = [];
 
     try {
-        if (fs.existsSync(DECISIONS_FILE)) {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data: brandRow } = await supabase
+                .from('brands')
+                .select('id')
+                .eq('id', brand)
+                .maybeSingle();
+
+            const { data: namedBrand } = await supabase
+                .from('brands')
+                .select('id')
+                .ilike('name', brand)
+                .maybeSingle();
+
+            const brandId = brandRow?.id || namedBrand?.id;
+            if (brandId) {
+                const { data: dbDecisions } = await supabase
+                    .from('agent_decisions')
+                    .select('*')
+                    .eq('brand_id', brandId)
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+
+                decisions = dbDecisions || [];
+            }
+        }
+
+        if (decisions.length === 0 && fs.existsSync(DECISIONS_FILE)) {
             const data = JSON.parse(fs.readFileSync(DECISIONS_FILE, 'utf-8'));
             decisions = Array.isArray(data)
                 ? data.filter(item => (item.brandId || '').toLowerCase() === brandKey)

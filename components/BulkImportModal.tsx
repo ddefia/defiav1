@@ -97,6 +97,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
             content: d.content,
             platform: 'Twitter', // Default
             status: 'scheduled',
+            approvalStatus: 'approved',
             campaignName: 'Bulk Import'
         }));
 

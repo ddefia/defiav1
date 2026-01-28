@@ -9,6 +9,7 @@ const CALENDAR_STORAGE_KEY = 'defia_calendar_events_v1';
 const KEYS_STORAGE_KEY = 'defia_integrations_v1';
 const META_STORAGE_KEY = 'defia_storage_meta_v1';
 const AUTOMATION_STORAGE_KEY = 'defia_automation_settings_v1';
+const BRAND_REGISTRY_KEY = 'defia_brand_registry_v1';
 
 // --- HELPER: Timestamp Management ---
 const getLocalTimestamp = (key: string): number => {
@@ -355,6 +356,37 @@ export const saveAutomationSettings = (brandName: string, settings: AutomationSe
     }
 };
 
+export interface BrandRegistryEntry {
+    brandId: string;
+    brandName: string;
+    updatedAt: number;
+}
+
+export const loadBrandRegistry = (): Record<string, BrandRegistryEntry> => {
+    try {
+        const stored = localStorage.getItem(BRAND_REGISTRY_KEY);
+        return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+        console.warn("Failed to load brand registry", e);
+        return {};
+    }
+};
+
+export const saveBrandRegistryEntry = (brandName: string, brandId: string): void => {
+    try {
+        const registry = loadBrandRegistry();
+        registry[brandName.toLowerCase()] = { brandId, brandName, updatedAt: Date.now() };
+        localStorage.setItem(BRAND_REGISTRY_KEY, JSON.stringify(registry));
+    } catch (e) {
+        console.warn("Failed to save brand registry entry", e);
+    }
+};
+
+export const getBrandRegistryEntry = (brandName: string): BrandRegistryEntry | null => {
+    const registry = loadBrandRegistry();
+    return registry[brandName.toLowerCase()] || null;
+};
+
 export const loadIntegrationKeys = (brandName?: string): IntegrationKeys => {
     // If brandName is provided, try to load specific keys, otherwise fallback to global
     // or migration strategy: checks specific first, then global
@@ -672,17 +704,20 @@ export const saveStrategicPosture = (brandName: string, posture: any): void => {
 
 export const fetchBrainHistoryEvents = async (brandName: string): Promise<CalendarEvent[]> => {
     try {
-        // Robust Brand ID Sanitization
-        // 1. Trim whitespace
-        // 2. Handles case-insensitivity at DB level
-        const dbBrandId = brandName.trim();
+        const registry = getBrandRegistryEntry(brandName);
+        const dbBrandId = registry?.brandId;
+
+        if (!dbBrandId) {
+            console.warn(`[History] No brand registry entry for ${brandName}.`);
+            return [];
+        }
 
         console.log(`[History] Fetching events for brand: "${dbBrandId}"`);
 
         const { data, error } = await supabase
-            .from('brain_memory')
+            .from('brand_memory')
             .select('id, created_at, metadata, content, brand_id')
-            .ilike('brand_id', dbBrandId) // Case insensitive match ('Metis' == 'metis')
+            .eq('brand_id', dbBrandId)
             .not('content', 'ilike', '%MIGRATED LOG%') // Filter out system logs
             // FIX: Exclude Campaign assets from "History" view as they are managed in the Campaign Scheduler
             // This prevents the "Double Entry" issue and keeps History clean for actual past posts.

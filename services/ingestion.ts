@@ -3,13 +3,14 @@ import { fetchMarketPulse } from './pulse';
 import { computeGrowthMetrics } from './analytics';
 import { ingestContext } from './rag';
 import { TrendItem, CampaignLog } from '../types';
+import { loadIntegrationKeys } from './storage';
 
 /**
  * INGESTION ORCHESTRATOR
  * Bridges the "Scanning" services (Pulse, Analytics) with the "Memory" service (RAG).
  */
 
-export const runMarketScan = async (brandName: string, campaigns: CampaignLog[] = []) => {
+export const runMarketScan = async (brandName: string, campaigns: CampaignLog[] = [], brandId?: string) => {
     console.log(`[Ingestion] Starting market scan for ${brandName}...`);
     let count = 0;
 
@@ -18,7 +19,7 @@ export const runMarketScan = async (brandName: string, campaigns: CampaignLog[] 
         const trends = await fetchMarketPulse(brandName);
         for (const trend of trends.slice(0, 5)) { // Top 5 only
             const content = `Trend Alert: "${trend.headline}" is trending. Summary: ${trend.summary}. Relevance: ${trend.relevanceReason}`;
-            await ingestContext(content, 'Pulse/LunarCrush', { url: trend.url, score: trend.relevanceScore });
+            await ingestContext(content, 'Pulse/LunarCrush', { url: trend.url, score: trend.relevanceScore }, brandId);
             count++;
         }
     } catch (e) {
@@ -27,9 +28,11 @@ export const runMarketScan = async (brandName: string, campaigns: CampaignLog[] 
 
     // 2. PROCESS ON-CHAIN METRICS (Analytics/Dune)
     try {
+        const integrationKeys = loadIntegrationKeys(brandName);
         const metrics = await computeGrowthMetrics({
             campaigns,
             duneApiKey: process.env.DUNE_API_KEY,
+            duneQueryIds: integrationKeys.duneQueryIds,
             contracts: [],
             excludedWallets: []
         });
@@ -43,7 +46,7 @@ export const runMarketScan = async (brandName: string, campaigns: CampaignLog[] 
         ];
 
         for (const fact of facts) {
-            await ingestContext(fact, 'Dune/OnChain', { timestamp: Date.now() });
+            await ingestContext(fact, 'Dune/OnChain', { timestamp: Date.now() }, brandId);
             count++;
         }
     } catch (e) {

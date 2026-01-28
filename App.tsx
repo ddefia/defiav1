@@ -5,7 +5,7 @@ import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './servi
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
 import { fetchActionCenter } from './services/actionCenter';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { Button } from './components/Button';
 import { Select } from './components/Select';
@@ -341,7 +341,8 @@ const App: React.FC = () => {
 
                 // 1. Ingest Market Data
                 setSystemLogs(prev => ["Scanning Social Graph (Twitter/Farcaster) & On-Chain...", ...prev]);
-                await runMarketScan(selectedBrand);
+                const registryEntry = getBrandRegistryEntry(selectedBrand);
+                await runMarketScan(selectedBrand, [], registryEntry?.brandId);
                 await new Promise(r => setTimeout(r, 800));
 
                 // 2. Fetch Trends & Mentions
@@ -411,7 +412,8 @@ const App: React.FC = () => {
 
                 // 3. RAG Memory Retrieval
                 setSystemLogs(prev => ["Memory: Querying Vector Database...", ...prev]);
-                const ragHits = await searchContext(`Market trends and strategy context for ${selectedBrand}`, 5);
+                const registry = getBrandRegistryEntry(selectedBrand);
+                const ragHits = await searchContext(`Market trends and strategy context for ${selectedBrand}`, 5, registry?.brandId);
                 const ragContextDocs = ragHits.map(h => h.content); // Extract just strings
 
                 // 4. UNIFIED BRAIN EXECUTION (Autopilot)
@@ -613,7 +615,7 @@ const App: React.FC = () => {
         };
     };
 
-    const handleCompleteOnboarding = (payload: { brandName: string; config: BrandConfig; sources: { domains: string[]; xHandles: string[]; youtube?: string } }) => {
+    const handleCompleteOnboarding = async (payload: { brandName: string; config: BrandConfig; sources: { domains: string[]; xHandles: string[]; youtube?: string } }) => {
         const mergedConfig = mergeBrandConfig(profiles[payload.brandName], payload.config);
         const nextProfiles = { ...profiles, [payload.brandName]: mergedConfig };
         setProfiles(nextProfiles);
@@ -625,6 +627,27 @@ const App: React.FC = () => {
             lastStep: 3,
             updatedAt: Date.now(),
         });
+        try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+            const response = await fetch(`${baseUrl}/api/brands/resolve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: payload.brandName,
+                    sources: payload.sources,
+                    websiteUrl: payload.sources.domains?.[0]
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data?.id) {
+                    saveBrandRegistryEntry(payload.brandName, data.id);
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to resolve brand registry", e);
+        }
         navigate('/dashboard');
     };
 

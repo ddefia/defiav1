@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrandKit } from './BrandKit';
 import { BrandConfig } from '../types';
-import { loadAutomationSettings, saveAutomationSettings } from '../services/storage';
+import { loadAutomationSettings, saveAutomationSettings, loadIntegrationKeys, saveIntegrationKeys, getBrandRegistryEntry, saveBrandRegistryEntry } from '../services/storage';
 
 interface SettingsProps {
     brandName: string;
@@ -12,16 +12,107 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange }) => {
     const [activeTab, setActiveTab] = useState<'general' | 'brandkit'>('brandkit');
     const [automationEnabled, setAutomationEnabled] = useState(true);
+    const [apifyHandle, setApifyHandle] = useState('');
+    const [lunarSymbol, setLunarSymbol] = useState('');
+    const [duneVolumeQuery, setDuneVolumeQuery] = useState('');
+    const [duneUsersQuery, setDuneUsersQuery] = useState('');
+    const [duneRetentionQuery, setDuneRetentionQuery] = useState('');
+    const [savingIntegrations, setSavingIntegrations] = useState(false);
 
     useEffect(() => {
         const settings = loadAutomationSettings(brandName);
         setAutomationEnabled(settings.enabled);
+        const keys = loadIntegrationKeys(brandName);
+        setApifyHandle(keys.apify || '');
+        setLunarSymbol(keys.lunarCrush || '');
+        setDuneVolumeQuery(keys.duneQueryIds?.volume || '');
+        setDuneUsersQuery(keys.duneQueryIds?.users || '');
+        setDuneRetentionQuery(keys.duneQueryIds?.retention || '');
     }, [brandName]);
 
-    const handleAutomationToggle = () => {
+    const resolveBrandId = async (): Promise<string | null> => {
+        const cached = getBrandRegistryEntry(brandName);
+        if (cached?.brandId) return cached.brandId;
+
+        try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+            const response = await fetch(`${baseUrl}/api/brands/resolve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: brandName })
+            });
+
+            if (!response.ok) return null;
+            const data = await response.json();
+            if (data?.id) {
+                saveBrandRegistryEntry(brandName, data.id);
+                return data.id;
+            }
+        } catch (e) {
+            console.warn("Failed to resolve brand ID", e);
+        }
+        return null;
+    };
+
+    const handleAutomationToggle = async () => {
         const nextValue = !automationEnabled;
         setAutomationEnabled(nextValue);
         saveAutomationSettings(brandName, { enabled: nextValue, updatedAt: Date.now() });
+
+        const brandId = await resolveBrandId();
+        if (!brandId) return;
+
+        try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+            await fetch(`${baseUrl}/api/brands/${brandId}/automation`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    enabled: nextValue,
+                    ownerId: null
+                })
+            });
+        } catch (e) {
+            console.warn("Failed to sync automation settings", e);
+        }
+    };
+
+    const handleSaveIntegrations = async () => {
+        setSavingIntegrations(true);
+        const nextKeys = {
+            apify: apifyHandle,
+            lunarCrush: lunarSymbol,
+            duneQueryIds: {
+                volume: duneVolumeQuery,
+                users: duneUsersQuery,
+                retention: duneRetentionQuery
+            }
+        };
+        saveIntegrationKeys(nextKeys, brandName);
+
+        const brandId = await resolveBrandId();
+        if (brandId) {
+            try {
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+                await fetch(`${baseUrl}/api/brands/${brandId}/integrations`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        apifyHandle,
+                        lunarcrushSymbol: lunarSymbol,
+                        duneQueryIds: {
+                            volume: duneVolumeQuery,
+                            users: duneUsersQuery,
+                            retention: duneRetentionQuery
+                        }
+                    })
+                });
+            } catch (e) {
+                console.warn("Failed to sync integrations", e);
+            }
+        }
+
+        setSavingIntegrations(false);
     };
 
     return (
@@ -82,6 +173,70 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange 
                                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${automationEnabled ? 'translate-x-6' : 'translate-x-1'}`}
                                     />
                                 </button>
+                            </div>
+
+                            <div className="mt-6 border border-brand-border rounded-xl p-5 bg-white space-y-4">
+                                <div>
+                                    <div className="text-sm font-semibold text-brand-text">Data Integrations</div>
+                                    <p className="text-xs text-brand-muted">Connect per-brand data sources to improve analytics and agent accuracy.</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
+                                        Apify / X Handle
+                                        <input
+                                            value={apifyHandle}
+                                            onChange={(e) => setApifyHandle(e.target.value)}
+                                            placeholder="@yourbrand"
+                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                        />
+                                    </label>
+                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
+                                        LunarCrush Symbol
+                                        <input
+                                            value={lunarSymbol}
+                                            onChange={(e) => setLunarSymbol(e.target.value)}
+                                            placeholder="ETH, METIS, etc."
+                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                        />
+                                    </label>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
+                                        Dune Volume Query
+                                        <input
+                                            value={duneVolumeQuery}
+                                            onChange={(e) => setDuneVolumeQuery(e.target.value)}
+                                            placeholder="Query ID"
+                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                        />
+                                    </label>
+                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
+                                        Dune Users Query
+                                        <input
+                                            value={duneUsersQuery}
+                                            onChange={(e) => setDuneUsersQuery(e.target.value)}
+                                            placeholder="Query ID"
+                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                        />
+                                    </label>
+                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
+                                        Dune Retention Query
+                                        <input
+                                            value={duneRetentionQuery}
+                                            onChange={(e) => setDuneRetentionQuery(e.target.value)}
+                                            placeholder="Query ID"
+                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                        />
+                                    </label>
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <Button onClick={handleSaveIntegrations} isLoading={savingIntegrations}>
+                                        Save Integrations
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     )}
