@@ -8,6 +8,7 @@ const POSTURE_STORAGE_KEY = 'defia_strategic_posture_v1';
 const CALENDAR_STORAGE_KEY = 'defia_calendar_events_v1';
 const KEYS_STORAGE_KEY = 'defia_integrations_v1';
 const META_STORAGE_KEY = 'defia_storage_meta_v1';
+const AUTOMATION_STORAGE_KEY = 'defia_automation_settings_v1';
 
 // --- HELPER: Timestamp Management ---
 const getLocalTimestamp = (key: string): number => {
@@ -68,6 +69,7 @@ export const STORAGE_EVENTS = {
     CALENDAR_UPDATE: 'defia_calendar_update',
     BRAND_UPDATE: 'defia_brand_update',
     POSTURE_UPDATE: 'defia_posture_update',
+    AUTOMATION_UPDATE: 'defia_automation_update',
 };
 
 const dispatchStorageEvent = (eventName: string, detail: any) => {
@@ -317,6 +319,41 @@ export interface IntegrationKeys {
     supabaseUrl?: string; // New
     supabaseKey?: string; // New
 }
+
+export interface AutomationSettings {
+    enabled: boolean;
+    updatedAt: number;
+}
+
+export const loadAutomationSettings = (brandName: string): AutomationSettings => {
+    try {
+        const key = `${AUTOMATION_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+
+        fetchFromCloud(key).then(result => {
+            if (result && result.value) {
+                localStorage.setItem(key, JSON.stringify(result.value));
+            }
+        });
+
+        if (stored) return JSON.parse(stored);
+    } catch (e) {
+        console.warn("Failed to load automation settings", e);
+    }
+
+    return { enabled: true, updatedAt: Date.now() };
+};
+
+export const saveAutomationSettings = (brandName: string, settings: AutomationSettings): void => {
+    try {
+        const key = `${AUTOMATION_STORAGE_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(settings));
+        saveToCloud(key, settings);
+        dispatchStorageEvent(STORAGE_EVENTS.AUTOMATION_UPDATE, { brandName, settings });
+    } catch (e) {
+        console.error("Failed to save automation settings", e);
+    }
+};
 
 export const loadIntegrationKeys = (brandName?: string): IntegrationKeys => {
     // If brandName is provided, try to load specific keys, otherwise fallback to global
