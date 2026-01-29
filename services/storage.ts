@@ -71,6 +71,7 @@ export const STORAGE_EVENTS = {
     BRAND_UPDATE: 'defia_brand_update',
     POSTURE_UPDATE: 'defia_posture_update',
     AUTOMATION_UPDATE: 'defia_automation_update',
+    INTEGRATIONS_UPDATE: 'defia_integrations_update',
 };
 
 const dispatchStorageEvent = (eventName: string, detail: any) => {
@@ -406,6 +407,7 @@ export const saveIntegrationKeys = (keys: IntegrationKeys, brandName?: string): 
     // Save to brand-specific slot if provided, otherwise global (not recommended for new flow)
     const key = brandName ? `${KEYS_STORAGE_KEY}_${brandName.toLowerCase()}` : KEYS_STORAGE_KEY;
     localStorage.setItem(key, JSON.stringify(keys));
+    dispatchStorageEvent(STORAGE_EVENTS.INTEGRATIONS_UPDATE, { brandName });
     // NOTE: Not syncing keys to cloud for security reasons in this basic implementation
 };
 
