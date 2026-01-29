@@ -629,20 +629,43 @@ const App: React.FC = () => {
         navigate('/dashboard');
     };
 
+    const mergeUnique = <T,>(existing: T[] | undefined, incoming: T[] | undefined, getKey: (item: T) => string) => {
+        const merged: T[] = [];
+        const seen = new Set<string>();
+        const addItem = (item: T) => {
+            const key = getKey(item);
+            if (seen.has(key)) return;
+            seen.add(key);
+            merged.push(item);
+        };
+
+        (existing || []).forEach(addItem);
+        (incoming || []).forEach(addItem);
+        return merged;
+    };
+
     const mergeBrandConfig = (existing: BrandConfig | undefined, incoming: BrandConfig): BrandConfig => {
         const safeExisting = existing || { colors: [], knowledgeBase: [], tweetExamples: [], referenceImages: [] };
         return {
             ...safeExisting,
-            colors: safeExisting.colors?.length ? safeExisting.colors : incoming.colors,
-            knowledgeBase: safeExisting.knowledgeBase?.length ? safeExisting.knowledgeBase : incoming.knowledgeBase,
-            tweetExamples: safeExisting.tweetExamples?.length ? safeExisting.tweetExamples : incoming.tweetExamples,
-            referenceImages: safeExisting.referenceImages?.length ? safeExisting.referenceImages : incoming.referenceImages,
+            colors: mergeUnique(safeExisting.colors, incoming.colors, (color) => color.hex?.toLowerCase() || color.id),
+            knowledgeBase: mergeUnique(safeExisting.knowledgeBase, incoming.knowledgeBase, (entry) => entry.trim()),
+            tweetExamples: mergeUnique(safeExisting.tweetExamples, incoming.tweetExamples, (entry) => entry.trim()),
+            referenceImages: mergeUnique(
+                safeExisting.referenceImages,
+                incoming.referenceImages,
+                (image) => image.url || image.data || image.id
+            ),
             brandCollectorProfile: safeExisting.brandCollectorProfile || incoming.brandCollectorProfile,
             voiceGuidelines: safeExisting.voiceGuidelines || incoming.voiceGuidelines,
             targetAudience: safeExisting.targetAudience || incoming.targetAudience,
-            bannedPhrases: safeExisting.bannedPhrases?.length ? safeExisting.bannedPhrases : incoming.bannedPhrases,
+            bannedPhrases: mergeUnique(safeExisting.bannedPhrases, incoming.bannedPhrases, (entry) => entry.trim()),
             visualIdentity: safeExisting.visualIdentity || incoming.visualIdentity,
-            graphicTemplates: safeExisting.graphicTemplates?.length ? safeExisting.graphicTemplates : incoming.graphicTemplates,
+            graphicTemplates: mergeUnique(
+                safeExisting.graphicTemplates,
+                incoming.graphicTemplates,
+                (template) => template.id
+            ),
         };
     };
 
