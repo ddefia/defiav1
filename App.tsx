@@ -88,11 +88,7 @@ const getSectionFromPath = (path: string) => {
 
 
 const App: React.FC = () => {
-    // Check environment variable first (injected by Vite define)
-    const [hasKey, setHasKey] = useState<boolean>(!!process.env.API_KEY);
     console.log('App: Copilot Integration Loaded v2'); // Debug: Force Rebuild
-    const [checkingKey, setCheckingKey] = useState<boolean>(true);
-    const [isConnecting, setIsConnecting] = useState<boolean>(false);
     const [route, setRoute] = useState<string>(() => window.location.pathname);
     const [onboardingState, setOnboardingState] = useState<OnboardingState>(() => loadOnboardingState());
     // App Navigation State
@@ -614,42 +610,6 @@ const App: React.FC = () => {
 
     // Campaign start date logic moved to Campaigns.tsx
 
-    useEffect(() => {
-        const checkKey = async () => {
-            // If we already have a key from env, don't check aistudio
-            if (hasKey) {
-                setCheckingKey(false);
-                return;
-            }
-
-            try {
-                if (window.aistudio && window.aistudio.hasSelectedApiKey) {
-                    const has = await window.aistudio.hasSelectedApiKey();
-                    setHasKey(has);
-                } else {
-                    console.warn("AI Studio wrapper not found.");
-                }
-            } catch (e) {
-                console.error("Error checking API key", e);
-            } finally {
-                setCheckingKey(false);
-            }
-        };
-        checkKey();
-    }, [hasKey]);
-
-    const handleConnectKey = async () => {
-        setIsConnecting(true);
-        try {
-            if (window.aistudio && window.aistudio.openSelectKey) {
-                await window.aistudio.openSelectKey();
-                setTimeout(() => setHasKey(true), 500);
-            } else {
-                setTimeout(() => setHasKey(true), 800);
-            }
-        } catch (e) { setError("Failed to connect API Key."); } finally { setIsConnecting(false); }
-    };
-
     const handleStartOnboarding = () => {
         setOnboardingState(prev => ({
             ...prev,
@@ -926,15 +886,6 @@ const App: React.FC = () => {
         return <LandingPage onOpenDashboard={() => navigate('/dashboard')} />;
     }
 
-    if (checkingKey) return <div className="min-h-screen bg-white flex items-center justify-center text-brand-text">Loading Defia Studio...</div>;
-    if (!hasKey) return (
-        <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center p-6 text-center">
-            <h1 className="text-4xl text-brand-text font-display font-bold mb-4 tracking-tight">Defia Studio</h1>
-            <p className="text-brand-muted mb-8">Professional Web3 Content & Growth Intelligence</p>
-            <Button onClick={handleConnectKey} isLoading={isConnecting}>Connect API Key</Button>
-        </div>
-    );
-
     if (isOnboardingRoute) {
         return (
             <OnboardingFlow
@@ -1000,6 +951,8 @@ const App: React.FC = () => {
                         systemLogs={systemLogs}
                         growthReport={growthReport}
                         onNavigate={(section) => handleNavigate(section, null)}
+                        agentDecisions={agentDecisions}
+                        onNavigate={(section) => setAppSection(section)}
                         // New Props from Growth Engine
                         tasks={strategyTasks}
                         onUpdateTasks={setStrategyTasks}

@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { AnalysisReport, SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief } from '../types';
 import { fetchCampaignPerformance, fetchSocialMetrics, computeGrowthMetrics, computeSocialSignals, fetchMentions } from '../services/analytics';
 import { generateDailyBrief as generateBriefService, orchestrateMarketingDecision } from '../services/gemini';
-import { fetchMarketPulse } from '../services/pulse';
+import { fetchMarketPulse, getBrainContext } from '../services/pulse';
+import { getBrandRegistryEntry, loadBrainLogs } from '../services/storage';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
 import { SmartActionCard } from './SmartActionCard';
 import { TrendFeed } from './TrendFeed';
@@ -18,6 +19,7 @@ interface DashboardProps {
     socialSignals: SocialSignals;
     systemLogs: string[];
     growthReport?: GrowthReport | null;
+    agentDecisions: any[];
     onNavigate: (section: string, params?: any) => void;
     // New Props for Strategy Brain & Trends
     tasks: StrategyTask[];
@@ -122,7 +124,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     tasks,
     onUpdateTasks,
     onSchedule,
-    growthReport
+    growthReport,
+    agentDecisions
 }) => {
     const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([]);
     const [isThinking, setIsThinking] = useState<string | null>(null);
@@ -502,6 +505,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     onNavigate={onNavigate}
                     onRegenerate={async () => {
                         try {
+                            const registry = getBrandRegistryEntry(brandName);
+                            const deepContext = await getBrainContext(registry?.brandId);
+                            const brainLogs = loadBrainLogs(brandName).slice(0, 5);
+                            const brainLogSignals = brainLogs.map(log => `[${log.type}] ${log.context}`).join('\n');
+
                             const brainContext = {
                                 brand: { ...brandConfig, name: brandName },
                                 marketState: {
@@ -510,7 +518,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     mentions: []
                                 },
                                 memory: {
-                                    ragDocs: [],
+                                    ragDocs: [
+                                        deepContext.context ? `DEEP MEMORY:\n${deepContext.context}` : '',
+                                        brainLogSignals ? `RECENT BRAIN LOGS:\n${brainLogSignals}` : ''
+                                    ].filter(Boolean),
                                     recentPosts: socialMetrics?.recentPosts || [],
                                     pastStrategies: tasks
                                 },
@@ -533,8 +544,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 memory: {
                                     ...brainContext.memory,
                                     ragDocs: [
+                                        ...brainContext.memory.ragDocs,
                                         calendarSignal.length ? `CALENDAR:\n${calendarSignal.join('\n')}` : '',
-                                        mentionSignal.length ? `MENTIONS:\n${mentionSignal.join('\n')}` : ''
+                                        mentionSignal.length ? `MENTIONS:\n${mentionSignal.join('\n')}` : '',
+                                        agentDecisions.length
+                                            ? `AGENT DECISIONS:\n${agentDecisions.map((decision) => `- ${decision.action}: ${decision.reason}`).join('\n')}`
+                                            : ''
                                     ].filter(Boolean)
                                 }
                             };
@@ -552,7 +567,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     calendarItems: calendarEvents.length,
                                     mentions: mentions.length,
                                     trends: socialSignals.trendingTopics?.length || 0,
-                                    knowledgeSignals: enrichedContext.memory.ragDocs.length,
+                                    knowledgeSignals: enrichedContext.memory.ragDocs.length + deepContext.strategyCount + deepContext.memoryCount,
                                     recentPosts: socialMetrics?.recentPosts?.length || 0
                                 }
                             });
