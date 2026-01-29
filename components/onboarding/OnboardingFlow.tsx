@@ -31,6 +31,64 @@ const isValidUrl = (value: string) => {
   }
 };
 
+const compactLines = (lines: Array<string | undefined | null>) =>
+  lines.map((line) => line?.trim()).filter(Boolean) as string[];
+
+const buildCollectorVoiceGuidelines = (profile: any) => {
+  const voice = profile?.voice;
+  if (!voice) return '';
+
+  return compactLines([
+    voice.tone?.length ? `Tone: ${voice.tone.join(', ')}` : null,
+    voice.traits?.length ? `Traits: ${voice.traits.join(', ')}` : null,
+    voice.dos?.length ? `Do: ${voice.dos.join('; ')}` : null,
+    voice.donts?.length ? `Don't: ${voice.donts.join('; ')}` : null,
+    voice.signaturePhrases?.length ? `Signature phrases: ${voice.signaturePhrases.join(', ')}` : null,
+    voice.formatPatterns?.length ? `Format patterns: ${voice.formatPatterns.join(', ')}` : null,
+    voice.readingLevel ? `Reading level: ${voice.readingLevel}` : null,
+  ]).join('\n');
+};
+
+const buildCollectorVisualIdentity = (profile: any) => {
+  const visual = profile?.visualStyle;
+  if (!visual) return '';
+
+  const imagePrefs = visual.imagePreferences || {};
+  const videoPrefs = visual.videoPreferences || {};
+  return compactLines([
+    imagePrefs.style ? `Image style: ${imagePrefs.style}` : null,
+    imagePrefs.themes?.length ? `Image themes: ${imagePrefs.themes.join(', ')}` : null,
+    imagePrefs.colorSchemes?.length ? `Image color schemes: ${imagePrefs.colorSchemes.join(', ')}` : null,
+    videoPrefs.style ? `Video style: ${videoPrefs.style}` : null,
+    videoPrefs.format ? `Video format: ${videoPrefs.format}` : null,
+    videoPrefs.length ? `Video length: ${videoPrefs.length}` : null,
+    visual.visualContentThemes?.length
+      ? `Visual content themes: ${visual.visualContentThemes.map((item: any) => item.theme).filter(Boolean).join(', ')}`
+      : null,
+  ]).join('\n');
+};
+
+const extractCollectorTweetExamples = (profile: any) =>
+  compactLines([
+    ...(profile?.templates?.postTemplates || []).map((template: any) => template?.example),
+    ...(profile?.templates?.replyTemplates || []).map((template: any) => template?.example),
+    ...(profile?.engagementStrategies?.effectiveReplyTypes || []).map((reply: any) => reply?.example),
+  ]);
+
+const extractCollectorKnowledge = (profile: any) =>
+  compactLines([
+    profile?.positioning?.oneLiner ? `Positioning: ${profile.positioning.oneLiner}` : null,
+    profile?.positioning?.topics?.length ? `Topics: ${profile.positioning.topics.join(', ')}` : null,
+    ...(profile?.positioning?.contentPillars || []).map((pillar: any) =>
+      pillar?.name ? `Content pillar: ${pillar.name}${pillar.description ? ` — ${pillar.description}` : ''}` : null
+    ),
+  ]);
+
+const extractCollectorBannedPhrases = (profile: any) =>
+  compactLines([
+    ...(profile?.brandSafety?.redTopics || []),
+  ]);
+
 interface OnboardingFlowProps {
   onExit: () => void;
   onComplete: (payload: {
@@ -147,20 +205,43 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         youtubeUrl ? `YouTube: ${youtubeUrl}` : null,
       ].filter(Boolean) as string[];
 
+      const collectorTweetExamples = extractCollectorTweetExamples(collectorProfile);
+      const collectorKnowledge = extractCollectorKnowledge(collectorProfile);
+      const collectorVoice = buildCollectorVoiceGuidelines(collectorProfile);
+      const collectorVisualIdentity = buildCollectorVisualIdentity(collectorProfile);
+      const collectorBannedPhrases = extractCollectorBannedPhrases(collectorProfile);
+
+      const combinedVoiceGuidelines = compactLines([
+        researchResult.voiceGuidelines,
+        collectorVoice,
+      ]).join('\n');
+
+      const combinedVisualIdentity = compactLines([
+        researchResult.visualIdentity,
+        collectorVisualIdentity,
+      ]).join('\n');
+
       const enriched: BrandConfig = {
         colors: researchResult.colors || [],
         knowledgeBase: [
           ...(researchResult.knowledgeBase || []),
+          ...collectorKnowledge,
           ...sourcesSummary,
           ...githubSignals,
         ],
-        tweetExamples: researchResult.tweetExamples || [],
+        tweetExamples: [
+          ...(researchResult.tweetExamples || []),
+          ...collectorTweetExamples,
+        ],
         referenceImages: researchResult.referenceImages || [],
         brandCollectorProfile: collectorProfile || undefined,
-        voiceGuidelines: researchResult.voiceGuidelines,
+        voiceGuidelines: combinedVoiceGuidelines || undefined,
         targetAudience: researchResult.targetAudience,
-        bannedPhrases: researchResult.bannedPhrases,
-        visualIdentity: researchResult.visualIdentity,
+        bannedPhrases: [
+          ...(researchResult.bannedPhrases || []),
+          ...collectorBannedPhrases,
+        ],
+        visualIdentity: combinedVisualIdentity || undefined,
         graphicTemplates: researchResult.graphicTemplates,
       };
 
