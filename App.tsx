@@ -61,11 +61,38 @@ const saveOnboardingState = (state: OnboardingState) => {
     }
 };
 
+const normalizePath = (path: string) => {
+    if (path === '/') return '/';
+    return path.replace(/\/+$/, '');
+};
+
+const sectionRoutes: Record<string, string> = {
+    dashboard: '/dashboard',
+    copilot: '/copilot',
+    brain: '/strategy',
+    analytics: '/analytics',
+    pulse: '/pulse',
+    campaigns: '/campaigns',
+    calendar: '/calendar',
+    social: '/social',
+    studio: '/studio',
+    'image-editor': '/image-editor',
+    settings: '/settings',
+};
+
+const getSectionFromPath = (path: string) => {
+    const normalized = normalizePath(path);
+    const match = Object.entries(sectionRoutes).find(([, route]) => route === normalized);
+    return match?.[0] ?? 'dashboard';
+};
+
 
 const App: React.FC = () => {
     console.log('App: Copilot Integration Loaded v2'); // Debug: Force Rebuild
     const [route, setRoute] = useState<string>(() => window.location.pathname);
     const [onboardingState, setOnboardingState] = useState<OnboardingState>(() => loadOnboardingState());
+    // App Navigation State
+    const [appSection, setAppSection] = useState<string>(() => getSectionFromPath(window.location.pathname)); // Default to dashboard
 
     useEffect(() => {
         const handlePopState = () => setRoute(window.location.pathname);
@@ -74,8 +101,28 @@ const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        const normalized = normalizePath(route);
+        if (Object.values(sectionRoutes).includes(normalized)) {
+            const section = getSectionFromPath(normalized);
+            if (section !== appSection) {
+                setAppSection(section);
+            }
+        }
+    }, [route, appSection]);
+
+    useEffect(() => {
         saveOnboardingState(onboardingState);
     }, [onboardingState]);
+
+    useEffect(() => {
+        const targetPath = sectionRoutes[appSection];
+        if (!targetPath) return;
+        if (route === '/' || route.startsWith('/onboarding')) return;
+        if (normalizePath(route) !== targetPath) {
+            window.history.pushState({}, '', targetPath);
+            setRoute(targetPath);
+        }
+    }, [appSection, route]);
 
     const navigate = (path: string) => {
         if (window.location.pathname !== path) {
@@ -99,9 +146,6 @@ const App: React.FC = () => {
         const timer = setTimeout(syncBrain, 3000);
         return () => clearTimeout(timer);
     }, []);
-
-    // App Navigation State
-    const [appSection, setAppSection] = useState<string>('dashboard'); // Default to dashboard
 
     // App State - Profiles
     const [profiles, setProfiles] = useState<Record<string, BrandConfig>>(() => loadBrandProfiles());
@@ -240,9 +284,35 @@ const App: React.FC = () => {
             }
         };
 
+        const handleIntegrationsUpdate = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail?.brandName && detail.brandName !== selectedBrand) return;
+            const refreshMetrics = async () => {
+                setSystemLogs(prev => ["Integrations updated. Refreshing analytics...", ...prev]);
+                const [trends, mentions, metrics] = await Promise.all([
+                    fetchMarketPulse(selectedBrand).catch(e => { console.warn("Market Pulse failed", e); return []; }),
+                    fetchMentions(selectedBrand).catch(e => { console.warn("Mentions failed", e); return []; }),
+                    fetchSocialMetrics(selectedBrand).catch(e => { console.warn("Social Metrics failed", e); return null; })
+                ]);
+
+                if (metrics) {
+                    setSocialMetrics(metrics);
+                }
+
+                const highVelocityTrends = trends.filter(t => t.relevanceScore > 85);
+                const liveSignals: SocialSignals = {
+                    ...computeSocialSignals(trends, mentions, metrics || undefined),
+                    trendingTopics: highVelocityTrends.length > 0 ? highVelocityTrends : trends.slice(0, 3)
+                };
+                setSocialSignals(liveSignals);
+            };
+            void refreshMetrics();
+        };
+
         window.addEventListener(STORAGE_EVENTS.CALENDAR_UPDATE, handleSyncUpdate);
         window.addEventListener(STORAGE_EVENTS.POSTURE_UPDATE, handlePostureUpdate);
         window.addEventListener(STORAGE_EVENTS.AUTOMATION_UPDATE, handleAutomationUpdate);
+        window.addEventListener(STORAGE_EVENTS.INTEGRATIONS_UPDATE, handleIntegrationsUpdate);
 
         // Listen for Brand Updates
         const handleBrandUpdate = () => {
@@ -256,6 +326,7 @@ const App: React.FC = () => {
             window.removeEventListener(STORAGE_EVENTS.BRAND_UPDATE, handleBrandUpdate);
             window.removeEventListener(STORAGE_EVENTS.POSTURE_UPDATE, handlePostureUpdate);
             window.removeEventListener(STORAGE_EVENTS.AUTOMATION_UPDATE, handleAutomationUpdate);
+            window.removeEventListener(STORAGE_EVENTS.INTEGRATIONS_UPDATE, handleIntegrationsUpdate);
         };
     }, [selectedBrand]);
 
@@ -830,7 +901,7 @@ const App: React.FC = () => {
             {selectedBrand && profiles[selectedBrand] && (
                 <Sidebar
                     currentSection={appSection}
-                    onNavigate={(s) => setAppSection(s)}
+                    onNavigate={(s) => handleNavigate(s, null)}
                     brandName={selectedBrand}
                     profiles={profiles}
                     onSelectBrand={setSelectedBrand}
@@ -879,6 +950,7 @@ const App: React.FC = () => {
                         socialSignals={socialSignals} // Pass signals
                         systemLogs={systemLogs}
                         growthReport={growthReport}
+                        onNavigate={(section) => handleNavigate(section, null)}
                         agentDecisions={agentDecisions}
                         onNavigate={(section) => setAppSection(section)}
                         // New Props from Growth Engine
