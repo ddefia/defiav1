@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Button } from '../Button';
 import { BrandConfig } from '../../types';
 import { researchBrandIdentity } from '../../services/gemini';
+import { researchGithubBrandSignals } from '../../services/githubBrandResearcher';
 import { runBrandCollector } from '../../services/brandCollector';
 import { retryWithBackoff } from '../../vendor/brand-collector/src/lib/retry';
 import { rateLimit } from '../../vendor/brand-collector/src/lib/rate-limit';
@@ -136,6 +137,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         1200
       );
 
+      const githubSignals = await researchGithubBrandSignals(brandName.trim());
+
       setProgress(70);
 
       const sourcesSummary = [
@@ -146,7 +149,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
 
       const enriched: BrandConfig = {
         colors: researchResult.colors || [],
-        knowledgeBase: [...(researchResult.knowledgeBase || []), ...sourcesSummary],
+        knowledgeBase: [
+          ...(researchResult.knowledgeBase || []),
+          ...sourcesSummary,
+          ...githubSignals,
+        ],
         tweetExamples: researchResult.tweetExamples || [],
         referenceImages: researchResult.referenceImages || [],
         brandCollectorProfile: collectorProfile || undefined,
