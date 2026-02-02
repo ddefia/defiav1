@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import { startAgent } from './server/agent/scheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,6 +52,8 @@ const getSupabaseServiceClient = () => {
     return createClient(supabaseUrl, supabaseKey);
 };
 
+const getSupabaseAdminClient = () => getSupabaseServiceClient() || getSupabaseClient();
+
 const normalizeHandle = (value = '') => value.replace(/^@/, '').trim();
 
 const isValidHandle = (value = '') => /^[A-Za-z0-9_]{1,15}$/.test(normalizeHandle(value));
@@ -80,6 +83,86 @@ const sanitizeFileName = (value = '') => value.replace(/[^a-zA-Z0-9-_\.]/g, '-')
 const decodeBase64File = (input = '') => {
     const raw = input.includes('base64,') ? input.split('base64,')[1] : input;
     return Buffer.from(raw, 'base64');
+};
+
+const PUBLIC_API_PATHS = new Set(['/api/health', '/api/health/extended']);
+
+const parseApiKeys = () => {
+    const raw = process.env.DEFIA_API_KEYS || process.env.API_KEYS || '';
+    return raw
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+            const [key, ownerId] = entry.split(':').map((part) => part.trim());
+            return { key, ownerId: ownerId || null };
+        });
+};
+
+const timingSafeMatch = (a, b) => {
+    if (!a || !b) return false;
+    const aBuf = Buffer.from(a);
+    const bBuf = Buffer.from(b);
+    if (aBuf.length !== bBuf.length) return false;
+    return crypto.timingSafeEqual(aBuf, bBuf);
+};
+
+app.use((req, res, next) => {
+    if (!req.path.startsWith('/api')) return next();
+    if (PUBLIC_API_PATHS.has(req.path)) return next();
+
+    const apiKeys = parseApiKeys();
+    if (apiKeys.length === 0) {
+        return res.status(500).json({ error: 'API keys not configured' });
+    }
+
+    const authHeader = req.headers.authorization || '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const providedKey = bearer || String(req.headers['x-api-key'] || '').trim();
+
+    if (!providedKey) {
+        return res.status(401).json({ error: 'Missing API key' });
+    }
+
+    const match = apiKeys.find(({ key }) => timingSafeMatch(key, providedKey));
+    if (!match) {
+        return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    req.auth = { apiKey: match.key, ownerId: match.ownerId };
+    return next();
+});
+
+const ensureBrandOwnership = async (supabase, brandId, ownerId) => {
+    const { data: brand, error } = await supabase
+        .from('brands')
+        .select('id, owner_id')
+        .eq('id', brandId)
+        .maybeSingle();
+
+    if (error) {
+        return { status: 500, error: error.message };
+    }
+
+    if (!brand) {
+        return { status: 404, error: 'Brand not found' };
+    }
+
+    if (brand.owner_id && brand.owner_id !== ownerId) {
+        return { status: 403, error: 'Forbidden' };
+    }
+
+    if (!brand.owner_id) {
+        const { error: claimError } = await supabase
+            .from('brands')
+            .update({ owner_id: ownerId, updated_at: new Date().toISOString() })
+            .eq('id', brandId);
+        if (claimError) {
+            return { status: 500, error: claimError.message };
+        }
+    }
+
+    return { status: 200 };
 };
 
 // --- Health Check ---
@@ -120,13 +203,14 @@ app.get('/api/logs', (req, res) => {
 });
 
 app.post('/api/brands/register', async (req, res) => {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseAdminClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
     }
 
     try {
-        const { name, ownerId, websiteUrl, sources = {}, config, enrichment } = req.body || {};
+        const { name, websiteUrl, sources = {}, config, enrichment } = req.body || {};
+        const ownerId = req.auth?.ownerId || null;
         const normalizedName = sanitizeText(name || '');
 
         if (!normalizedName || normalizedName.length < 2) {
@@ -135,11 +219,14 @@ app.post('/api/brands/register', async (req, res) => {
 
         const { data: existingBrand } = await supabase
             .from('brands')
-            .select('id, name')
+            .select('id, name, owner_id')
             .ilike('name', normalizedName)
             .maybeSingle();
 
         if (existingBrand) {
+            if (existingBrand.owner_id && ownerId && existingBrand.owner_id !== ownerId) {
+                return res.status(403).json({ error: 'Brand already exists for another owner.' });
+            }
             return res.json({ id: existingBrand.id, name: existingBrand.name });
         }
 
@@ -245,13 +332,14 @@ app.post('/api/brands/register', async (req, res) => {
 });
 
 app.post('/api/brands/resolve', async (req, res) => {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseAdminClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
     }
 
     try {
-        const { name, ownerId, websiteUrl, sources = {} } = req.body || {};
+        const { name, websiteUrl, sources = {} } = req.body || {};
+        const ownerId = req.auth?.ownerId || null;
         const normalizedName = sanitizeText(name || '');
         if (!normalizedName || normalizedName.length < 2) {
             return res.status(400).json({ error: 'Brand name is required.' });
@@ -259,11 +347,14 @@ app.post('/api/brands/resolve', async (req, res) => {
 
         const { data: existingBrand } = await supabase
             .from('brands')
-            .select('id, name')
+            .select('id, name, owner_id')
             .ilike('name', normalizedName)
             .maybeSingle();
 
         if (existingBrand) {
+            if (existingBrand.owner_id && ownerId && existingBrand.owner_id !== ownerId) {
+                return res.status(403).json({ error: 'Brand already exists for another owner.' });
+            }
             return res.json({ id: existingBrand.id, name: existingBrand.name });
         }
 
@@ -303,13 +394,23 @@ app.post('/api/brands/resolve', async (req, res) => {
 });
 
 app.patch('/api/brands/:id/integrations', async (req, res) => {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseAdminClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
     }
 
     try {
         const brandId = req.params.id;
+        const ownerId = req.auth?.ownerId;
+        if (!ownerId) {
+            return res.status(403).json({ error: 'Owner key required' });
+        }
+
+        const ownership = await ensureBrandOwnership(supabase, brandId, ownerId);
+        if (ownership.status !== 200) {
+            return res.status(ownership.status).json({ error: ownership.error });
+        }
+
         const { apifyHandle, lunarcrushSymbol, duneQueryIds } = req.body || {};
 
         const normalizedHandle = apifyHandle ? normalizeHandle(String(apifyHandle)) : null;
@@ -343,18 +444,28 @@ app.patch('/api/brands/:id/integrations', async (req, res) => {
 });
 
 app.patch('/api/brands/:id/automation', async (req, res) => {
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseAdminClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
     }
 
     try {
         const brandId = req.params.id;
-        const { ownerId, enabled, scheduleWindow, postingLimits, riskThresholds } = req.body || {};
+        const ownerId = req.auth?.ownerId;
+        if (!ownerId) {
+            return res.status(403).json({ error: 'Owner key required' });
+        }
+
+        const ownership = await ensureBrandOwnership(supabase, brandId, ownerId);
+        if (ownership.status !== 200) {
+            return res.status(ownership.status).json({ error: ownership.error });
+        }
+
+        const { enabled, scheduleWindow, postingLimits, riskThresholds } = req.body || {};
 
         const payload = {
             brand_id: brandId,
-            owner_id: ownerId ? sanitizeText(String(ownerId)) : null,
+            owner_id: sanitizeText(String(ownerId)),
             enabled: enabled !== undefined ? Boolean(enabled) : true,
             schedule_window: scheduleWindow || null,
             posting_limits: postingLimits || null,
