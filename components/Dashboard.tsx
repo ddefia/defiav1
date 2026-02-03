@@ -320,7 +320,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/></svg>
                                 </div>
                                 <span className="text-white text-sm font-semibold">AI CMO Recommendations</span>
-                                <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">3 Priority Actions</span>
+                                {AI_RECOMMENDATIONS.length > 0 && (
+                                    <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">{AI_RECOMMENDATIONS.length} Priority Actions</span>
+                                )}
                             </div>
                             <button
                                 onClick={handleRegenerate}
@@ -333,7 +335,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </button>
                         </div>
                         <div className="p-5 grid grid-cols-3 gap-4">
-                            {AI_RECOMMENDATIONS.map((rec, i) => (
+                            {AI_RECOMMENDATIONS.length > 0 ? AI_RECOMMENDATIONS.map((rec, i) => (
                                 <div key={i} className="rounded-xl bg-[#0A0A0B] p-4 border" style={{ borderColor: rec.borderColor }}>
                                     <div className="flex items-center justify-between mb-3">
                                         <span className="text-2xl">{rec.icon}</span>
@@ -360,7 +362,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         {rec.actionLabel}
                                     </button>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="col-span-3 flex flex-col items-center justify-center py-8 text-center">
+                                    <div className="w-12 h-12 rounded-full bg-[#FF5C0015] flex items-center justify-center mb-3">
+                                        <svg className="w-6 h-6 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-[#6B6B70] text-sm">Click "Refresh" to generate AI recommendations based on your brand data</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -400,46 +411,65 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="px-5 py-4 border-b border-[#1F1F23]">
                                 <div className="flex items-center gap-4">
                                     <div className="relative w-16 h-16">
-                                        <svg className="w-16 h-16 transform -rotate-90">
-                                            <circle cx="32" cy="32" r="28" fill="none" stroke="#1F1F23" strokeWidth="6" />
-                                            <circle cx="32" cy="32" r="28" fill="none" stroke="#22C55E" strokeWidth="6" strokeDasharray="175.93" strokeDashoffset="38.7" strokeLinecap="round" />
-                                        </svg>
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-white text-sm font-bold">78%</span>
-                                            <span className="text-[#22C55E] text-[10px]">Positive</span>
-                                        </div>
+                                        {socialSignals && socialSignals.sentimentScore > 0 ? (
+                                            <>
+                                                <svg className="w-16 h-16 transform -rotate-90">
+                                                    <circle cx="32" cy="32" r="28" fill="none" stroke="#1F1F23" strokeWidth="6" />
+                                                    <circle cx="32" cy="32" r="28" fill="none" stroke={socialSignals.sentimentScore >= 60 ? '#22C55E' : socialSignals.sentimentScore >= 40 ? '#F59E0B' : '#EF4444'} strokeWidth="6" strokeDasharray="175.93" strokeDashoffset={175.93 - (175.93 * socialSignals.sentimentScore / 100)} strokeLinecap="round" />
+                                                </svg>
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                    <span className="text-white text-sm font-bold">{socialSignals.sentimentScore}%</span>
+                                                    <span className={`text-[10px] ${socialSignals.sentimentScore >= 60 ? 'text-[#22C55E]' : socialSignals.sentimentScore >= 40 ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
+                                                        {socialSignals.sentimentScore >= 60 ? 'Positive' : socialSignals.sentimentScore >= 40 ? 'Neutral' : 'Negative'}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-16 h-16 transform -rotate-90">
+                                                    <circle cx="32" cy="32" r="28" fill="none" stroke="#1F1F23" strokeWidth="6" />
+                                                </svg>
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                                    <span className="text-[#6B6B70] text-sm font-bold">--</span>
+                                                    <span className="text-[#6B6B70] text-[10px]">No data</span>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                     <div className="flex-1 space-y-2">
-                                        <div className="flex justify-between text-xs">
-                                            <span className="text-[#6B6B70]">Bullish mentions</span>
-                                            <span className="text-[#22C55E] font-medium">2,847</span>
-                                        </div>
-                                        <div className="flex justify-between text-xs">
-                                            <span className="text-[#6B6B70]">Bearish mentions</span>
-                                            <span className="text-[#EF4444] font-medium">412</span>
-                                        </div>
-                                        <div className="flex justify-between text-xs">
-                                            <span className="text-[#6B6B70]">Neutral</span>
-                                            <span className="text-white font-medium">1,204</span>
-                                        </div>
+                                        {socialSignals && socialSignals.activeNarratives && socialSignals.activeNarratives.length > 0 ? (
+                                            socialSignals.activeNarratives.slice(0, 3).map((narrative, i) => (
+                                                <div key={i} className="flex justify-between text-xs">
+                                                    <span className="text-[#6B6B70]">{narrative}</span>
+                                                    <span className="text-white font-medium">Active</span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-2">
+                                                <span className="text-[#6B6B70] text-xs">Sentiment data will appear once social integrations are connected</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                             <div className="divide-y divide-[#1F1F23]">
-                                {[
-                                    { icon: '💬', name: 'Discord', members: '12.4K members', active: '847 online', trend: '+8%', trendColor: '#22C55E' },
-                                    { icon: '📨', name: 'Telegram', members: '8.2K subscribers', active: '156 active', trend: '+12%', trendColor: '#22C55E' },
-                                    { icon: '𝕏', name: 'X (Twitter)', members: '24.7K followers', active: '1.2K engaged', trend: '—0%', trendColor: '#6B6B70' },
-                                ].map((channel, i) => (
-                                    <div key={i} className="flex items-center gap-3 px-5 py-3">
-                                        <span className="text-lg">{channel.icon}</span>
+                                {/* Audience data is populated from real integrations */}
+                                {socialMetrics && socialMetrics.totalFollowers > 0 ? (
+                                    <div className="flex items-center gap-3 px-5 py-3">
+                                        <span className="text-lg">𝕏</span>
                                         <div className="flex-1">
-                                            <p className="text-white text-sm font-medium">{channel.name}</p>
-                                            <p className="text-[#6B6B70] text-xs">{channel.members} · {channel.active}</p>
+                                            <p className="text-white text-sm font-medium">X (Twitter)</p>
+                                            <p className="text-[#6B6B70] text-xs">{(socialMetrics.totalFollowers / 1000).toFixed(1)}K followers · {socialMetrics.engagementRate.toFixed(1)}% engaged</p>
                                         </div>
-                                        <span className="text-xs font-medium" style={{ color: channel.trendColor }}>↗ {channel.trend}</span>
+                                        <span className="text-xs font-medium" style={{ color: socialMetrics.comparison?.followersChange >= 0 ? '#22C55E' : '#EF4444' }}>
+                                            {socialMetrics.comparison?.followersChange >= 0 ? '↗' : '↘'} {socialMetrics.comparison?.followersChange >= 0 ? '+' : ''}{socialMetrics.comparison?.followersChange || 0}%
+                                        </span>
                                     </div>
-                                ))}
+                                ) : (
+                                    <div className="px-5 py-6 text-center">
+                                        <p className="text-[#6B6B70] text-sm">Connect your social accounts in Settings to see audience data</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -479,12 +509,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                         {/* Table Body */}
                         <div>
-                            {(filteredCampaigns.length > 0 ? filteredCampaigns : [
-                                { id: '1', name: 'NFT Launch', channel: 'Twitter', status: 'Scale', reach: '1.2M', engagement: '8.4%', conversion: '3.2%', roi: '+247%' },
-                                { id: '2', name: 'Token Airdrop', channel: 'Discord', status: 'Scale', reach: '845K', engagement: '6.1%', conversion: '2.8%', roi: '+182%' },
-                                { id: '3', name: 'Community AMA', channel: 'Spaces', status: 'Test', reach: '—', engagement: '—', conversion: '—', roi: '—' },
-                                { id: '4', name: 'Brand Awareness Q4', channel: 'Multi', status: 'Pause', reach: '2.1M', engagement: '5.2%', conversion: '1.8%', roi: '+124%' },
-                            ]).map((campaign: any, i) => (
+                            {filteredCampaigns.length > 0 ? filteredCampaigns.map((campaign: any, i) => (
                                 <div
                                     key={campaign.id || i}
                                     className="flex items-center px-5 py-3.5 border-b border-[#1F1F23] hover:bg-[#1F1F23]/50 cursor-pointer transition-colors"
@@ -525,7 +550,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         </svg>
                                     </div>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="flex flex-col items-center justify-center py-10 text-center">
+                                    <div className="w-12 h-12 rounded-full bg-[#1F1F23] flex items-center justify-center mb-3">
+                                        <svg className="w-6 h-6 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-[#6B6B70] text-sm mb-3">No campaigns yet</p>
+                                    <button
+                                        onClick={() => onNavigate('campaigns')}
+                                        className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
+                                    >
+                                        Create Campaign
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -547,12 +587,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </button>
                         </div>
                         <div className="p-5 grid grid-cols-4 gap-4">
-                            {(upcomingContent.length > 0 ? upcomingContent : [
-                                { id: '1', platform: 'Twitter', date: 'Today, 3PM', content: 'Big announcement coming! Our NFT collection drops tomorrow 🚀', campaignName: 'NFT Launch' },
-                                { id: '2', platform: 'Discord', date: 'Tomorrow, 9AM', content: 'Community update: Roadmap reveal for Q1 2026', campaignName: 'Token Airdrop' },
-                                { id: '3', platform: 'Thread', date: 'Jan 31, 2PM', content: 'Thread: 10 reasons why L2 scaling will dominate 2026', campaignName: 'Community AMA' },
-                                { id: '4', platform: 'Graphic', date: 'Feb 1, 10AM', content: 'NFT reveal teaser graphic for social media', campaignName: 'NFT Launch' },
-                            ]).map((content: any, i) => (
+                            {upcomingContent.length > 0 ? upcomingContent.map((content: any, i) => (
                                 <div key={content.id || i} className="rounded-xl bg-[#0A0A0B] border border-[#1F1F23] overflow-hidden">
                                     <div
                                         className="h-[100px] flex items-center justify-center text-3xl"
@@ -579,7 +614,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         </p>
                                     </div>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="col-span-4 flex flex-col items-center justify-center py-8 text-center">
+                                    <div className="w-12 h-12 rounded-full bg-[#1F1F23] flex items-center justify-center mb-3">
+                                        <svg className="w-6 h-6 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <p className="text-[#6B6B70] text-sm mb-3">No scheduled content yet</p>
+                                    <button
+                                        onClick={() => onNavigate('calendar')}
+                                        className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
+                                    >
+                                        Schedule Content
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 

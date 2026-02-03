@@ -385,6 +385,70 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                                 </div>
                             </div>
                         </div>
+
+                        {/* Uploaded Knowledge Base Documents */}
+                        {config.knowledgeBase && config.knowledgeBase.length > 0 && (
+                            <div className="mt-5 pt-5 border-t border-[#2E2E2E]">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-white text-[13px] font-medium">Uploaded Documents ({config.knowledgeBase.length})</span>
+                                </div>
+                                <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
+                                    {config.knowledgeBase.map((doc, i) => (
+                                        <div key={i} className="flex items-center gap-3 p-3 bg-[#1A1A1D] rounded-lg group">
+                                            <div className="w-8 h-8 rounded-lg bg-[#FF5C0022] flex items-center justify-center flex-shrink-0">
+                                                <span className="material-symbols-sharp text-[#FF5C00] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>
+                                                    {doc.startsWith('[INDEXED DOCUMENT]') ? 'cloud_done' : 'description'}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-white text-xs font-medium truncate">
+                                                    {doc.startsWith('[INDEXED DOCUMENT]')
+                                                        ? doc.replace('[INDEXED DOCUMENT]: ', '').replace(' (Searchable by AI)', '')
+                                                        : `Document ${i + 1}`
+                                                    }
+                                                </p>
+                                                <p className="text-[#6B6B70] text-[10px]">
+                                                    {doc.startsWith('[INDEXED DOCUMENT]')
+                                                        ? 'Indexed in AI Memory'
+                                                        : `${(doc.length / 1024).toFixed(1)} KB`
+                                                    }
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    const newKB = config.knowledgeBase?.filter((_, idx) => idx !== i) || [];
+                                                    onChange({ ...config, knowledgeBase: newKB });
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-[#EF444422] text-[#6B6B70] hover:text-[#EF4444] transition-all"
+                                            >
+                                                <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>delete</span>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Upload Button */}
+                        <div className="mt-5 pt-5 border-t border-[#2E2E2E]">
+                            <button
+                                onClick={() => kbFileInputRef.current?.click()}
+                                disabled={isUploadingKB}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-dashed border-[#FF5C0066] rounded-lg text-[#FF5C00] text-sm font-medium hover:bg-[#FF5C0011] transition-colors"
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>
+                                    {isUploadingKB ? 'hourglass_empty' : 'upload_file'}
+                                </span>
+                                {isUploadingKB ? 'Processing...' : 'Upload Document (PDF, TXT, MD)'}
+                            </button>
+                            <input
+                                ref={kbFileInputRef}
+                                type="file"
+                                accept=".pdf,.txt,.md,.doc,.docx"
+                                onChange={handleKBUpload}
+                                className="hidden"
+                            />
+                        </div>
                     </div>
 
                     {/* Target Audience */}
