@@ -5,7 +5,7 @@ import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './servi
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
 import { fetchActionCenter } from './services/actionCenter';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, loadCampaignState, saveCampaignState, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage, loadIntegrationKeys, saveIntegrationKeys } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { getCurrentUser, onAuthStateChange, UserProfile } from './services/auth'; // Import auth
 import { Button } from './components/Button';
@@ -256,6 +256,7 @@ const App: React.FC = () => {
 
     const [systemLogs, setSystemLogs] = useState<string[]>([]); // New: Activity Logs for Dashboard
     const [automationEnabled, setAutomationEnabled] = useState<boolean>(true);
+    const autopilotBootedRef = useRef<Record<string, boolean>>({});
 
     // Campaign Intent State (Handover from Pulse)
     const [campaignIntent, setCampaignIntent] = useState<{ type: 'theme' | 'diverse', theme: string } | null>(null);
@@ -414,7 +415,7 @@ const App: React.FC = () => {
             window.removeEventListener(STORAGE_EVENTS.AUTOMATION_UPDATE, handleAutomationUpdate);
             window.removeEventListener(STORAGE_EVENTS.INTEGRATIONS_UPDATE, handleIntegrationsUpdate);
         };
-    }, [selectedBrand]);
+    }, [selectedBrand, profiles, automationEnabled]);
 
     // Auto-Save Removed: Persistence is now handled explicitly in handlers to avoid race conditions.
 
@@ -469,6 +470,10 @@ const App: React.FC = () => {
                 setSystemLogs(prev => ["Automation disabled. Skipping background scan.", ...prev]);
                 return;
             }
+            if (autopilotBootedRef.current[selectedBrand]) {
+                return;
+            }
+            autopilotBootedRef.current[selectedBrand] = true;
 
             setSystemLogs(prev => ["Initializing Auto-Pilot Sentinel...", ...prev]);
 
@@ -572,7 +577,12 @@ const App: React.FC = () => {
                 // 4. UNIFIED BRAIN EXECUTION (Autopilot)
                 // STABILITY FIX: Only run if we don't have existing tasks to prevent "churn"
                 const existingTasks = loadStrategyTasks(selectedBrand);
-                const hasFreshTasks = existingTasks.length > 0;
+                const hasOnlyWelcome = hasOnlyWelcomeTask(existingTasks);
+                const hasFreshTasks = existingTasks.length > 0 && !hasOnlyWelcome;
+
+                if (!hasFreshTasks) {
+                    setSystemLogs(prev => ["Launch: Generating your first AI CMO playbook...", ...prev]);
+                }
 
                 if (hasFreshTasks) {
                     setSystemLogs(prev => ["GAIA: Strategies active. Skipping new generation.", ...prev]);
@@ -592,7 +602,9 @@ const App: React.FC = () => {
                             recentPosts: socialMetrics?.recentPosts || [],
                             pastStrategies: strategyTasks
                         },
-                        userObjective: "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
+                        userObjective: hasOnlyWelcome
+                            ? "Post-onboarding kickoff: deliver 1 campaign idea, 1 community engagement, and 1 evergreen content angle. Prioritize high-signal, low-risk actions."
+                            : "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
                     };
 
                     // Execute the Cognitive Loop
@@ -619,10 +631,33 @@ const App: React.FC = () => {
                             reasoning: action.reasoning,
                             strategicAlignment: action.strategicAlignment,
                             contentIdeas: action.contentIdeas
-                        })).slice(0, 5); // STRICT LIMIT: Max 5 new tasks
+                        }));
+
+                        const hasCampaignTask = newTasks.some(task => task.type === 'CAMPAIGN_IDEA' || task.type === 'CAMPAIGN');
+                        if (!hasCampaignTask) {
+                            const fallbackTopic = trends[0]?.headline || `${selectedBrand} launch momentum`;
+                            newTasks.unshift({
+                                id: crypto.randomUUID(),
+                                title: `CAMPAIGN: ${fallbackTopic}`,
+                                description: 'Kick off a launch campaign to convert attention into momentum.',
+                                status: 'pending',
+                                type: 'CAMPAIGN_IDEA',
+                                contextSource: {
+                                    type: 'TREND',
+                                    source: 'Market Pulse',
+                                    headline: fallbackTopic
+                                },
+                                impactScore: 88,
+                                executionPrompt: fallbackTopic,
+                                suggestedVisualTemplate: 'Auto',
+                                reasoning: 'New brand kickoff benefits from an immediate, high-signal campaign concept.'
+                            });
+                        }
+
+                        const cappedTasks = newTasks.slice(0, 5); // STRICT LIMIT: Max 5 new tasks
 
                         setStrategyTasks(prev => {
-                            const updated = [...newTasks, ...prev].slice(0, 7); // Hard cap global list
+                            const updated = [...cappedTasks, ...prev].slice(0, 7); // Hard cap global list
                             saveStrategyTasks(selectedBrand, updated);
                             return updated;
                         });
@@ -755,12 +790,167 @@ const App: React.FC = () => {
         };
     };
 
+    const KICKOFF_BOOTSTRAP_PREFIX = 'defia_onboarding_bootstrap_v1_';
+
+    const getKickoffBootstrapKey = (brandName: string) => `${KICKOFF_BOOTSTRAP_PREFIX}${brandName.toLowerCase()}`;
+
+    const hasKickoffBootstrap = (brandName: string) => {
+        try {
+            return Boolean(localStorage.getItem(getKickoffBootstrapKey(brandName)));
+        } catch {
+            return false;
+        }
+    };
+
+    const markKickoffBootstrap = (brandName: string) => {
+        try {
+            localStorage.setItem(getKickoffBootstrapKey(brandName), new Date().toISOString());
+        } catch {
+            // no-op
+        }
+    };
+
+    const truncate = (value: string, max: number) => (value.length > max ? value.slice(0, max).trim() : value.trim());
+
+    const deriveKickoffTheme = (brandName: string, config: BrandConfig) => {
+        const candidate =
+            config?.brandCollectorProfile?.positioning?.oneLiner ||
+            config?.tagline ||
+            config?.missionStatement ||
+            config?.brandDescription ||
+            `${brandName} launch momentum`;
+        return truncate(String(candidate || `${brandName} launch momentum`), 120);
+    };
+
+    const mergeCalendarEvents = (existing: CalendarEvent[], incoming: CalendarEvent[]) => {
+        const seen = new Set<string>();
+        const merged: CalendarEvent[] = [];
+        const addEvent = (event: CalendarEvent) => {
+            const key = `${event.date}|${event.content}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            merged.push(event);
+        };
+        existing.forEach(addEvent);
+        incoming.forEach(addEvent);
+        return merged;
+    };
+
+    const buildKickoffCalendarEvents = (campaignName: string, drafts: any[]) => {
+        const start = new Date();
+        start.setDate(start.getDate() + 1);
+
+        return drafts.slice(0, 7).map((draft, index) => {
+            const date = new Date(start);
+            date.setDate(start.getDate() + index);
+            const formatted = date.toISOString().split('T')[0];
+
+            return {
+                id: `kickoff-${Date.now()}-${index}`,
+                date: formatted,
+                content: draft.tweet,
+                platform: 'Twitter',
+                status: 'scheduled',
+                approvalStatus: 'approved',
+                campaignName,
+                reasoning: draft.reasoning,
+                template: draft.template,
+                visualHeadline: draft.visualHeadline,
+                visualDescription: draft.visualDescription,
+                referenceImageId: draft.referenceImageId
+            } as CalendarEvent;
+        });
+    };
+
+    const bootstrapKickoffContent = async (brandName: string, config: BrandConfig) => {
+        if (!brandName || !config) return;
+        if (hasKickoffBootstrap(brandName)) return;
+
+        const existingCampaignState = loadCampaignState(brandName);
+        const existingCalendar = loadCalendarEvents(brandName);
+
+        if ((existingCampaignState?.campaignItems?.length || 0) > 0 || (existingCalendar?.length || 0) > 0) {
+            markKickoffBootstrap(brandName);
+            return;
+        }
+
+        const kickoffTheme = deriveKickoffTheme(brandName, config);
+        setSystemLogs(prev => [`Kickoff: Generating launch content for ${brandName}...`, ...prev]);
+
+        try {
+            const result = await generateCampaignDrafts(kickoffTheme, brandName, config, 7);
+            const drafts = Array.isArray(result?.drafts) ? result.drafts : [];
+
+            if (drafts.length === 0) {
+                throw new Error('No drafts generated');
+            }
+
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() + 1);
+            const startDateStr = startDate.toISOString().split('T')[0];
+
+            const campaignItems: CampaignItem[] = drafts.slice(0, 3).map((draft: any, index: number) => ({
+                id: `kickoff-draft-${Date.now()}-${index}`,
+                tweet: draft.tweet,
+                isApproved: false,
+                approvalStatus: 'review',
+                status: 'draft',
+                images: [],
+                campaignColor: result?.themeColor,
+                template: draft.template,
+                referenceImageId: draft.referenceImageId,
+                reasoning: draft.reasoning,
+                visualHeadline: draft.visualHeadline,
+                visualDescription: draft.visualDescription
+            }));
+
+            const kickoffState = {
+                viewMode: 'wizard',
+                campaignStep: 3,
+                campaignType: 'theme',
+                campaignTheme: kickoffTheme,
+                campaignGoal: 'Launch momentum',
+                campaignPlatforms: ['Twitter'],
+                campaignContext: '',
+                campaignStrategy: null,
+                campaignTemplate: '',
+                campaignReferenceImage: null,
+                campaignItems,
+                campaignStartDate: startDateStr,
+                contentPlan: null
+            };
+
+            saveCampaignState(brandName, kickoffState);
+
+            const calendarEvents = buildKickoffCalendarEvents(kickoffTheme, drafts);
+            const mergedEvents = mergeCalendarEvents(existingCalendar || [], calendarEvents);
+            saveCalendarEvents(brandName, mergedEvents);
+            setCalendarEvents(mergedEvents);
+
+            setSystemLogs(prev => ["Kickoff: Campaign drafts + 7-day calendar ready.", ...prev]);
+        } catch (e: any) {
+            const message = e?.message || 'Kickoff generation failed.';
+            setSystemLogs(prev => [`Kickoff: ${message}`, ...prev]);
+        } finally {
+            markKickoffBootstrap(brandName);
+        }
+    };
+
     const handleCompleteOnboarding = async (payload: { brandName: string; config: BrandConfig; sources: { domains: string[]; xHandles: string[]; youtube?: string } }) => {
         const mergedConfig = mergeBrandConfig(profiles[payload.brandName], payload.config);
         const nextProfiles = { ...profiles, [payload.brandName]: mergedConfig };
         setProfiles(nextProfiles);
         saveBrandProfiles(nextProfiles, true);
         setSelectedBrand(payload.brandName);
+        try {
+            const existingKeys = loadIntegrationKeys(payload.brandName);
+            const handle = payload.sources?.xHandles?.[0];
+            if (handle) {
+                saveIntegrationKeys({ ...existingKeys, apify: handle }, payload.brandName);
+            }
+        } catch (e) {
+            console.warn("Failed to save onboarding integration keys", e);
+        }
         setOnboardingState({
             dismissed: false,
             completed: true,
@@ -769,13 +959,18 @@ const App: React.FC = () => {
         });
         try {
             const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-            const response = await fetch(`${baseUrl}/api/brands/resolve`, {
+            const response = await fetch(`${baseUrl}/api/brands/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: payload.brandName,
+                    ownerId: currentUser?.id,
                     sources: payload.sources,
-                    websiteUrl: payload.sources.domains?.[0]
+                    websiteUrl: payload.sources.domains?.[0],
+                    config: mergedConfig,
+                    enrichment: payload.config.brandCollectorProfile
+                        ? { mode: 'collector', profile: payload.config.brandCollectorProfile }
+                        : undefined
                 })
             });
 
@@ -783,12 +978,26 @@ const App: React.FC = () => {
                 const data = await response.json();
                 if (data?.id) {
                     saveBrandRegistryEntry(payload.brandName, data.id);
+                    const handle = payload.sources?.xHandles?.[0];
+                    if (handle) {
+                        await fetch(`${baseUrl}/api/brands/${data.id}/integrations`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ apifyHandle: handle })
+                        });
+                    }
+                    fetch(`${baseUrl}/api/agent/trigger`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ brandId: data.id, brandName: payload.brandName })
+                    }).catch(() => null);
                 }
             }
         } catch (e) {
-            console.warn("Failed to resolve brand registry", e);
+            console.warn("Failed to register brand", e);
         }
-        navigate('/dashboard');
+        await bootstrapKickoffContent(payload.brandName, mergedConfig);
+        navigate('/campaigns');
     };
 
     const handleUpdateCurrentBrandConfig = (newConfig: BrandConfig) => {
@@ -1053,11 +1262,6 @@ const App: React.FC = () => {
     }
 
     if (isOnboardingRoute) {
-        // Require auth for onboarding
-        if (!currentUser) {
-            navigate('/login');
-            return null;
-        }
         return (
             <OnboardingFlow
                 onExit={() => navigate('/dashboard')}

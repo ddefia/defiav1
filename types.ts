@@ -29,6 +29,8 @@ export interface BrandConfig {
   targetAudience?: string; // New: Who is this for? (e.g. "Institutions")
   bannedPhrases?: string[]; // New: Words to never use
   visualIdentity?: string; // New: Distilled visual style guide from PDF/Docs
+  approvedStyleExamples?: string[]; // New: Approved content examples from onboarding carousel
+  rejectedStyleExamples?: string[]; // New: Rejected content examples (used to avoid style)
   // Brand Kit Page fields
   missionStatement?: string; // Company mission
   vision?: string; // Company vision

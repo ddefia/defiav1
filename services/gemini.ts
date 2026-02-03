@@ -677,6 +677,9 @@ export const generateTweet = async (
     const examples = brandConfig.tweetExamples.length > 0
         ? `STYLE REFERENCE (MIMIC THIS VOICE/PACE/LENGTH): \n${brandConfig.tweetExamples.map(t => `- ${t}`).join('\n')} `
         : "";
+    const avoidExamples = brandConfig.rejectedStyleExamples && brandConfig.rejectedStyleExamples.length > 0
+        ? `\nAVOID THESE STYLE PATTERNS (DO NOT COPY TONE/STRUCTURE):\n${brandConfig.rejectedStyleExamples.map(t => `- ${t}`).join('\n')}\n`
+        : "";
 
     const templateExamples = (brandConfig.graphicTemplates || [])
         .filter(t => t.tweetExample && t.tweetExample.trim().length > 0)
@@ -733,6 +736,7 @@ export const generateTweet = async (
     - **ACCESSIBILITY**: Deep technical understanding, explained simply.
     
     ${examples}
+    ${avoidExamples}
     ${templateContext}
     
     ${kb}
@@ -1761,16 +1765,94 @@ export const generateIdeas = async (brandName: string): Promise<string[]> => {
     }
 }
 
+export const generateStyleExamples = async (
+    brandName: string,
+    brandConfig: BrandConfig,
+    count: number = 8
+): Promise<string[]> => {
+    const apiKey = getApiKey();
+    if (!apiKey) throw new Error("Missing API Key");
+    const ai = new GoogleGenAI({ apiKey });
 
+    const kb = brandConfig.knowledgeBase?.length
+        ? `KNOWLEDGE BASE (SOURCE OF TRUTH):\n${brandConfig.knowledgeBase.join('\n')}`
+        : '';
+
+    const voice = brandConfig.voiceGuidelines || 'Clear, confident, high-signal, no fluff.';
+    const banned = brandConfig.bannedPhrases && brandConfig.bannedPhrases.length > 0
+        ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')}`
+        : 'Avoid lazy AI words (e.g. "delve", "tapestry", "game changer").';
+
+    const systemInstruction = `
+You are an expert crypto content strategist for ${brandName}.
+
+TASK:
+- Generate ${count} DISTINCT social post examples for X/Twitter.
+- Mix formats: announcement, product update, insight, educational tip, community CTA, partnership.
+- Keep them grounded in the knowledge base. If KB is sparse, keep claims generic.
+
+OUTPUT FORMAT:
+Return ONLY valid JSON array of strings. No markdown.
+
+VOICE:
+- ${voice}
+- ${banned}
+
+${kb}
+    `.trim();
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "Generate content examples.",
+            config: {
+                systemInstruction,
+                responseMimeType: "application/json"
+            }
+        });
+
+        const raw = response.text || '[]';
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            return parsed.map((item) => String(item).trim()).filter((item) => item.length > 0);
+        }
+        return [];
+    } catch (e) {
+        console.warn("Style example generation failed", e);
+        return [];
+    }
+};
+
+
+
+export interface BrandResearchOptions {
+    siteContent?: string;
+    tweetExamples?: string[];
+    docUrls?: string[];
+}
 
 /**
- * AI RESEARCH: Scrapes (Simulated) and infers brand identity from URL/Name.
+ * AI RESEARCH: Uses provided sources to infer brand identity and knowledge base.
  */
-export const researchBrandIdentity = async (brandName: string, url: string): Promise<BrandConfig> => {
+export const researchBrandIdentity = async (
+    brandName: string,
+    url: string,
+    options: BrandResearchOptions = {}
+): Promise<BrandConfig> => {
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
-    // Use Gemini if available for high-quality hallucination
+    const siteContent = (options.siteContent || '').slice(0, 12000);
+    const tweetSamples = (options.tweetExamples || []).slice(0, 8);
+    const docUrls = (options.docUrls || []).slice(0, 10);
+
+    const sourceBlock = [
+        siteContent ? `WEBSITE CONTENT:\n${siteContent}` : '',
+        tweetSamples.length ? `RECENT TWEETS:\n${tweetSamples.map(t => `- ${t}`).join('\n')}` : '',
+        docUrls.length ? `DOC LINKS:\n${docUrls.map(d => `- ${d}`).join('\n')}` : ''
+    ].filter(Boolean).join('\n\n');
+
+    // Use Gemini if available for high-quality synthesis
     try {
         if (!getApiKey()) throw new Error("No API Key");
 
@@ -1778,10 +1860,8 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
         You are an expert Brand Identity Analyst and AI Researcher.
 
     TASK:
-        Analyze the company "${brandName}" located at "${url}".
-        Since you cannot browse the live web, use your internal knowledge base to infer their brand identity, visual style, and value proposition.
-        
-        If the brand is unknown or fictitious, HALLUCINATE a plausible, professional Web3 brand identity based on the name and URL structure.
+        Analyze the company "${brandName}" located at "${url}" using ONLY the provided sources.
+        Do NOT invent facts. If the sources are thin, return minimal, conservative outputs.
         
         OUTPUT FORMAT(JSON):
 {
@@ -1790,21 +1870,25 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
         { "id": "c2", "name": "Secondary", "hex": "#HEX" },
         { "id": "c3", "name": "Accent", "hex": "#HEX" }
     ],
-        "knowledgeBase": [
-            "Fact 1 about what they do.",
-            "Fact 2 about their products.",
-            "Fact 3 about their target audience."
-        ],
-            "tweetExamples": [
-                "Example tweet 1 (reflecting their tone).",
-                "Example tweet 2."
-            ]
+    "knowledgeBase": [
+        "Fact 1 about what they do.",
+        "Fact 2 about their products.",
+        "Fact 3 about their target audience."
+    ],
+    "tweetExamples": [
+        "Example tweet 1 (reflecting their tone).",
+        "Example tweet 2."
+    ],
+    "voiceGuidelines": "Short tone and voice guidance.",
+    "visualIdentity": "Short visual identity guidance.",
+    "targetAudience": "Primary audience segment(s).",
+    "bannedPhrases": ["Phrase 1", "Phrase 2"]
 }
 `;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: `Research this brand: ${brandName} (${url})`,
+            contents: `Research this brand: ${brandName} (${url})\n\n${sourceBlock || 'NO SOURCE CONTENT PROVIDED.'}`,
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json"
@@ -1817,7 +1901,11 @@ export const researchBrandIdentity = async (brandName: string, url: string): Pro
             colors: data.colors || [],
             knowledgeBase: data.knowledgeBase || [],
             tweetExamples: data.tweetExamples || [],
-            referenceImages: []
+            referenceImages: [],
+            voiceGuidelines: data.voiceGuidelines,
+            visualIdentity: data.visualIdentity,
+            targetAudience: data.targetAudience,
+            bannedPhrases: data.bannedPhrases || []
         };
 
     } catch (e) {

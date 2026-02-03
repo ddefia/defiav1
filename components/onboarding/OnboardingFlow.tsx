@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { BrandConfig } from '../../types';
-import { researchBrandIdentity } from '../../services/gemini';
+import { BrandConfig, ReferenceImage } from '../../types';
+import { researchBrandIdentity, generateStyleExamples, generateWeb3Graphic } from '../../services/gemini';
 import { researchGithubBrandSignals } from '../../services/githubBrandResearcher';
 import { runBrandCollector } from '../../services/brandCollector';
 import { retryWithBackoff } from '../../vendor/brand-collector/src/lib/retry';
 import { rateLimit } from '../../vendor/brand-collector/src/lib/rate-limit';
-import { createUserProfile, connectWallet, loadUserProfile, UserProfile } from '../../services/auth';
+import { createUserProfile, connectWallet, loadUserProfile, signUp, updateUserProfile, UserProfile } from '../../services/auth';
 
 const normalizeHandle = (value: string) => value.replace(/^@/, '').trim();
 
@@ -87,6 +87,44 @@ const extractCollectorBannedPhrases = (profile: any) =>
     ...(profile?.brandSafety?.redTopics || []),
   ]);
 
+const getApiBaseUrl = () => import.meta.env.VITE_API_BASE_URL || '';
+
+const dedupeReferenceImages = (images: ReferenceImage[]) => {
+  const seen = new Set<string>();
+  return images.filter((img) => {
+    const key = img.url || img.data || img.id;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const dedupeStrings = (items: string[]) => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  items.forEach((item) => {
+    const cleaned = item.trim();
+    if (!cleaned) return;
+    if (seen.has(cleaned)) return;
+    seen.add(cleaned);
+    result.push(cleaned);
+  });
+  return result;
+};
+
+const buildKnowledgeFallback = (content: string, docs: string[]) => {
+  const items: string[] = [];
+  const sentences = content
+    .replace(/\s+/g, ' ')
+    .split(/[.!?]\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 60);
+
+  sentences.slice(0, 8).forEach((s) => items.push(`Website: ${s}`));
+  docs.slice(0, 5).forEach((doc) => items.push(`Document: ${doc}`));
+  return items;
+};
+
 type OnboardingStep = 'profile' | 'company' | 'analyzing' | 'review' | 'styles';
 
 interface EnrichedData {
@@ -120,6 +158,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   const [userAvatarUrl, setUserAvatarUrl] = useState('');
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [wantsAccount, setWantsAccount] = useState(false);
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
 
   // Company/brand state
   const [brandName, setBrandName] = useState('');
@@ -140,6 +181,17 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   const [currentStyleIndex, setCurrentStyleIndex] = useState(0);
   const [approvedStyles, setApprovedStyles] = useState<string[]>([]);
   const [rejectedStyles, setRejectedStyles] = useState<string[]>([]);
+  const [styleGraphics, setStyleGraphics] = useState<Record<number, {
+    selectedIndex: number;
+    variants: Array<{
+      label: string;
+      mode: 'article' | 'announcement' | 'article_image';
+      image?: string;
+      status: 'idle' | 'loading' | 'ready' | 'error';
+      error?: string;
+    }>;
+  }>>({});
+  const [approvedGraphics, setApprovedGraphics] = useState<ReferenceImage[]>([]);
 
   const normalizedDomain = useMemo(() => normalizeDomain(websiteUrl), [websiteUrl]);
   const normalizedHandle = useMemo(() => normalizeHandle(twitterHandle), [twitterHandle]);
@@ -163,12 +215,26 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     return mapping[step];
   };
 
+  const isGuestProfile = useMemo(() => {
+    if (!existingProfile) return true;
+    return existingProfile.id?.startsWith('guest-');
+  }, [existingProfile]);
+
+  const isAccountFormValid = useMemo(() => {
+    const hasEmail = userEmail.trim().length > 0 && userEmail.includes('@');
+    const hasPassword = accountPassword.length >= 6;
+    const matches = accountPassword === accountPasswordConfirm;
+    return hasEmail && hasPassword && matches;
+  }, [userEmail, accountPassword, accountPasswordConfirm]);
+
   const isProfileStepValid = useMemo(() => {
-    // Valid if email OR wallet is provided
     const hasEmail = userEmail.trim().length > 0 && userEmail.includes('@');
     const hasWallet = userWalletAddress.length > 0;
+    if (wantsAccount && isGuestProfile) {
+      return isAccountFormValid;
+    }
     return hasEmail || hasWallet;
-  }, [userEmail, userWalletAddress]);
+  }, [userEmail, userWalletAddress, wantsAccount, isAccountFormValid, isGuestProfile]);
 
   const handleConnectWallet = async () => {
     setIsConnectingWallet(true);
@@ -219,6 +285,31 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         return;
       }
 
+      if (wantsAccount && isGuestProfile) {
+        if (!isAccountFormValid) {
+          setError('Please provide a valid email and matching password (6+ chars).');
+          return;
+        }
+
+        const { user, error: authError } = await signUp(
+          userEmail,
+          accountPassword,
+          { fullName: userFullName || undefined, role: userRole }
+        );
+
+        if (authError) {
+          setError(authError);
+          return;
+        }
+
+        if (user) {
+          await updateUserProfile({
+            avatarUrl: userAvatarUrl || undefined,
+            walletAddress: userWalletAddress || undefined,
+          });
+        }
+      }
+
       setCurrentStep('company');
     } catch (e: any) {
       setError(e?.message || 'Failed to create profile');
@@ -247,12 +338,46 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       const domains = [normalizedDomain];
       const xHandles = [normalizedHandle];
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setAnalysisProgress(prev => ({
-        ...prev,
-        website: { status: 'complete', message: 'Found mission, products, and key messages' },
-        twitter: { status: 'loading', message: 'Analyzing tweets, engagement patterns, and brand voice...' },
-      }));
+      const baseUrl = getApiBaseUrl();
+      let crawlContent = '';
+      let crawlDocs: string[] = [];
+      let crawlPages: string[] = [];
+      let tweetExamples: string[] = [];
+      let tweetImages: ReferenceImage[] = [];
+
+      // 1) Website crawl (real)
+      try {
+        const crawlRes = await fetch(`${baseUrl}/api/onboarding/crawl`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: normalizedDomain })
+        });
+
+        if (!crawlRes.ok) {
+          const data = await crawlRes.json().catch(() => ({}));
+          throw new Error(data.error || 'Website crawl failed');
+        }
+
+        const data = await crawlRes.json();
+        crawlContent = data.content || '';
+        crawlDocs = Array.isArray(data.docs) ? data.docs : [];
+        crawlPages = Array.isArray(data.pages) ? data.pages : [];
+
+        setAnalysisProgress(prev => ({
+          ...prev,
+          website: {
+            status: 'complete',
+            message: crawlPages.length > 0 ? `Scanned ${crawlPages.length} pages and extracted key messaging` : 'Website scan complete'
+          },
+          twitter: { status: 'loading', message: 'Analyzing tweets, engagement patterns, and brand voice...' },
+        }));
+      } catch (crawlError: any) {
+        setAnalysisProgress(prev => ({
+          ...prev,
+          website: { status: 'complete', message: crawlError?.message || 'Website scan skipped (no access)' },
+          twitter: { status: 'loading', message: 'Analyzing tweets, engagement patterns, and brand voice...' },
+        }));
+      }
 
       let collectorProfile: any | null = null;
       let collectorMode: 'collector' | 'fallback' = 'fallback';
@@ -276,17 +401,60 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         collectorMode = 'fallback';
       }
 
-      setAnalysisProgress(prev => ({
-        ...prev,
-        twitter: { status: 'complete', message: 'Extracted voice patterns and content style' },
-        assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
-      }));
+      // 2) Twitter scrape (real)
+      try {
+        const twitterRes = await fetch(`${baseUrl}/api/onboarding/twitter`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle: normalizedHandle, brandName: brandName.trim() })
+        });
 
-      const researchResult = await retryWithBackoff(
-        () => researchBrandIdentity(brandName.trim(), normalizedDomain),
-        2,
-        1200
-      );
+        if (!twitterRes.ok) {
+          const data = await twitterRes.json().catch(() => ({}));
+          throw new Error(data.error || 'Twitter scrape failed');
+        }
+
+        const data = await twitterRes.json();
+        tweetExamples = Array.isArray(data.tweetExamples) ? data.tweetExamples : [];
+        tweetImages = Array.isArray(data.referenceImages) ? data.referenceImages : [];
+
+        setAnalysisProgress(prev => ({
+          ...prev,
+          twitter: {
+            status: 'complete',
+            message: tweetExamples.length > 0
+              ? `Collected ${tweetExamples.length} tweet examples`
+              : 'Twitter scan complete (no examples found)'
+          },
+          assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
+        }));
+      } catch (twitterError: any) {
+        setAnalysisProgress(prev => ({
+          ...prev,
+          twitter: { status: 'complete', message: twitterError?.message || 'Twitter scan skipped (no access)' },
+          assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
+        }));
+      }
+
+      let researchResult: BrandConfig = { colors: [], knowledgeBase: [], tweetExamples: [], referenceImages: [] };
+      try {
+        researchResult = await retryWithBackoff(
+          () => researchBrandIdentity(brandName.trim(), normalizedDomain, {
+            siteContent: crawlContent,
+            tweetExamples,
+            docUrls: crawlDocs,
+          }),
+          2,
+          1200
+        );
+      } catch (e) {
+        researchResult = {
+          colors: [],
+          knowledgeBase: buildKnowledgeFallback(crawlContent, crawlDocs),
+          tweetExamples,
+          referenceImages: [],
+        };
+      }
 
       const githubSignals = await researchGithubBrandSignals(brandName.trim());
 
@@ -316,19 +484,33 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         collectorVisualIdentity,
       ]).join('\n');
 
+      const baseKnowledge = (researchResult.knowledgeBase && researchResult.knowledgeBase.length > 0)
+        ? researchResult.knowledgeBase
+        : buildKnowledgeFallback(crawlContent, crawlDocs);
+
+      const baseTweetExamples = tweetExamples.length > 0
+        ? tweetExamples
+        : (researchResult.tweetExamples || []);
+
+      const combinedReferenceImages = dedupeReferenceImages([
+        ...(researchResult.referenceImages || []),
+        ...tweetImages
+      ]);
+
       const enriched: BrandConfig = {
         colors: researchResult.colors || [],
         knowledgeBase: [
-          ...(researchResult.knowledgeBase || []),
+          ...baseKnowledge,
           ...collectorKnowledge,
+          ...crawlDocs.map((doc) => `Document: ${doc}`),
           ...sourcesSummary,
           ...githubSignals,
         ],
         tweetExamples: [
-          ...(researchResult.tweetExamples || []),
+          ...baseTweetExamples,
           ...collectorTweetExamples,
         ],
-        referenceImages: researchResult.referenceImages || [],
+        referenceImages: combinedReferenceImages,
         brandCollectorProfile: collectorProfile || undefined,
         voiceGuidelines: combinedVoiceGuidelines || undefined,
         targetAudience: researchResult.targetAudience,
@@ -347,6 +529,19 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         }
       }
 
+      // Generate carousel content examples (AI) after enrichment
+      let generatedExamples: string[] = [];
+      try {
+        generatedExamples = await generateStyleExamples(brandName.trim(), enriched, 10);
+      } catch (e) {
+        generatedExamples = [];
+      }
+
+      const combinedExamples = dedupeStrings([
+        ...(enriched.tweetExamples || []),
+        ...generatedExamples
+      ]);
+
       const data: EnrichedData = {
         brandName: brandName.trim(),
         config: enriched,
@@ -358,7 +553,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       };
 
       setEnrichedData(data);
-      setStyleExamples(enriched.tweetExamples || []);
+      setStyleExamples(combinedExamples);
 
       await new Promise(resolve => setTimeout(resolve, 800));
       setCurrentStep('review');
@@ -373,6 +568,26 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   const handleApproveStyle = () => {
     if (styleExamples[currentStyleIndex]) {
       setApprovedStyles(prev => [...prev, styleExamples[currentStyleIndex]]);
+    }
+    const graphicEntry = styleGraphics[currentStyleIndex];
+    const selectedVariant = graphicEntry?.variants?.[graphicEntry.selectedIndex || 0];
+    if (selectedVariant?.image) {
+      const id = `carousel-${currentStyleIndex}-${graphicEntry?.selectedIndex || 0}`;
+      setApprovedGraphics(prev => {
+        if (prev.some(img => img.id === id)) return prev;
+        return [
+          ...prev,
+          {
+            id,
+            name: `Carousel ${currentStyleIndex + 1}`,
+            data: selectedVariant.image,
+            category: 'Carousel'
+          }
+        ];
+      });
+
+      // Upload to Supabase storage in background
+      uploadCarouselGraphic(selectedVariant.image, id).catch(() => {});
     }
     if (currentStyleIndex < styleExamples.length - 1) {
       setCurrentStyleIndex(prev => prev + 1);
@@ -390,9 +605,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
 
   const handleLaunch = () => {
     if (enrichedData) {
+      const mergedReferenceImages = dedupeReferenceImages([
+        ...(enrichedData.config.referenceImages || []),
+        ...approvedGraphics
+      ]);
       const finalConfig = {
         ...enrichedData.config,
         tweetExamples: approvedStyles.length > 0 ? approvedStyles : enrichedData.config.tweetExamples,
+        approvedStyleExamples: approvedStyles,
+        rejectedStyleExamples: rejectedStyles,
+        referenceImages: mergedReferenceImages,
       };
       onComplete({
         ...enrichedData,
@@ -400,6 +622,161 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       });
     }
   };
+
+  const uploadCarouselGraphic = async (imageData: string, imageId: string) => {
+    const baseUrl = getApiBaseUrl();
+    if (!imageData) return;
+
+    try {
+      const response = await fetch(`${baseUrl}/api/onboarding/carousel-upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brandName: brandName.trim(),
+          imageData,
+          imageId
+        })
+      });
+
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!data?.publicUrl) return;
+
+      setApprovedGraphics(prev =>
+        prev.map(img =>
+          img.id === imageId
+            ? { ...img, url: data.publicUrl, data: '' }
+            : img
+        )
+      );
+    } catch (e) {
+      // Non-blocking
+    }
+  };
+
+  const extractTitleAndBody = (text: string) => {
+    const cleaned = text.replace(/\s+/g, ' ').trim();
+    const parts = cleaned.split(/[.!?]/).map(p => p.trim()).filter(Boolean);
+    const title = parts[0] ? parts[0].slice(0, 90) : cleaned.slice(0, 90);
+    const body = parts.slice(1).join('. ').trim() || cleaned.slice(title.length).trim();
+    return { title, body };
+  };
+
+  const pickTemplateMode = (text: string, config: BrandConfig) => {
+    const hasImage = (config.referenceImages || []).some(img => img.url || img.data);
+    const looksLikeArticle = /http|read|blog|article|report|thread|guide|docs/i.test(text);
+    if (looksLikeArticle && hasImage) return 'article_image';
+    if (looksLikeArticle) return 'article';
+    return 'announcement';
+  };
+
+  const buildGraphicPrompt = (text: string, mode: 'article' | 'announcement' | 'article_image', config: BrandConfig) => {
+    const { title, body } = extractTitleAndBody(text);
+    const brandColor = config.colors?.[0]?.hex || '#FF5C00';
+    if (mode === 'article_image') {
+      return `Create a premium article card overlay on a branded background image. Use the reference image as a textured backdrop, then overlay a clean text panel. Headline: "${title}". Body: "${body}". Use brand color ${brandColor} for accents. High-contrast, editorial typography.`;
+    }
+    if (mode === 'article') {
+      return `Create a clean editorial article card. Headline: "${title}". Body: "${body}". Use brand color ${brandColor} for accents. Minimal, high-contrast, legible typography.`;
+    }
+    return `Create a bold announcement card. Headline: "${title}". Supporting text: "${body}". Use brand color ${brandColor}. High-impact layout, clean typography, strong hierarchy.`;
+  };
+
+  const getVariantConfigs = (text: string, config: BrandConfig) => {
+    const defaultMode = pickTemplateMode(text, config);
+    if (defaultMode === 'article_image') {
+      return [
+        { label: 'Article + Image', mode: 'article_image' as const },
+        { label: 'Announcement', mode: 'announcement' as const }
+      ];
+    }
+    if (defaultMode === 'article') {
+      return [
+        { label: 'Article', mode: 'article' as const },
+        { label: 'Announcement', mode: 'announcement' as const }
+      ];
+    }
+    return [
+      { label: 'Announcement', mode: 'announcement' as const },
+      { label: 'Article', mode: 'article' as const }
+    ];
+  };
+
+  const pickReferenceImageId = (config: BrandConfig) => {
+    const candidates = (config.referenceImages || []).filter(img => img.id && (img.url || img.data));
+    if (candidates.length === 0) return undefined;
+    return candidates[Math.floor(Math.random() * candidates.length)].id;
+  };
+
+  const ensureVariant = async (index: number, variantIndex: number) => {
+    if (!enrichedData?.config || !styleExamples[index]) return;
+    const exampleText = styleExamples[index];
+    const variants = getVariantConfigs(exampleText, enrichedData.config);
+    setStyleGraphics(prev => {
+      const existing = prev[index];
+      if (existing && existing.variants[variantIndex]?.status === 'ready') return prev;
+      const nextVariants = variants.map((variant, i) => {
+        const previousVariant = existing?.variants?.[i];
+        if (previousVariant) return previousVariant;
+        return { ...variant, status: 'idle' as const };
+      });
+      nextVariants[variantIndex] = { ...nextVariants[variantIndex], status: 'loading' };
+      return {
+        ...prev,
+        [index]: {
+          selectedIndex: existing?.selectedIndex ?? 0,
+          variants: nextVariants
+        }
+      };
+    });
+
+    try {
+      const variant = variants[variantIndex];
+      const artPrompt = buildGraphicPrompt(exampleText, variant.mode, enrichedData.config);
+      const referenceId = variant.mode === 'article_image'
+        ? pickReferenceImageId(enrichedData.config)
+        : undefined;
+      const selectedReferenceImages = referenceId ? [referenceId] : [];
+
+      const image = await generateWeb3Graphic({
+        prompt: exampleText,
+        artPrompt,
+        size: '1K',
+        aspectRatio: '1:1',
+        brandConfig: enrichedData.config,
+        brandName: brandName.trim(),
+        selectedReferenceImages
+      });
+
+      setStyleGraphics(prev => {
+        const existing = prev[index];
+        if (!existing) return prev;
+        const updatedVariants = [...existing.variants];
+        updatedVariants[variantIndex] = { ...updatedVariants[variantIndex], image, status: 'ready' };
+        return {
+          ...prev,
+          [index]: { ...existing, variants: updatedVariants }
+        };
+      });
+    } catch (e: any) {
+      setStyleGraphics(prev => {
+        const existing = prev[index];
+        if (!existing) return prev;
+        const updatedVariants = [...existing.variants];
+        updatedVariants[variantIndex] = { ...updatedVariants[variantIndex], status: 'error', error: e?.message || 'Generation failed' };
+        return {
+          ...prev,
+          [index]: { ...existing, variants: updatedVariants }
+        };
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (currentStep !== 'styles') return;
+    if (!styleExamples[currentStyleIndex]) return;
+    ensureVariant(currentStyleIndex, 0);
+  }, [currentStep, currentStyleIndex, styleExamples, enrichedData]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -653,6 +1030,59 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
                 ))}
               </div>
             </div>
+
+            {/* Create Account (Optional) */}
+            {isGuestProfile ? (
+              <div className="rounded-xl border border-[#2A2A2E] bg-[#111113] p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white text-sm font-medium">Create account (optional)</p>
+                    <p className="text-[#6B6B70] text-xs">Save your setup and access it from any device.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWantsAccount(prev => !prev)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      wantsAccount ? 'bg-[#FF5C00] text-white' : 'bg-[#1F1F23] text-[#8E8E93]'
+                    }`}
+                  >
+                    {wantsAccount ? 'Enabled' : 'Enable'}
+                  </button>
+                </div>
+
+                {wantsAccount && (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-white text-xs font-medium">Password</label>
+                      <input
+                        type="password"
+                        value={accountPassword}
+                        onChange={(e) => setAccountPassword(e.target.value)}
+                        placeholder="Create a password (6+ chars)"
+                        className="w-full h-[46px] rounded-lg bg-[#0A0A0B] border border-[#2A2A2E] px-3 text-white placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-white text-xs font-medium">Confirm Password</label>
+                      <input
+                        type="password"
+                        value={accountPasswordConfirm}
+                        onChange={(e) => setAccountPasswordConfirm(e.target.value)}
+                        placeholder="Re-enter your password"
+                        className="w-full h-[46px] rounded-lg bg-[#0A0A0B] border border-[#2A2A2E] px-3 text-white placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                      />
+                    </div>
+                    {!isAccountFormValid && accountPassword.length > 0 && (
+                      <p className="text-xs text-[#F59E0B]">Passwords must match and be at least 6 characters.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-[#2A2A2E] bg-[#111113] px-4 py-3">
+                <p className="text-[#6B6B70] text-xs">You’re already signed in. This profile will sync automatically.</p>
+              </div>
+            )}
           </div>
 
           <button
@@ -664,7 +1094,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             ) : (
               <>
-                <span>Continue</span>
+                <span>{wantsAccount && isGuestProfile ? 'Create Account & Continue' : 'Continue'}</span>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
@@ -1008,6 +1438,18 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   const renderStylesStep = () => {
     const currentExample = styleExamples[currentStyleIndex];
     const totalExamples = styleExamples.length;
+    const graphicEntry = styleGraphics[currentStyleIndex];
+    const selectedVariantIndex = graphicEntry?.selectedIndex ?? 0;
+    const selectedVariant = graphicEntry?.variants?.[selectedVariantIndex];
+    const variantLabel = selectedVariant?.mode === 'article_image'
+      ? 'article + image'
+      : selectedVariant?.mode;
+    const fallbackVariants = enrichedData?.config && currentExample
+      ? getVariantConfigs(currentExample, enrichedData.config)
+      : [];
+    const variantButtons = graphicEntry?.variants && graphicEntry.variants.length > 0
+      ? graphicEntry.variants
+      : fallbackVariants;
 
     return (
       <div className="flex-1 flex flex-col px-16 py-12">
@@ -1032,7 +1474,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </svg>
           </button>
 
-          <div className="w-[500px] space-y-6">
+          <div className="w-[540px] space-y-6">
             <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] overflow-hidden">
               <div className="px-5 py-3 border-b border-[#2A2A2E]">
                 <div className="flex items-center gap-3">
@@ -1069,6 +1511,77 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
                   </svg>
                   89
                 </span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-[#0F0F12] border border-[#2A2A2E] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#FF5C00]">Graphic Preview</span>
+                  {variantLabel && (
+                    <span className="text-[10px] uppercase tracking-widest text-[#6B6B70]">
+                      {variantLabel}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => ensureVariant(currentStyleIndex, selectedVariantIndex)}
+                    className="text-[10px] text-[#8E8E93] hover:text-white"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mb-3">
+                {(variantButtons.length > 0 ? variantButtons : [
+                  { label: 'Variant A' },
+                  { label: 'Variant B' }
+                ]).map((variant, idx) => (
+                  <button
+                    key={`${currentStyleIndex}-variant-${idx}`}
+                    onClick={() => {
+                      setStyleGraphics(prev => {
+                        const existing = prev[currentStyleIndex];
+                        if (!existing) return prev;
+                        return {
+                          ...prev,
+                          [currentStyleIndex]: {
+                            ...existing,
+                            selectedIndex: idx
+                          }
+                        };
+                      });
+                      ensureVariant(currentStyleIndex, idx);
+                    }}
+                    className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
+                      (selectedVariantIndex === idx)
+                        ? 'bg-[#FF5C00] text-white'
+                        : 'bg-[#1F1F23] text-[#8E8E93] hover:text-white'
+                    }`}
+                  >
+                    {variant.label || `Variant ${idx + 1}`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-xl overflow-hidden border border-[#1F1F23] bg-[#0A0A0B] h-[240px] flex items-center justify-center">
+                {selectedVariant?.image ? (
+                  <img
+                    src={selectedVariant.image}
+                    alt="Graphic preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : selectedVariant?.status === 'error' ? (
+                  <div className="text-[#EF4444] text-xs text-center px-6">
+                    {selectedVariant.error || 'Failed to generate graphic.'}
+                  </div>
+                ) : (
+                  <div className="text-[#6B6B70] text-xs">
+                    {selectedVariant?.status === 'loading' ? 'Generating preview...' : 'Graphic preview will appear here'}
+                  </div>
+                )}
               </div>
             </div>
 

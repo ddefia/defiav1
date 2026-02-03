@@ -33,6 +33,30 @@ export interface AuthState {
 const USER_PROFILE_KEY = 'defia_user_profile_v1';
 const AUTH_SESSION_KEY = 'defia_auth_session_v1';
 
+const createGuestProfile = (seed: Partial<UserProfile> = {}): UserProfile => {
+    const now = Date.now();
+    return {
+        id: `guest-${now}-${Math.random().toString(36).slice(2, 9)}`,
+        email: seed.email || '',
+        fullName: seed.fullName,
+        role: seed.role,
+        avatarUrl: seed.avatarUrl,
+        walletAddress: seed.walletAddress,
+        brandId: seed.brandId,
+        brandName: seed.brandName,
+        createdAt: now,
+        updatedAt: now,
+    };
+};
+
+const ensureLocalProfile = (seed: Partial<UserProfile> = {}): UserProfile => {
+    const existing = loadUserProfile();
+    if (existing) return existing;
+    const guest = createGuestProfile(seed);
+    saveUserProfile(guest);
+    return guest;
+};
+
 // ============================================
 // LOCAL STORAGE HELPERS
 // ============================================
@@ -273,10 +297,7 @@ export const getAuthState = async (): Promise<AuthState> => {
 
 export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<{ error: string | null }> => {
     try {
-        const existing = loadUserProfile();
-        if (!existing) {
-            return { error: 'No user profile found' };
-        }
+        const existing = ensureLocalProfile(updates);
 
         const updatedProfile: UserProfile = {
             ...existing,
@@ -316,10 +337,7 @@ export const createUserProfile = async (
     profileData: Partial<UserProfile>
 ): Promise<{ profile: UserProfile | null; error: string | null }> => {
     try {
-        const existing = loadUserProfile();
-        if (!existing) {
-            return { profile: null, error: 'No authenticated user found. Please sign in first.' };
-        }
+        const existing = ensureLocalProfile(profileData);
 
         const updatedProfile: UserProfile = {
             ...existing,

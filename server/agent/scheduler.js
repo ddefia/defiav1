@@ -245,3 +245,53 @@ export const startAgent = () => {
         await backupAgentDecisions(supabase);
     });
 };
+
+export const triggerAgentRun = async (brandIdentifier) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+        return { error: 'Supabase not configured' };
+    }
+
+    const normalized = (value) => String(value || '').toLowerCase();
+    const registry = await fetchActiveBrands(supabase);
+    if (!registry || registry.length === 0) {
+        return { error: 'No brands registered' };
+    }
+
+    const target = registry.find(b => normalized(b.id) === normalized(brandIdentifier))
+        || registry.find(b => normalized(b.name) === normalized(brandIdentifier));
+
+    if (!target) {
+        return { error: 'Brand not found' };
+    }
+
+    const automation = await fetchAutomationSettings(supabase, target.id);
+    if (!automation.enabled) {
+        return { skipped: true, reason: 'Automation disabled' };
+    }
+
+    const duneKey = process.env.DUNE_API_KEY;
+    const lunarKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
+    const apifyKey = process.env.APIFY_API_TOKEN;
+
+    const [pulse, lunarTrends] = await Promise.all([
+        fetchPulseTrends(lunarKey),
+        fetchLunarCrushTrends(lunarKey, target.lunarSymbol || 'ETH')
+    ]);
+
+    const [dune, mentions] = await Promise.all([
+        fetchDuneMetrics(duneKey),
+        fetchMentions(apifyKey, target.xHandle || target.name || target.id)
+    ]);
+
+    const brandProfile = await fetchBrandProfile(supabase, target.id);
+    const decision = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || { name: target.name });
+
+    if (decision?.action && decision.action !== 'NO_ACTION' && decision.action !== 'ERROR') {
+        const record = { ...decision, brandId: target.id };
+        saveDecisionToFile(record);
+        await saveDecisionToDb(supabase, decision, target.id);
+    }
+
+    return { brand: target, decision };
+};

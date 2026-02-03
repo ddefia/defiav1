@@ -8,7 +8,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { startAgent } from './server/agent/scheduler.js';
+import { startAgent, triggerAgentRun } from './server/agent/scheduler.js';
+import { crawlWebsite, fetchTwitterContent, uploadCarouselGraphic } from './server/onboarding.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -202,6 +203,74 @@ app.get('/api/logs', (req, res) => {
     res.json({ entries: requestLog });
 });
 
+// --- Onboarding: Website Crawl ---
+app.post('/api/onboarding/crawl', async (req, res) => {
+    try {
+        const { url, maxPages } = req.body || {};
+        const normalized = normalizeDomain(String(url || ''));
+        if (!normalized || !isValidUrl(normalized)) {
+            return res.status(400).json({ error: 'Valid URL is required.' });
+        }
+
+        const result = await crawlWebsite(normalized, {
+            maxPages: typeof maxPages === 'number' ? Math.min(Math.max(maxPages, 1), 15) : undefined
+        });
+        return res.json(result);
+    } catch (e) {
+        console.error('[OnboardingCrawl] Failed:', e);
+        return res.status(500).json({ error: 'Website crawl failed.' });
+    }
+});
+
+// --- Onboarding: Twitter Scrape ---
+app.post('/api/onboarding/twitter', async (req, res) => {
+    try {
+        const { handle, maxItems, brandName } = req.body || {};
+        const normalizedHandle = normalizeHandle(String(handle || ''));
+        if (!normalizedHandle || !isValidHandle(normalizedHandle)) {
+            return res.status(400).json({ error: 'Valid X/Twitter handle is required.' });
+        }
+
+        const result = await fetchTwitterContent(normalizedHandle, {
+            maxItems: typeof maxItems === 'number' ? Math.min(Math.max(maxItems, 5), 50) : undefined,
+            brandName: brandName ? String(brandName) : undefined
+        });
+
+        if (result.error) {
+            return res.status(400).json({ error: result.error });
+        }
+        return res.json(result);
+    } catch (e) {
+        console.error('[OnboardingTwitter] Failed:', e);
+        return res.status(500).json({ error: 'Twitter scrape failed.' });
+    }
+});
+
+// --- Onboarding: Carousel Upload ---
+app.post('/api/onboarding/carousel-upload', async (req, res) => {
+    try {
+        const { brandName, imageData, imageId } = req.body || {};
+        if (!brandName || !imageData) {
+            return res.status(400).json({ error: 'brandName and imageData are required.' });
+        }
+
+        const result = await uploadCarouselGraphic({
+            brandName: String(brandName),
+            imageData: String(imageData),
+            imageId: imageId ? String(imageId) : undefined
+        });
+
+        if (result.error) {
+            return res.status(400).json({ error: result.error });
+        }
+
+        return res.json({ publicUrl: result.publicUrl });
+    } catch (e) {
+        console.error('[OnboardingCarousel] Failed:', e);
+        return res.status(500).json({ error: 'Carousel upload failed.' });
+    }
+});
+
 app.post('/api/brands/register', async (req, res) => {
     const supabase = getSupabaseAdminClient();
     if (!supabase) {
@@ -252,6 +321,62 @@ app.post('/api/brands/register', async (req, res) => {
             return res.status(400).json({ error: 'Website URL is invalid.' });
         }
 
+        const { data: existingBrand } = await supabase
+            .from('brands')
+            .select('id, name')
+            .ilike('name', normalizedName)
+            .maybeSingle();
+
+        if (existingBrand) {
+            const sourceRows = [
+                ...normalizedDomains.map((domain) => ({
+                    brand_id: existingBrand.id,
+                    source_type: 'domain',
+                    value: domain,
+                    normalized_value: domain.toLowerCase()
+                })),
+                ...normalizedHandles.map((handle) => ({
+                    brand_id: existingBrand.id,
+                    source_type: 'x_handle',
+                    value: `@${handle}`,
+                    normalized_value: handle
+                }))
+            ];
+
+            if (youtube) {
+                sourceRows.push({
+                    brand_id: existingBrand.id,
+                    source_type: 'youtube',
+                    value: youtube,
+                    normalized_value: youtube
+                });
+            }
+
+            if (sourceRows.length > 0) {
+                const { error: sourcesError } = await supabase
+                    .from('brand_sources')
+                    .upsert(sourceRows, { onConflict: 'brand_id,source_type,normalized_value' });
+                if (sourcesError) {
+                    console.warn('[BrandRegister] Failed to upsert sources for existing brand:', sourcesError.message);
+                }
+            }
+
+            const primaryHandle = normalizedHandles[0];
+            if (primaryHandle) {
+                const { error: integrationError } = await supabase
+                    .from('brand_integrations')
+                    .upsert(
+                        { brand_id: existingBrand.id, apify_handle: primaryHandle },
+                        { onConflict: 'brand_id' }
+                    );
+                if (integrationError) {
+                    console.warn('[BrandRegister] Failed to upsert integrations for existing brand:', integrationError.message);
+                }
+            }
+
+            return res.json({ id: existingBrand.id, name: existingBrand.name });
+        }
+
         const { data: brand, error: brandError } = await supabase
             .from('brands')
             .insert({
@@ -295,9 +420,22 @@ app.post('/api/brands/register', async (req, res) => {
         if (sourceRows.length > 0) {
             const { error: sourcesError } = await supabase
                 .from('brand_sources')
-                .insert(sourceRows);
+                .upsert(sourceRows, { onConflict: 'brand_id,source_type,normalized_value' });
             if (sourcesError) {
                 console.warn('[BrandRegister] Failed to insert sources:', sourcesError.message);
+            }
+        }
+
+        const primaryHandle = normalizedHandles[0];
+        if (primaryHandle) {
+            const { error: integrationError } = await supabase
+                .from('brand_integrations')
+                .upsert(
+                    { brand_id: brand.id, apify_handle: primaryHandle },
+                    { onConflict: 'brand_id' }
+                );
+            if (integrationError) {
+                console.warn('[BrandRegister] Failed to upsert integrations:', integrationError.message);
             }
         }
 
@@ -440,6 +578,27 @@ app.patch('/api/brands/:id/integrations', async (req, res) => {
     } catch (e) {
         console.error('[BrandIntegrations] Unexpected error:', e);
         return res.status(500).json({ error: 'Failed to update integrations' });
+    }
+});
+
+// --- Agent Trigger (Immediate Brain Cycle) ---
+app.post('/api/agent/trigger', async (req, res) => {
+    try {
+        const { brandId, brandName } = req.body || {};
+        const target = brandId || brandName;
+        if (!target) {
+            return res.status(400).json({ error: 'brandId or brandName is required.' });
+        }
+
+        const result = await triggerAgentRun(target);
+        if (result?.error) {
+            return res.status(400).json({ error: result.error });
+        }
+
+        return res.json(result);
+    } catch (e) {
+        console.error('[AgentTrigger] Failed:', e);
+        return res.status(500).json({ error: 'Agent trigger failed.' });
     }
 });
 

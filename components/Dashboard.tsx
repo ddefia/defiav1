@@ -3,7 +3,7 @@ import { AnalysisReport, SocialMetrics, StrategyTask, CalendarEvent, ComputedMet
 import { fetchCampaignPerformance, fetchMentions } from '../services/analytics';
 import { generateDailyBrief as generateBriefService, orchestrateMarketingDecision } from '../services/gemini';
 import { getBrainContext } from '../services/pulse';
-import { getBrandRegistryEntry, loadBrainLogs } from '../services/storage';
+import { getBrandRegistryEntry, loadBrainLogs, loadCampaignState } from '../services/storage';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
 
 interface DashboardProps {
@@ -114,6 +114,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         agentInsights?: { agent: string; focus: string; summary: string; keySignals: string[]; }[];
         inputCoverage?: { calendarItems: number; mentions: number; trends: number; knowledgeSignals: number; recentPosts: number; };
     }>({ analysis: null, actionCount: 0, lastUpdated: null });
+    const [kickoffState, setKickoffState] = useState<{
+        theme: string;
+        drafts: any[];
+        schedule: CalendarEvent[];
+    } | null>(null);
 
     const [isBriefOpen, setIsBriefOpen] = useState(false);
     const [briefData, setBriefData] = useState<DailyBrief | null>(null);
@@ -152,6 +157,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
         loadData();
         return () => { mounted = false; };
     }, [brandName]);
+
+    useEffect(() => {
+        const state = loadCampaignState(brandName);
+        const allDrafts = Array.isArray(state?.campaignItems) ? state.campaignItems : [];
+        const kickoffDrafts = allDrafts.filter((item: any) => String(item?.id || '').startsWith('kickoff-'));
+        const kickoffSchedule = calendarEvents.filter((event) => String(event?.id || '').startsWith('kickoff-'));
+
+        if (kickoffDrafts.length === 0 && kickoffSchedule.length === 0) {
+            setKickoffState(null);
+            return;
+        }
+
+        setKickoffState({
+            theme: state?.campaignTheme || `${brandName} Launch`,
+            drafts: kickoffDrafts.length > 0 ? kickoffDrafts : allDrafts.slice(0, 3),
+            schedule: kickoffSchedule
+        });
+    }, [brandName, calendarEvents]);
 
     const upcomingContent = calendarEvents
         .filter(e => new Date(e.date) >= new Date())
@@ -259,6 +282,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     };
 
+    const formatKickoffDate = (value: string) => {
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return value;
+        return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    };
+
     return (
         <div className="flex-1 py-8 px-10 overflow-y-auto space-y-7">
             {/* Header */}
@@ -311,6 +340,67 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         ))}
                     </div>
+
+                    {kickoffState && (
+                        <div className="rounded-xl border border-[#22C55E33] bg-[#0F1510] p-5 mb-7">
+                            <div className="flex items-center justify-between gap-4 flex-wrap">
+                                <div>
+                                    <div className="text-xs font-semibold text-[#22C55E] tracking-widest">KICKOFF COMPLETE</div>
+                                    <h3 className="text-white text-lg font-semibold mt-1">Launch pack ready for {kickoffState.theme}</h3>
+                                    <p className="text-[#8B8B8F] text-sm mt-1">3 draft posts prepared and a 7-day calendar mapped.</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => onNavigate('campaigns')}
+                                        className="px-4 py-2 rounded-lg bg-[#22C55E] text-[#0A0A0B] text-xs font-semibold hover:bg-[#36D06C] transition-colors"
+                                    >
+                                        Review Drafts
+                                    </button>
+                                    <button
+                                        onClick={() => onNavigate('calendar')}
+                                        className="px-4 py-2 rounded-lg bg-[#1F1F23] text-white text-xs font-medium border border-[#2E2E2E] hover:bg-[#2A2A2D] transition-colors"
+                                    >
+                                        View Calendar
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mt-4">
+                                <div className="rounded-lg bg-[#0A0A0B] border border-[#1F1F23] p-4">
+                                    <div className="text-[11px] font-semibold text-[#6B6B70] tracking-widest mb-3">DRAFTS READY</div>
+                                    <div className="space-y-2">
+                                        {kickoffState.drafts.slice(0, 3).map((draft, index) => (
+                                            <div key={draft.id || index} className="text-sm text-white/90 bg-[#111113] border border-[#1F1F23] rounded-lg px-3 py-2">
+                                                {String(draft.tweet || '').slice(0, 140)}{String(draft.tweet || '').length > 140 ? '…' : ''}
+                                            </div>
+                                        ))}
+                                        {kickoffState.drafts.length === 0 && (
+                                            <div className="text-xs text-[#6B6B70]">Drafts will appear once generation completes.</div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="rounded-lg bg-[#0A0A0B] border border-[#1F1F23] p-4">
+                                    <div className="text-[11px] font-semibold text-[#6B6B70] tracking-widest mb-3">NEXT 7 DAYS</div>
+                                    <div className="space-y-2">
+                                        {(kickoffState.schedule || [])
+                                            .slice()
+                                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                                            .slice(0, 7)
+                                            .map((event, index) => (
+                                                <div key={event.id || index} className="flex items-start gap-3 bg-[#111113] border border-[#1F1F23] rounded-lg px-3 py-2">
+                                                    <div className="text-[11px] font-semibold text-[#22C55E]">{formatKickoffDate(event.date)}</div>
+                                                    <div className="text-sm text-white/90 flex-1">
+                                                        {String(event.content || '').slice(0, 90)}{String(event.content || '').length > 90 ? '…' : ''}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        {kickoffState.schedule.length === 0 && (
+                                            <div className="text-xs text-[#6B6B70]">Schedule will appear once the calendar syncs.</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* AI CMO Recommendations */}
                     <div className="rounded-xl border border-[#FF5C0044] overflow-hidden mb-7" style={{ background: 'linear-gradient(135deg, #111113 0%, #1A120D 100%)' }}>
