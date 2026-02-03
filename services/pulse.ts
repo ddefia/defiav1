@@ -2,6 +2,7 @@
 import { TrendItem } from "../types";
 import { getSupabase } from './supabaseClient';
 import { loadIntegrationKeys } from './storage';
+import { fetchWeb3News } from './web3News';
 
 
 // Real-time market data fetching
@@ -238,19 +239,24 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
     const now = Date.now();
     let items: TrendItem[] = [];
 
-    // Parallel Fetching
-    const [apifyItems, lunarItems] = await Promise.all([
+    // Parallel Fetching - Web3 News (primary), Twitter, and LunarCrush (fallback)
+    const [web3NewsItems, apifyItems, lunarItems] = await Promise.all([
+        // 1. Web3 News from Apify crypto-news-scraper (PRIMARY SOURCE)
+        fetchWeb3News(brandName, {
+            limit: 10,
+            cacheDurationMs: 24 * 60 * 60 * 1000 // 24 hour cache
+        }).catch(e => {
+            console.warn("Web3 News fetch failed:", e);
+            return [] as TrendItem[];
+        }),
+
+        // 2. Twitter trends via unified actor
         (async () => {
-            // 1. Try Real API Fetch if Token Exists
             if (apifyToken) {
                 try {
-                    console.log("Fetching live trends via Apify...");
-                    // Using new unified Twitter actor VsTreSuczsXhhRIqa
-                    const keywords = buildSearchTerms(brandName, apifyHandle, lunarSymbol);
-
-                    // Using new unified Twitter actor VsTreSuczsXhhRIqa
+                    console.log("Fetching live trends via Apify Twitter...");
                     const handle = cleanHandle(apifyHandle) || brandName;
-                    const items = await runApifyActor('VsTreSuczsXhhRIqa', {
+                    const tweetItems = await runApifyActor('VsTreSuczsXhhRIqa', {
                         "handles": [handle],
                         "tweetsDesired": 5,
                         "profilesDesired": 0,
@@ -259,11 +265,10 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
                         "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
                     }, apifyToken);
 
-                    if (items && items.length > 0) {
-                        return items.map((item: any) => {
-                            // Calculate Score from actual engagement using new actor format
+                    if (tweetItems && tweetItems.length > 0) {
+                        return tweetItems.map((item: any) => {
                             const engagement = (item.retweets || 0) * 2 + (item.likes || 0) + (item.replies || 0);
-                            const calcScore = Math.min(99, 60 + Math.ceil(engagement / 100)); // Baseline 60, +1 per 100 interactions
+                            const calcScore = Math.min(99, 60 + Math.ceil(engagement / 100));
 
                             return {
                                 id: item.id || `trend-${Math.random()}`,
@@ -272,7 +277,7 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
                                 summary: item.text || "No summary",
                                 relevanceScore: calcScore,
                                 relevanceReason: engagement > 1000 ? "High Engagement Velocity" : "Emerging Conversation",
-                                sentiment: 'Neutral',
+                                sentiment: 'Neutral' as const,
                                 timestamp: 'Live',
                                 createdAt: now,
                                 url: item.url,
@@ -281,19 +286,31 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
                         });
                     }
                 } catch (e) {
-                    console.warn("Apify fetch failed for Pulse, falling back to mock.", e);
+                    console.warn("Apify Twitter fetch failed:", e);
                 }
             }
             return null;
         })(),
+
+        // 3. LunarCrush (fallback/supplementary)
         fetchLunarCrushTrends(lunarSymbol, brandName)
     ]);
 
+    // Combine results - Web3 News first (primary), then Twitter, then LunarCrush
+    if (web3NewsItems && web3NewsItems.length > 0) {
+        items = [...items, ...web3NewsItems];
+    }
     if (apifyItems) items = [...items, ...apifyItems];
     if (lunarItems) items = [...items, ...lunarItems];
 
+    // Sort by relevance score then recency
+    items.sort((a, b) => {
+        if (b.relevanceScore !== a.relevanceScore) {
+            return b.relevanceScore - a.relevanceScore;
+        }
+        return b.createdAt - a.createdAt;
+    });
 
-    // 2. Return what we found (real data only)
     return items;
 };
 

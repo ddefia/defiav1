@@ -11,6 +11,7 @@ import crypto from 'crypto';
 import { startAgent, triggerAgentRun, runBrainCycle } from './server/agent/scheduler.js';
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
 import { crawlWebsite, fetchTwitterContent, uploadCarouselGraphic } from './server/onboarding.js';
+import { fetchWeb3News, scheduledNewsFetch } from './server/services/web3News.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -902,6 +903,53 @@ app.get('/api/lunarcrush/posts/:screen_name', async (req, res) => {
         });
         const data = await response.json();
         res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Web3 News Endpoints ---
+
+app.get('/api/web3-news', async (req, res) => {
+    const { brand, refresh } = req.query;
+    const supabase = getSupabaseClient();
+
+    try {
+        const result = await fetchWeb3News(supabase, brand || 'global', {
+            forceRefresh: refresh === 'true',
+            limit: 10,
+            cacheDurationMs: 24 * 60 * 60 * 1000 // 24 hours
+        });
+
+        res.json({
+            items: result.items || [],
+            cached: result.cached || false,
+            stale: result.stale || false,
+            count: result.items?.length || 0
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message, items: [] });
+    }
+});
+
+app.post('/api/web3-news/refresh', async (req, res) => {
+    const { brands } = req.body;
+    const supabase = getSupabaseClient();
+
+    try {
+        let brandList = brands || [];
+
+        // If no brands specified, fetch active brands from DB
+        if (brandList.length === 0 && supabase) {
+            const { data } = await supabase
+                .from('brands')
+                .select('id, name')
+                .eq('active', true);
+            brandList = data || [];
+        }
+
+        const results = await scheduledNewsFetch(supabase, brandList);
+        res.json({ success: true, results });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

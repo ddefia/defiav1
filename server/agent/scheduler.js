@@ -4,6 +4,7 @@ import { analyzeState } from './brain.js';
 import { generateDailyBriefing } from './generator.js'; // Import Generator
 import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
 import { fetchActiveBrands } from './brandRegistry.js';
+import { scheduledNewsFetch } from '../services/web3News.js';
 
 /**
  * SCHEDULER SERVICE
@@ -262,6 +263,18 @@ export const startAgent = () => {
     // 5. Nightly backup for decisions (02:00 AM)
     cron.schedule('0 2 * * *', async () => {
         await backupAgentDecisions(supabase);
+    });
+
+    // 6. Daily Web3 News Fetch (08:00 AM) - Once per day
+    cron.schedule('0 8 * * *', async () => {
+        console.log(`\n[${new Date().toISOString()}] 📰 Daily News Sync: Fetching Web3 News...`);
+        try {
+            const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+            await scheduledNewsFetch(supabase, activeBrands);
+            console.log("   - 📰 Web3 News Sync Complete.");
+        } catch (e) {
+            console.error("   - News Sync Failed:", e.message);
+        }
     });
 };
 
