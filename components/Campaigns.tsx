@@ -572,6 +572,12 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             startDateObj.setDate(startDateObj.getDate() + 1);
         }
 
+        const buildScheduledAt = (dateStr: string, time: string) => {
+            const scheduled = new Date(`${dateStr}T${time}:00`);
+            if (Number.isNaN(scheduled.getTime())) return undefined;
+            return scheduled.toISOString();
+        };
+
         const newEvents: CalendarEvent[] = items.map((item, idx) => {
             const date = new Date(startDateObj);
             date.setDate(startDateObj.getDate() + idx);
@@ -580,6 +586,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             const month = (date.getMonth() + 1).toString().padStart(2, '0');
             const day = date.getDate().toString().padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
+            const timeStr = '09:00';
 
             const selectedImage = (item.images && item.images.length > 0)
                 ? item.images[item.selectedImageIndex ?? 0]
@@ -587,6 +594,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
             return {
                 id: `evt-camp-${item.id}`, date: dateStr, content: item.tweet, image: selectedImage,
+                time: timeStr, scheduledAt: buildScheduledAt(dateStr, timeStr),
                 platform: 'Twitter', status: 'scheduled', approvalStatus: 'approved',
                 campaignName: campaignTheme || 'Campaign', color: '#4F46E5', reasoning: item.reasoning,
                 visualDescription: item.artPrompt, referenceImageId: item.referenceImageId,
@@ -621,11 +629,11 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         }
 
         let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Date,Platform,Status,Content,Image URL\r\n";
+        csvContent += "Date,Time,Platform,Status,Content,Image URL\r\n";
 
         campaignEvents.forEach(evt => {
             const cleanContent = evt.content.replace(/"/g, '""');
-            const row = `${evt.date},${evt.platform},${evt.status},"${cleanContent}",${evt.image || ''}`;
+            const row = `${evt.date},${evt.time || ''},${evt.platform},${evt.status},"${cleanContent}",${evt.image || ''}`;
             csvContent += row + "\r\n";
         });
 

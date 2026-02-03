@@ -24,6 +24,10 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
     const [savingIntegrations, setSavingIntegrations] = useState(false);
     const [timezone, setTimezone] = useState('UTC +0 (London)');
     const [language, setLanguage] = useState('English (US)');
+    const [xApiKey, setXApiKey] = useState('');
+    const [xApiSecret, setXApiSecret] = useState('');
+    const [xAccessToken, setXAccessToken] = useState('');
+    const [xAccessSecret, setXAccessSecret] = useState('');
 
     // Profile data from auth
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -131,7 +135,11 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                             volume: duneVolumeQuery,
                             users: duneUsersQuery,
                             retention: duneRetentionQuery
-                        }
+                        },
+                        xApiKey: xApiKey || undefined,
+                        xApiSecret: xApiSecret || undefined,
+                        xAccessToken: xAccessToken || undefined,
+                        xAccessSecret: xAccessSecret || undefined
                     })
                 });
             } catch (e) {
@@ -343,6 +351,56 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                             placeholder="Query ID"
                                             className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
                                         />
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 border-t border-[#1F1F23] pt-4">
+                                    <span className="text-xs font-semibold text-[#94A3B8] uppercase tracking-widest">X Publishing Credentials</span>
+                                    <p className="text-[11px] text-[#6B6B70] mt-1 mb-3">
+                                        Stored securely in Supabase for server-side publishing. Leave blank to keep existing values.
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[#9CA3AF] text-xs font-medium">X API Key</label>
+                                            <input
+                                                value={xApiKey}
+                                                onChange={(e) => setXApiKey(e.target.value)}
+                                                placeholder="API Key"
+                                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[#9CA3AF] text-xs font-medium">X API Secret</label>
+                                            <input
+                                                type="password"
+                                                value={xApiSecret}
+                                                onChange={(e) => setXApiSecret(e.target.value)}
+                                                placeholder="API Secret"
+                                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[#9CA3AF] text-xs font-medium">X Access Token</label>
+                                            <input
+                                                type="password"
+                                                value={xAccessToken}
+                                                onChange={(e) => setXAccessToken(e.target.value)}
+                                                placeholder="Access Token"
+                                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[#9CA3AF] text-xs font-medium">X Access Secret</label>
+                                            <input
+                                                type="password"
+                                                value={xAccessSecret}
+                                                onChange={(e) => setXAccessSecret(e.target.value)}
+                                                placeholder="Access Secret"
+                                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 

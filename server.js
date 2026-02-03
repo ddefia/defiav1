@@ -8,7 +8,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { startAgent, triggerAgentRun } from './server/agent/scheduler.js';
+import { startAgent, triggerAgentRun, runBrainCycle } from './server/agent/scheduler.js';
+import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
 import { crawlWebsite, fetchTwitterContent, uploadCarouselGraphic } from './server/onboarding.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -549,11 +550,28 @@ app.patch('/api/brands/:id/integrations', async (req, res) => {
             return res.status(ownership.status).json({ error: ownership.error });
         }
 
-        const { apifyHandle, lunarcrushSymbol, duneQueryIds } = req.body || {};
+        const { apifyHandle, lunarcrushSymbol, duneQueryIds, xApiKey, xApiSecret, xAccessToken, xAccessSecret } = req.body || {};
 
         const normalizedHandle = apifyHandle ? normalizeHandle(String(apifyHandle)) : null;
         if (normalizedHandle && !isValidHandle(normalizedHandle)) {
             return res.status(400).json({ error: 'Invalid Apify/X handle.' });
+        }
+
+        const { data: existing } = await supabase
+            .from('brand_integrations')
+            .select('metadata')
+            .eq('brand_id', brandId)
+            .maybeSingle();
+
+        const metadata = existing?.metadata || {};
+        if (xApiKey && xApiSecret && xAccessToken && xAccessSecret) {
+            metadata.xCredentials = {
+                apiKey: String(xApiKey),
+                apiSecret: String(xApiSecret),
+                accessToken: String(xAccessToken),
+                accessSecret: String(xAccessSecret),
+                updatedAt: new Date().toISOString()
+            };
         }
 
         const payload = {
@@ -561,6 +579,7 @@ app.patch('/api/brands/:id/integrations', async (req, res) => {
             apify_handle: normalizedHandle || null,
             lunarcrush_symbol: lunarcrushSymbol ? sanitizeText(String(lunarcrushSymbol)) : null,
             dune_query_ids: duneQueryIds || null,
+            metadata: Object.keys(metadata).length ? metadata : null,
             updated_at: new Date().toISOString()
         };
 
@@ -599,6 +618,32 @@ app.post('/api/agent/trigger', async (req, res) => {
     } catch (e) {
         console.error('[AgentTrigger] Failed:', e);
         return res.status(500).json({ error: 'Agent trigger failed.' });
+    }
+});
+
+// --- Agent Run (Always-On Cron Entry) ---
+app.get('/api/agent/run', async (req, res) => {
+    try {
+        const brandId = req.query.brandId;
+        const label = req.query.label || 'API Decision Scan';
+        const result = await runBrainCycle({ label, brandIdentifier: brandId });
+        return res.json(result);
+    } catch (e) {
+        console.error('[AgentRun] Failed:', e);
+        return res.status(500).json({ error: 'Agent run failed.' });
+    }
+});
+
+// --- Publishing Run (Scheduled Posts) ---
+app.get('/api/publish/run', async (req, res) => {
+    try {
+        const brandId = req.query.brandId;
+        const label = req.query.label || 'API Publish Run';
+        const result = await runPublishingCycle({ label, brandIdentifier: brandId });
+        return res.json(result);
+    } catch (e) {
+        console.error('[PublishRun] Failed:', e);
+        return res.status(500).json({ error: 'Publish run failed.' });
     }
 });
 
@@ -1036,6 +1081,9 @@ if (process.env.VERCEL !== '1') {
 
         // Start Autonomous Agent
         startAgent();
+
+        // Start Scheduled Publisher (local dev)
+        startPublishing();
     });
 }
 

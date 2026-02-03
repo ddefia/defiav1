@@ -5,9 +5,10 @@ interface StrategyDetailViewProps {
     task: StrategyTask;
     onClose: () => void;
     onExecute: () => void;
+    onFeedback?: (feedback: 'approved' | 'dismissed' | 'neutral') => void;
 }
 
-export const StrategyDetailView: React.FC<StrategyDetailViewProps> = ({ task, onClose, onExecute }) => {
+export const StrategyDetailView: React.FC<StrategyDetailViewProps> = ({ task, onClose, onExecute, onFeedback }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-fadeIn">
             {/* Backdrop with deeper blur */}
@@ -178,6 +179,30 @@ export const StrategyDetailView: React.FC<StrategyDetailViewProps> = ({ task, on
                         Dismiss
                     </button>
                     <div className="flex gap-3">
+                        {onFeedback && (
+                            <>
+                                <button
+                                    onClick={() => onFeedback(task.feedback === 'approved' ? 'neutral' : 'approved')}
+                                    className={`px-4 py-2.5 text-xs font-bold rounded-lg transition-colors border ${
+                                        task.feedback === 'approved'
+                                            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-200'
+                                            : 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100'
+                                    }`}
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    onClick={() => onFeedback(task.feedback === 'dismissed' ? 'neutral' : 'dismissed')}
+                                    className={`px-4 py-2.5 text-xs font-bold rounded-lg transition-colors border ${
+                                        task.feedback === 'dismissed'
+                                            ? 'bg-rose-500/15 text-rose-700 border-rose-200'
+                                            : 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100'
+                                    }`}
+                                >
+                                    Dismiss
+                                </button>
+                            </>
+                        )}
                         <button className="px-5 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200">
                             Edit Brief
                         </button>

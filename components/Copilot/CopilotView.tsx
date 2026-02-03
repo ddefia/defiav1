@@ -355,7 +355,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                                                             I've set up a writing session for: <span className="font-medium text-white">{msg.intent.params?.contentTopic}</span>
                                                         </p>
                                                         <button
-                                                            onClick={() => onNavigate('content', { draft: msg.intent?.params?.contentTopic })}
+                                                            onClick={() => onNavigate('studio', { draft: msg.intent?.params?.contentTopic })}
                                                             className="w-full py-2.5 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
                                                         >
                                                             Open Content Studio

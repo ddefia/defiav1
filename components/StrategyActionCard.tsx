@@ -4,9 +4,10 @@ import { StrategyTask } from '../types';
 interface StrategyActionCardProps {
     task: StrategyTask;
     onConfigure: () => void;
+    onFeedback?: (taskId: string, feedback: 'approved' | 'dismissed' | 'neutral') => void;
 }
 
-export const StrategyActionCard: React.FC<StrategyActionCardProps> = ({ task, onConfigure }) => {
+export const StrategyActionCard: React.FC<StrategyActionCardProps> = ({ task, onConfigure, onFeedback }) => {
     // Map Type to readable tag
     const getTagStyle = (type: string) => {
         const styles: Record<string, string> = {
@@ -26,8 +27,10 @@ export const StrategyActionCard: React.FC<StrategyActionCardProps> = ({ task, on
         return 'text-amber-600 bg-amber-50 border-amber-100';
     };
 
+    const feedbackTone = task.feedback === 'approved' ? 'border-emerald-300 bg-emerald-50/40' : task.feedback === 'dismissed' ? 'border-rose-300 bg-rose-50/40 opacity-70' : '';
+
     return (
-        <div className="bg-white border border-gray-200/60 rounded-xl p-0 shadow-sm hover:shadow-premium hover:-translate-y-0.5 transition-all duration-300 relative group overflow-hidden mb-3">
+        <div className={`bg-white border border-gray-200/60 rounded-xl p-0 shadow-sm hover:shadow-premium hover:-translate-y-0.5 transition-all duration-300 relative group overflow-hidden mb-3 ${feedbackTone}`}>
 
             {/* Type Indicator Line */}
             <div className={`absolute left-0 top-0 bottom-0 w-1 ${getTagStyle(task.type).split(' ')[0].replace('bg-', 'bg-')}`}></div>
@@ -46,6 +49,12 @@ export const StrategyActionCard: React.FC<StrategyActionCardProps> = ({ task, on
                                     <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
                                     Twitter
                                 </span>
+                                {task.feedback === 'approved' && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600">Approved</span>
+                                )}
+                                {task.feedback === 'dismissed' && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-rose-500">Dismissed</span>
+                                )}
                             </div>
 
                             {/* Mobile Impact Score */}
@@ -105,6 +114,38 @@ export const StrategyActionCard: React.FC<StrategyActionCardProps> = ({ task, on
                         </svg>
                     </button>
 
+                    {onFeedback && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onFeedback(task.id, task.feedback === 'approved' ? 'neutral' : 'approved');
+                                }}
+                                className={`flex-1 h-8 rounded text-[10px] font-bold uppercase tracking-widest border transition-colors ${
+                                    task.feedback === 'approved'
+                                        ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200'
+                                        : 'bg-white text-emerald-600 border-emerald-100 hover:bg-emerald-50'
+                                }`}
+                                title="Approve recommendation"
+                            >
+                                Approve
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onFeedback(task.id, task.feedback === 'dismissed' ? 'neutral' : 'dismissed');
+                                }}
+                                className={`flex-1 h-8 rounded text-[10px] font-bold uppercase tracking-widest border transition-colors ${
+                                    task.feedback === 'dismissed'
+                                        ? 'bg-rose-500/10 text-rose-600 border-rose-200'
+                                        : 'bg-white text-rose-500 border-rose-100 hover:bg-rose-50'
+                                }`}
+                                title="Dismiss recommendation"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    )}
                 </div>
 
             </div>

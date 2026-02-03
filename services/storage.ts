@@ -709,6 +709,29 @@ export const saveIntegrationKeys = (keys: IntegrationKeys, brandName?: string): 
     // NOTE: Not syncing keys to cloud for security reasons in this basic implementation
 };
 
+// --- DECISION LOOP SCHEDULE ---
+
+const DECISION_LOOP_LAST_RUN_KEY = 'defia_decision_loop_last_run_v1';
+
+export const loadDecisionLoopLastRun = (brandName: string): number => {
+    try {
+        const key = `${DECISION_LOOP_LAST_RUN_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+        return stored ? Number(stored) : 0;
+    } catch (e) {
+        return 0;
+    }
+};
+
+export const saveDecisionLoopLastRun = (brandName: string, timestamp: number = Date.now()): void => {
+    try {
+        const key = `${DECISION_LOOP_LAST_RUN_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, String(timestamp));
+    } catch (e) {
+        console.warn("Failed to save decision loop timestamp", e);
+    }
+};
+
 // --- STRATEGY TASKS PERSISTENCE ---
 
 const STRATEGY_STORAGE_KEY = 'defia_strategy_tasks_v1';

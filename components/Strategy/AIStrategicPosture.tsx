@@ -10,6 +10,8 @@ interface AIStrategicPostureProps {
     onRefine?: () => void;
     isRefining?: boolean;
     onSchedule?: (content: string, image?: string) => void;
+    onNavigate?: (section: string, params?: any) => void;
+    onFeedback?: (taskId: string, feedback: 'approved' | 'dismissed' | 'neutral') => void;
 }
 
 export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
@@ -19,7 +21,9 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
     onUpdate,
     onRefine,
     isRefining = false,
-    onSchedule
+    onSchedule,
+    onNavigate,
+    onFeedback
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editState, setEditState] = useState<StrategicPosture>(posture);
@@ -39,7 +43,27 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
         setIsEditing(false);
     };
 
+    const buildStudioParams = (task: StrategyTask) => {
+        const draft = task.executionPrompt || task.title || '';
+        const visualPrompt = task.suggestedVisualTemplate || undefined;
+        return { draft, visualPrompt };
+    };
+
+    const buildCampaignParams = (task: StrategyTask) => {
+        const intent = task.executionPrompt || task.title || '';
+        return { intent };
+    };
+
     const handleExecuteTask = (task: StrategyTask) => {
+        if (onNavigate) {
+            if (task.type === 'CAMPAIGN_IDEA') {
+                onNavigate('campaigns', buildCampaignParams(task));
+                return;
+            }
+            onNavigate('studio', buildStudioParams(task));
+            return;
+        }
+
         if (onSchedule) {
             onSchedule(task.executionPrompt, task.suggestedVisualTemplate);
         }
@@ -213,6 +237,7 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
                                         <StrategyActionCard
                                             key={task.id}
                                             task={task}
+                                            onFeedback={onFeedback}
                                             onConfigure={() => handleExecuteTask(task)}
                                         />
                                     ))}
@@ -299,4 +324,3 @@ export const AIStrategicPosture: React.FC<AIStrategicPostureProps> = ({
         </div>
     );
 };
-

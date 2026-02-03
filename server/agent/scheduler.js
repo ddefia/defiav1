@@ -111,74 +111,93 @@ const pruneOldDecisions = async (supabase, days = 30) => {
     }
 };
 
+const normalize = (value) => String(value || '').toLowerCase();
+
+export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdentifier, supabaseOverride } = {}) => {
+    console.log(`\n[${new Date().toISOString()}] 🧠 Agent Cycle: ${label}`);
+
+    const supabase = supabaseOverride || getSupabaseClient();
+    const duneKey = process.env.DUNE_API_KEY;
+    const lunarKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
+    const apifyKey = process.env.APIFY_API_TOKEN;
+
+    try {
+        // A. Global Context (Fetch Once)
+        console.log("   - Scanning global market trends...");
+        const [pulse, lunarTrends] = await Promise.all([
+            fetchPulseTrends(lunarKey),
+            fetchLunarCrushTrends(lunarKey, 'ETH') // Global sentiment
+        ]);
+
+        const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+        let registry = activeBrands.length > 0
+            ? activeBrands
+            : Object.entries(TRACKED_BRANDS).map(([brandId, handle]) => ({
+                id: brandId,
+                name: brandId,
+                xHandle: handle
+            }));
+
+        if (brandIdentifier) {
+            registry = registry.filter(b =>
+                normalize(b.id) === normalize(brandIdentifier)
+                || normalize(b.name) === normalize(brandIdentifier)
+                || normalize(b.xHandle) === normalize(brandIdentifier)
+            );
+        }
+
+        const results = [];
+
+        // B. Per-Brand Analysis (Multi-Tenant)
+        for (const brand of registry) {
+            const brandId = brand.id;
+            const handle = brand.xHandle || brand.name;
+            console.log(`   > Analyzing Brand: ${brandId} (@${handle})...`);
+            if (supabase) {
+                const automation = await fetchAutomationSettings(supabase, brandId);
+                if (!automation.enabled) {
+                    console.log(`     - ⏸️ Automation disabled for ${brandId}. Skipping.`);
+                    results.push({ brandId, skipped: true, reason: 'Automation disabled' });
+                    continue;
+                }
+            }
+
+            const brandProfile = supabase ? await fetchBrandProfile(supabase, brandId) : null;
+
+            // 1. Brand Specific Data
+            const [dune, mentions] = await Promise.all([
+                fetchDuneMetrics(duneKey), // TODO: Pass brandId to fetch specific dune query
+                fetchMentions(apifyKey, handle)
+            ]);
+
+            // 2. Analyze
+            const decision = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || {});
+
+            // 3. Act & Save
+            if (decision.action && decision.action !== 'NO_ACTION' && decision.action !== 'ERROR') {
+                const icon = decision.action === 'REPLY' ? '↩️' : decision.action === 'TREND_JACK' ? '⚡' : '📢';
+                console.log(`     - ${icon} [${brandId}] ACTION: ${decision.action}`);
+
+                const record = { ...decision, brandId };
+                saveDecisionToFile(record);
+                await saveDecisionToDb(supabase, decision, brandId);
+                results.push({ brandId, decision });
+            } else {
+                results.push({ brandId, decision, skipped: true });
+            }
+        }
+        console.log("   - 💤 Agent Cycle Complete.");
+        return { label, processed: registry.length, results };
+
+    } catch (error) {
+        console.error("   - ❌ Agent Loop Failed:", error.message);
+        return { label, error: error.message };
+    }
+};
+
 export const startAgent = () => {
     console.log("🤖 Agent Scheduled: Online & Monitoring...");
     const supabase = getSupabaseClient();
-
-    const runBrainCycle = async (label) => {
-        console.log(`\n[${new Date().toISOString()}] 🧠 Agent Cycle: ${label}`);
-
-        const duneKey = process.env.DUNE_API_KEY;
-        const lunarKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
-        const apifyKey = process.env.APIFY_API_TOKEN;
-
-        try {
-            // A. Global Context (Fetch Once)
-            console.log("   - Scanning global market trends...");
-            const [pulse, lunarTrends] = await Promise.all([
-                fetchPulseTrends(lunarKey),
-                fetchLunarCrushTrends(lunarKey, 'ETH') // Global sentiment
-            ]);
-
-            const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
-            const registry = activeBrands.length > 0
-                ? activeBrands
-                : Object.entries(TRACKED_BRANDS).map(([brandId, handle]) => ({
-                    id: brandId,
-                    name: brandId,
-                    xHandle: handle
-                }));
-
-            // B. Per-Brand Analysis (Multi-Tenant)
-            for (const brand of registry) {
-                const brandId = brand.id;
-                const handle = brand.xHandle || brand.name;
-                console.log(`   > Analyzing Brand: ${brandId} (@${handle})...`);
-                if (supabase) {
-                    const automation = await fetchAutomationSettings(supabase, brandId);
-                    if (!automation.enabled) {
-                        console.log(`     - ⏸️ Automation disabled for ${brandId}. Skipping.`);
-                        continue;
-                    }
-                }
-
-                const brandProfile = supabase ? await fetchBrandProfile(supabase, brandId) : null;
-
-                // 1. Brand Specific Data
-                const [dune, mentions] = await Promise.all([
-                    fetchDuneMetrics(duneKey), // TODO: Pass brandId to fetch specific dune query
-                    fetchMentions(apifyKey, handle)
-                ]);
-
-                // 2. Analyze
-                const decision = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || {});
-
-                // 3. Act & Save
-                if (decision.action !== 'NO_ACTION') {
-                    const icon = decision.action === 'REPLY' ? '↩️' : decision.action === 'TREND_JACK' ? '⚡' : '📢';
-                    console.log(`     - ${icon} [${brandId}] ACTION: ${decision.action}`);
-
-                    const record = { ...decision, brandId };
-                    saveDecisionToFile(record);
-                    await saveDecisionToDb(supabase, decision, brandId);
-                }
-            }
-            console.log("   - 💤 Agent Cycle Complete.");
-
-        } catch (error) {
-            console.error("   - ❌ Agent Loop Failed:", error.message);
-        }
-    };
 
     // 0. Initial Run (Bootup) - Run once immediately after 5s
     setTimeout(async () => {
@@ -189,12 +208,12 @@ export const startAgent = () => {
     }, 5000);
 
     setTimeout(async () => {
-        await runBrainCycle('Bootup Decision Scan');
+        await runBrainCycle({ label: 'Bootup Decision Scan', supabaseOverride: supabase });
     }, 8000);
 
     // 1. Core Agent Loop (Decision Making) - Hourly
     cron.schedule('0 * * * *', async () => {
-        await runBrainCycle('Hourly Decision Scan');
+        await runBrainCycle({ label: 'Hourly Decision Scan', supabaseOverride: supabase });
     });
 
     // 2. Data Sync Loop (Data Freshness) - Daily at Noon

@@ -3,7 +3,7 @@ import { AnalysisReport, SocialMetrics, StrategyTask, CalendarEvent, ComputedMet
 import { fetchCampaignPerformance, fetchMentions } from '../services/analytics';
 import { generateDailyBrief as generateBriefService, orchestrateMarketingDecision } from '../services/gemini';
 import { getBrainContext } from '../services/pulse';
-import { getBrandRegistryEntry, loadBrainLogs, loadCampaignState } from '../services/storage';
+import { getBrandRegistryEntry, loadBrainLogs, loadCampaignState, saveDecisionLoopLastRun } from '../services/storage';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
 
 interface DashboardProps {
@@ -177,8 +177,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }, [brandName, calendarEvents]);
 
     const upcomingContent = calendarEvents
-        .filter(e => new Date(e.date) >= new Date())
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .filter(e => {
+            const target = e.scheduledAt ? new Date(e.scheduledAt) : new Date(e.date);
+            return target >= new Date();
+        })
+        .sort((a, b) => {
+            const aTime = a.scheduledAt ? new Date(a.scheduledAt).getTime() : new Date(a.date).getTime();
+            const bTime = b.scheduledAt ? new Date(b.scheduledAt).getTime() : new Date(b.date).getTime();
+            return aTime - bTime;
+        })
         .slice(0, 4);
 
     const filteredCampaigns = useMemo(() => {
@@ -193,6 +200,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const deepContext = await getBrainContext(registry?.brandId);
             const brainLogs = loadBrainLogs(brandName).slice(0, 5);
             const brainLogSignals = brainLogs.map(log => `[${log.type}] ${log.context}`).join('\n');
+            const knowledgeBase = brandConfig?.knowledgeBase?.length
+                ? `BRAND KNOWLEDGE:\n${brandConfig.knowledgeBase.slice(0, 8).map(entry => `- ${entry}`).join('\n')}`
+                : '';
+            const positioning = brandConfig?.brandCollectorProfile?.positioning?.oneLiner
+                ? `POSITIONING:\n${brandConfig.brandCollectorProfile.positioning.oneLiner}`
+                : '';
+            const voiceGuidelines = brandConfig?.voiceGuidelines
+                ? `VOICE GUIDELINES:\n${brandConfig.voiceGuidelines}`
+                : '';
+            const brandKnowledgeBlock = [knowledgeBase, positioning, voiceGuidelines].filter(Boolean).join('\n');
 
             const brainContext = {
                 brand: { ...brandConfig, name: brandName },
@@ -200,7 +217,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 memory: {
                     ragDocs: [
                         deepContext.context ? `DEEP MEMORY:\n${deepContext.context}` : '',
-                        brainLogSignals ? `RECENT BRAIN LOGS:\n${brainLogSignals}` : ''
+                        brainLogSignals ? `RECENT BRAIN LOGS:\n${brainLogSignals}` : '',
+                        brandKnowledgeBlock
                     ].filter(Boolean),
                     recentPosts: socialMetrics?.recentPosts || [],
                     pastStrategies: tasks
@@ -255,13 +273,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     strategicAlignment: action.strategicAlignment,
                     contentIdeas: action.contentIdeas,
                     proof: (action as any).proof,
-                    logicExplanation: (action as any).logicExplanation
+                    logicExplanation: (action as any).logicExplanation,
+                    createdAt: Date.now(),
+                    feedback: 'neutral'
                 }));
                 onUpdateTasks(newTasks as any);
             }
+            saveDecisionLoopLastRun(brandName);
         } catch (e) {
             console.error("Regen Failed", e);
         }
+    };
+
+    const handleRecommendationAction = (rec: typeof AI_RECOMMENDATIONS[number]) => {
+        const title = rec.title || '';
+        const description = rec.description || '';
+        const draft = description && description !== title ? `${title}\n\n${description}` : title;
+        const type = rec.type ? rec.type.toLowerCase() : '';
+
+        const isCampaign = type.includes('campaign') || title.toLowerCase().includes('campaign') || rec.actionLabel.toLowerCase().includes('campaign');
+
+        if (!onNavigate) {
+            onSchedule(draft);
+            return;
+        }
+
+        if (isCampaign) {
+            onNavigate('campaigns', { intent: title || description });
+            return;
+        }
+
+        onNavigate('studio', { draft, visualPrompt: rec.actionLabel || rec.type });
     };
 
     const getContentTypeIcon = (platform: string) => {
@@ -301,7 +343,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         Export Report
                     </button>
                     <button
-                        onClick={() => onNavigate('content')}
+                        onClick={() => onNavigate('studio')}
                         className="h-10 px-4 rounded-full bg-[#FF5C00] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#FF6B1A] transition-colors font-['Inter']"
                     >
                         Create Content
@@ -442,7 +484,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         ))}
                                     </div>
                                     <button
-                                        onClick={() => onSchedule(rec.title)}
+                                        onClick={() => handleRecommendationAction(rec)}
                                         className="w-full py-2 rounded-md text-xs font-medium flex items-center justify-center gap-1.5"
                                         style={{ backgroundColor: rec.actionBg, color: rec.actionBg === '#B2B2FF' ? '#0A0A0B' : '#FFFFFF' }}
                                     >
@@ -459,7 +501,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                                         </svg>
                                     </div>
-                                    <p className="text-[#6B6B70] text-sm">Click "Refresh" to generate AI recommendations based on your brand data</p>
+                                    <p className="text-[#6B6B70] text-sm">Recommendations auto-refresh every 6 hours. Use "Refresh" to run now.</p>
                                 </div>
                             )}
                         </div>

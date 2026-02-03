@@ -13,21 +13,45 @@ interface StrategyBrainProps {
     onUpdateTasks: (t: StrategyTask[]) => void;
     onNavigate: (section: string, params?: any) => void;
     onRegenerate?: () => Promise<void>; // New: Optional regen
+    onFeedback?: (taskId: string, feedback: 'approved' | 'dismissed' | 'neutral') => void;
 }
 
 export const StrategyBrain: React.FC<StrategyBrainProps> = ({
     brandName,
     tasks,
     onSchedule,
-    onRegenerate
+    onNavigate,
+    onRegenerate,
+    onFeedback
 }) => {
     const [selectedTask, setSelectedTask] = useState<StrategyTask | null>(null);
     const [isRegenerating, setIsRegenerating] = useState(false);
 
+    const buildStudioParams = (task: StrategyTask) => {
+        const draft = task.executionPrompt || task.title || '';
+        const visualPrompt = task.suggestedVisualTemplate || undefined;
+        return { draft, visualPrompt };
+    };
+
+    const buildCampaignParams = (task: StrategyTask) => {
+        const intent = task.executionPrompt || task.title || '';
+        return { intent };
+    };
+
     const handleExecute = (task: StrategyTask) => {
         // Close modal if open
         setSelectedTask(null);
-        // Pre-fill schedule
+
+        if (onNavigate) {
+            if (task.type === 'CAMPAIGN_IDEA') {
+                onNavigate('campaigns', buildCampaignParams(task));
+                return;
+            }
+            onNavigate('studio', buildStudioParams(task));
+            return;
+        }
+
+        // Fallback: schedule directly
         onSchedule(task.executionPrompt, task.suggestedVisualTemplate);
     };
 
@@ -91,6 +115,7 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                         <StrategyActionCard
                             key={task.id}
                             task={task}
+                            onFeedback={onFeedback}
                             onConfigure={() => setSelectedTask(task)}
                         />
                     ))}
@@ -109,6 +134,9 @@ export const StrategyBrain: React.FC<StrategyBrainProps> = ({
                     task={selectedTask}
                     onClose={() => setSelectedTask(null)}
                     onExecute={() => handleExecute(selectedTask)}
+                    onFeedback={(feedback) => {
+                        if (onFeedback) onFeedback(selectedTask.id, feedback);
+                    }}
                 />
             )}
         </div>

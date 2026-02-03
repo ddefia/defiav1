@@ -93,6 +93,8 @@ export interface CampaignItem {
 export interface CalendarEvent {
   id: string;
   date: string; // YYYY-MM-DD
+  time?: string; // HH:mm (local time)
+  scheduledAt?: string; // ISO timestamp
   content: string;
   image?: string;
   platform: 'Twitter';
@@ -100,6 +102,11 @@ export interface CalendarEvent {
   approvalStatus?: 'approved' | 'published';
   campaignName?: string;
   color?: string; // Hex code or Tailwind class
+  publishedAt?: string;
+  platformPostId?: string;
+  publishError?: string;
+  publishAttempts?: number;
+  lastPublishAttemptAt?: string;
   // New: Metadata for "Thinking" View
   reasoning?: string; // The "Thinking"
   visualDescription?: string; // The "Prompt"
@@ -117,9 +124,11 @@ export interface StrategyTask {
   description: string;
   reasoning: string;
   impactScore: number; // 1-10
+  status?: 'pending' | 'approved' | 'dismissed';
   suggestedDate?: string;
   executionPrompt: string; // The prompt to send to the generator
   contextData?: TaskContextSource[]; // New: Evidence for the task
+  contextSource?: TaskContextSource; // Single primary evidence
   reasoningSteps?: string[]; // New: Step-by-step logic chain
   sourceLogId?: string; // New: Link to the BrainLog that created this
   suggestedVisualTemplate?: string; // New: AI suggested graphic template
@@ -132,6 +141,12 @@ export interface StrategyTask {
   // New: Proof & Footnotes
   logicExplanation?: string; // "Text explanation"
   proof?: string; // "Proof/Footnote"
+
+  // Meta
+  createdAt?: number;
+  feedback?: 'approved' | 'dismissed' | 'neutral';
+  feedbackAt?: number;
+  feedbackNote?: string;
 }
 
 export interface TaskContextSource {

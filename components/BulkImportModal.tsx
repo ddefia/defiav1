@@ -90,10 +90,18 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
 
     const handleImport = () => {
         const selectedDrafts = drafts.filter(d => d.selected);
+        const timeStr = '09:00';
+        const buildScheduledAt = (dateStr: string) => {
+            const scheduled = new Date(`${dateStr}T${timeStr}:00`);
+            if (Number.isNaN(scheduled.getTime())) return undefined;
+            return scheduled.toISOString();
+        };
 
         const newEvents: CalendarEvent[] = selectedDrafts.map(d => ({
             id: `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
             date: d.date,
+            time: timeStr,
+            scheduledAt: buildScheduledAt(d.date),
             content: d.content,
             platform: 'Twitter', // Default
             status: 'scheduled',

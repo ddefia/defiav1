@@ -30,6 +30,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState('');
     const [editDate, setEditDate] = useState('');
+    const [editTime, setEditTime] = useState('');
     const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
     const calendarFileInputRef = useRef<HTMLInputElement>(null);
@@ -67,20 +68,21 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
         setIsEditing(false);
         setEditContent(ev.content);
         setEditDate(ev.date);
+        setEditTime(ev.time || '09:00');
     };
 
     const handleSaveChanges = () => {
         if (!selectedEvent) return;
-        onUpdateEvent(selectedEvent.id, { content: editContent, date: editDate });
-        setSelectedEvent({ ...selectedEvent, content: editContent, date: editDate });
+        onUpdateEvent(selectedEvent.id, { content: editContent, date: editDate, time: editTime });
+        setSelectedEvent({ ...selectedEvent, content: editContent, date: editDate, time: editTime });
         setIsEditing(false);
     };
 
     const handleMarkPublished = () => {
         if (!selectedEvent) return;
-        const updated = { ...selectedEvent, status: 'published', approvalStatus: 'published' };
+        const updated = { ...selectedEvent, status: 'published', approvalStatus: 'published', publishedAt: new Date().toISOString() };
         setSelectedEvent(updated);
-        onUpdateEvent(selectedEvent.id, { status: 'published', approvalStatus: 'published' });
+        onUpdateEvent(selectedEvent.id, { status: 'published', approvalStatus: 'published', publishedAt: updated.publishedAt });
     };
 
     const handleCalendarImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,7 +106,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
     // Get event style based on type
     const getEventStyle = (event: CalendarEvent) => {
         // Tweet style - Blue
-        if (event.platform === 'twitter' && !event.campaignName) {
+        if (event.platform.toLowerCase() === 'twitter' && !event.campaignName) {
             return {
                 bg: 'bg-[#3B82F622]',
                 text: 'text-[#3B82F6]',
@@ -146,11 +148,11 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
         const sortedEvents = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
         let csvContent = "data:text/csv;charset=utf-8,";
-        csvContent += "Date,Campaign,Platform,Status,Content,Image URL\r\n";
+        csvContent += "Date,Time,Campaign,Platform,Status,Content,Image URL\r\n";
 
         sortedEvents.forEach(evt => {
             const cleanContent = evt.content.replace(/"/g, '""');
-            const row = `${evt.date},${evt.campaignName || 'Single Post'},${evt.platform},${evt.status},"${cleanContent}",${evt.image || ''}`;
+            const row = `${evt.date},${evt.time || ''},${evt.campaignName || 'Single Post'},${evt.platform},${evt.status},"${cleanContent}",${evt.image || ''}`;
             csvContent += row + "\r\n";
         });
 
@@ -258,7 +260,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
     // Filter events based on current filter
     const getFilteredEvents = (dayEvents: CalendarEvent[]) => {
         if (filter === 'all') return dayEvents;
-        if (filter === 'tweets') return dayEvents.filter(e => e.platform === 'twitter' && !e.campaignName);
+        if (filter === 'tweets') return dayEvents.filter(e => e.platform.toLowerCase() === 'twitter' && !e.campaignName);
         if (filter === 'campaigns') return dayEvents.filter(e => !!e.campaignName);
         return dayEvents;
     };
@@ -565,17 +567,33 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                     <h3 className="text-xl font-bold text-white mb-1">
                                         {selectedEvent.campaignName || 'Single Post'}
                                     </h3>
+                                    {selectedEvent.publishedAt && (
+                                        <p className="text-xs text-[#94A3B8]">
+                                            Published {new Date(selectedEvent.publishedAt).toLocaleString()}
+                                        </p>
+                                    )}
                                     {!isEditing ? (
                                         <p className="text-sm text-[#64748B]">
                                             Scheduled for <span className="font-medium text-white">{new Date(selectedEvent.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                            {selectedEvent.time ? (
+                                                <span className="text-[#94A3B8]"> at <span className="font-medium text-white">{selectedEvent.time}</span></span>
+                                            ) : null}
                                         </p>
                                     ) : (
-                                        <input
-                                            type="date"
-                                            value={editDate}
-                                            onChange={(e) => setEditDate(e.target.value)}
-                                            className="mt-1 bg-[#0A0A0B] border border-[#2E2E2E] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#FF5C00]"
-                                        />
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="date"
+                                                value={editDate}
+                                                onChange={(e) => setEditDate(e.target.value)}
+                                                className="mt-1 bg-[#0A0A0B] border border-[#2E2E2E] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#FF5C00]"
+                                            />
+                                            <input
+                                                type="time"
+                                                value={editTime}
+                                                onChange={(e) => setEditTime(e.target.value)}
+                                                className="mt-1 bg-[#0A0A0B] border border-[#2E2E2E] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#FF5C00]"
+                                            />
+                                        </div>
                                     )}
                                 </div>
                                 <div className="flex gap-2">
@@ -593,6 +611,24 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                             </div>
 
                             <div className="p-6 flex-1 overflow-y-auto">
+                                {selectedEvent.platformPostId && (
+                                    <div className="mb-4">
+                                        <a
+                                            href={`https://x.com/i/web/status/${selectedEvent.platformPostId}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-2 text-xs font-semibold text-[#22C55E] hover:text-[#34D399]"
+                                        >
+                                            View Published Post
+                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                        </a>
+                                    </div>
+                                )}
+                                {selectedEvent.publishError && (
+                                    <div className="mb-4 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                                        Publish error: {selectedEvent.publishError}
+                                    </div>
+                                )}
                                 <label className="text-xs font-semibold text-[#64748B] uppercase mb-3 block">Caption</label>
                                 {!isEditing ? (
                                     <div className="text-sm text-white whitespace-pre-wrap leading-relaxed">

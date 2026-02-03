@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis, executeMarketingAction, generateGrowthReport, refineStrategicPosture } from './services/gemini';
-import { fetchMarketPulse } from './services/pulse';
+import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis, orchestrateMarketingDecision, generateGrowthReport, refineStrategicPosture } from './services/gemini';
+import { fetchMarketPulse, getBrainContext } from './services/pulse';
 import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
 import { fetchActionCenter } from './services/actionCenter';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, loadCampaignState, saveCampaignState, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage, loadIntegrationKeys, saveIntegrationKeys } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, loadCampaignState, saveCampaignState, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage, loadIntegrationKeys, saveIntegrationKeys, loadDecisionLoopLastRun, saveDecisionLoopLastRun } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { getCurrentUser, onAuthStateChange, UserProfile } from './services/auth'; // Import auth
 import { Button } from './components/Button';
@@ -238,6 +238,7 @@ const App: React.FC = () => {
     const [showScheduleModal, setShowScheduleModal] = useState(false);
     const [itemToSchedule, setItemToSchedule] = useState<{ content: string, image?: string, campaignName?: string } | null>(null);
     const [scheduleDate, setScheduleDate] = useState('');
+    const [scheduleTime, setScheduleTime] = useState('');
 
     // Strategy & Metrics State (Lifted for Dashboard)
     const [strategyTasks, setStrategyTasks] = useState<StrategyTask[]>([]);
@@ -256,7 +257,13 @@ const App: React.FC = () => {
 
     const [systemLogs, setSystemLogs] = useState<string[]>([]); // New: Activity Logs for Dashboard
     const [automationEnabled, setAutomationEnabled] = useState<boolean>(true);
-    const autopilotBootedRef = useRef<Record<string, boolean>>({});
+    const decisionLoopInFlightRef = useRef<Record<string, boolean>>({});
+    const agentDecisionsRef = useRef<any[]>([]);
+
+    const DECISION_LOOP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+    // --- Agent Decisions Polling ---
+    const [agentDecisions, setAgentDecisions] = useState<any[]>([]);
 
     // Campaign Intent State (Handover from Pulse)
     const [campaignIntent, setCampaignIntent] = useState<{ type: 'theme' | 'diverse', theme: string } | null>(null);
@@ -451,13 +458,59 @@ const App: React.FC = () => {
             description: decision.reason || 'Automated decision from server brain.',
             reasoning: decision.reason || 'Automated decision from server brain.',
             impactScore: 7,
-            executionPrompt: decision.draft || decision.reason || 'Draft a response to the detected opportunity.'
+            executionPrompt: decision.draft || decision.reason || 'Draft a response to the detected opportunity.',
+            createdAt: decision.timestamp || Date.now(),
+            feedback: 'neutral'
         };
     };
 
     const hasOnlyWelcomeTask = (tasks: StrategyTask[]) => {
         return tasks.length === 1 && tasks[0].id === 'welcome-1';
     };
+
+    // --- Agent Decisions Polling ---
+    useEffect(() => {
+        const fetchDecisions = async () => {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+            try {
+                // If health check failed previously, maybe skip this? 
+                // For now, simple fetch with suppression
+                const res = await fetch(`${baseUrl}/api/decisions`).catch(() => null);
+                if (res && res.ok) {
+                    const data = await res.json();
+                    const filtered = data.filter((d: any) =>
+                        d.status === 'pending' &&
+                        (!d.brandId || d.brandId === selectedBrand)
+                    );
+                    agentDecisionsRef.current = filtered;
+                    setAgentDecisions(filtered);
+                }
+            } catch (e) {
+                // scilent fail 
+            }
+        };
+        fetchDecisions();
+        const interval = setInterval(fetchDecisions, 10000); // Poll every 10s
+        return () => clearInterval(interval);
+    }, [selectedBrand]);
+
+    useEffect(() => {
+        if (!selectedBrand || agentDecisions.length === 0) return;
+        const latestDecision = agentDecisions[0];
+        const decisionTimestamp = latestDecision?.created_at || latestDecision?.timestamp || null;
+        const decisionTime = decisionTimestamp ? new Date(decisionTimestamp).getTime() : 0;
+        if (!decisionTime) return;
+
+        const latestTaskTime = strategyTasks.reduce((max, task) => Math.max(max, task.createdAt || 0), 0);
+        if (latestTaskTime && decisionTime <= latestTaskTime) return;
+
+        const mapped = agentDecisions.map(mapDecisionToTask).slice(0, 5);
+        if (mapped.length === 0) return;
+
+        setStrategyTasks(mapped);
+        saveStrategyTasks(selectedBrand, mapped);
+        saveDecisionLoopLastRun(selectedBrand, decisionTime);
+    }, [agentDecisions, selectedBrand, strategyTasks]);
 
     // --- AUTO-PILOT LOGIC (Formerly in GrowthEngine) ---
     // Persistent background scanning regardless of active tab
@@ -470,10 +523,14 @@ const App: React.FC = () => {
                 setSystemLogs(prev => ["Automation disabled. Skipping background scan.", ...prev]);
                 return;
             }
-            if (autopilotBootedRef.current[selectedBrand]) {
-                return;
-            }
-            autopilotBootedRef.current[selectedBrand] = true;
+
+            const lastRun = loadDecisionLoopLastRun(selectedBrand);
+            const now = Date.now();
+            const isDecisionStale = !lastRun || now - lastRun >= DECISION_LOOP_INTERVAL_MS;
+
+            if (!isDecisionStale) return;
+            if (decisionLoopInFlightRef.current[selectedBrand]) return;
+            decisionLoopInFlightRef.current[selectedBrand] = true;
 
             setSystemLogs(prev => ["Initializing Auto-Pilot Sentinel...", ...prev]);
 
@@ -485,10 +542,13 @@ const App: React.FC = () => {
                         setSystemLogs(prev => ["Loaded server-side Daily Briefing.", ...prev]);
                     }
 
-                    if (actionCenter.decisions?.length && hasOnlyWelcomeTask(strategyTasks)) {
-                        const mappedTasks = actionCenter.decisions.map(mapDecisionToTask);
-                        setStrategyTasks(mappedTasks);
-                        setSystemLogs(prev => ["Loaded server-side Action Center recommendations.", ...prev]);
+                    if (actionCenter.decisions?.length) {
+                        const mappedTasks = actionCenter.decisions.map(mapDecisionToTask).slice(0, 5);
+                        if (mappedTasks.length > 0) {
+                            setStrategyTasks(mappedTasks);
+                            saveStrategyTasks(selectedBrand, mappedTasks);
+                            setSystemLogs(prev => ["Loaded server-side Action Center recommendations.", ...prev]);
+                        }
                     }
 
                     if (actionCenter.decisions?.length && actionCenter.growthReport) {
@@ -575,111 +635,198 @@ const App: React.FC = () => {
                 const ragContextDocs = ragHits.map(h => h.content); // Extract just strings
 
                 // 4. UNIFIED BRAIN EXECUTION (Autopilot)
-                // STABILITY FIX: Only run if we don't have existing tasks to prevent "churn"
                 const existingTasks = loadStrategyTasks(selectedBrand);
                 const hasOnlyWelcome = hasOnlyWelcomeTask(existingTasks);
-                const hasFreshTasks = existingTasks.length > 0 && !hasOnlyWelcome;
 
-                if (!hasFreshTasks) {
+                const brainLogs = loadBrainLogs(selectedBrand).slice(0, 5);
+                const brainLogSignals = brainLogs.map(log => `[${log.type}] ${log.context}`).join('\n');
+                const deepContext = await getBrainContext(registryEntry?.brandId);
+
+                const brandProfile = profiles[selectedBrand];
+                const knowledgeBase = brandProfile?.knowledgeBase?.length
+                    ? `BRAND KNOWLEDGE:\n${brandProfile.knowledgeBase.slice(0, 8).map(entry => `- ${entry}`).join('\n')}`
+                    : '';
+                const positioning = brandProfile?.brandCollectorProfile?.positioning?.oneLiner
+                    ? `POSITIONING:\n${brandProfile.brandCollectorProfile.positioning.oneLiner}`
+                    : '';
+                const voiceGuidelines = brandProfile?.voiceGuidelines
+                    ? `VOICE GUIDELINES:\n${brandProfile.voiceGuidelines}`
+                    : '';
+                const brandKnowledgeBlock = [knowledgeBase, positioning, voiceGuidelines].filter(Boolean).join('\n');
+
+                const calendarSignal = calendarEvents.slice(0, 5).map(event => `${event.date} • ${event.platform}: ${event.content}`).join('\n');
+                const mentionSignal = mentions.slice(0, 5).map(mention => `@${mention.author}: ${mention.text}`).join('\n');
+                const latestAgentDecisions = agentDecisionsRef.current || [];
+                const agentDecisionSignal = latestAgentDecisions.length
+                    ? `AGENT DECISIONS:\n${latestAgentDecisions.map((d) => `- ${d.action}: ${d.reason}`).join('\n')}`
+                    : '';
+
+                const knowledgeSignals = [
+                    brandKnowledgeBlock ? "Brand Knowledge" : null,
+                    deepContext.context ? "Deep Memory" : null,
+                    brainLogSignals ? "Brain Logs" : null,
+                    ragContextDocs.length ? "Vector Memory" : null
+                ].filter(Boolean);
+
+                const hasTrends = trends.length > 0;
+                const hasKnowledge = knowledgeSignals.length > 0;
+                const hasMentions = mentions.length > 0;
+                const hasRecentPosts = (socialMetrics?.recentPosts?.length || 0) > 0;
+                const hasCalendar = calendarEvents.length > 0;
+                const signalScore = [hasTrends, hasKnowledge, hasMentions, hasRecentPosts, hasCalendar].filter(Boolean).length;
+
+                if (!hasTrends || signalScore < 2) {
+                    setSystemLogs(prev => ["GAIA: Insufficient signal density. Skipping decision generation.", ...prev]);
+                    return;
+                }
+
+                if (!existingTasks.length || hasOnlyWelcome) {
                     setSystemLogs(prev => ["Launch: Generating your first AI CMO playbook...", ...prev]);
                 }
 
-                if (hasFreshTasks) {
-                    setSystemLogs(prev => ["GAIA: Strategies active. Skipping new generation.", ...prev]);
-                } else {
-                    setSystemLogs(prev => ["GAIA: Engaging Unified Brain...", ...prev]);
+                setSystemLogs(prev => ["GAIA: Engaging Unified Brain...", ...prev]);
 
-                    // Construct the Context Object
-                    const brainContext = {
-                        brand: { ...profiles[selectedBrand], name: selectedBrand },
-                        marketState: {
-                            trends: trends,
-                            analytics: socialMetrics || undefined,
-                            mentions: mentions
-                        },
-                        memory: {
-                            ragDocs: ragContextDocs,
-                            recentPosts: socialMetrics?.recentPosts || [],
-                            pastStrategies: strategyTasks
-                        },
-                        userObjective: hasOnlyWelcome
-                            ? "Post-onboarding kickoff: deliver 1 campaign idea, 1 community engagement, and 1 evergreen content angle. Prioritize high-signal, low-risk actions."
-                            : "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
-                    };
+                const ragDocs = [
+                    ...ragContextDocs,
+                    deepContext.context ? `DEEP MEMORY:\n${deepContext.context}` : '',
+                    brainLogSignals ? `RECENT BRAIN LOGS:\n${brainLogSignals}` : '',
+                    brandKnowledgeBlock,
+                    calendarSignal ? `CALENDAR:\n${calendarSignal}` : '',
+                    mentionSignal ? `MENTIONS:\n${mentionSignal}` : '',
+                    agentDecisionSignal
+                ].filter(Boolean);
 
-                    // Execute the Cognitive Loop
-                    const actions = await executeMarketingAction(brainContext);
+                // Construct the Context Object
+                const brainContext = {
+                    brand: { ...profiles[selectedBrand], name: selectedBrand },
+                    marketState: {
+                        trends: trends,
+                        analytics: socialMetrics || undefined,
+                        mentions: mentions
+                    },
+                    memory: {
+                        ragDocs,
+                        recentPosts: socialMetrics?.recentPosts || [],
+                        pastStrategies: existingTasks
+                    },
+                    userObjective: hasOnlyWelcome
+                        ? "Post-onboarding kickoff: deliver 1 campaign idea, 1 community engagement, and 1 evergreen content angle. Prioritize high-signal, low-risk actions."
+                        : "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
+                };
 
-                    // Process Results
-                    if (actions.length > 0) {
-                        setSystemLogs(prev => [`Autopilot: Executed ${actions.length} strategic actions.`, ...prev]);
+                const { analysis, actions } = await orchestrateMarketingDecision(brainContext, { calendarEvents, mentions });
 
-                        const newTasks: StrategyTask[] = actions.map(action => ({
-                            id: crypto.randomUUID(),
-                            title: action.hook || `Strategy: ${action.topic}`,
-                            description: action.reasoning || `Execute ${action.type.toLowerCase()} for ${action.goal}`,
-                            status: 'pending',
-                            type: action.type as any, // Cast to avoid literal mismatch, or map explicitly if needed
-                            contextSource: {
-                                type: 'TREND',
-                                source: 'Market Pulse',
-                                headline: action.topic
-                            },
-                            impactScore: 85,
-                            executionPrompt: action.topic,
-                            suggestedVisualTemplate: 'Auto',
-                            reasoning: action.reasoning,
-                            strategicAlignment: action.strategicAlignment,
-                            contentIdeas: action.contentIdeas
-                        }));
+                const scoreAction = (action: any) => {
+                    let score = 0;
+                    if (action.reasoning && action.reasoning.length > 20) score += 1;
+                    if (action.instructions && action.instructions.length > 10) score += 1;
+                    if (action.hook && action.hook.length > 3) score += 1;
+                    if (action.strategicAlignment && action.strategicAlignment.length > 20) score += 1;
+                    if (Array.isArray(action.contentIdeas) && action.contentIdeas.length >= 2) score += 1;
+                    if (action.goal && action.goal.length > 5) score += 1;
+                    return score;
+                };
 
-                        const hasCampaignTask = newTasks.some(task => task.type === 'CAMPAIGN_IDEA' || task.type === 'CAMPAIGN');
-                        if (!hasCampaignTask) {
-                            const fallbackTopic = trends[0]?.headline || `${selectedBrand} launch momentum`;
-                            newTasks.unshift({
-                                id: crypto.randomUUID(),
-                                title: `CAMPAIGN: ${fallbackTopic}`,
-                                description: 'Kick off a launch campaign to convert attention into momentum.',
-                                status: 'pending',
-                                type: 'CAMPAIGN_IDEA',
-                                contextSource: {
-                                    type: 'TREND',
-                                    source: 'Market Pulse',
-                                    headline: fallbackTopic
-                                },
-                                impactScore: 88,
-                                executionPrompt: fallbackTopic,
-                                suggestedVisualTemplate: 'Auto',
-                                reasoning: 'New brand kickoff benefits from an immediate, high-signal campaign concept.'
-                            });
-                        }
-
-                        const cappedTasks = newTasks.slice(0, 5); // STRICT LIMIT: Max 5 new tasks
-
-                        setStrategyTasks(prev => {
-                            const updated = [...cappedTasks, ...prev].slice(0, 7); // Hard cap global list
-                            saveStrategyTasks(selectedBrand, updated);
-                            return updated;
-                        });
-                    } else {
-                        setSystemLogs(prev => ["Autopilot: No high-confidence actions needed right now.", ...prev]);
+                const normalizeActionType = (actionType?: string): StrategyTask['type'] => {
+                    const normalized = actionType?.toUpperCase() || '';
+                    switch (normalized) {
+                        case 'CAMPAIGN':
+                            return 'CAMPAIGN_IDEA';
+                        case 'REPLY':
+                            return 'REPLY';
+                        case 'THREAD':
+                            return 'TREND_JACK';
+                        default:
+                            return 'EVERGREEN';
                     }
-                } // End else block for hasFreshTasks
+                };
+
+                const rankedActions = actions
+                    .map(action => ({ action, score: scoreAction(action) }))
+                    .filter(({ score }) => score >= 3)
+                    .sort((a, b) => b.score - a.score);
+
+                if (rankedActions.length === 0) {
+                    setSystemLogs(prev => ["GAIA: Actions returned but failed quality gate. Skipping update.", ...prev]);
+                    return;
+                }
+
+                setSystemLogs(prev => [`Autopilot: Executed ${rankedActions.length} strategic actions.`, ...prev]);
+
+                const topTrend = highVelocityTrends[0] || trends[0];
+                const topMention = mentions[0];
+                const defaultContextSource = topTrend
+                    ? { type: 'TREND', source: topTrend.source || 'Market Pulse', headline: topTrend.headline }
+                    : topMention
+                        ? { type: 'MENTION', source: `@${topMention.author}`, headline: topMention.text }
+                        : undefined;
+
+                const newTasks: StrategyTask[] = rankedActions.slice(0, 5).map(({ action, score }) => ({
+                    id: crypto.randomUUID(),
+                    title: `${action.type || 'ACTION'}: ${action.hook || action.topic}`,
+                    description: action.goal ? `${action.goal}${action.instructions ? ` • ${action.instructions}` : ''}` : action.instructions || action.reasoning || 'Strategic action from GAIA.',
+                    status: 'pending',
+                    type: normalizeActionType(action.type),
+                    contextSource: defaultContextSource,
+                    impactScore: Math.min(10, 6 + score),
+                    executionPrompt: action.instructions ? `${action.topic}\n\n${action.instructions}` : action.topic,
+                    suggestedVisualTemplate: 'Auto',
+                    reasoning: action.reasoning || analysis.summary || 'Strategic action recommended by GAIA.',
+                    strategicAlignment: action.strategicAlignment,
+                    contentIdeas: action.contentIdeas,
+                    logicExplanation: action.strategicAlignment || analysis.strategicAngle,
+                    proof: analysis.summary,
+                    createdAt: Date.now(),
+                    feedback: 'neutral'
+                }));
+
+                const hasCampaignTask = newTasks.some(task => task.type === 'CAMPAIGN_IDEA' || task.type === 'CAMPAIGN');
+                if (!hasCampaignTask) {
+                    const fallbackTopic = trends[0]?.headline || `${selectedBrand} launch momentum`;
+                    newTasks.unshift({
+                        id: crypto.randomUUID(),
+                        title: `CAMPAIGN: ${fallbackTopic}`,
+                        description: 'Kick off a launch campaign to convert attention into momentum.',
+                        status: 'pending',
+                        type: 'CAMPAIGN_IDEA',
+                        contextSource: {
+                            type: 'TREND',
+                            source: 'Market Pulse',
+                            headline: fallbackTopic
+                        },
+                        impactScore: 9,
+                        executionPrompt: fallbackTopic,
+                        suggestedVisualTemplate: 'Auto',
+                        reasoning: 'New brand kickoff benefits from an immediate, high-signal campaign concept.',
+                        logicExplanation: analysis.strategicAngle,
+                        proof: analysis.summary,
+                        createdAt: Date.now(),
+                        feedback: 'neutral'
+                    });
+                }
+
+                const cappedTasks = newTasks.slice(0, 5); // STRICT LIMIT: Max 5 new tasks
+
+                setStrategyTasks(cappedTasks);
+                saveStrategyTasks(selectedBrand, cappedTasks);
 
             } catch (e) {
                 console.error("Auto-pilot analysis failed", e);
                 setSystemLogs(prev => ["Sentinel Error: Analysis check failed.", ...prev]);
+            } finally {
+                saveDecisionLoopLastRun(selectedBrand);
+                decisionLoopInFlightRef.current[selectedBrand] = false;
             }
         };
 
-        // Run initial scan on mount
+        // Run initial scan on mount / brand change
         runBackgroundScan();
 
-        // No interval needed for sentinel logs - prevents unnecessary re-renders
-        // If we want periodic scans, we should do it cautiously.
-        // For now, removing to fix "1 minute crash".
+        // Re-run on a 6h cadence to keep recommendations fresh without manual refresh
+        const interval = setInterval(runBackgroundScan, DECISION_LOOP_INTERVAL_MS);
+        return () => clearInterval(interval);
 
-    }, [selectedBrand]);
+    }, [selectedBrand, automationEnabled, profiles, socialMetrics, strategyTasks, growthReport, calendarEvents]);
 
     // --- Server Health Check ---
     const [isServerOnline, setIsServerOnline] = useState<boolean>(false);
@@ -704,31 +851,6 @@ const App: React.FC = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // --- Agent Decisions Polling ---
-    const [agentDecisions, setAgentDecisions] = useState<any[]>([]);
-    useEffect(() => {
-        const fetchDecisions = async () => {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-            try {
-                // If health check failed previously, maybe skip this? 
-                // For now, simple fetch with suppression
-                const res = await fetch(`${baseUrl}/api/decisions`).catch(() => null);
-                if (res && res.ok) {
-                    const data = await res.json();
-                    setAgentDecisions(data.filter((d: any) =>
-                        d.status === 'pending' &&
-                        (!d.brandId || d.brandId === selectedBrand)
-                    ));
-                }
-            } catch (e) {
-                // scilent fail 
-            }
-        };
-        fetchDecisions();
-        const interval = setInterval(fetchDecisions, 10000); // Poll every 10s
-        return () => clearInterval(interval);
-    }, [selectedBrand]);
-
     // Campaign start date logic moved to Campaigns.tsx
 
     const handleStartOnboarding = () => {
@@ -739,6 +861,23 @@ const App: React.FC = () => {
             updatedAt: Date.now(),
         }));
         navigate('/onboarding');
+    };
+
+    const getDefaultScheduleTime = () => {
+        const now = new Date();
+        now.setMinutes(0, 0, 0);
+        now.setHours(now.getHours() + 1);
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
+
+    const buildScheduledAt = (date: string, time?: string) => {
+        if (!date) return undefined;
+        const safeTime = time && time.length >= 4 ? time : '09:00';
+        const scheduled = new Date(`${date}T${safeTime}:00`);
+        if (Number.isNaN(scheduled.getTime())) return undefined;
+        return scheduled.toISOString();
     };
 
     const handleSkipOnboarding = () => {
@@ -826,7 +965,7 @@ const App: React.FC = () => {
         const seen = new Set<string>();
         const merged: CalendarEvent[] = [];
         const addEvent = (event: CalendarEvent) => {
-            const key = `${event.date}|${event.content}`;
+            const key = `${event.date}|${event.time || ''}|${event.content}`;
             if (seen.has(key)) return;
             seen.add(key);
             merged.push(event);
@@ -839,6 +978,7 @@ const App: React.FC = () => {
     const buildKickoffCalendarEvents = (campaignName: string, drafts: any[]) => {
         const start = new Date();
         start.setDate(start.getDate() + 1);
+        const timeStr = '09:00';
 
         return drafts.slice(0, 7).map((draft, index) => {
             const date = new Date(start);
@@ -848,6 +988,8 @@ const App: React.FC = () => {
             return {
                 id: `kickoff-${Date.now()}-${index}`,
                 date: formatted,
+                time: timeStr,
+                scheduledAt: buildScheduledAt(formatted, timeStr),
                 content: draft.tweet,
                 platform: 'Twitter',
                 status: 'scheduled',
@@ -1090,11 +1232,13 @@ const App: React.FC = () => {
             tomorrow.setDate(tomorrow.getDate() + 1);
             setScheduleDate(tomorrow.toISOString().split('T')[0]);
         }
+        setScheduleTime(getDefaultScheduleTime());
         setShowScheduleModal(true);
     };
 
     const handleDayClick = (date: string) => {
         setScheduleDate(date);
+        setScheduleTime(getDefaultScheduleTime());
         setItemToSchedule({ content: '', image: undefined, campaignName: '' });
         setShowScheduleModal(true);
     };
@@ -1121,10 +1265,14 @@ const App: React.FC = () => {
 
         // Handle both cases: creating new (where content might be empty initially) or scheduling generated
         const content = itemToSchedule.content || "Media Post";
+        const normalizedTime = scheduleTime && scheduleTime.length >= 4 ? scheduleTime : '09:00';
+        const scheduledAt = buildScheduledAt(scheduleDate, normalizedTime);
 
         const newEvent: CalendarEvent = {
             id: `evt-${Date.now()}`,
             date: scheduleDate,
+            time: normalizedTime,
+            scheduledAt,
             content: content,
             image: itemToSchedule.image,
             platform: 'Twitter',
@@ -1148,7 +1296,7 @@ const App: React.FC = () => {
 
     const handleMoveEvent = (id: string, newDate: string) => {
         const updatedEvents = calendarEvents.map(e =>
-            e.id === id ? { ...e, date: newDate } : e
+            e.id === id ? { ...e, date: newDate, scheduledAt: buildScheduledAt(newDate, e.time) } : e
         );
         setCalendarEvents(updatedEvents);
         saveCalendarEvents(selectedBrand, updatedEvents);
@@ -1156,7 +1304,15 @@ const App: React.FC = () => {
 
     const handleUpdateEvent = (id: string, updatedFields: Partial<CalendarEvent>) => {
         const updatedEvents = calendarEvents.map(e =>
-            e.id === id ? { ...e, ...updatedFields } : e
+            e.id === id
+                ? {
+                    ...e,
+                    ...updatedFields,
+                    scheduledAt: (updatedFields.date || updatedFields.time)
+                        ? buildScheduledAt(updatedFields.date || e.date, updatedFields.time || e.time)
+                        : e.scheduledAt
+                }
+                : e
         );
         setCalendarEvents(updatedEvents);
         saveCalendarEvents(selectedBrand, updatedEvents);
@@ -1172,6 +1328,27 @@ const App: React.FC = () => {
     const handleUpdatePosture = (newPosture: StrategicPosture) => {
         setStrategicPosture(newPosture);
         saveStrategicPosture(selectedBrand, newPosture);
+    };
+
+    const handleTaskFeedback = (taskId: string, feedback: 'approved' | 'dismissed' | 'neutral') => {
+        setStrategyTasks(prev => {
+            const updated = prev.map(task => task.id === taskId
+                ? { ...task, feedback, feedbackAt: Date.now(), status: feedback === 'neutral' ? task.status : feedback }
+                : task
+            );
+            saveStrategyTasks(selectedBrand, updated);
+            return updated;
+        });
+
+        const task = strategyTasks.find(t => t.id === taskId);
+        if (task) {
+            saveBrainLog({
+                brandId: selectedBrand,
+                type: 'FEEDBACK',
+                context: `${feedback.toUpperCase()}: ${task.title}`,
+                timestamp: Date.now()
+            });
+        }
     };
 
     const handleRefinePosture = async () => {
@@ -1325,7 +1502,7 @@ const App: React.FC = () => {
                         socialSignals={socialSignals} // Pass signals
                         systemLogs={systemLogs}
                         growthReport={growthReport}
-                        onNavigate={(section) => handleNavigate(section, null)}
+                        onNavigate={(section, params) => handleNavigate(section, params)}
                         agentDecisions={agentDecisions}
                         // New Props from Growth Engine
                         tasks={strategyTasks}
@@ -1342,6 +1519,8 @@ const App: React.FC = () => {
                         posture={strategicPosture}
                         onUpdate={handleUpdatePosture}
                         onRefine={handleRefinePosture}
+                        onNavigate={handleNavigate}
+                        onFeedback={handleTaskFeedback}
                         onSchedule={handleOpenScheduleModal}
                     />
                 )}
@@ -1580,6 +1759,15 @@ const App: React.FC = () => {
                                         type="date"
                                         value={scheduleDate}
                                         onChange={(e) => setScheduleDate(e.target.value)}
+                                        className="w-full border border-brand-border rounded-lg p-3 text-sm focus:border-brand-accent outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Time</label>
+                                    <input
+                                        type="time"
+                                        value={scheduleTime}
+                                        onChange={(e) => setScheduleTime(e.target.value)}
                                         className="w-full border border-brand-border rounded-lg p-3 text-sm focus:border-brand-accent outline-none"
                                     />
                                 </div>
