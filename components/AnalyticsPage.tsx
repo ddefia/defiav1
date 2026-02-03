@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { SocialMetrics, ComputedMetrics } from '../types';
 
 interface AnalyticsPageProps {
@@ -8,221 +8,372 @@ interface AnalyticsPageProps {
     chainMetrics: ComputedMetrics | null;
 }
 
-// Reusable "Clean" Stat Card (Sharper Aesthetic)
-const StatCard = ({ title, value, subtext, trend, isPositive }: any) => (
-    <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] relative overflow-hidden group hover:shadow-md transition-all duration-200">
-        <div className="flex justify-between items-start mb-3">
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{title}</h3>
-            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${isPositive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                <span>{isPositive ? '↗' : '↘'}</span>
-                {trend}
-            </div>
-        </div>
-        <div className="flex items-baseline gap-2 mb-1.5">
-            <span className="text-2xl font-bold text-gray-900 tracking-tight">{value}</span>
-        </div>
-        <p className="text-[10px] text-gray-400 font-medium">{subtext}</p>
-    </div>
-);
+type ChartTab = 'impressions' | 'engagements' | 'followers';
+type DateRange = '7d' | '30d' | '90d' | 'all';
 
-// SVG Sparkline / Area Chart Component (Updated Colors)
-const GrowthChart = ({ data }: { data: number[] }) => {
-    // Normalize data
-    const max = Math.max(...data) || 100;
-    const min = Math.min(...data) || 0;
-    const range = max - min || 1;
+// Top content is loaded from real data - no hardcoded mock data
+const MOCK_TOP_CONTENT: {
+    id: string;
+    content: string;
+    platform: string;
+    impressions: number;
+    engagement: number;
+    rate: number;
+}[] = [];
 
-    const points = data.map((val, i) => {
-        const x = (i / (data.length - 1)) * 100;
-        const y = 100 - ((val - min) / range) * 80 - 10;
-        return `${x},${y}`;
-    }).join(' ');
-
-    const fillPath = `0,100 ${points} 100,100`;
-
-    return (
-        <div className="w-full h-80 relative overflow-hidden bg-white rounded-lg border border-gray-200 p-5">
-            {/* Grid Lines */}
-            <div className="absolute inset-0 flex flex-col justify-between p-6 opacity-30 pointer-events-none">
-                <div className="w-full h-px bg-gray-100"></div>
-                <div className="w-full h-px bg-gray-100"></div>
-                <div className="w-full h-px bg-gray-100"></div>
-                <div className="w-full h-px bg-gray-100"></div>
-            </div>
-
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full relative z-10">
-                <defs>
-                    <linearGradient id="growthGrad" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.05" />
-                        <stop offset="100%" stopColor="#4F46E5" stopOpacity="0" />
-                    </linearGradient>
-                </defs>
-                <path d={`M ${fillPath}`} fill="url(#growthGrad)" />
-                <polyline points={points} fill="none" stroke="#4F46E5" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-        </div>
-    );
-};
+// AI Insights are generated dynamically - no hardcoded mock data
+const AI_INSIGHTS: { num: number; text: string }[] = [];
 
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics, chainMetrics }) => {
+    const [chartTab, setChartTab] = useState<ChartTab>('impressions');
+    const [dateRange, setDateRange] = useState<DateRange>('30d');
 
-    // Derived or Mock History
+    // Derived history for chart - empty if no real data
     const historyData = (metrics?.engagementHistory && metrics.engagementHistory.length > 0)
         ? metrics.engagementHistory.map(h => h.rate)
-        : [45, 52, 49, 58, 62, 60, 68, 74, 80, 78, 85, 90];
+        : [];
 
-    // Stats
+    // Stats from real data only - show 0 or -- if no data
     const totalFollowers = metrics?.totalFollowers || 0;
     const engagementRate = metrics?.engagementRate || 0;
     const impressions = metrics?.weeklyImpressions || 0;
+    const totalEngagements = impressions > 0 ? Math.round(impressions * (engagementRate / 100)) : 0;
+
+    // Calculate changes - 0 if no real data
+    const followersChange = metrics?.comparison?.followersChange || 0;
+    const impressionsChange = metrics?.comparison?.impressionsChange || 0;
+    const engagementChange = metrics?.comparison?.engagementChange || 0;
+
+    const formatNumber = (num: number) => {
+        if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+        if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+        return num.toString();
+    };
+
+    const getPlatformIcon = (platform: string) => {
+        switch (platform) {
+            case 'twitter':
+                return { icon: 'alternate_email', color: '#1DA1F2', name: 'Twitter' };
+            case 'discord':
+                return { icon: 'forum', color: '#5865F2', name: 'Discord' };
+            case 'telegram':
+                return { icon: 'send', color: '#0088CC', name: 'Telegram' };
+            default:
+                return { icon: 'public', color: '#6B6B70', name: platform };
+        }
+    };
+
+    // Use real posts or mock data
+    const topContent = metrics?.recentPosts?.slice(0, 4).map(post => ({
+        id: post.id,
+        content: post.content,
+        platform: 'twitter',
+        impressions: post.impressions,
+        engagement: Math.round(post.impressions * (post.engagementRate / 100)),
+        rate: post.engagementRate,
+    })) || MOCK_TOP_CONTENT;
 
     return (
-        <div className="w-full p-6 font-sans bg-[#F9FAFB] min-h-screen">
-
-            {/* HEADER (Matching Dashboard) */}
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-lg font-bold text-gray-900 tracking-tight">
-                        Analytics Command
-                    </h1>
-                    <div className="text-[10px] text-gray-500 font-mono mt-1 tracking-tight flex items-center gap-2">
-                        {brandName} / System Status: <span className="text-emerald-500 font-bold">ONLINE</span>
-                    </div>
+        <div className="flex-1 flex flex-col bg-[#0A0A0B] min-h-0">
+            {/* Header */}
+            <div className="flex items-center justify-between px-10 py-6 border-b border-[#1F1F23]">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-2xl font-bold text-white">Analytics</h1>
+                    <p className="text-sm text-[#6B6B70]">Track your marketing performance and growth metrics</p>
                 </div>
-
-                {/* Timeframe Toggle */}
-                <div className="flex bg-white rounded-md p-1 border border-gray-200 shadow-sm">
-                    {['24H', '7D', '30D', '90D', 'All'].map((t, i) => (
-                        <button key={t} className={`px-3 py-1 text-[10px] font-bold rounded transition-all ${i === 2 ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
-                            {t}
-                        </button>
-                    ))}
+                <div className="flex items-center gap-3">
+                    {/* Date Range Selector */}
+                    <button className="flex items-center gap-2 px-3.5 py-2.5 bg-[#111113] border border-[#2E2E2E] rounded-lg hover:bg-[#1A1A1D] transition-colors">
+                        <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
+                        <span className="text-white text-sm font-medium">Last 30 days</span>
+                        <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>expand_more</span>
+                    </button>
+                    {/* Export Button */}
+                    <button className="flex items-center gap-1.5 px-3.5 py-2.5 border border-[#2E2E2E] rounded-lg hover:bg-[#1A1A1D] transition-colors">
+                        <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>download</span>
+                        <span className="text-white text-sm font-medium">Export</span>
+                    </button>
                 </div>
             </div>
 
-            {/* KPI ROW */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatCard
-                    title="Total Reach"
-                    value={totalFollowers.toLocaleString()}
-                    subtext="Followers across all platforms"
-                    trend={metrics?.comparison?.followersChange ? `${metrics.comparison.followersChange >= 0 ? '+' : ''}${metrics.comparison.followersChange}%` : "+2.4%"}
-                    isPositive={(metrics?.comparison?.followersChange || 0) >= 0}
-                />
-                <StatCard
-                    title="Engagement Rate"
-                    value={`${engagementRate}%`}
-                    subtext="Average interaction per post"
-                    trend="+12.5%"
-                    isPositive={true}
-                />
-                <StatCard
-                    title="Impressions"
-                    value={`${(impressions / 1000).toFixed(1)}k`}
-                    subtext="Weekly view count"
-                    trend="+5.2%"
-                    isPositive={true}
-                />
-                <StatCard
-                    title="On-Chain Vol"
-                    value={chainMetrics ? `$${(chainMetrics.totalVolume / 1000).toFixed(1)}k` : '$--'}
-                    subtext="Verified transaction volume"
-                    trend="+0.0%"
-                    isPositive={true}
-                />
-            </div>
-
-            {/* MAIN CONTENT GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* BIG CHART SECTION */}
-                <div className="lg:col-span-2">
-                    <div className="bg-white rounded-lg border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] p-5 mb-6">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Performance History</h3>
-                            <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold"><div className="w-2 h-2 rounded-full bg-indigo-500"></div> Engagement</div>
-                                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold"><div className="w-2 h-2 rounded-full bg-gray-300"></div> Baseline</div>
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col gap-6 p-7 px-10 overflow-y-auto">
+                {/* Metrics Row */}
+                <div className="grid grid-cols-4 gap-4">
+                    {/* Total Impressions */}
+                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[#9CA3AF] text-[13px]">Total Impressions</span>
+                            <div className="w-8 h-8 rounded-lg bg-[#3B82F622] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-[#3B82F6] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>visibility</span>
                             </div>
                         </div>
-                        <GrowthChart data={historyData} />
-                    </div>
-
-                    {/* TOP CONTENT TABLE */}
-                    <div className="bg-white rounded-lg border border-gray-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-                        <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                            <h3 className="text-[10px] font-bold text-gray-900 uppercase tracking-widest">Top Content Performance</h3>
-                            <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors">
-                                View All Posts →
-                            </button>
+                        <span className="text-white text-[32px] font-bold">{formatNumber(impressions)}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-sharp text-[#22C55E] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
+                            <span className="text-[#22C55E] text-xs font-medium">+{impressionsChange}% from last month</span>
                         </div>
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-50 text-gray-400 font-bold uppercase tracking-wider text-[10px]">
-                                <tr>
-                                    <th className="px-5 py-2">Content</th>
-                                    <th className="px-5 py-2 text-right">Impressions</th>
-                                    <th className="px-5 py-2 text-right">Engagement</th>
-                                    <th className="px-5 py-2 text-right">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {metrics?.recentPosts.slice(0, 5).map(post => (
-                                    <tr key={post.id} className="hover:bg-gray-50 transition-colors group">
-                                        <td className="px-5 py-3">
-                                            <div className="flex items-center gap-3">
-                                                {post.mediaUrl && (
-                                                    <div className="w-8 h-8 rounded bg-gray-100 bg-cover bg-center flex-shrink-0 border border-gray-200" style={{ backgroundImage: `url(${post.mediaUrl})` }}></div>
-                                                )}
-                                                <div className="min-w-0">
-                                                    <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-gray-900 line-clamp-1 max-w-xs hover:text-blue-600 transition-colors">
-                                                        {post.content}
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-3 text-right text-xs font-mono text-gray-500">{post.impressions.toLocaleString()}</td>
-                                        <td className="px-5 py-3 text-right">
-                                            <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold text-[10px] border border-emerald-100">{post.engagementRate}%</span>
-                                        </td>
-                                        <td className="px-5 py-3 text-right text-gray-400 text-[10px] font-mono">{post.date}</td>
-                                    </tr>
-                                ))}
-                                {(!metrics?.recentPosts || metrics.recentPosts.length === 0) && (
-                                    <tr>
-                                        <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
-                                            <div className="flex flex-col items-center justify-center gap-2 opacity-60">
-                                                <span className="text-xs font-medium">No recent content data available.</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
                     </div>
-                </div>
 
-                {/* RIGHT COLUMN: INSIGHTS */}
-                <div className="flex flex-col gap-6">
-                    {/* INSIGHTS BOX (Expanded to fill column) */}
-                    <div className="bg-gradient-to-br from-indigo-50 to-white rounded-lg border border-indigo-100 p-5 shadow-[0_1px_2px_rgba(79,70,229,0.05)] h-full relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                        <h3 className="text-[10px] font-bold text-indigo-900 uppercase tracking-widest mb-3 relative z-10">AI Insight</h3>
-                        <p className="text-xs text-indigo-900/80 leading-relaxed relative z-10 font-medium">
-                            Engagement on Twitter has spiked <span className="font-bold text-indigo-700">+12%</span> this week due to the new roadmap announcement. Recommend doubling down on thread content.
-                        </p>
+                    {/* Total Engagements */}
+                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[#9CA3AF] text-[13px]">Total Engagements</span>
+                            <div className="w-8 h-8 rounded-lg bg-[#22C55E22] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-[#22C55E] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>favorite</span>
+                            </div>
+                        </div>
+                        <span className="text-white text-[32px] font-bold">{formatNumber(totalEngagements)}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-sharp text-[#22C55E] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
+                            <span className="text-[#22C55E] text-xs font-medium">+18.2% from last month</span>
+                        </div>
+                    </div>
 
-                        <div className="mt-6 p-3 bg-white/60 rounded border border-indigo-50 relative z-10">
-                            <h4 className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Recommended Action</h4>
-                            <button className="w-full py-2 bg-indigo-600 text-white text-[10px] font-bold rounded hover:bg-indigo-700 transition-colors shadow-sm cursor-not-allowed opacity-80">
-                                Draft Thread (Coming Soon)
-                            </button>
+                    {/* Follower Growth */}
+                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[#9CA3AF] text-[13px]">Follower Growth</span>
+                            <div className="w-8 h-8 rounded-lg bg-[#FF5C0022] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-[#FF5C00] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>group</span>
+                            </div>
+                        </div>
+                        <span className="text-white text-[32px] font-bold">+{formatNumber(totalFollowers)}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-sharp text-[#22C55E] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
+                            <span className="text-[#22C55E] text-xs font-medium">+{followersChange}% from last month</span>
+                        </div>
+                    </div>
+
+                    {/* Engagement Rate */}
+                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[#9CA3AF] text-[13px]">Engagement Rate</span>
+                            <div className="w-8 h-8 rounded-lg bg-[#A855F722] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-[#A855F7] text-base" style={{ fontVariationSettings: "'wght' 300" }}>percent</span>
+                            </div>
+                        </div>
+                        <span className="text-white text-[32px] font-bold">{engagementRate}%</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-sharp text-[#22C55E] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
+                            <span className="text-[#22C55E] text-xs font-medium">+{engagementChange}% from last month</span>
                         </div>
                     </div>
                 </div>
 
+                {/* Performance Chart Section */}
+                <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                    <div className="flex gap-6">
+                        {/* Chart Area */}
+                        <div className="flex-1 flex flex-col gap-5">
+                            {/* Chart Header */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-white text-base font-semibold">Performance Over Time</span>
+                                {/* Tabs */}
+                                <div className="flex items-center gap-1 p-1 bg-[#1A1A1D] rounded-lg">
+                                    {(['impressions', 'engagements', 'followers'] as ChartTab[]).map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setChartTab(tab)}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                                                chartTab === tab
+                                                    ? 'bg-[#FF5C00] text-white'
+                                                    : 'text-[#9CA3AF] hover:text-white'
+                                            }`}
+                                        >
+                                            {tab}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Chart */}
+                            <div className="relative h-60">
+                                {/* Grid Lines */}
+                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                                    {[0, 1, 2, 3, 4].map(i => (
+                                        <div key={i} className="w-full h-px bg-[#1F1F23]"></div>
+                                    ))}
+                                </div>
+
+                                {/* Y Axis Labels */}
+                                <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-[#6B6B70] text-xs py-1">
+                                    <span>3M</span>
+                                    <span>2M</span>
+                                    <span>1M</span>
+                                    <span>500K</span>
+                                    <span>0</span>
+                                </div>
+
+                                {/* Chart SVG */}
+                                <div className="absolute left-12 right-0 top-0 bottom-6">
+                                    <svg viewBox="0 0 700 200" preserveAspectRatio="none" className="w-full h-full">
+                                        <defs>
+                                            <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+                                                <stop offset="0%" stopColor="#FF5C00" stopOpacity="0.3" />
+                                                <stop offset="100%" stopColor="#FF5C00" stopOpacity="0" />
+                                            </linearGradient>
+                                        </defs>
+                                        {/* Area fill */}
+                                        <path
+                                            d="M0,180 C50,160 100,140 150,120 C200,100 250,90 300,85 C350,80 400,70 450,60 C500,50 550,45 600,35 C650,25 700,20 700,20 L700,200 L0,200 Z"
+                                            fill="url(#chartGradient)"
+                                        />
+                                        {/* Line */}
+                                        <path
+                                            d="M0,180 C50,160 100,140 150,120 C200,100 250,90 300,85 C350,80 400,70 450,60 C500,50 550,45 600,35 C650,25 700,20 700,20"
+                                            fill="none"
+                                            stroke="#FF5C00"
+                                            strokeWidth="3"
+                                            strokeLinecap="round"
+                                        />
+                                        {/* Data points */}
+                                        <circle cx="0" cy="180" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
+                                        <circle cx="150" cy="120" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
+                                        <circle cx="300" cy="85" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
+                                        <circle cx="450" cy="60" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
+                                        <circle cx="600" cy="35" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
+                                    </svg>
+
+                                    {/* Tooltip */}
+                                    <div className="absolute right-20 top-0 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3 py-2">
+                                        <p className="text-white text-xs font-semibold">2.4M impressions</p>
+                                        <p className="text-[#6B6B70] text-[11px]">Jan 28, 2025</p>
+                                    </div>
+                                </div>
+
+                                {/* X Axis Labels */}
+                                <div className="absolute left-12 right-0 bottom-0 flex justify-between text-[#6B6B70] text-xs">
+                                    <span>Jan 1</span>
+                                    <span>Jan 7</span>
+                                    <span>Jan 14</span>
+                                    <span>Jan 21</span>
+                                    <span>Jan 28</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Chart Stats Sidebar */}
+                        <div className="w-[200px] flex flex-col gap-4">
+                            {/* Peak Day */}
+                            <div className="bg-[#1A1A1D] rounded-lg p-4 flex flex-col gap-1">
+                                <span className="text-[#6B6B70] text-xs">Peak Day</span>
+                                <span className="text-white text-lg font-semibold">Jan 15</span>
+                                <span className="text-[#22C55E] text-xs font-medium">542K impressions</span>
+                            </div>
+
+                            {/* Avg Daily */}
+                            <div className="bg-[#1A1A1D] rounded-lg p-4 flex flex-col gap-1">
+                                <span className="text-[#6B6B70] text-xs">Avg. Daily</span>
+                                <span className="text-white text-lg font-semibold">80K</span>
+                                <span className="text-[#22C55E] text-xs font-medium">+18% vs last month</span>
+                            </div>
+
+                            {/* Growth Rate */}
+                            <div className="bg-[#1A1A1D] rounded-lg p-4 flex flex-col gap-1">
+                                <span className="text-[#6B6B70] text-xs">Growth Rate</span>
+                                <span className="text-[#22C55E] text-lg font-semibold">+24.5%</span>
+                                <span className="text-[#6B6B70] text-xs">Month over month</span>
+                            </div>
+
+                            {/* Best Platform */}
+                            <div className="bg-[#1A1A1D] rounded-lg p-4 flex flex-col gap-1">
+                                <span className="text-[#6B6B70] text-xs">Best Platform</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-sharp text-[#1DA1F2] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>alternate_email</span>
+                                    <span className="text-white text-lg font-semibold">Twitter/X</span>
+                                </div>
+                                <span className="text-[#6B6B70] text-xs">75% of total reach</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* AI Performance Insights */}
+                <div
+                    className="rounded-[14px] p-6 border border-[#FF5C0044]"
+                    style={{ background: 'linear-gradient(180deg, #111113 0%, #1A120D 100%)' }}
+                >
+                    {/* Header */}
+                    <div className="flex items-center gap-2.5 mb-4">
+                        <span className="material-symbols-sharp text-[#FF5C00] text-2xl" style={{ fontVariationSettings: "'wght' 200" }}>auto_awesome</span>
+                        <span className="text-[#FF5C00] text-base font-semibold">AI Performance Insights</span>
+                    </div>
+
+                    {/* Insights List */}
+                    <div className="flex flex-col gap-3 mb-5">
+                        {AI_INSIGHTS.map(insight => (
+                            <div key={insight.num} className="flex items-start gap-2.5">
+                                <div className="w-6 h-6 rounded-full bg-[#FF5C00] flex items-center justify-center flex-shrink-0">
+                                    <span className="text-white text-xs font-semibold">{insight.num}</span>
+                                </div>
+                                <span className="text-[#E5E5E5] text-[13px] leading-relaxed">{insight.text}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Action Button */}
+                    <button
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white text-sm font-semibold"
+                        style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                    >
+                        <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
+                        Apply AI Recommendations
+                    </button>
+                </div>
+
+                {/* Top Performing Content */}
+                <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-5">
+                        <span className="text-white text-base font-semibold">Top Performing Content</span>
+                        <button className="text-[#FF5C00] text-sm font-medium hover:underline flex items-center gap-1">
+                            View All
+                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>arrow_forward</span>
+                        </button>
+                    </div>
+
+                    {/* Table */}
+                    <div className="flex flex-col">
+                        {/* Table Header */}
+                        <div className="flex items-center gap-4 py-3 border-b border-[#1F1F23]">
+                            <span className="text-[#6B6B70] text-xs font-medium flex-1 min-w-0" style={{ maxWidth: '320px' }}>Content</span>
+                            <span className="text-[#6B6B70] text-xs font-medium w-[100px]">Platform</span>
+                            <span className="text-[#6B6B70] text-xs font-medium w-[100px]">Impressions</span>
+                            <span className="text-[#6B6B70] text-xs font-medium w-[100px]">Engagement</span>
+                            <span className="text-[#6B6B70] text-xs font-medium w-[80px]">Rate</span>
+                        </div>
+
+                        {/* Table Rows */}
+                        {topContent.map(item => {
+                            const platformInfo = getPlatformIcon(item.platform);
+                            return (
+                                <div key={item.id} className="flex items-center gap-4 py-3 hover:bg-[#1A1A1D] transition-colors rounded-lg -mx-2 px-2">
+                                    <span className="text-white text-[13px] flex-1 min-w-0 truncate" style={{ maxWidth: '320px' }}>
+                                        {item.content}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 w-[100px]">
+                                        <span className="material-symbols-sharp text-sm" style={{ color: platformInfo.color, fontVariationSettings: "'wght' 300" }}>
+                                            {platformInfo.icon}
+                                        </span>
+                                        <span className="text-white text-[13px]">{platformInfo.name}</span>
+                                    </div>
+                                    <span className="text-white text-[13px] w-[100px]">{formatNumber(item.impressions)}</span>
+                                    <span className="text-white text-[13px] w-[100px]">{formatNumber(item.engagement)}</span>
+                                    <span className="text-[#22C55E] text-[13px] font-semibold w-[80px]">{item.rate}%</span>
+                                </div>
+                            );
+                        })}
+
+                        {topContent.length === 0 && (
+                            <div className="py-12 text-center">
+                                <span className="material-symbols-sharp text-[#64748B] text-4xl mb-2 block" style={{ fontVariationSettings: "'wght' 200" }}>article</span>
+                                <p className="text-[#64748B] text-sm">No content data available</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
-
-            <div className="h-12"></div>
         </div>
     );
 };

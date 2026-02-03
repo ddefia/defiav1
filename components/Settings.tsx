@@ -1,23 +1,41 @@
 import React, { useEffect, useState } from 'react';
-import { BrandKit } from './BrandKit';
 import { BrandConfig } from '../types';
-import { loadAutomationSettings, saveAutomationSettings, loadIntegrationKeys, saveIntegrationKeys, getBrandRegistryEntry, saveBrandRegistryEntry } from '../services/storage';
+import { loadAutomationSettings, saveAutomationSettings, loadIntegrationKeys, saveIntegrationKeys, getBrandRegistryEntry, saveBrandRegistryEntry, forceSeedDefaultBrands, resetBrandToDefault } from '../services/storage';
+import { loadUserProfile, UserProfile } from '../services/auth';
 
 interface SettingsProps {
     brandName: string;
     config: BrandConfig;
     onChange: (newConfig: BrandConfig) => void;
+    onNavigateToBrandKit?: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange }) => {
-    const [activeTab, setActiveTab] = useState<'general' | 'brandkit'>('brandkit');
+type SettingsTab = 'general' | 'notifications' | 'security' | 'billing';
+
+export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange, onNavigateToBrandKit }) => {
+    const [activeTab, setActiveTab] = useState<SettingsTab>('general');
     const [automationEnabled, setAutomationEnabled] = useState(true);
+    const [darkModeEnabled, setDarkModeEnabled] = useState(true);
     const [apifyHandle, setApifyHandle] = useState('');
     const [lunarSymbol, setLunarSymbol] = useState('');
     const [duneVolumeQuery, setDuneVolumeQuery] = useState('');
     const [duneUsersQuery, setDuneUsersQuery] = useState('');
     const [duneRetentionQuery, setDuneRetentionQuery] = useState('');
     const [savingIntegrations, setSavingIntegrations] = useState(false);
+    const [timezone, setTimezone] = useState('UTC +0 (London)');
+    const [language, setLanguage] = useState('English (US)');
+
+    // Profile data from auth
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [profileName, setProfileName] = useState('Alex Chen');
+    const [profileEmail, setProfileEmail] = useState('alex@web3agency.io');
+    const [profileRole, setProfileRole] = useState('Marketing Lead');
+    const [profileCompany, setProfileCompany] = useState('Web3 Agency');
+
+    // Brand seeding state
+    const [isSeeding, setIsSeeding] = useState(false);
+    const [seedResult, setSeedResult] = useState<{ success: boolean; brands: string[] } | null>(null);
+    const [isResetting, setIsResetting] = useState(false);
 
     useEffect(() => {
         const settings = loadAutomationSettings(brandName);
@@ -28,6 +46,15 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange 
         setDuneVolumeQuery(keys.duneQueryIds?.volume || '');
         setDuneUsersQuery(keys.duneQueryIds?.users || '');
         setDuneRetentionQuery(keys.duneQueryIds?.retention || '');
+
+        // Load user profile from auth
+        const profile = loadUserProfile();
+        if (profile) {
+            setUserProfile(profile);
+            if (profile.fullName) setProfileName(profile.fullName);
+            if (profile.email) setProfileEmail(profile.email);
+            if (profile.role) setProfileRole(profile.role === 'founder' ? 'Founder / CEO' : profile.role.charAt(0).toUpperCase() + profile.role.slice(1));
+        }
     }, [brandName]);
 
     const resolveBrandId = async (): Promise<string | null> => {
@@ -115,129 +142,349 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange 
         setSavingIntegrations(false);
     };
 
+    const tabs: { id: SettingsTab; label: string; icon: string }[] = [
+        { id: 'general', label: 'General', icon: 'person' },
+        { id: 'notifications', label: 'Notifications', icon: 'notifications' },
+        { id: 'security', label: 'Security', icon: 'shield' },
+        { id: 'billing', label: 'Billing', icon: 'credit_card' },
+    ];
+
     return (
-        <div className="w-full h-full flex flex-col bg-[#F9FAFB]">
+        <div className="flex-1 flex flex-col bg-[#0A0A0B] min-h-0">
             {/* Header */}
-            <div className="px-8 py-6 border-b border-gray-200 bg-white shadow-sm flex items-center justify-between shrink-0">
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Settings</h1>
-                <div className="flex gap-1 text-sm font-bold bg-gray-100 p-1 rounded-lg">
-                    <button
-                        onClick={() => setActiveTab('brandkit')}
-                        className={`px-3 py-1.5 rounded-md transition-all ${activeTab === 'brandkit' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Brand Kit
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('general')}
-                        className={`px-3 py-1.5 rounded-md transition-all ${activeTab === 'general' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        General
-                    </button>
+            <div className="flex items-center justify-between px-10 py-6 border-b border-[#1F1F23]">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-2xl font-bold text-white">Settings</h1>
+                    <p className="text-sm text-[#6B6B70]">Manage your account and brand settings</p>
                 </div>
             </div>
 
-            {/* Content SCROLLABLE AREA */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
-                <div className="max-w-5xl mx-auto">
-                    {activeTab === 'brandkit' && (
-                        <div className="animate-fadeIn">
-                            <BrandKit
-                                brandName={brandName}
-                                config={config}
-                                onChange={onChange}
-                            />
-                        </div>
-                    )}
+            {/* Main Content */}
+            <div className="flex-1 flex gap-8 px-10 py-7 overflow-hidden">
+                {/* Tabs Column */}
+                <div className="w-[220px] flex flex-col gap-1 flex-shrink-0">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                                activeTab === tab.id
+                                    ? 'bg-[#FF5C00] text-white'
+                                    : 'text-[#6B6B70] hover:text-white hover:bg-[#1A1A1D]'
+                            }`}
+                        >
+                            <span
+                                className="material-symbols-sharp text-xl"
+                                style={{ fontVariationSettings: activeTab === tab.id ? "'FILL' 1, 'wght' 300" : "'wght' 300" }}
+                            >
+                                {tab.icon}
+                            </span>
+                            <span className="text-sm font-medium">{tab.label}</span>
+                        </button>
+                    ))}
 
+                    {/* Divider */}
+                    <div className="h-px bg-[#1F1F23] my-2"></div>
+
+                    {/* Brand Kit Link */}
+                    <button
+                        onClick={onNavigateToBrandKit}
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-left border border-[#FF5C0044] text-[#FF5C00] hover:bg-[#FF5C0011] transition-colors"
+                    >
+                        <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>palette</span>
+                        <span className="text-sm font-medium">Brand Kit</span>
+                    </button>
+                </div>
+
+                {/* Settings Panel */}
+                <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
                     {activeTab === 'general' && (
-                        <div className="animate-fadeIn bg-brand-surface border border-brand-border rounded-xl p-8">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-xl">⚙️</div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-brand-text">General Settings</h3>
-                                    <p className="text-sm text-brand-muted">Control automation and system behavior.</p>
+                        <>
+                            {/* Profile Information Card */}
+                            <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                                <div className="flex items-center justify-between mb-5">
+                                    <span className="text-white text-base font-semibold">Profile Information</span>
+                                    <button className="text-[#FF5C00] text-sm font-medium hover:underline">Edit</button>
+                                </div>
+
+                                <div className="flex gap-6">
+                                    {/* Avatar */}
+                                    <div className="w-20 h-20 rounded-full bg-[#FF5C00] flex items-center justify-center flex-shrink-0">
+                                        <span className="text-white text-[28px] font-semibold">AC</span>
+                                    </div>
+
+                                    {/* Fields */}
+                                    <div className="flex-1 flex flex-col gap-4">
+                                        <div className="flex gap-4">
+                                            <div className="flex-1 flex flex-col gap-1.5">
+                                                <span className="text-[#6B6B70] text-xs">Full Name</span>
+                                                <span className="text-white text-sm">{profileName}</span>
+                                            </div>
+                                            <div className="flex-1 flex flex-col gap-1.5">
+                                                <span className="text-[#6B6B70] text-xs">Email</span>
+                                                <span className="text-white text-sm">{profileEmail}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-4">
+                                            <div className="flex-1 flex flex-col gap-1.5">
+                                                <span className="text-[#6B6B70] text-xs">Role</span>
+                                                <span className="text-white text-sm">{profileRole}</span>
+                                            </div>
+                                            <div className="flex-1 flex flex-col gap-1.5">
+                                                <span className="text-[#6B6B70] text-xs">Company</span>
+                                                <span className="text-white text-sm">{profileCompany}</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between border border-brand-border rounded-xl p-4 bg-white">
-                                <div>
-                                    <div className="text-sm font-semibold text-brand-text">Automation mode</div>
-                                    <p className="text-xs text-brand-muted">Enable always-on recommendations in the Action Center.</p>
+                            {/* Preferences Card */}
+                            <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                                <span className="text-white text-base font-semibold mb-5 block">Preferences</span>
+
+                                <div className="flex flex-col gap-4">
+                                    {/* Timezone */}
+                                    <div className="flex items-center justify-between py-2">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-white text-sm">Timezone</span>
+                                            <span className="text-[#6B6B70] text-xs">Set your local timezone for scheduling</span>
+                                        </div>
+                                        <button className="flex items-center gap-2 px-3 py-2 bg-[#1A1A1D] border border-[#2E2E2E] rounded-md">
+                                            <span className="text-white text-[13px]">{timezone}</span>
+                                            <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>expand_more</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="h-px bg-[#1F1F23]"></div>
+
+                                    {/* Language */}
+                                    <div className="flex items-center justify-between py-2">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-white text-sm">Language</span>
+                                            <span className="text-[#6B6B70] text-xs">Select your preferred language</span>
+                                        </div>
+                                        <button className="flex items-center gap-2 px-3 py-2 bg-[#1A1A1D] border border-[#2E2E2E] rounded-md">
+                                            <span className="text-white text-[13px]">{language}</span>
+                                            <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>expand_more</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="h-px bg-[#1F1F23]"></div>
+
+                                    {/* Dark Mode */}
+                                    <div className="flex items-center justify-between py-2">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-white text-sm">Dark Mode</span>
+                                            <span className="text-[#6B6B70] text-xs">Enable dark mode interface</span>
+                                        </div>
+                                        <button
+                                            onClick={() => setDarkModeEnabled(!darkModeEnabled)}
+                                            className={`relative w-11 h-6 rounded-full transition-colors ${darkModeEnabled ? 'bg-[#FF5C00]' : 'bg-[#2E2E2E]'}`}
+                                        >
+                                            <span
+                                                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${darkModeEnabled ? 'left-[22px]' : 'left-0.5'}`}
+                                            ></span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={handleAutomationToggle}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${automationEnabled ? 'bg-brand-accent' : 'bg-gray-300'}`}
-                                    aria-pressed={automationEnabled}
-                                >
-                                    <span
-                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${automationEnabled ? 'translate-x-6' : 'translate-x-1'}`}
-                                    />
-                                </button>
                             </div>
 
-                            <div className="mt-6 border border-brand-border rounded-xl p-5 bg-white space-y-4">
-                                <div>
-                                    <div className="text-sm font-semibold text-brand-text">Data Integrations</div>
-                                    <p className="text-xs text-brand-muted">Connect per-brand data sources to improve analytics and agent accuracy.</p>
-                                </div>
+                            {/* Integrations Card (preserving existing functionality) */}
+                            <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                                <span className="text-white text-base font-semibold mb-2 block">Data Integrations</span>
+                                <p className="text-[#6B6B70] text-xs mb-5">Connect per-brand data sources to improve analytics and agent accuracy.</p>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
-                                        Apify / X Handle
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[#9CA3AF] text-xs font-medium">Apify / X Handle</label>
                                         <input
                                             value={apifyHandle}
                                             onChange={(e) => setApifyHandle(e.target.value)}
                                             placeholder="@yourbrand"
-                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
                                         />
-                                    </label>
-                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
-                                        LunarCrush Symbol
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[#9CA3AF] text-xs font-medium">LunarCrush Symbol</label>
                                         <input
                                             value={lunarSymbol}
                                             onChange={(e) => setLunarSymbol(e.target.value)}
                                             placeholder="ETH, METIS, etc."
-                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
                                         />
-                                    </label>
+                                    </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
-                                        Dune Volume Query
+                                <div className="grid grid-cols-3 gap-4 mb-5">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[#9CA3AF] text-xs font-medium">Dune Volume Query</label>
                                         <input
                                             value={duneVolumeQuery}
                                             onChange={(e) => setDuneVolumeQuery(e.target.value)}
                                             placeholder="Query ID"
-                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
                                         />
-                                    </label>
-                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
-                                        Dune Users Query
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[#9CA3AF] text-xs font-medium">Dune Users Query</label>
                                         <input
                                             value={duneUsersQuery}
                                             onChange={(e) => setDuneUsersQuery(e.target.value)}
                                             placeholder="Query ID"
-                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
                                         />
-                                    </label>
-                                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
-                                        Dune Retention Query
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[#9CA3AF] text-xs font-medium">Dune Retention Query</label>
                                         <input
                                             value={duneRetentionQuery}
                                             onChange={(e) => setDuneRetentionQuery(e.target.value)}
                                             placeholder="Query ID"
-                                            className="mt-2 w-full border border-brand-border rounded-lg px-3 py-2 text-sm text-brand-text"
+                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
                                         />
-                                    </label>
+                                    </div>
                                 </div>
 
                                 <div className="flex justify-end">
-                                    <Button onClick={handleSaveIntegrations} isLoading={savingIntegrations}>
-                                        Save Integrations
-                                    </Button>
+                                    <button
+                                        onClick={handleSaveIntegrations}
+                                        disabled={savingIntegrations}
+                                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white text-sm font-semibold disabled:opacity-50"
+                                        style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                                    >
+                                        {savingIntegrations ? (
+                                            <>
+                                                <span className="material-symbols-sharp text-base animate-spin" style={{ fontVariationSettings: "'wght' 300" }}>progress_activity</span>
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Save Integrations'
+                                        )}
+                                    </button>
                                 </div>
                             </div>
+
+                            {/* Brand Data Management Card */}
+                            <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>database</span>
+                                    <span className="text-white text-base font-semibold">Brand Data Management</span>
+                                </div>
+                                <p className="text-[#6B6B70] text-xs mb-5">Import demo brands or reset your current brand to its default configuration.</p>
+
+                                <div className="flex flex-col gap-4">
+                                    {/* Seed Default Brands */}
+                                    <div className="flex items-center justify-between py-3 px-4 bg-[#1A1A1D] rounded-lg border border-[#2E2E2E]">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-white text-sm font-medium">Import Demo Brands</span>
+                                            <span className="text-[#6B6B70] text-xs">Add ENKI, Netswap, Metis, and LazAI with all their data</span>
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                setIsSeeding(true);
+                                                setSeedResult(null);
+                                                try {
+                                                    const result = await forceSeedDefaultBrands();
+                                                    setSeedResult(result);
+                                                } finally {
+                                                    setIsSeeding(false);
+                                                }
+                                            }}
+                                            disabled={isSeeding}
+                                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#22C55E] hover:bg-[#16A34A] text-white text-sm font-medium disabled:opacity-50 transition-colors"
+                                        >
+                                            {isSeeding ? (
+                                                <>
+                                                    <span className="material-symbols-sharp text-base animate-spin" style={{ fontVariationSettings: "'wght' 300" }}>progress_activity</span>
+                                                    Importing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>download</span>
+                                                    Import Brands
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    {/* Seed Result */}
+                                    {seedResult && (
+                                        <div className={`p-3 rounded-lg border ${seedResult.success ? 'bg-[#22C55E]/10 border-[#22C55E]/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`material-symbols-sharp text-base ${seedResult.success ? 'text-[#22C55E]' : 'text-red-400'}`} style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>
+                                                    {seedResult.success ? 'check_circle' : 'error'}
+                                                </span>
+                                                <span className={`text-sm font-medium ${seedResult.success ? 'text-[#22C55E]' : 'text-red-400'}`}>
+                                                    {seedResult.success
+                                                        ? `Successfully imported: ${seedResult.brands.join(', ')}`
+                                                        : 'Failed to import brands'}
+                                                </span>
+                                            </div>
+                                            {seedResult.success && (
+                                                <p className="text-[#6B6B70] text-xs mt-1 ml-6">Refresh the page or use the sidebar to switch to these brands.</p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="h-px bg-[#2E2E2E]"></div>
+
+                                    {/* Reset Current Brand */}
+                                    <div className="flex items-center justify-between py-3 px-4 bg-[#1A1A1D] rounded-lg border border-[#2E2E2E]">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-white text-sm font-medium">Reset Current Brand</span>
+                                            <span className="text-[#6B6B70] text-xs">Restore "{brandName}" to its default configuration</span>
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                if (!confirm(`Are you sure you want to reset "${brandName}" to its default settings? This will overwrite your customizations.`)) return;
+                                                setIsResetting(true);
+                                                try {
+                                                    await resetBrandToDefault(brandName);
+                                                    window.location.reload();
+                                                } finally {
+                                                    setIsResetting(false);
+                                                }
+                                            }}
+                                            disabled={isResetting}
+                                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2E2E2E] hover:bg-[#3A3A3E] text-[#9CA3AF] text-sm font-medium disabled:opacity-50 transition-colors"
+                                        >
+                                            {isResetting ? (
+                                                <>
+                                                    <span className="material-symbols-sharp text-base animate-spin" style={{ fontVariationSettings: "'wght' 300" }}>progress_activity</span>
+                                                    Resetting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>restart_alt</span>
+                                                    Reset Brand
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {activeTab === 'notifications' && (
+                        <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                            <span className="text-white text-base font-semibold mb-4 block">Notification Preferences</span>
+                            <p className="text-[#6B6B70] text-sm">Notification settings coming soon.</p>
+                        </div>
+                    )}
+
+                    {activeTab === 'security' && (
+                        <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                            <span className="text-white text-base font-semibold mb-4 block">Security Settings</span>
+                            <p className="text-[#6B6B70] text-sm">Security settings coming soon.</p>
+                        </div>
+                    )}
+
+                    {activeTab === 'billing' && (
+                        <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                            <span className="text-white text-base font-semibold mb-4 block">Billing & Subscription</span>
+                            <p className="text-[#6B6B70] text-sm">Billing settings coming soon.</p>
                         </div>
                     )}
                 </div>

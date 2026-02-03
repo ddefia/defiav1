@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { generateWeb3Graphic, generateTweet, generateIdeas, generateCampaignDrafts, researchBrandIdentity, generateStrategicAnalysis, executeMarketingAction, generateGrowthReport, refineStrategicPosture } from './services/gemini';
 import { fetchMarketPulse } from './services/pulse';
 import { fetchMentions, computeSocialSignals, fetchSocialMetrics } from './services/analytics';
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
 import { fetchActionCenter } from './services/actionCenter';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
+import { getCurrentUser, onAuthStateChange, UserProfile } from './services/auth'; // Import auth
 import { Button } from './components/Button';
 import { Select } from './components/Select';
 import { BrandKit } from './components/BrandKit';
+import { BrandKitPage } from './components/BrandKitPage';
 import { PulseEngine } from './components/PulseEngine'; // Import Pulse
 import { ContentCalendar } from './components/ContentCalendar';
 import { Dashboard } from './components/Dashboard'; // Import Dashboard
@@ -22,7 +24,9 @@ import { ImageEditor } from './components/ImageEditor'; // Import ImageEditor
 import { CopilotView } from './components/Copilot/CopilotView'; // Import Copilot
 import { Sidebar } from './components/Sidebar';
 import { Settings } from './components/Settings'; // Import Settings
+import { TwitterFeed } from './components/TwitterFeed'; // Import TwitterFeed
 import { LandingPage } from './components/LandingPage';
+import { AuthPage } from './components/AuthPage'; // Import AuthPage
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { OnboardingPrompt } from './components/onboarding/OnboardingPrompt';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals, StrategicPosture } from './types';
@@ -78,6 +82,8 @@ const sectionRoutes: Record<string, string> = {
     studio: '/studio',
     'image-editor': '/image-editor',
     settings: '/settings',
+    'twitter-feed': '/twitter-feed',
+    'brand-kit': '/brand-kit',
 };
 
 const getSectionFromPath = (path: string) => {
@@ -88,11 +94,15 @@ const getSectionFromPath = (path: string) => {
 
 
 const App: React.FC = () => {
-    console.log('App: Copilot Integration Loaded v2'); // Debug: Force Rebuild
+    console.log('App: Auth Integration Loaded v3'); // Debug: Force Rebuild
     const [route, setRoute] = useState<string>(() => window.location.pathname);
     const [onboardingState, setOnboardingState] = useState<OnboardingState>(() => loadOnboardingState());
     // App Navigation State
-    const [appSection, setAppSection] = useState<string>(() => getSectionFromPath(window.location.pathname)); // Default to dashboard
+    const [appSection, setAppSection] = useState<string>(() => getSectionFromPath(window.location.pathname));
+
+    // Auth State
+    const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+    const [isAuthLoading, setIsAuthLoading] = useState(true); // Default to dashboard
 
     useEffect(() => {
         const handlePopState = () => setRoute(window.location.pathname);
@@ -108,21 +118,84 @@ const App: React.FC = () => {
                 setAppSection(section);
             }
         }
-    }, [route, appSection]);
+    }, [route]); // Removed appSection from deps to prevent loop
 
     useEffect(() => {
         saveOnboardingState(onboardingState);
     }, [onboardingState]);
 
+    // Initialize auth state
+    useEffect(() => {
+        const initAuth = async () => {
+            setIsAuthLoading(true);
+            try {
+                const user = await getCurrentUser();
+                setCurrentUser(user);
+
+                // If user has a linked brand (by brandId, brandName, or email), auto-select it
+                if (user) {
+                    const userBrand = getCurrentUserBrand();
+                    if (userBrand) {
+                        setSelectedBrand(userBrand.brandName);
+                        // Also mark onboarding as complete for users with existing brands
+                        setOnboardingState(prev => ({
+                            ...prev,
+                            completed: true,
+                            updatedAt: Date.now(),
+                        }));
+
+                        // Sync brand assets from Supabase storage (images, etc.)
+                        // This runs in background and updates the UI via storage events
+                        syncBrandAssetsFromStorage(userBrand.brandName).then(result => {
+                            if (result.imagesAdded > 0) {
+                                console.log(`✅ Synced ${result.imagesAdded} images for ${userBrand.brandName}`);
+                                // Reload profiles to pick up new images
+                                setProfiles(loadBrandProfiles());
+                            }
+                        }).catch(err => {
+                            console.warn('Brand asset sync failed (non-critical):', err);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('Auth init failed', e);
+            } finally {
+                setIsAuthLoading(false);
+            }
+        };
+        initAuth();
+
+        // Listen for auth changes
+        const unsubscribe = onAuthStateChange((user) => {
+            setCurrentUser(user);
+            if (!user) {
+                // User signed out - redirect to landing
+                setSelectedBrand('');
+                navigate('/');
+            } else {
+                // User signed in - set their brand
+                const userBrand = getCurrentUserBrand();
+                if (userBrand) {
+                    setSelectedBrand(userBrand.brandName);
+                }
+            }
+        });
+
+        return unsubscribe;
+    }, []);
+
     useEffect(() => {
         const targetPath = sectionRoutes[appSection];
         if (!targetPath) return;
-        if (route === '/' || route.startsWith('/onboarding')) return;
-        if (normalizePath(route) !== targetPath) {
+        const currentPath = window.location.pathname;
+        if (currentPath === '/' || currentPath.startsWith('/onboarding')) return;
+        const normalized = normalizePath(currentPath);
+        // Only push if the route doesn't already match
+        if (normalized !== targetPath) {
             window.history.pushState({}, '', targetPath);
             setRoute(targetPath);
         }
-    }, [appSection, route]);
+    }, [appSection]); // Uses window.location.pathname directly to avoid stale closure
 
     const navigate = (path: string) => {
         if (window.location.pathname !== path) {
@@ -149,8 +222,8 @@ const App: React.FC = () => {
 
     // App State - Profiles
     const [profiles, setProfiles] = useState<Record<string, BrandConfig>>(() => loadBrandProfiles());
-    // Safely initialize selectedBrand to the first available profile, or empty string if none exist.
-    const [selectedBrand, setSelectedBrand] = useState<string>(() => Object.keys(loadBrandProfiles())[0] || '');
+    // Initialize selectedBrand to empty - will be set after auth check to user's linked brand
+    const [selectedBrand, setSelectedBrand] = useState<string>('');
 
     // Onboarding / Connect State
     const [showOnboarding, setShowOnboarding] = useState(false);
@@ -215,8 +288,21 @@ const App: React.FC = () => {
     }, [profiles]);
 
     useEffect(() => {
+        if (!selectedBrand) return;
+
         setCalendarEvents(loadCalendarEvents(selectedBrand));
         setAutomationEnabled(loadAutomationSettings(selectedBrand).enabled);
+
+        // Sync brand assets from Supabase storage (runs once per brand selection)
+        syncBrandAssetsFromStorage(selectedBrand).then(result => {
+            if (result.imagesAdded > 0) {
+                console.log(`✅ Synced ${result.imagesAdded} images for ${selectedBrand}`);
+                // Reload profiles to pick up new images
+                setProfiles(loadBrandProfiles());
+            }
+        }).catch(err => {
+            console.warn('Brand asset sync failed (non-critical):', err);
+        });
 
         // AGGRESSIVE PURGE: Remove legacy "Autopilot" generic tasks
         const rawTasks = loadStrategyTasks(selectedBrand);
@@ -713,7 +799,7 @@ const App: React.FC = () => {
         handleNavigate('campaigns', { title: trend.headline });
     };
 
-    const handleNavigate = (section: string, params: any) => {
+    const handleNavigate = useCallback((section: string, params: any) => {
         setAppSection(section);
 
         // Campaigns: Pre-fill Concept
@@ -742,7 +828,7 @@ const App: React.FC = () => {
             if (params?.image) setEditorInitialImage(params.image);
             if (params?.prompt) setEditorInitialPrompt(params.prompt);
         }
-    }
+    }, []);
 
     // --- Onboarding / Research ---
 
@@ -901,15 +987,77 @@ const App: React.FC = () => {
     // const approvedCount = campaignItems.filter(i => i.isApproved).length;
 
     const isLanding = route === '/';
+    const isAuthRoute = route === '/login' || route === '/signup';
     const isOnboardingRoute = route.startsWith('/onboarding');
-    const isDashboardRoute = !isLanding && !isOnboardingRoute;
+    const isDashboardRoute = !isLanding && !isAuthRoute && !isOnboardingRoute;
     const shouldShowOnboardingPrompt = isDashboardRoute && !onboardingState.completed && !onboardingState.dismissed;
 
+    // Auth loading state
+    if (isAuthLoading) {
+        return (
+            <div className="min-h-screen bg-[#0A0A0B] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-2 border-[#FF5C00] border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[#6B6B70] text-sm">Loading...</span>
+                </div>
+            </div>
+        );
+    }
+
     if (isLanding) {
-        return <LandingPage onOpenDashboard={() => navigate('/dashboard')} />;
+        return <LandingPage onOpenDashboard={() => {
+            // If user is logged in, go to dashboard, otherwise go to login
+            if (currentUser) {
+                navigate('/dashboard');
+            } else {
+                navigate('/login');
+            }
+        }} />;
+    }
+
+    // Auth pages (login/signup)
+    if (isAuthRoute) {
+        // If already logged in, redirect to dashboard
+        if (currentUser) {
+            navigate('/dashboard');
+            return null;
+        }
+        return (
+            <AuthPage
+                mode={route === '/signup' ? 'signup' : 'login'}
+                onSuccess={(hasBrand) => {
+                    // If user already has a brand (demo accounts or returning users), skip onboarding
+                    if (hasBrand) {
+                        // Mark onboarding as complete for users with existing brands
+                        setOnboardingState({
+                            dismissed: false,
+                            completed: true,
+                            lastStep: 3,
+                            updatedAt: Date.now(),
+                        });
+                        navigate('/dashboard');
+                    } else {
+                        // New users go through onboarding
+                        navigate('/onboarding');
+                    }
+                }}
+                onSwitchMode={() => navigate(route === '/login' ? '/signup' : '/login')}
+            />
+        );
+    }
+
+    // Protected routes - require auth
+    if (isDashboardRoute && !currentUser) {
+        navigate('/login');
+        return null;
     }
 
     if (isOnboardingRoute) {
+        // Require auth for onboarding
+        if (!currentUser) {
+            navigate('/login');
+            return null;
+        }
         return (
             <OnboardingFlow
                 onExit={() => navigate('/dashboard')}
@@ -919,7 +1067,7 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-brand-bg text-brand-text font-sans flex flex-row h-screen overflow-hidden">
+        <div className="min-h-screen bg-[#0A0A0B] text-white font-sans flex flex-row h-screen overflow-hidden">
             {/* SIDEBAR */}
             {selectedBrand && profiles[selectedBrand] && (
                 <Sidebar
@@ -932,7 +1080,7 @@ const App: React.FC = () => {
                 />
             )}
 
-            <main className="flex-1 w-full h-full flex flex-col relative overflow-auto">
+            <main className="flex-1 w-full h-full flex flex-col relative overflow-auto bg-[#0A0A0B]">
                 {isDashboardRoute && !onboardingState.completed && (
                     <div className="px-6 pt-6">
                         {shouldShowOnboardingPrompt ? (
@@ -941,12 +1089,12 @@ const App: React.FC = () => {
                                 onSkip={handleSkipOnboarding}
                             />
                         ) : (
-                            <div className="rounded-2xl border border-brand-border bg-white p-4 shadow-sm flex items-center justify-between">
+                            <div className="rounded-2xl border border-[#1F1F23] bg-[#111113] p-4 shadow-sm flex items-center justify-between">
                                 <div>
-                                    <div className="text-sm font-semibold text-brand-text">Resume onboarding anytime</div>
-                                    <p className="text-xs text-brand-muted mt-1">Pick up where you left off and enrich your brand profile.</p>
+                                    <div className="text-sm font-semibold text-white">Resume onboarding anytime</div>
+                                    <p className="text-xs text-[#6B6B70] mt-1">Pick up where you left off and enrich your brand profile.</p>
                                 </div>
-                                <Button onClick={handleStartOnboarding} className="px-4 py-2">Resume onboarding</Button>
+                                <Button onClick={handleStartOnboarding} className="px-4 py-2 bg-[#FF5C00] hover:bg-[#FF6B1A] text-white">Resume onboarding</Button>
                             </div>
                         )}
                     </div>
@@ -975,7 +1123,6 @@ const App: React.FC = () => {
                         growthReport={growthReport}
                         onNavigate={(section) => handleNavigate(section, null)}
                         agentDecisions={agentDecisions}
-                        onNavigate={(section) => setAppSection(section)}
                         // New Props from Growth Engine
                         tasks={strategyTasks}
                         onUpdateTasks={setStrategyTasks}
@@ -1037,6 +1184,17 @@ const App: React.FC = () => {
                         brandName={selectedBrand}
                         config={profiles[selectedBrand]}
                         onChange={handleUpdateCurrentBrandConfig}
+                        onNavigateToBrandKit={() => handleNavigate('brand-kit', null)}
+                    />
+                )}
+
+                {/* SECTION: BRAND KIT */}
+                {appSection === 'brand-kit' && selectedBrand && profiles[selectedBrand] && (
+                    <BrandKitPage
+                        brandName={selectedBrand}
+                        config={profiles[selectedBrand]}
+                        onChange={handleUpdateCurrentBrandConfig}
+                        onBack={() => handleNavigate('settings', null)}
                     />
                 )}
 
@@ -1067,6 +1225,14 @@ const App: React.FC = () => {
                         socialMetrics={socialMetrics}
                         signals={socialSignals} // Live Brain Signals
                         initialFilter={socialFilter} // Pass filter
+                    />
+                )}
+
+                {/* SECTION: TWITTER FEED */}
+                {appSection === 'twitter-feed' && selectedBrand && (
+                    <TwitterFeed
+                        brandName={selectedBrand}
+                        onNavigate={handleNavigate}
                     />
                 )}
 

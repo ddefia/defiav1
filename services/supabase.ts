@@ -1,13 +1,17 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || (import.meta as any).env?.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase Environment Variables');
+let supabase: SupabaseClient | null = null;
+
+if (supabaseUrl && supabaseAnonKey) {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+} else {
+    console.warn('⚠️ Supabase credentials not configured. Cloud features will be disabled.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export { supabase };
 
 /**
  * LOG CONTENT HISTORY (Long-term Memory)
@@ -20,6 +24,7 @@ export const logContentHistory = async (
     url?: string,
     mediaUrl?: string
 ) => {
+    if (!supabase) return;
     try {
         const { error } = await supabase
             .from('content_logs')
@@ -50,6 +55,7 @@ export const saveBrainMemory = async (
     vectorVal?: number[],
     metadata?: any
 ) => {
+    if (!supabase) return;
     try {
         const payload: any = {
             brand_id: brandId,
@@ -83,6 +89,7 @@ export const searchBrainMemory = async (
     threshold = 0.7,
     limit = 5
 ) => {
+    if (!supabase) return [];
     try {
         const { data, error } = await supabase.rpc('match_brand_memory', {
             match_threshold: threshold,

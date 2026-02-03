@@ -24,10 +24,20 @@ export interface BrandConfig {
   knowledgeBase: string[]; // List of text content (docs/whitepapers)
   brandCollectorProfile?: any; // Optional: Raw enrichment profile from brand-collector
   name?: string; // New: Brand Name (injected from ID)
+  ownerId?: string; // User ID who owns this brand
   voiceGuidelines?: string; // New: Tone/Voice instructions (e.g. "Formal, Trustworthy")
   targetAudience?: string; // New: Who is this for? (e.g. "Institutions")
   bannedPhrases?: string[]; // New: Words to never use
   visualIdentity?: string; // New: Distilled visual style guide from PDF/Docs
+  // Brand Kit Page fields
+  missionStatement?: string; // Company mission
+  vision?: string; // Company vision
+  founded?: string; // Year founded
+  headquarters?: string; // HQ location
+  toneGuidelines?: string; // Detailed tone guidelines
+  tagline?: string; // Brand tagline
+  brandDescription?: string; // Full brand description
+  keywords?: string[]; // Keywords/topics for AI focus
   graphicTemplates?: {
     id: string;
     label: string;

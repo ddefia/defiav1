@@ -1,6 +1,7 @@
-import { BrandConfig, PulseCache, CalendarEvent } from "../types";
+import { BrandConfig, PulseCache, CalendarEvent, ReferenceImage } from "../types";
 import { DEFAULT_PROFILES } from './brandData';
 import { supabase } from './supabaseClient';
+import { loadUserProfile } from './auth';
 
 const STORAGE_KEY = 'ethergraph_brand_profiles_v17';
 const PULSE_STORAGE_PREFIX = 'defia_pulse_cache_v2_';
@@ -202,6 +203,303 @@ export const saveBrandProfiles = (profiles: Record<string, BrandConfig>, suppres
 export const getBrandDefault = (name: string): BrandConfig | null => {
     return DEFAULT_PROFILES[name] || null;
 };
+
+/**
+ * Force seed/reset the default brands (ENKI, Netswap, Metis, LazAI)
+ * This will merge the default profiles into the current storage without
+ * overwriting any user customizations.
+ *
+ * Call this from browser console: await window.forceSeedDefaultBrands()
+ */
+export const forceSeedDefaultBrands = async (): Promise<{
+    success: boolean;
+    brands: string[];
+    error?: string;
+}> => {
+    try {
+        const BRANDS_TO_SEED = ['ENKI Protocol', 'Netswap', 'Metis', 'LazAI'];
+        const currentProfiles = loadBrandProfiles();
+        const seededBrands: string[] = [];
+
+        for (const brandName of BRANDS_TO_SEED) {
+            const defaultProfile = DEFAULT_PROFILES[brandName];
+            if (!defaultProfile) continue;
+
+            // Check if brand already exists
+            if (currentProfiles[brandName]) {
+                // Merge: keep user data but add any missing defaults
+                const existing = currentProfiles[brandName];
+                currentProfiles[brandName] = {
+                    ...defaultProfile,
+                    ...existing,
+                    // Merge arrays - add defaults that don't exist
+                    colors: existing.colors?.length ? existing.colors : defaultProfile.colors,
+                    referenceImages: existing.referenceImages?.length ? existing.referenceImages : defaultProfile.referenceImages,
+                    tweetExamples: existing.tweetExamples?.length ? existing.tweetExamples : defaultProfile.tweetExamples,
+                    knowledgeBase: existing.knowledgeBase?.length ? existing.knowledgeBase : defaultProfile.knowledgeBase,
+                    graphicTemplates: existing.graphicTemplates?.length ? existing.graphicTemplates : defaultProfile.graphicTemplates,
+                };
+            } else {
+                // Add new brand
+                currentProfiles[brandName] = defaultProfile;
+            }
+            seededBrands.push(brandName);
+        }
+
+        // Save locally and to cloud
+        saveBrandProfiles(currentProfiles, false);
+
+        console.log('✅ Seeded brands:', seededBrands);
+        return { success: true, brands: seededBrands };
+    } catch (e: any) {
+        console.error('❌ Failed to seed brands:', e);
+        return { success: false, brands: [], error: e.message };
+    }
+};
+
+/**
+ * Reset a specific brand to its default profile
+ */
+export const resetBrandToDefault = async (brandName: string): Promise<boolean> => {
+    const defaultProfile = DEFAULT_PROFILES[brandName];
+    if (!defaultProfile) {
+        console.error(`No default profile found for ${brandName}`);
+        return false;
+    }
+
+    const currentProfiles = loadBrandProfiles();
+    currentProfiles[brandName] = { ...defaultProfile };
+    saveBrandProfiles(currentProfiles);
+
+    console.log(`✅ Reset ${brandName} to default`);
+    return true;
+};
+
+/**
+ * Get the brand owned by the current user
+ * Returns null if no user is logged in or user has no brand
+ */
+export const getCurrentUserBrand = (): { brandName: string; config: BrandConfig } | null => {
+    const user = loadUserProfile();
+    if (!user) return null;
+
+    const allProfiles = loadBrandProfiles();
+
+    // First check if user has a brandId set (matches profile key)
+    if (user.brandId && allProfiles[user.brandId]) {
+        return { brandName: user.brandId, config: allProfiles[user.brandId] };
+    }
+
+    // Check if user has a brandName set (from Supabase metadata, e.g., "ENKI Protocol")
+    if (user.brandName && allProfiles[user.brandName]) {
+        return { brandName: user.brandName, config: allProfiles[user.brandName] };
+    }
+
+    // Check by ownerId
+    for (const [name, config] of Object.entries(allProfiles)) {
+        if (config.ownerId === user.id) {
+            return { brandName: name, config };
+        }
+    }
+
+    // Fallback: Check demo accounts by email pattern
+    const demoMapping: Record<string, string> = {
+        'enki@defia.io': 'ENKI Protocol',
+        'netswap@defia.io': 'Netswap',
+        'metis@defia.io': 'Metis',
+        'lazai@defia.io': 'LazAI',
+    };
+
+    if (user.email && demoMapping[user.email] && allProfiles[demoMapping[user.email]]) {
+        return { brandName: demoMapping[user.email], config: allProfiles[demoMapping[user.email]] };
+    }
+
+    return null;
+};
+
+/**
+ * Mapping from brand names to their folder names in Supabase storage bucket
+ */
+const BRAND_FOLDER_MAP: Record<string, string> = {
+    'ENKI Protocol': 'enki_protocol',
+    'Netswap': 'netswap',
+    'Metis': 'metis',
+    'LazAI': 'lazai',
+};
+
+/**
+ * Fetch brand assets (images) from Supabase storage bucket and sync to brand config
+ * This pulls reference images from the 'brand-assets' bucket
+ */
+export const syncBrandAssetsFromStorage = async (brandName: string): Promise<{
+    success: boolean;
+    imagesAdded: number;
+    error?: string;
+}> => {
+    try {
+        const folderName = BRAND_FOLDER_MAP[brandName];
+        if (!folderName) {
+            console.warn(`No folder mapping for brand: ${brandName}`);
+            return { success: false, imagesAdded: 0, error: `No storage folder for ${brandName}` };
+        }
+
+        console.log(`🔄 Syncing brand assets for ${brandName} from folder: ${folderName}`);
+
+        // List files in the brand's folder
+        const { data: files, error: listError } = await supabase.storage
+            .from('brand-assets')
+            .list(folderName, {
+                limit: 100,
+                sortBy: { column: 'name', order: 'asc' }
+            });
+
+        if (listError) {
+            console.error('Failed to list brand assets:', listError);
+            return { success: false, imagesAdded: 0, error: listError.message };
+        }
+
+        if (!files || files.length === 0) {
+            console.log(`No assets found for ${brandName}`);
+            return { success: true, imagesAdded: 0 };
+        }
+
+        // Filter for image files only
+        const imageFiles = files.filter(f =>
+            !f.name.startsWith('.') &&
+            /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.name)
+        );
+
+        console.log(`Found ${imageFiles.length} image files for ${brandName}`);
+
+        // Convert to ReferenceImage objects with public URLs
+        const newImages: ReferenceImage[] = imageFiles.map((file, index) => {
+            const filePath = `${folderName}/${file.name}`;
+            const { data: { publicUrl } } = supabase.storage
+                .from('brand-assets')
+                .getPublicUrl(filePath);
+
+            return {
+                id: `${folderName}_${file.name.replace(/\.[^/.]+$/, '')}_${index}`,
+                url: publicUrl,
+                name: file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+                category: 'Reference', // Default category
+            };
+        });
+
+        // Load current profiles and merge new images
+        const allProfiles = loadBrandProfiles();
+        const currentConfig = allProfiles[brandName];
+
+        if (!currentConfig) {
+            console.error(`Brand config not found for ${brandName}`);
+            return { success: false, imagesAdded: 0, error: `Brand ${brandName} not found` };
+        }
+
+        // Merge: Add images that don't already exist (by URL)
+        const existingUrls = new Set(
+            (currentConfig.referenceImages || [])
+                .map(img => img.url)
+                .filter(Boolean)
+        );
+
+        const imagesToAdd = newImages.filter(img => img.url && !existingUrls.has(img.url));
+
+        if (imagesToAdd.length > 0) {
+            currentConfig.referenceImages = [
+                ...(currentConfig.referenceImages || []),
+                ...imagesToAdd
+            ];
+
+            allProfiles[brandName] = currentConfig;
+            saveBrandProfiles(allProfiles);
+
+            console.log(`✅ Added ${imagesToAdd.length} new images to ${brandName}`);
+        } else {
+            console.log(`No new images to add for ${brandName}`);
+        }
+
+        return { success: true, imagesAdded: imagesToAdd.length };
+    } catch (e: any) {
+        console.error('syncBrandAssetsFromStorage failed:', e);
+        return { success: false, imagesAdded: 0, error: e.message };
+    }
+};
+
+/**
+ * Sync assets for all demo brands from Supabase storage
+ */
+export const syncAllBrandAssets = async (): Promise<{
+    results: Record<string, { success: boolean; imagesAdded: number; error?: string }>;
+}> => {
+    const results: Record<string, { success: boolean; imagesAdded: number; error?: string }> = {};
+
+    for (const brandName of Object.keys(BRAND_FOLDER_MAP)) {
+        results[brandName] = await syncBrandAssetsFromStorage(brandName);
+    }
+
+    console.log('Brand asset sync complete:', results);
+    return { results };
+};
+
+// Export for browser console access
+if (typeof window !== 'undefined') {
+    (window as any).syncBrandAssets = syncBrandAssetsFromStorage;
+    (window as any).syncAllBrandAssets = syncAllBrandAssets;
+}
+
+/**
+ * Create or update a brand and assign it to the current user
+ */
+export const createBrandForUser = (brandName: string, config: Partial<BrandConfig>): BrandConfig | null => {
+    const user = loadUserProfile();
+    if (!user) {
+        console.error('No user logged in');
+        return null;
+    }
+
+    const allProfiles = loadBrandProfiles();
+
+    const fullConfig: BrandConfig = {
+        colors: config.colors || [],
+        referenceImages: config.referenceImages || [],
+        tweetExamples: config.tweetExamples || [],
+        knowledgeBase: config.knowledgeBase || [],
+        name: brandName,
+        ownerId: user.id,
+        ...config,
+    };
+
+    allProfiles[brandName] = fullConfig;
+    saveBrandProfiles(allProfiles);
+
+    // Update user profile with brandId
+    const updatedUser = { ...user, brandId: brandName };
+    localStorage.setItem('defia_user_profile_v1', JSON.stringify(updatedUser));
+
+    return fullConfig;
+};
+
+/**
+ * Check if the current user owns a specific brand
+ */
+export const userOwnsBrand = (brandName: string): boolean => {
+    const user = loadUserProfile();
+    if (!user) return false;
+
+    const allProfiles = loadBrandProfiles();
+    const brand = allProfiles[brandName];
+
+    if (!brand) return false;
+
+    // Check if user is the owner
+    return brand.ownerId === user.id || user.brandId === brandName;
+};
+
+// Expose to window for easy console access
+if (typeof window !== 'undefined') {
+    (window as any).forceSeedDefaultBrands = forceSeedDefaultBrands;
+    (window as any).resetBrandToDefault = resetBrandToDefault;
+}
 
 // --- PULSE PERSISTENCE ---
 

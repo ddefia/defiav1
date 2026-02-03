@@ -1,7 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
-import { Button } from './Button';
-import { Select } from './Select';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrandConfig } from '../types';
 import { generateTweet, generateWeb3Graphic, generateIdeas } from '../services/gemini';
 import { saveBrainMemory } from '../services/supabase';
@@ -16,13 +14,82 @@ interface ContentStudioProps {
     initialVisualPrompt?: string;
 }
 
+type ContentType = 'all' | 'twitter' | 'discord' | 'email' | 'graphics';
+type ContentStatus = 'published' | 'scheduled' | 'draft' | 'review';
+type CreateType = 'tweet' | 'graphic';
+type TweetContentType = 'announcement' | 'article' | 'thought' | 'community' | 'thread' | 'repost';
+
+interface ContentItem {
+    id: string;
+    type: 'twitter' | 'discord' | 'email' | 'graphic' | 'thread' | 'blog';
+    title: string;
+    description?: string;
+    status: ContentStatus;
+    date: string;
+    stats?: { likes?: number; retweets?: number; comments?: number };
+    image?: string;
+    dimensions?: string;
+    channel?: string;
+    readTime?: string;
+}
+
+const CONTENT_TYPE_OPTIONS: { id: TweetContentType; emoji: string; label: string; description: string }[] = [
+    { id: 'announcement', emoji: '📢', label: 'Announcement', description: 'Product launches, updates' },
+    { id: 'article', emoji: '📰', label: 'Article Share', description: 'Blog posts, news links' },
+    { id: 'thought', emoji: '💡', label: 'Thought Leadership', description: 'Industry insights, opinions' },
+    { id: 'community', emoji: '🎉', label: 'Community', description: 'Engagement, milestones' },
+    { id: 'thread', emoji: '🧵', label: 'Thread', description: 'Deep dives, tutorials' },
+    { id: 'repost', emoji: '🔄', label: 'Repost', description: 'Quote tweets, replies' },
+];
+
+// Content items are loaded from storage/API - no mock data
+const sampleContent: ContentItem[] = [];
+
 const TEMPLATE_OPTIONS: { id: string; label: string; }[] = [];
 
-export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandConfig, onSchedule, onUpdateBrandConfig, initialDraft, initialVisualPrompt }) => {
-    // Tab State
-    const [activeTab, setActiveTab] = useState<'writer' | 'generate'>('writer');
+export const ContentStudio: React.FC<ContentStudioProps> = ({
+    brandName,
+    brandConfig,
+    onSchedule,
+    onUpdateBrandConfig,
+    initialDraft,
+    initialVisualPrompt
+}) => {
+    // View State
+    const [currentView, setCurrentView] = useState<'library' | 'create-tweet' | 'create-graphic' | 'add-tweet-image'>('library');
 
-    // Writer State
+    // Content Library State
+    const [activeTab, setActiveTab] = useState<ContentType>('all');
+    const [showCreateDropdown, setShowCreateDropdown] = useState(false);
+    const [contentItems, setContentItems] = useState<ContentItem[]>(sampleContent);
+
+    // Create Tweet State
+    const [tweetTopic, setTweetTopic] = useState('');
+    const [selectedContentType, setSelectedContentType] = useState<TweetContentType>('announcement');
+    const [tweetContext, setTweetContext] = useState('');
+    const [generatedTweetPreview, setGeneratedTweetPreview] = useState('');
+    const [isGeneratingTweet, setIsGeneratingTweet] = useState(false);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+    // Create Graphic State
+    const [graphicTweetContent, setGraphicTweetContent] = useState('');
+    const [visualStyle, setVisualStyle] = useState('Modern');
+    const [selectedRefImages, setSelectedRefImages] = useState<number[]>([]);
+    const [graphicVariations, setGraphicVariations] = useState<string[]>([]);
+    const [selectedVariation, setSelectedVariation] = useState<number>(0);
+    const [isGeneratingGraphic, setIsGeneratingGraphic] = useState(false);
+    const [graphicStep, setGraphicStep] = useState<1 | 2>(1);
+
+    // Add Tweet Image State
+    const [tweetImageDescription, setTweetImageDescription] = useState('');
+    const [selectedTheme, setSelectedTheme] = useState<'web3' | 'minimal' | 'bold' | 'retro'>('web3');
+    const [selectedImageStyle, setSelectedImageStyle] = useState<'3d' | 'minimal' | 'abstract' | 'illustrated'>('3d');
+    const [tweetImageOptions, setTweetImageOptions] = useState<string[]>([]);
+    const [selectedImageOption, setSelectedImageOption] = useState<number>(0);
+    const [isGeneratingTweetImages, setIsGeneratingTweetImages] = useState(false);
+    const [tweetForImage, setTweetForImage] = useState('');
+
+    // Writer State (preserved from original)
     const [writerTopic, setWriterTopic] = useState('');
     const [writerTone, setWriterTone] = useState('Professional');
     const [isWritingTweet, setIsWritingTweet] = useState(false);
@@ -33,7 +100,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     // Combine default templates with brand custom templates
     const availableTemplates = React.useMemo(() => {
         const custom = (brandConfig.graphicTemplates || []).map(t => ({
-            id: t.label, // Use label as ID for simplicity in selection
+            id: t.label,
             label: t.label,
             isCustom: true,
             prompt: t.prompt
@@ -41,7 +108,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
         return [...TEMPLATE_OPTIONS, ...custom];
     }, [brandConfig.graphicTemplates]);
 
-    // Generator State
+    // Generator State (preserved from original)
     const [tweetText, setTweetText] = useState('');
     const [visualPrompt, setVisualPrompt] = useState('');
     const [negativePrompt, setNegativePrompt] = useState('');
@@ -54,29 +121,37 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
     const [selectedReferenceImage, setSelectedReferenceImage] = useState<string | null>(null);
     const [uploadedAssets, setUploadedAssets] = useState<{ id: string; data: string; mimeType: string }[]>([]);
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (showCreateDropdown) {
+                setShowCreateDropdown(false);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [showCreateDropdown]);
 
     // --- PERSISTENCE & DEEP LINKS ---
     useEffect(() => {
-        // Handle Deep Linking Overrides
         if (initialDraft || initialVisualPrompt) {
             if (initialDraft) {
-                setWriterTopic(initialDraft);
-                setActiveTab('writer');
+                setTweetTopic(initialDraft);
+                setCurrentView('create-tweet');
             }
             if (initialVisualPrompt) {
                 setVisualPrompt(initialVisualPrompt);
-                setActiveTab('generate');
+                setCurrentView('create-graphic');
             }
         } else {
-            // Load saved state
             const saved = loadStudioState(brandName);
             if (saved) {
-                if (saved.activeTab && (saved.activeTab === 'writer' || saved.activeTab === 'generate')) setActiveTab(saved.activeTab);
                 if (saved.writerTopic) setWriterTopic(saved.writerTopic);
-                if (saved.generatedDrafts) setGeneratedDrafts(saved.generatedDrafts); // Load Array
-                else if (saved.generatedDraft) setGeneratedDrafts([saved.generatedDraft]); // Legacy Support
+                if (saved.generatedDrafts) setGeneratedDrafts(saved.generatedDrafts);
+                else if (saved.generatedDraft) setGeneratedDrafts([saved.generatedDraft]);
                 if (saved.tweetText) setTweetText(saved.tweetText);
                 if (saved.visualPrompt) setVisualPrompt(saved.visualPrompt);
                 if (saved.negativePrompt) setNegativePrompt(saved.negativePrompt);
@@ -87,14 +162,13 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
 
     useEffect(() => {
         const state = {
-            activeTab, writerTopic, generatedDrafts, tweetText, visualPrompt, negativePrompt, generatedImages
+            writerTopic, generatedDrafts, tweetText, visualPrompt, negativePrompt, generatedImages
         };
         const timeout = setTimeout(() => saveStudioState(brandName, state), 1000);
         return () => clearTimeout(timeout);
-    }, [activeTab, writerTopic, generatedDrafts, tweetText, visualPrompt, negativePrompt, generatedImages, brandName]);
+    }, [writerTopic, generatedDrafts, tweetText, visualPrompt, negativePrompt, generatedImages, brandName]);
 
-
-    // --- HANDLERS ---
+    // --- HANDLERS (preserved from original) ---
     const handleGenerateIdeas = async () => {
         setIsGeneratingIdeas(true);
         try {
@@ -103,37 +177,72 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
         } catch (e) { console.error(e); } finally { setIsGeneratingIdeas(false); }
     };
 
+    const handleGenerateTweet = async () => {
+        if (!tweetTopic.trim()) return;
+        setIsGeneratingTweet(true);
+        setError(null);
+        try {
+            // Map content type to tone
+            const toneMap: Record<TweetContentType, string> = {
+                announcement: 'Professional',
+                article: 'Educational',
+                thought: 'Professional',
+                community: 'Casual',
+                thread: 'Educational',
+                repost: 'Casual'
+            };
+            const tone = toneMap[selectedContentType];
+
+            const res = await generateTweet(
+                `${tweetTopic}${tweetContext ? `\n\nContext: ${tweetContext}` : ''}`,
+                brandName,
+                brandConfig,
+                tone,
+                1
+            );
+
+            let draft = '';
+            if (Array.isArray(res)) {
+                draft = res[0] || '';
+            } else if (typeof res === 'string') {
+                draft = res;
+            }
+
+            setGeneratedTweetPreview(draft.trim());
+        } catch (e) {
+            setError('Failed to generate tweet.');
+            console.error(e);
+        } finally {
+            setIsGeneratingTweet(false);
+        }
+    };
+
     const handleAIWrite = async () => {
         setIsWritingTweet(true);
         setGeneratedDrafts([]);
         try {
-            const count = activeTab === 'writer' ? parseInt(variationCount) : 1;
+            const count = parseInt(variationCount);
             const res = await generateTweet(writerTopic, brandName, brandConfig, writerTone, count);
 
             let drafts: string[] = [];
             if (Array.isArray(res)) {
                 drafts = res;
             } else if (typeof res === 'string') {
-                // Try parsing if it looks like a JSON array
                 if (res.trim().startsWith('[') && res.trim().endsWith(']')) {
                     try {
                         const parsed = JSON.parse(res);
                         if (Array.isArray(parsed)) drafts = parsed;
                     } catch (e) {
-                        // Fallback to split if parse fails
                         drafts = res.split('\n\n' + '-'.repeat(40) + '\n\n');
                     }
                 } else {
-                    // Fallback to split separator for legacy format
                     drafts = res.split('\n\n' + '-'.repeat(40) + '\n\n');
                 }
             } else {
                 drafts = [String(res)];
             }
 
-            // Filter empty strings
             setGeneratedDrafts(drafts.filter(d => d && d.trim().length > 0));
-
         } catch (e) { setError('Failed to generate draft.'); } finally { setIsWritingTweet(false); }
     };
 
@@ -161,7 +270,6 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
             const images = await Promise.all(promises);
             setGeneratedImages(images);
 
-            // Sync to Brain Memory (History)
             images.forEach(img => {
                 saveBrainMemory(
                     brandName,
@@ -177,6 +285,28 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
             });
         } catch (err: any) {
             setError(`Failed to generate: ${err.message || "Unknown error"}`);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleGeneratePreviewImage = async () => {
+        if (!generatedTweetPreview) return;
+        setIsGenerating(true);
+        try {
+            const img = await generateWeb3Graphic({
+                prompt: generatedTweetPreview,
+                artPrompt: '',
+                negativePrompt: 'text, words, letters, watermark',
+                size: '1K',
+                aspectRatio: '16:9',
+                brandConfig,
+                brandName,
+                templateType: '',
+            });
+            setPreviewImage(img);
+        } catch (err) {
+            console.error('Failed to generate image:', err);
         } finally {
             setIsGenerating(false);
         }
@@ -226,308 +356,1316 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({ brandName, brandCo
         setUploadedAssets(assets => assets.filter(a => a.id !== id));
     };
 
-    return (
-        <div className="w-full h-full flex flex-col lg:flex-row gap-6 p-6 animate-fadeIn max-w-[1920px] mx-auto">
+    const openCreateView = (type: CreateType) => {
+        if (type === 'tweet') {
+            setCurrentView('create-tweet');
+            setTweetTopic('');
+            setTweetContext('');
+            setGeneratedTweetPreview('');
+            setPreviewImage(null);
+        } else {
+            setCurrentView('create-graphic');
+            setGraphicTweetContent('');
+            setVisualStyle('Modern');
+            setSelectedRefImages([]);
+            setGraphicVariations([]);
+            setSelectedVariation(0);
+            setGraphicStep(1);
+        }
+        setShowCreateDropdown(false);
+    };
 
-            {/* CONTROL PANEL */}
-            <div className="w-full lg:w-[420px] bg-white border border-brand-border rounded-xl shadow-lg flex flex-col h-full overflow-hidden">
+    // Helper to get real image IDs from selected indices
+    const getSelectedReferenceImageIds = (indices: number[]): string[] => {
+        const images = brandConfig.referenceImages || [];
+        return indices
+            .map(idx => images[idx]?.id)
+            .filter(Boolean) as string[];
+    };
 
-                {/* Mode Switcher */}
-                <div className="p-4 border-b border-brand-border bg-gray-50/50">
-                    <div className="bg-gray-100 p-1 rounded-lg flex gap-1">
+    const handleGenerateGraphicVariations = async () => {
+        if (!graphicTweetContent.trim()) return;
+        setIsGeneratingGraphic(true);
+        setError(null);
+        setGraphicVariations([]);
+        try {
+            // Get actual reference image IDs from selected indices
+            const realImageIds = getSelectedReferenceImageIds(selectedRefImages);
+
+            const count = 3;
+            const promises = Array(count).fill(0).map(() =>
+                generateWeb3Graphic({
+                    prompt: graphicTweetContent,
+                    artPrompt: visualStyle,
+                    negativePrompt: 'text, words, letters, watermark, blurry',
+                    size: '1K',
+                    aspectRatio: '16:9',
+                    brandConfig,
+                    brandName,
+                    templateType: '',
+                    selectedReferenceImages: realImageIds.length > 0 ? realImageIds : undefined,
+                    adhocAssets: uploadedAssets.map(a => ({ data: a.data, mimeType: a.mimeType }))
+                })
+            );
+            const images = await Promise.all(promises);
+            setGraphicVariations(images);
+            setSelectedVariation(0);
+            setGraphicStep(2);
+        } catch (err: any) {
+            setError(`Failed to generate: ${err.message || "Unknown error"}`);
+        } finally {
+            setIsGeneratingGraphic(false);
+        }
+    };
+
+    const handleBackToLibrary = () => {
+        setCurrentView('library');
+        setTweetTopic('');
+        setTweetContext('');
+        setGeneratedTweetPreview('');
+        setPreviewImage(null);
+    };
+
+    const handleGoToAddTweetImage = () => {
+        // Navigate from create-tweet to add-tweet-image with the generated tweet
+        setTweetForImage(generatedTweetPreview);
+        setTweetImageDescription('');
+        setSelectedTheme('web3');
+        setSelectedImageStyle('3d');
+        setTweetImageOptions([]);
+        setSelectedImageOption(0);
+        setCurrentView('add-tweet-image');
+    };
+
+    const handleGenerateTweetImageOptions = async () => {
+        if (!tweetForImage.trim()) return;
+        setIsGeneratingTweetImages(true);
+        setError(null);
+        setTweetImageOptions([]);
+        try {
+            // Map theme and style to art prompt
+            const themePrompts: Record<string, string> = {
+                web3: 'Web3, crypto, blockchain, futuristic, neon accents',
+                minimal: 'Minimalist, clean, modern, simple shapes',
+                bold: 'Bold colors, strong contrast, impactful, vibrant',
+                retro: 'Retro, vintage, nostalgic, warm tones'
+            };
+            const stylePrompts: Record<string, string> = {
+                '3d': '3D rendered, modern, depth, dimensional',
+                minimal: 'Flat design, minimal, clean lines',
+                abstract: 'Abstract shapes, artistic, creative',
+                illustrated: 'Illustrated, hand-drawn style, artistic'
+            };
+
+            const artPrompt = `${themePrompts[selectedTheme]}, ${stylePrompts[selectedImageStyle]}${tweetImageDescription ? `, ${tweetImageDescription}` : ''}`;
+
+            // Get actual reference image IDs from selected indices
+            const realImageIds = getSelectedReferenceImageIds(selectedRefImages);
+
+            const count = 3;
+            const promises = Array(count).fill(0).map(() =>
+                generateWeb3Graphic({
+                    prompt: tweetForImage,
+                    artPrompt,
+                    negativePrompt: 'text, words, letters, watermark, blurry, low quality',
+                    size: '1K',
+                    aspectRatio: '1:1',
+                    brandConfig,
+                    brandName,
+                    templateType: '',
+                    selectedReferenceImages: realImageIds.length > 0 ? realImageIds : undefined,
+                    adhocAssets: uploadedAssets.map(a => ({ data: a.data, mimeType: a.mimeType }))
+                })
+            );
+            const images = await Promise.all(promises);
+            setTweetImageOptions(images);
+            setSelectedImageOption(0);
+        } catch (err: any) {
+            setError(`Failed to generate: ${err.message || "Unknown error"}`);
+        } finally {
+            setIsGeneratingTweetImages(false);
+        }
+    };
+
+    const handleUseSelectedImage = () => {
+        if (tweetImageOptions[selectedImageOption]) {
+            setPreviewImage(tweetImageOptions[selectedImageOption]);
+            setCurrentView('create-tweet');
+        }
+    };
+
+    const handleSkipImage = () => {
+        setCurrentView('create-tweet');
+    };
+
+    // Filter content by tab
+    const filteredContent = contentItems.filter(item => {
+        if (activeTab === 'all') return true;
+        if (activeTab === 'twitter') return item.type === 'twitter' || item.type === 'thread';
+        if (activeTab === 'discord') return item.type === 'discord';
+        if (activeTab === 'email') return item.type === 'email';
+        if (activeTab === 'graphics') return item.type === 'graphic';
+        return true;
+    });
+
+    // Count by type
+    const counts = {
+        all: contentItems.length,
+        twitter: contentItems.filter(i => i.type === 'twitter' || i.type === 'thread').length,
+        discord: contentItems.filter(i => i.type === 'discord').length,
+        email: contentItems.filter(i => i.type === 'email').length,
+        graphics: contentItems.filter(i => i.type === 'graphic').length
+    };
+
+    // Get gradient for card type
+    const getCardGradient = (type: ContentItem['type']) => {
+        switch (type) {
+            case 'twitter':
+                return 'bg-gradient-to-br from-[#1A1A2E] via-[#16213E] to-[#0F3460]';
+            case 'thread':
+                return 'bg-gradient-to-br from-[#1DA1F2] via-[#0D8BD9] to-[#1A1A2E]';
+            case 'discord':
+                return 'bg-gradient-to-br from-[#5865F2] via-[#4752C4] to-[#1A1A2E]';
+            case 'email':
+                return 'bg-gradient-to-br from-[#9333EA] via-[#7C3AED] to-[#1A1A2E]';
+            case 'graphic':
+                return 'bg-[radial-gradient(ellipse_at_center,_#FF5C00_0%,_#FF8400_40%,_#1A1A1A_100%)]';
+            case 'blog':
+                return 'bg-gradient-to-b from-[#0EA5E9] to-[#6366F1]';
+            default:
+                return 'bg-gradient-to-br from-[#1A1A2E] to-[#0F3460]';
+        }
+    };
+
+    // Get badge info for content type
+    const getBadgeInfo = (type: ContentItem['type']) => {
+        switch (type) {
+            case 'twitter':
+                return { icon: 'tag', label: 'Twitter', color: '#1DA1F2', bg: 'bg-[#1DA1F2]' };
+            case 'thread':
+                return { icon: 'tag', label: 'Thread', color: '#1DA1F2', bg: 'bg-[#1DA1F233]', textColor: 'text-[#1DA1F2]' };
+            case 'discord':
+                return { icon: 'forum', label: 'Discord', color: '#5865F2', bg: 'bg-[#5865F233]', textColor: 'text-[#5865F2]' };
+            case 'email':
+                return { icon: 'mail', label: 'Email Newsletter', color: '#A855F7', bg: 'bg-[#9333EA33]', textColor: 'text-[#A855F7]' };
+            case 'graphic':
+                return { icon: 'image', label: 'Banner Graphic', color: '#FF8400', bg: 'bg-[#FF5C0033]', textColor: 'text-[#FF8400]' };
+            case 'blog':
+                return { icon: 'description', label: 'Blog Post', color: '#10B981', bg: 'bg-[#10B98133]', textColor: 'text-[#10B981]' };
+            default:
+                return { icon: 'article', label: 'Content', color: '#64748B', bg: 'bg-[#64748B33]', textColor: 'text-[#64748B]' };
+        }
+    };
+
+    // Get status badge info
+    const getStatusInfo = (status: ContentStatus) => {
+        switch (status) {
+            case 'published':
+                return { label: 'Published', color: '#22C55E', bg: 'bg-[#22C55E22]' };
+            case 'scheduled':
+                return { label: 'Scheduled', color: '#F59E0B', bg: 'bg-[#F59E0B22]' };
+            case 'draft':
+                return { label: 'Draft', color: '#3B82F6', bg: 'bg-[#3B82F622]' };
+            case 'review':
+                return { label: 'In Review', color: '#F59E0B', bg: 'bg-[#F59E0B22]' };
+            default:
+                return { label: 'Unknown', color: '#64748B', bg: 'bg-[#64748B22]' };
+        }
+    };
+
+    const formatNumber = (num: number) => {
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
+    };
+
+    // Distribute content into 3 columns (masonry-style)
+    const columns: ContentItem[][] = [[], [], []];
+    filteredContent.forEach((item, index) => {
+        columns[index % 3].push(item);
+    });
+
+    // =====================================================
+    // CREATE TWEET VIEW
+    // =====================================================
+    if (currentView === 'create-tweet') {
+        return (
+            <div className="flex-1 flex bg-[#0A0A0B] min-h-0">
+                {/* Left Panel */}
+                <div className="w-[480px] flex flex-col bg-[#111113] border-r border-[#1F1F23]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-[#1F1F23]">
                         <button
-                            onClick={() => setActiveTab('writer')}
-                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'writer' ? 'bg-white text-brand-text shadow-sm' : 'text-brand-muted hover:text-brand-text'}`}
+                            onClick={handleBackToLibrary}
+                            className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors"
                         >
-                            <span>✍️</span> Writer
+                            <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>arrow_back</span>
+                            <span className="text-sm font-medium">Back</span>
                         </button>
+
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#1DA1F2] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>tag</span>
+                            </div>
+                            <span className="text-lg font-semibold text-white">Create Tweet</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#3B82F622]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></span>
+                            <span className="text-xs font-medium text-[#3B82F6]">Draft</span>
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {/* Tweet Topic */}
+                        <div className="space-y-2.5">
+                            <label className="text-sm font-semibold text-white">What's your tweet about?</label>
+                            <textarea
+                                value={tweetTopic}
+                                onChange={e => setTweetTopic(e.target.value)}
+                                placeholder="Announce our new NFT collection drop, highlight the exclusive benefits for early holders and create urgency..."
+                                className="w-full h-[100px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
+                            />
+                        </div>
+
+                        {/* Content Type */}
+                        <div className="space-y-2.5">
+                            <label className="text-sm font-semibold text-white">Content Type</label>
+                            <div className="grid grid-cols-3 gap-2.5">
+                                {CONTENT_TYPE_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        onClick={() => setSelectedContentType(opt.id)}
+                                        className={`flex flex-col gap-1 p-3 rounded-[10px] border text-left transition-all ${
+                                            selectedContentType === opt.id
+                                                ? 'bg-[#FF5C0015] border-[#FF5C00]'
+                                                : 'bg-[#0A0A0B] border-[#2E2E2E] hover:border-[#3E3E3E]'
+                                        }`}
+                                    >
+                                        <span className={`text-[13px] font-semibold ${selectedContentType === opt.id ? 'text-[#FF5C00]' : 'text-white'}`}>
+                                            {opt.emoji} {opt.label}
+                                        </span>
+                                        <span className={`text-[11px] ${selectedContentType === opt.id ? 'text-[#FF5C0099]' : 'text-[#64748B]'}`}>
+                                            {opt.description}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Context / Background */}
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-semibold text-white">Context / Background</label>
+                                <span className="text-xs text-[#64748B]">Optional</span>
+                            </div>
+                            <textarea
+                                value={tweetContext}
+                                onChange={e => setTweetContext(e.target.value)}
+                                placeholder="Add any relevant details: links, dates, specific features to mention, hashtags to include..."
+                                className="w-full h-[80px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
+                            />
+                        </div>
+
+                        {/* Generate Button */}
                         <button
-                            onClick={() => setActiveTab('generate')}
-                            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'generate' ? 'bg-white text-indigo-600 shadow-sm' : 'text-brand-muted hover:text-brand-text'}`}
+                            onClick={handleGenerateTweet}
+                            disabled={!tweetTopic.trim() || isGeneratingTweet}
+                            className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
                         >
-                            <span>🎨</span> Visuals
+                            <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
+                            {isGeneratingTweet ? 'Generating...' : 'Generate Tweet'}
+                        </button>
+
+                        {error && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg text-center">
+                                {error}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-end px-6 py-4 border-t border-[#1F1F23]">
+                        <button
+                            onClick={handleGenerateTweet}
+                            disabled={!generatedTweetPreview || isGeneratingTweet}
+                            className="flex items-center gap-2 px-4 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>refresh</span>
+                            Regenerate
                         </button>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+                {/* Right Panel - Preview */}
+                <div className="flex-1 flex items-center justify-center bg-[#0A0A0B] p-10">
+                    <div className="flex flex-col items-center gap-6 w-full max-w-[520px]">
+                        {/* Preview Label */}
+                        <div className="flex items-center gap-2 text-[#64748B]">
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>visibility</span>
+                            <span className="text-sm font-medium">Preview</span>
+                        </div>
 
-                    {/* WRITER MODE */}
-                    {activeTab === 'writer' && (
-                        <div className="space-y-5 animate-fadeIn">
-                            <div className="flex justify-between items-center mb-1">
-                                <h3 className="text-xs font-bold text-brand-muted uppercase tracking-wider">Topic Inspiration</h3>
-                                <button onClick={handleGenerateIdeas} disabled={isGeneratingIdeas} className="text-[10px] text-brand-accent hover:text-brand-text font-bold uppercase tracking-wide flex items-center gap-1">
-                                    {isGeneratingIdeas ? <span className="animate-spin">⚡</span> : '⚡'} Inspire Me
-                                </button>
+                        {/* Tweet Card */}
+                        <div className="w-full bg-[#111113] border border-[#1F1F23] rounded-2xl p-5 space-y-4">
+                            {/* Author */}
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className="w-12 h-12 rounded-full"
+                                    style={{ background: 'linear-gradient(135deg, #FF5C00 0%, #FF8400 100%)' }}
+                                />
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[15px] font-semibold text-white">Web3 Project</span>
+                                        <span className="material-symbols-sharp text-[#1DA1F2] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>verified</span>
+                                    </div>
+                                    <span className="text-sm text-[#64748B]">@web3project · Now</span>
+                                </div>
                             </div>
 
-                            {suggestedIdeas.length > 0 && (
-                                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl overflow-hidden shadow-sm">
-                                    {suggestedIdeas.map((idea, idx) => (
-                                        <button key={idx} onClick={() => { setWriterTopic(idea); setSuggestedIdeas([]); }} className="w-full text-left px-3 py-2 text-xs text-brand-text hover:bg-white/50 border-b border-indigo-100 last:border-0 transition-colors">
-                                            {idea}
-                                        </button>
+                            {/* Tweet Content */}
+                            <p className="text-[15px] text-white leading-relaxed whitespace-pre-wrap">
+                                {generatedTweetPreview || "🚀 Big announcement! We're launching our new NFT collection next week.\n\nHere's what makes it special:\n• 10,000 unique pieces\n• Exclusive holder benefits\n• Built on Solana for low fees\n\nWho's ready? 👇"}
+                            </p>
+
+                            {/* Add Image Button or Preview Image */}
+                            {previewImage ? (
+                                <div className="relative rounded-xl overflow-hidden">
+                                    <img src={previewImage} className="w-full object-cover" alt="Generated" />
+                                    <button
+                                        onClick={() => setPreviewImage(null)}
+                                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+                                    >
+                                        <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={handleGoToAddTweetImage}
+                                    disabled={!generatedTweetPreview}
+                                    className="w-full h-[100px] flex flex-col items-center justify-center gap-2 bg-[#0A0A0B] border border-[#2E2E2E] rounded-xl text-[#64748B] hover:border-[#3E3E3E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <span className="material-symbols-sharp text-[28px]" style={{ fontVariationSettings: "'wght' 300" }}>add_photo_alternate</span>
+                                    <span className="text-sm font-medium">Add AI-Generated Image</span>
+                                </button>
+                            )}
+
+                            {/* Tweet Actions */}
+                            <div className="flex items-center justify-between pt-2">
+                                {[
+                                    { icon: 'chat_bubble', label: 'Reply' },
+                                    { icon: 'repeat', label: 'Retweet' },
+                                    { icon: 'favorite', label: 'Like' },
+                                    { icon: 'share', label: 'Share' },
+                                ].map(action => (
+                                    <div key={action.label} className="flex items-center gap-2 text-[#64748B]">
+                                        <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>{action.icon}</span>
+                                        <span className="text-[13px]">{action.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-center gap-3">
+                            <button
+                                onClick={() => generatedTweetPreview && onSchedule(generatedTweetPreview, previewImage || undefined)}
+                                disabled={!generatedTweetPreview}
+                                className="flex items-center gap-2 px-5 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
+                                Schedule
+                            </button>
+                            <button
+                                onClick={() => generatedTweetPreview && handlePrepareTweet(generatedTweetPreview)}
+                                disabled={!generatedTweetPreview}
+                                className="flex items-center gap-2 px-6 py-3 rounded-[10px] text-white text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>send</span>
+                                Post Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // =====================================================
+    // CREATE GRAPHIC VIEW
+    // =====================================================
+    if (currentView === 'create-graphic') {
+        // Reference images from brand kit for display
+        const referenceImages = (brandConfig.referenceImages || []).slice(0, 8).map((img, idx) => ({
+            id: idx,
+            url: img.url || img.data,
+            name: img.name,
+        }));
+
+        const visualStyles = ['Modern', 'Minimalist', 'Bold', 'Neon', 'Vintage', 'Corporate'];
+
+        return (
+            <div className="flex-1 flex bg-[#0A0A0B] min-h-0">
+                {/* Left Panel */}
+                <div className="w-[480px] flex flex-col bg-[#111113] border-r border-[#1F1F23]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-[#1F1F23]">
+                        <button
+                            onClick={handleBackToLibrary}
+                            className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors"
+                        >
+                            <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>arrow_back</span>
+                            <span className="text-sm font-medium">Back</span>
+                        </button>
+
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#FF5C00] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>image</span>
+                            </div>
+                            <span className="text-lg font-semibold text-white">Create Graphic</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#3B82F622]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></span>
+                            <span className="text-xs font-medium text-[#3B82F6]">Draft</span>
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-7">
+                        {/* Section 1: Tweet Content */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-sharp text-[#64748B] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>edit_note</span>
+                                <label className="text-sm font-semibold text-white">Tweet Content</label>
+                            </div>
+                            <textarea
+                                value={graphicTweetContent}
+                                onChange={e => setGraphicTweetContent(e.target.value)}
+                                placeholder="Paste the tweet this graphic will accompany, or describe the visual you want to create..."
+                                className="w-full h-[120px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
+                            />
+                        </div>
+
+                        {/* Section 2: Visual Style */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-sharp text-[#64748B] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>palette</span>
+                                <label className="text-sm font-semibold text-white">Visual Style</label>
+                            </div>
+                            <div className="relative">
+                                <select
+                                    value={visualStyle}
+                                    onChange={e => setVisualStyle(e.target.value)}
+                                    className="w-[160px] appearance-none bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] px-3.5 py-3 text-sm text-white focus:border-[#FF5C00] focus:outline-none cursor-pointer transition-colors"
+                                >
+                                    {visualStyles.map(style => (
+                                        <option key={style} value={style}>{style}</option>
+                                    ))}
+                                </select>
+                                <span className="material-symbols-sharp absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] text-lg pointer-events-none" style={{ fontVariationSettings: "'wght' 300" }}>expand_more</span>
+                            </div>
+                        </div>
+
+                        {/* Section 3: Reference Images */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-sharp text-[#64748B] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>collections</span>
+                                    <label className="text-sm font-semibold text-white">Reference Images</label>
+                                </div>
+                                <span className="text-xs text-[#64748B]">Select up to 3</span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                                {referenceImages.length > 0 ? referenceImages.map(img => (
+                                    <button
+                                        key={img.id}
+                                        onClick={() => {
+                                            if (selectedRefImages.includes(img.id)) {
+                                                setSelectedRefImages(prev => prev.filter(i => i !== img.id));
+                                            } else if (selectedRefImages.length < 3) {
+                                                setSelectedRefImages(prev => [...prev, img.id]);
+                                            }
+                                        }}
+                                        className={`aspect-square rounded-lg overflow-hidden transition-all ${
+                                            selectedRefImages.includes(img.id)
+                                                ? 'ring-2 ring-[#FF5C00] ring-offset-2 ring-offset-[#111113]'
+                                                : 'hover:opacity-80'
+                                        }`}
+                                        title={img.name}
+                                    >
+                                        <img
+                                            src={img.url}
+                                            alt={img.name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                // Fallback to gradient if image fails to load
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                                (e.target as HTMLImageElement).parentElement!.classList.add('bg-gradient-to-br', 'from-purple-600', 'to-blue-600');
+                                            }}
+                                        />
+                                    </button>
+                                )) : (
+                                    <div className="col-span-4 py-4 text-center text-[#64748B] text-sm">
+                                        No reference images in brand kit. Upload some in Settings → Brand Kit.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Section 4: Assets */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-sharp text-[#64748B] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>folder_open</span>
+                                    <label className="text-sm font-semibold text-white">Assets</label>
+                                </div>
+                                <span className="text-xs text-[#64748B]">Optional</span>
+                            </div>
+
+                            {/* Uploaded Assets Grid */}
+                            {uploadedAssets.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {uploadedAssets.map(asset => (
+                                        <div key={asset.id} className="relative w-16 h-16 rounded-lg overflow-hidden group">
+                                            <img
+                                                src={`data:${asset.mimeType};base64,${asset.data}`}
+                                                className="w-full h-full object-cover"
+                                                alt="Uploaded asset"
+                                            />
+                                            <button
+                                                onClick={() => removeAsset(asset.id)}
+                                                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                                            >
+                                                <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
                             )}
 
-                            <div>
-                                <label className="text-xs font-bold text-brand-text block mb-2">What are we writing about?</label>
-                                <div className="relative">
-                                    <textarea
-                                        value={writerTopic}
-                                        onChange={e => setWriterTopic(e.target.value)}
-                                        placeholder="E.g. Explain our new tokenomics model..."
-                                        className="w-full h-32 bg-gray-50 border border-brand-border rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-brand-accent focus:ring-1 focus:ring-brand-accent/50 outline-none resize-none transition-all placeholder-gray-400"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <Select label="Tone of Voice" value={writerTone} onChange={e => setWriterTone(e.target.value)} options={[{ value: 'Professional', label: 'Professional' }, { value: 'Hype', label: 'Hype / Degen' }, { value: 'Casual', label: 'Casual' }, { value: 'Educational', label: 'Educational' }]} />
-                                <Select label="Variations" value={variationCount} onChange={e => setVariationCount(e.target.value)} options={[{ value: '1', label: '1 Option' }, { value: '3', label: '3 Options' }, { value: '5', label: '5 Options' }]} />
-                            </div>
-
-                            <Button onClick={handleAIWrite} isLoading={isWritingTweet} disabled={!writerTopic} className="w-full py-3 shadow-lg shadow-indigo-500/20">
-                                Generate Drafts
-                            </Button>
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full flex flex-col items-center justify-center gap-2 py-6 bg-[#0A0A0B] border border-[#2E2E2E] border-dashed rounded-[10px] text-[#64748B] hover:border-[#3E3E3E] hover:text-white transition-colors"
+                            >
+                                <span className="material-symbols-sharp text-2xl" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
+                                <span className="text-sm font-medium">Add Asset</span>
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleAssetUpload}
+                            />
                         </div>
-                    )}
 
-                    {/* VISUALS MODE */}
-                    {activeTab === 'generate' && (
-                        <div className="space-y-6 animate-fadeIn">
+                        {/* Generate Button */}
+                        <button
+                            onClick={handleGenerateGraphicVariations}
+                            disabled={!graphicTweetContent.trim() || isGeneratingGraphic}
+                            className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                        >
+                            <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
+                            {isGeneratingGraphic ? 'Generating...' : 'Generate Graphic'}
+                        </button>
 
-                            {/* Section 1: Content */}
-                            <div className="space-y-3">
-                                <label className="flex items-center gap-2 text-xs font-bold text-brand-text">
-                                    <span className="w-5 h-5 rounded bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]">1</span>
-                                    Content Context
-                                </label>
-                                <textarea
-                                    value={tweetText}
-                                    onChange={e => setTweetText(e.target.value)}
-                                    placeholder="Paste tweet text or describe the scene..."
-                                    className="w-full h-20 bg-gray-50 border border-brand-border rounded-xl p-3 text-sm text-brand-text focus:bg-white focus:border-indigo-500 outline-none resize-none transition-all"
-                                />
+                        {error && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg text-center">
+                                {error}
                             </div>
+                        )}
+                    </div>
 
-                            <hr className="border-gray-100" />
+                    {/* Footer */}
+                    <div className="flex items-center justify-end px-6 py-4 border-t border-[#1F1F23]">
+                        <button
+                            onClick={handleGenerateGraphicVariations}
+                            disabled={graphicVariations.length === 0 || isGeneratingGraphic}
+                            className="flex items-center gap-2 px-4 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>refresh</span>
+                            Regenerate
+                        </button>
+                    </div>
+                </div>
 
-                            {/* Section 2: Style */}
-                            <div className="space-y-3">
-                                <label className="flex items-center gap-2 text-xs font-bold text-brand-text">
-                                    <span className="w-5 h-5 rounded bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]">2</span>
-                                    Visual Style
-                                </label>
+                {/* Right Panel - Variations */}
+                <div className="flex-1 flex flex-col bg-[#0A0A0B]">
+                    {/* Right Header */}
+                    <div className="flex items-center justify-between px-6 py-3 border-b border-[#1F1F23]">
+                        {/* Preview Label */}
+                        <div className="flex items-center gap-2 text-[#64748B]">
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>visibility</span>
+                            <span className="text-sm font-medium">Preview</span>
+                        </div>
 
-                                {availableTemplates.length > 0 && (
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {availableTemplates.map(opt => (
-                                            <button
-                                                key={opt.id}
-                                                onClick={() => setSelectedTemplate(selectedTemplate === opt.id ? '' : opt.id)}
-                                                className={`text-xs px-3 py-2.5 rounded-lg border transition-all text-left truncate ${selectedTemplate === opt.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                        {/* Step Indicator */}
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                                    graphicStep >= 1 ? 'bg-[#FF5C00] text-white' : 'bg-[#2E2E2E] text-[#64748B]'
+                                }`}>1</div>
+                                <span className={`text-sm font-medium ${graphicStep >= 1 ? 'text-white' : 'text-[#64748B]'}`}>Draft</span>
+                            </div>
+                            <div className="w-8 h-0.5 bg-[#2E2E2E]" />
+                            <div className="flex items-center gap-2">
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                                    graphicStep >= 2 ? 'bg-[#FF5C00] text-white' : 'bg-[#2E2E2E] text-[#64748B]'
+                                }`}>2</div>
+                                <span className={`text-sm font-medium ${graphicStep >= 2 ? 'text-white' : 'text-[#64748B]'}`}>Preview</span>
+                            </div>
+                        </div>
 
-                                <div className="space-y-2">
-                                    <input
-                                        type="text"
-                                        value={visualPrompt}
-                                        onChange={e => setVisualPrompt(e.target.value)}
-                                        placeholder="Add specific details (e.g. 'Neon lights')..."
-                                        className="w-full bg-gray-50 border border-brand-border rounded-xl p-3 text-sm focus:bg-white focus:border-indigo-500 outline-none transition-all"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={negativePrompt}
-                                        onChange={e => setNegativePrompt(e.target.value)}
-                                        placeholder="No text, no blur, no people..."
-                                        className="w-full bg-white border border-red-100 text-red-600 rounded-xl p-3 text-sm focus:border-red-300 outline-none transition-all placeholder-red-200"
-                                    />
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => graphicVariations[selectedVariation] && handleDownload(graphicVariations[selectedVariation])}
+                                disabled={graphicVariations.length === 0}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>download</span>
+                                Download
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (graphicVariations[selectedVariation]) {
+                                        onSchedule(graphicTweetContent, graphicVariations[selectedVariation]);
+                                        handleBackToLibrary();
+                                    }
+                                }}
+                                disabled={graphicVariations.length === 0}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>check</span>
+                                Use This
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Canvas Area */}
+                    <div className="flex-1 overflow-y-auto p-10">
+                        {/* Variations Header */}
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-lg font-semibold text-white">Choose a Variation</h2>
+                            <button
+                                onClick={handleGenerateGraphicVariations}
+                                disabled={graphicVariations.length === 0 || isGeneratingGraphic}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>refresh</span>
+                                Regenerate All
+                            </button>
+                        </div>
+
+                        {/* Variations Grid */}
+                        {graphicVariations.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-center">
+                                <div className="w-20 h-20 rounded-2xl bg-[#1F1F23] flex items-center justify-center mb-4">
+                                    <span className="material-symbols-sharp text-4xl text-[#64748B]" style={{ fontVariationSettings: "'wght' 300" }}>image</span>
                                 </div>
+                                <h3 className="text-lg font-medium text-white mb-2">No variations yet</h3>
+                                <p className="text-sm text-[#64748B] max-w-sm">
+                                    Enter your tweet content and click "Generate Graphic" to create visual variations.
+                                </p>
                             </div>
-
-                            <hr className="border-gray-100" />
-
-                            {/* Section 3: Reference */}
-                            {brandConfig.referenceImages && brandConfig.referenceImages.length > 0 && (
-                                <div className="space-y-3">
-                                    <label className="flex items-center justify-between text-xs font-bold text-brand-text">
-                                        <div className="flex items-center gap-2">
-                                            <span className="w-5 h-5 rounded bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]">3</span>
-                                            Reference Image
+                        ) : (
+                            <div className="space-y-4">
+                                {graphicVariations.map((img, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setSelectedVariation(idx)}
+                                        className={`w-full bg-[#111113] rounded-2xl overflow-hidden transition-all ${
+                                            selectedVariation === idx
+                                                ? 'ring-2 ring-[#FF5C00]'
+                                                : 'border border-[#2E2E2E] hover:border-[#3E3E3E]'
+                                        }`}
+                                    >
+                                        {/* Image */}
+                                        <div className="aspect-video w-full relative">
+                                            <img src={img} className="w-full h-full object-cover" alt={`Variation ${idx + 1}`} />
+                                            {/* Selection indicator */}
+                                            {selectedVariation === idx && (
+                                                <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#FF5C00] flex items-center justify-center">
+                                                    <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check</span>
+                                                </div>
+                                            )}
                                         </div>
-                                        {selectedReferenceImage && <button onClick={() => setSelectedReferenceImage(null)} className="text-[10px] text-red-500 hover:underline">Clear</button>}
-                                    </label>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {brandConfig.referenceImages.map((img) => (
-                                            <div
-                                                key={img.id}
-                                                onClick={() => setSelectedReferenceImage(selectedReferenceImage === img.id ? null : img.id)}
-                                                className={`aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all relative group ${selectedReferenceImage === img.id ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-transparent hover:border-gray-200'}`}
-                                            >
-                                                <img src={img.url || img.data} className="w-full h-full object-cover" />
-                                                {selectedReferenceImage === img.id && (
-                                                    <div className="absolute inset-0 bg-indigo-500/20 flex items-center justify-center">
-                                                        <div className="bg-white rounded-full p-1 shadow-sm"><div className="w-2 h-2 bg-indigo-500 rounded-full"></div></div>
-                                                    </div>
+                                        {/* Footer */}
+                                        <div className="flex items-center justify-between px-5 py-4 border-t border-[#1F1F23]">
+                                            <span className="text-sm font-medium text-white">Variation {idx + 1}</span>
+                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                                selectedVariation === idx
+                                                    ? 'border-[#FF5C00] bg-[#FF5C00]'
+                                                    : 'border-[#3E3E3E]'
+                                            }`}>
+                                                {selectedVariation === idx && (
+                                                    <span className="w-2 h-2 rounded-full bg-white"></span>
                                                 )}
-                                                <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 translate-y-full group-hover:translate-y-0 transition-transform">
-                                                    <p className="text-[8px] text-white truncate text-center">{img.name}</p>
-                                                </div>
                                             </div>
-                                        ))}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Lightbox */}
+                {viewingImage && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 backdrop-blur-sm" onClick={() => setViewingImage(null)}>
+                        <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+                        <button
+                            onClick={() => setViewingImage(null)}
+                            className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
+                        >
+                            <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // =====================================================
+    // ADD TWEET IMAGE VIEW
+    // =====================================================
+    if (currentView === 'add-tweet-image') {
+        const themes: { id: 'web3' | 'minimal' | 'bold' | 'retro'; label: string; bg: string; selectedBg: string }[] = [
+            { id: 'web3', label: 'Web3', bg: '#0F1A1A', selectedBg: '#1A0F05' },
+            { id: 'minimal', label: 'Minimal', bg: '#0F1A1A', selectedBg: '#0F1A1A' },
+            { id: 'bold', label: 'Bold', bg: '#1A0A1A', selectedBg: '#1A0A1A' },
+            { id: 'retro', label: 'Retro', bg: '#1A1A0A', selectedBg: '#1A1A0A' },
+        ];
+
+        const imageStyles: { id: '3d' | 'minimal' | 'abstract' | 'illustrated'; label: string }[] = [
+            { id: '3d', label: '3D / Modern' },
+            { id: 'minimal', label: 'Minimal' },
+            { id: 'abstract', label: 'Abstract' },
+            { id: 'illustrated', label: 'Illustrated' },
+        ];
+
+        return (
+            <div className="flex-1 flex bg-[#0A0A0B] min-h-0">
+                {/* Left Panel */}
+                <div className="w-[480px] flex flex-col bg-[#111113] border-r border-[#1F1F23]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-[#1F1F23]">
+                        <button
+                            onClick={() => setCurrentView('create-tweet')}
+                            className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors"
+                        >
+                            <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>arrow_back</span>
+                            <span className="text-sm font-medium">Back</span>
+                        </button>
+
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#FF5C00] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>image</span>
+                            </div>
+                            <span className="text-lg font-semibold text-white">Add Image to Tweet</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#22C55E22]">
+                            <span className="text-xs font-medium text-[#22C55E]">Optional</span>
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {/* Your Tweet Preview */}
+                        <div className="space-y-2.5">
+                            <label className="text-sm font-semibold text-white">Your Tweet</label>
+                            <div className="bg-[#0A0A0B] border border-[#2E2E2E] rounded-xl p-4 space-y-3">
+                                <div className="flex items-center gap-2.5">
+                                    <div
+                                        className="w-10 h-10 rounded-full"
+                                        style={{ background: 'linear-gradient(135deg, #FF5C00 0%, #FF8400 100%)' }}
+                                    />
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-sm font-semibold text-white">Web3 Project</span>
+                                            <span className="material-symbols-sharp text-[#1DA1F2] text-sm" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>verified</span>
+                                        </div>
+                                        <span className="text-xs text-[#64748B]">@web3project</span>
                                     </div>
                                 </div>
-                            )}
-
-                            {/* Section 4: Ad-hoc Assets */}
-                            <div className="space-y-3">
-                                <label className="flex items-center justify-between text-xs font-bold text-brand-text">
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-5 h-5 rounded bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]">4</span>
-                                        Assets (Mascots/Logos)
-                                    </div>
-                                    <button onClick={() => fileInputRef.current?.click()} className="text-[10px] text-indigo-600 font-bold hover:underline">+ Add Asset</button>
-                                </label>
-
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    className="hidden"
-                                    accept="image/*"
-                                    onChange={handleAssetUpload}
-                                />
-
-                                {uploadedAssets.length > 0 ? (
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {uploadedAssets.map((asset) => (
-                                            <div key={asset.id} className="aspect-square rounded-lg overflow-hidden border border-gray-200 relative group">
-                                                <img src={`data:${asset.mimeType};base64,${asset.data}`} className="w-full h-full object-contain bg-gray-50/50" />
-                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <button onClick={() => removeAsset(asset.id)} className="text-white text-xs hover:text-red-300">Remove</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div onClick={() => fileInputRef.current?.click()} className="border border-dashed border-gray-200 rounded-lg p-3 text-center cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <span className="text-[10px] text-gray-400">Upload mascots or logos to include</span>
-                                    </div>
-                                )}
+                                <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap">
+                                    {tweetForImage || generatedTweetPreview || "Your tweet content will appear here..."}
+                                </p>
                             </div>
-
-                            <div className="grid grid-cols-3 gap-2">
-                                <Select label="Qty" value={variationCount} onChange={e => setVariationCount(e.target.value)} options={[{ value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4' }]} />
-                                <Select label="Ratio" value={aspectRatio} onChange={e => setAspectRatio(e.target.value as any)} options={[{ value: '16:9', label: '16:9' }, { value: '1:1', label: '1:1' }, { value: '4:5', label: '4:5' }]} />
-                                <Select label="Res" value={size} onChange={e => setSize(e.target.value as any)} options={[{ value: '1K', label: '1K' }, { value: '2K', label: '2K' }]} />
-                            </div>
-
-                            <Button onClick={handleGenerateSingle} isLoading={isGenerating} disabled={!tweetText && !visualPrompt && !selectedTemplate} className="w-full h-12 shadow-xl shadow-indigo-500/20 bg-gradient-to-r from-indigo-600 to-violet-600 border-none">
-                                Render Graphics
-                            </Button>
                         </div>
-                    )}
 
-                    {error && <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-lg text-center">{error}</div>}
+                        {/* Image Description */}
+                        <div className="space-y-2.5">
+                            <label className="text-sm font-semibold text-white">Image Description</label>
+                            <p className="text-xs text-[#64748B]">AI will generate 3 options based on your tweet</p>
+                            <textarea
+                                value={tweetImageDescription}
+                                onChange={e => setTweetImageDescription(e.target.value)}
+                                placeholder="NFT collection banner with futuristic 3D elements and bold typography..."
+                                className="w-full h-[80px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#94A3B8] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
+                            />
+                        </div>
+
+                        {/* Theme */}
+                        <div className="space-y-2.5">
+                            <label className="text-sm font-semibold text-white">Theme</label>
+                            <div className="flex gap-2.5">
+                                {themes.map(theme => (
+                                    <button
+                                        key={theme.id}
+                                        onClick={() => setSelectedTheme(theme.id)}
+                                        className={`flex-1 h-14 flex items-center justify-center rounded-[10px] text-sm font-medium transition-all ${
+                                            selectedTheme === theme.id
+                                                ? 'bg-[#1A0F05] border-2 border-[#FF5C00] text-[#FF5C00]'
+                                                : 'bg-[#0F1A1A] border border-[#2E2E2E] text-white hover:border-[#3E3E3E]'
+                                        }`}
+                                    >
+                                        {theme.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Reference Images */}
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-semibold text-white">Reference Images</label>
+                                <span className="text-xs text-[#64748B]">Optional</span>
+                            </div>
+                            <div className="flex gap-3">
+                                {[0, 1, 2].map(idx => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            if (selectedRefImages.includes(idx)) {
+                                                setSelectedRefImages(prev => prev.filter(i => i !== idx));
+                                            } else {
+                                                setSelectedRefImages(prev => [...prev, idx]);
+                                            }
+                                        }}
+                                        className={`w-[72px] h-[72px] rounded-lg overflow-hidden transition-all ${
+                                            selectedRefImages.includes(idx)
+                                                ? 'ring-1 ring-[#FF5C00]'
+                                                : 'border border-[#2E2E2E]'
+                                        }`}
+                                    >
+                                        <div className={`w-full h-full bg-gradient-to-br ${
+                                            idx === 0 ? 'from-pink-500 to-purple-600' :
+                                            idx === 1 ? 'from-blue-500 to-cyan-500' :
+                                            'from-green-500 to-teal-500'
+                                        }`} />
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-[72px] h-[72px] flex items-center justify-center rounded-lg bg-[#0A0A0B] border border-[#2E2E2E] text-[#64748B] hover:border-[#3E3E3E] hover:text-white transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Image Style */}
+                        <div className="space-y-2.5">
+                            <label className="text-sm font-semibold text-white">Image Style</label>
+                            <div className="flex gap-2">
+                                {imageStyles.map(style => (
+                                    <button
+                                        key={style.id}
+                                        onClick={() => setSelectedImageStyle(style.id)}
+                                        className={`flex-1 h-14 flex items-center justify-center rounded-[10px] text-sm font-medium transition-all ${
+                                            selectedImageStyle === style.id
+                                                ? 'bg-[#FF5C0015] border border-[#FF5C00] text-[#FF5C00]'
+                                                : 'bg-[#0A0A0B] border border-[#2E2E2E] text-white hover:border-[#3E3E3E]'
+                                        }`}
+                                    >
+                                        {style.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-[#1F1F23]">
+                        <button
+                            onClick={handleSkipImage}
+                            className="text-sm text-[#64748B] hover:text-white transition-colors"
+                        >
+                            Skip Image
+                        </button>
+                        <button
+                            onClick={handleGenerateTweetImageOptions}
+                            disabled={isGeneratingTweetImages}
+                            className="flex items-center gap-2 px-4 py-3 rounded-[10px] text-white text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                        >
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
+                            {isGeneratingTweetImages ? 'Generating...' : 'Generate 3 Options'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Right Panel - Image Options */}
+                <div className="flex-1 flex flex-col bg-[#0A0A0B]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-8 py-4 border-b border-[#1F1F23]">
+                        <div className="flex items-center gap-2">
+                            <span className="material-symbols-sharp text-lg text-[#64748B]" style={{ fontVariationSettings: "'wght' 300" }}>collections</span>
+                            <span className="text-base font-semibold text-white">Choose an Image</span>
+                        </div>
+                        {tweetImageOptions.length > 0 && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#10B98122]">
+                                <span className="material-symbols-sharp text-sm text-[#10B981]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check</span>
+                                <span className="text-xs font-medium text-[#10B981]">Option {selectedImageOption + 1} Selected</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Image Grid */}
+                    <div className="flex-1 overflow-y-auto p-8">
+                        {tweetImageOptions.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center">
+                                <div className="w-20 h-20 rounded-2xl bg-[#1F1F23] flex items-center justify-center mb-4">
+                                    <span className="material-symbols-sharp text-4xl text-[#64748B]" style={{ fontVariationSettings: "'wght' 300" }}>image</span>
+                                </div>
+                                <h3 className="text-lg font-medium text-white mb-2">No images generated yet</h3>
+                                <p className="text-sm text-[#64748B] max-w-sm">
+                                    Configure your preferences and click "Generate 3 Options" to create images for your tweet.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex gap-6">
+                                {tweetImageOptions.map((img, idx) => (
+                                    <div key={idx} className="flex-1 flex flex-col gap-3">
+                                        {/* Image */}
+                                        <button
+                                            onClick={() => setSelectedImageOption(idx)}
+                                            className={`aspect-square rounded-2xl overflow-hidden transition-all ${
+                                                selectedImageOption === idx
+                                                    ? 'ring-[3px] ring-[#FF5C00]'
+                                                    : 'border border-[#2E2E2E] hover:border-[#3E3E3E]'
+                                            }`}
+                                        >
+                                            <img src={img} className="w-full h-full object-cover" alt={`Option ${idx + 1}`} />
+                                        </button>
+
+                                        {/* Label */}
+                                        <div className="flex items-center justify-between">
+                                            <span className={`text-sm font-semibold ${selectedImageOption === idx ? 'text-[#FF5C00]' : 'text-white'}`}>
+                                                Option {idx + 1}
+                                            </span>
+                                            {selectedImageOption === idx && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="material-symbols-sharp text-sm text-[#10B981]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check</span>
+                                                    <span className="text-xs font-medium text-[#10B981]">Selected</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex gap-2">
+                                            {selectedImageOption === idx ? (
+                                                <button
+                                                    onClick={() => setViewingImage(img)}
+                                                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
+                                                >
+                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
+                                                    Edit
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => setSelectedImageOption(idx)}
+                                                        className="flex-1 flex items-center justify-center py-2.5 rounded-lg bg-[#0A0A0B] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#1F1F23] transition-colors"
+                                                    >
+                                                        Select
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setViewingImage(img)}
+                                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-[#0A0A0B] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#1F1F23] transition-colors"
+                                                    >
+                                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
+                                                        Edit
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-end px-8 py-4 border-t border-[#1F1F23]">
+                        <button
+                            onClick={handleUseSelectedImage}
+                            disabled={tweetImageOptions.length === 0}
+                            className="flex items-center gap-2 px-6 py-3 rounded-[10px] text-white text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                        >
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check</span>
+                            Use Selected Image
+                        </button>
+                    </div>
+                </div>
+
+                {/* Lightbox */}
+                {viewingImage && (
+                    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 backdrop-blur-sm" onClick={() => setViewingImage(null)}>
+                        <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+                        <button
+                            onClick={() => setViewingImage(null)}
+                            className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
+                        >
+                            <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // =====================================================
+    // CONTENT LIBRARY VIEW (default)
+    // =====================================================
+    return (
+        <div className="flex-1 flex flex-col bg-[#0A0A0B] min-h-0">
+            {/* Header */}
+            <div className="flex items-center justify-between px-8 py-5 border-b border-[#1F1F23]">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-2xl font-semibold text-white">Content Studio</h1>
+                    <p className="text-sm text-[#64748B]">Manage and create marketing content</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors">
+                        <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>filter_list</span>
+                        Filter
+                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setShowCreateDropdown(!showCreateDropdown); }}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors"
+                            style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                        >
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
+                            Create Content
+                        </button>
+
+                        {/* Dropdown */}
+                        {showCreateDropdown && (
+                            <div className="absolute top-full right-0 mt-2 w-[200px] bg-[#1A1A1D] border border-[#2E2E2E] rounded-xl shadow-2xl z-50 overflow-hidden">
+                                <button
+                                    onClick={() => openCreateView('tweet')}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-lg text-[#1DA1F2]" style={{ fontVariationSettings: "'wght' 300" }}>tag</span>
+                                    Tweet / Thread
+                                </button>
+                                <button
+                                    onClick={() => openCreateView('graphic')}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-lg text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>image</span>
+                                    Graphic / Banner
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* PREVIEW CANVAS */}
-            <div className="flex-1 bg-gray-50/50 border border-brand-border rounded-xl shadow-inner relative flex flex-col overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-10 border-b border-brand-border bg-white flex items-center px-4 justify-between z-10">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Canvas Preview</span>
-                    <span className="text-[10px] text-gray-300">Auto-Saving</span>
-                </div>
+            {/* Tabs Row */}
+            <div className="flex items-center px-8 border-b border-[#1F1F23]">
+                {[
+                    { id: 'all', label: 'All Content' },
+                    { id: 'twitter', label: 'Twitter Posts' },
+                    { id: 'discord', label: 'Discord' },
+                    { id: 'email', label: 'Email' },
+                    { id: 'graphics', label: 'Graphics' }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as ContentType)}
+                        className={`flex items-center gap-2 px-5 py-4 text-sm font-medium transition-colors border-b-2 -mb-[1px] ${
+                            activeTab === tab.id
+                                ? 'text-white border-[#FF5C00]'
+                                : 'text-[#64748B] border-transparent hover:text-white'
+                        }`}
+                    >
+                        {tab.label}
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            activeTab === tab.id
+                                ? 'bg-[#FF5C0033] text-[#FF5C00]'
+                                : 'bg-[#1F1F23] text-[#64748B]'
+                        }`}>
+                            {counts[tab.id as ContentType]}
+                        </span>
+                    </button>
+                ))}
+            </div>
 
-                <div className="flex-1 overflow-y-auto p-8 pt-16 custom-scrollbar flex flex-col items-center min-h-[500px]">
+            {/* Content Grid */}
+            <div className="flex-1 overflow-y-auto p-8">
+                <div className="flex gap-6">
+                    {columns.map((column, colIndex) => (
+                        <div key={colIndex} className="flex-1 flex flex-col gap-6">
+                            {column.map(item => {
+                                const badge = getBadgeInfo(item.type);
+                                const status = getStatusInfo(item.status);
 
-                    {/* WRITER PREVIEW */}
-                    {activeTab === 'writer' && (
-                        generatedDrafts.length > 0 ? (
-                            <div className="w-full max-w-2xl space-y-8 animate-fadeIn pb-12">
-                                {generatedDrafts.map((draft, idx) => (
-                                    <div key={idx} className="bg-white border border-gray-100 rounded-2xl shadow-xl shadow-gray-200/50 p-8 relative group transition-all hover:shadow-indigo-500/10 hover:border-indigo-100">
-                                        <div className="absolute top-4 right-4 text-[10px] font-bold text-gray-300 uppercase tracking-widest group-hover:text-indigo-300">Option {idx + 1}</div>
-                                        <textarea
-                                            value={draft}
-                                            onChange={e => {
-                                                const newDrafts = [...generatedDrafts];
-                                                newDrafts[idx] = e.target.value;
-                                                setGeneratedDrafts(newDrafts);
-                                            }}
-                                            className="w-full bg-transparent border-none p-0 text-xl font-display text-gray-800 focus:ring-0 resize-none min-h-[120px] leading-relaxed placeholder-gray-300"
-                                            placeholder="Your draft will appear here..."
-                                        />
-                                        <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-50">
-                                            <Button
-                                                onClick={() => {
-                                                    setTweetText(draft);
-                                                    setActiveTab('generate');
-                                                }}
-                                                className="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-100 flex items-center gap-2"
-                                            >
-                                                <span>🎨</span> Create Visual
-                                            </Button>
-                                            <div className="flex gap-2">
-                                                <Button onClick={() => handlePrepareTweet(draft)} variant="secondary" className="text-xs">Post to X</Button>
-                                                <Button onClick={() => onSchedule(draft)} className="text-xs bg-gray-900 text-white">Schedule</Button>
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="bg-[#111113] border border-[#1F1F23] rounded-2xl overflow-hidden hover:border-[#2E2E2E] transition-colors cursor-pointer group"
+                                    >
+                                        {/* Card Image */}
+                                        <div className={`h-40 ${getCardGradient(item.type)} relative`}>
+                                            {item.type === 'twitter' && (
+                                                <div className="absolute bottom-5 left-5">
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${badge.bg} text-white text-xs font-semibold`}>
+                                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>{badge.icon}</span>
+                                                        Twitter
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {item.type === 'graphic' && (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <span className="text-white text-3xl font-extrabold">NFT DROP</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Card Body */}
+                                        <div className="p-5 flex flex-col gap-3">
+                                            {/* Header with Badge & Status (for non-twitter cards) */}
+                                            {item.type !== 'twitter' && (
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${badge.bg} ${badge.textColor} text-xs font-semibold`}>
+                                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>{badge.icon}</span>
+                                                        {badge.label}
+                                                    </span>
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${status.bg} text-xs font-medium`} style={{ color: status.color }}>
+                                                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: status.color }}></span>
+                                                        {status.label}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Title */}
+                                            <h3 className="text-[15px] font-medium text-white leading-relaxed">
+                                                {item.title}
+                                            </h3>
+
+                                            {/* Description (if exists) */}
+                                            {item.description && (
+                                                <p className="text-sm text-[#64748B] leading-relaxed">
+                                                    {item.description}
+                                                </p>
+                                            )}
+
+                                            {/* Meta info */}
+                                            <div className="flex items-center gap-4 text-[13px] text-[#64748B]">
+                                                {item.type === 'twitter' && (
+                                                    <>
+                                                        <span>{item.date}</span>
+                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${status.bg} text-xs font-medium`} style={{ color: status.color }}>
+                                                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: status.color }}></span>
+                                                            {status.label}
+                                                        </span>
+                                                    </>
+                                                )}
+                                                {item.type === 'discord' && (
+                                                    <>
+                                                        <span>{item.date}</span>
+                                                        <span className="flex items-center gap-1.5">
+                                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>tag</span>
+                                                            {item.channel}
+                                                        </span>
+                                                    </>
+                                                )}
+                                                {item.type === 'email' && (
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
+                                                        {item.date}
+                                                    </span>
+                                                )}
+                                                {item.type === 'graphic' && (
+                                                    <>
+                                                        <span>{item.date}</span>
+                                                        <span>{item.dimensions}</span>
+                                                    </>
+                                                )}
+                                                {item.type === 'thread' && (
+                                                    <span>{item.date}</span>
+                                                )}
+                                                {item.type === 'blog' && (
+                                                    <>
+                                                        <span>{item.date}</span>
+                                                        <span>{item.readTime}</span>
+                                                    </>
+                                                )}
                                             </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center opacity-30 mt-20">
-                                <div className="text-6xl mb-4">✍️</div>
-                                <p className="font-bold text-gray-500">Drafting Board</p>
-                            </div>
-                        )
-                    )}
 
-                    {/* GENERATOR PREVIEW */}
-                    {activeTab === 'generate' && (
-                        generatedImages.length > 0 ? (
-                            <div className="w-full h-full grid grid-cols-1 md:grid-cols-2 gap-8 content-start pb-12">
-                                {generatedImages.map((img, idx) => (
-                                    <div key={idx} className="relative group rounded-xl overflow-hidden shadow-2xl shadow-indigo-500/10 border-4 border-white cursor-pointer transition-all hover:scale-[1.02] hover:shadow-indigo-500/20" onClick={() => setViewingImage(img)}>
-                                        <img src={img} className="w-full object-cover bg-gray-100" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-3 transition-opacity">
-                                            <Button onClick={(e) => { e.stopPropagation(); handleDownload(img); }} className="bg-white text-black hover:bg-gray-100 text-xs py-1 px-3 h-8">Download</Button>
-                                            <Button onClick={(e) => { e.stopPropagation(); onSchedule(tweetText || 'Visual Content', img); }} className="text-xs py-1 px-3 h-8">Schedule</Button>
+                                            {/* Stats (for Twitter content) */}
+                                            {item.stats && (
+                                                <div className="flex items-center gap-4 pt-1">
+                                                    {item.stats.likes !== undefined && (
+                                                        <span className="flex items-center gap-1.5 text-[13px] text-[#64748B]">
+                                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>favorite</span>
+                                                            {formatNumber(item.stats.likes)}
+                                                        </span>
+                                                    )}
+                                                    {item.stats.retweets !== undefined && (
+                                                        <span className="flex items-center gap-1.5 text-[13px] text-[#64748B]">
+                                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>repeat</span>
+                                                            {formatNumber(item.stats.retweets)}
+                                                        </span>
+                                                    )}
+                                                    {item.stats.comments !== undefined && (
+                                                        <span className="flex items-center gap-1.5 text-[13px] text-[#64748B]">
+                                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>chat_bubble</span>
+                                                            {formatNumber(item.stats.comments)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center opacity-30 mt-20">
-                                <div className="text-6xl mb-4">🎨</div>
-                                <p className="font-bold text-gray-500">Visual Canvas</p>
-                            </div>
-                        )
-                    )}
+                                );
+                            })}
+                        </div>
+                    ))}
                 </div>
-            </div >
+            </div>
 
             {/* Lightbox */}
-            {
-                viewingImage && (
-                    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 animate-fadeIn backdrop-blur-sm" onClick={() => setViewingImage(null)}>
-                        <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
-                        <button onClick={() => setViewingImage(null)} className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center">✕</button>
-                        <div className="absolute bottom-10 flex gap-4">
-                            <Button onClick={(e) => { e.stopPropagation(); handleDownload(viewingImage); }} className="bg-white text-black hover:bg-gray-200 border-none">Download High-Res</Button>
-                        </div>
+            {viewingImage && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 backdrop-blur-sm" onClick={() => setViewingImage(null)}>
+                    <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
+                    <button
+                        onClick={() => setViewingImage(null)}
+                        className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
+                    >
+                        <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                    </button>
+                    <div className="absolute bottom-10 flex gap-4">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleDownload(viewingImage); }}
+                            className="px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                            Download High-Res
+                        </button>
                     </div>
-                )
-            }
+                </div>
+            )}
         </div>
     );
 };
