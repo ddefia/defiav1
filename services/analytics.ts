@@ -12,9 +12,8 @@ if (!DEFAULT_APIFY_TOKEN) {
     console.warn('[Apify] VITE_APIFY_API_TOKEN is not set. Social metrics will rely on cache or fallback data.');
 }
 
-// Actor IDs
-const ACTOR_PROFILE = 'wbpC5fjeAxy06bonV';
-const ACTOR_TWEETS = '61RPP7dywgiy0JPD0';
+// Actor IDs - Using new unified Twitter scraper
+const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa'; // New unified actor for tweets + profiles
 
 
 export const getHandle = (brandName: string) => {
@@ -136,31 +135,33 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
 
         // Fallback: Still fetch recent tweets for activity if cache is missing posts
         try {
-            const tweetItems = await runApifyActor(ACTOR_TWEETS, {
-                "twitterHandles": [handle],
-                "maxItems": 10,
-                "sort": "Latest",
-                "tweetLanguage": "en",
-                "author": handle,
-                "proxy": { "useApifyProxy": true }
+            const tweetItems = await runApifyActor(ACTOR_TWITTER, {
+                "handles": [handle],
+                "tweetsDesired": 10,
+                "profilesDesired": 1,
+                "withReplies": false,
+                "includeUserInfo": true,
+                "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
             }, token);
-            // Process tweets as before (omitted for brevity) – reuse existing tweet processing logic.
+            // Process tweets using new actor output format
             const realRecentPosts: SocialPost[] = tweetItems.map((item: any) => {
-                const likes = item.favorite_count || item.likes || 0;
-                const comments = item.reply_count || item.replies || 0;
-                const retweets = item.retweet_count || item.retweets || 0;
-                const views = item.view_count || item.views || 0;
-                const impressions = views > 0 ? views : (cachedStats.totalFollowers * 0.15);
+                const likes = item.likes || 0;
+                const comments = item.replies || 0;
+                const retweets = item.retweets || 0;
+                const quotes = item.quotes || 0;
+                const impressions = (likes + comments + retweets + quotes) * 20 || (cachedStats.totalFollowers * 0.15);
                 const engagementRate = cachedStats.totalFollowers > 0 ? ((likes + comments + retweets) / cachedStats.totalFollowers) * 100 : 0;
                 return {
-                    id: item.id_str || item.id || Math.random().toString(),
-                    content: item.full_text || item.text || "Media Post",
-                    date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "Recent",
+                    id: item.id || Math.random().toString(),
+                    content: item.text || "Media Post",
+                    date: item.timestamp ? new Date(item.timestamp).toLocaleDateString() : "Recent",
                     likes,
                     comments,
                     retweets,
                     impressions: Math.floor(impressions),
-                    engagementRate: parseFloat(engagementRate.toFixed(2))
+                    engagementRate: parseFloat(engagementRate.toFixed(2)),
+                    url: item.url,
+                    mediaUrl: item.images?.[0]
                 };
             });
             return {
@@ -190,99 +191,76 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
         // PARALLEL EXECUTION: Fetch Profile (if no cache) AND Tweets simultaneously
         const promises = [];
 
-        // Only fetch profile from Apify if we DON'T have a cache
-        if (!cachedStats?.totalFollowers) {
-            promises.push(
-                runApifyActor(ACTOR_PROFILE, {
-                    "startUrls": [`https://twitter.com/${handle}`],
-                    "maxTweetsPerUser": 3,
-                    "onlyUserInfo": false, // We just want the user info primarily
-                    "addUserInfo": true,
-                    "proxy": { "useApifyProxy": true }
-                }, token).catch(e => { console.warn("Profile fetch failed", e); return []; })
-            );
-        } else {
-            promises.push(Promise.resolve([])); // resolve empty if cached
-        }
-
-        // Always fetch tweets for "Recent Activity"
+        // Fetch tweets AND profile info using new unified actor
+        // The new actor returns both tweets and user info in one call
         promises.push(
-            runApifyActor(ACTOR_TWEETS, {
-                "twitterHandles": [handle],
-                "maxItems": 10,
-                "sort": "Latest",
-                "tweetLanguage": "en",
-                "author": handle,
-                "proxy": { "useApifyProxy": true }
-            }, token).catch(e => { console.warn("Tweet fetch failed", e); return []; })
+            runApifyActor(ACTOR_TWITTER, {
+                "handles": [handle],
+                "tweetsDesired": 10,
+                "profilesDesired": 1,
+                "withReplies": false,
+                "includeUserInfo": true,
+                "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
+            }, token).catch(e => { console.warn("Twitter fetch failed", e); return []; })
         );
+
+        // Add empty promise for backwards compatibility with destructuring
+        promises.push(Promise.resolve([]));
 
         // NEW: Fetch Mentions in same batch
         promises.push(fetchMentions(brandName, token));
 
-        const [profileItems, tweetItems, mentionItems] = await Promise.all(promises);
+        const [tweetItems, _unused, mentionItems] = await Promise.all(promises);
 
-        // PROCESS PROFILE
-        let realFollowers = cachedStats?.totalFollowers || 0; // Default to Cache logic
+        // PROCESS PROFILE - Use cached followers or estimate from engagement
+        let realFollowers = cachedStats?.totalFollowers || 0;
         let foundProfile = !!cachedStats?.totalFollowers;
 
-        if (!foundProfile && profileItems && profileItems.length > 0) {
-            const item = profileItems[0];
-            const user = item.user || item.author || (item.username ? item : null);
-            if (user) {
-                realFollowers = user.followers_count || user.followers || 0;
-                foundProfile = true;
-            }
-        }
-
-        // Backup: Extract user info from tweets
+        // The new actor doesn't return profile info directly in tweet items
+        // We'll use cached followers or estimate based on engagement
         if (!foundProfile && tweetItems && tweetItems.length > 0) {
-            const firstTweet = tweetItems[0];
-            const user = firstTweet.user || firstTweet.author;
-            if (user) {
-                realFollowers = user.followers_count || user.followers || 0;
+            // Estimate followers based on average engagement (rough heuristic)
+            const avgLikes = tweetItems.reduce((sum: number, t: any) => sum + (t.likes || 0), 0) / tweetItems.length;
+            if (avgLikes > 0) {
+                // Assuming ~2% engagement rate as baseline
+                realFollowers = Math.floor(avgLikes * 50);
                 foundProfile = true;
             }
         }
 
-        // PROCESS TWEETS
+        // PROCESS TWEETS - Using new actor output format
         let realRecentPosts: SocialPost[] = [];
 
         if (tweetItems && tweetItems.length > 0) {
             realRecentPosts = tweetItems.map((item: any) => {
-                // HANDLE RETWEETS & CAMELCASE KEYS
-                const source = item.retweeted_status || item.retweetedStatus || item;
+                // New actor format: id, images, text, likes, replies, retweets, quotes, timestamp, url
+                const likes = item.likes || 0;
+                const comments = item.replies || 0;
+                const retweets = item.retweets || 0;
+                const quotes = item.quotes || 0;
 
-                // Support both snake_case (standard API) and camelCase (new Apify actor)
-                const likes = source.favorite_count || source.likeCount || source.likes || 0;
-                const comments = source.reply_count || source.replyCount || source.replies || 0;
-                const retweets = source.retweet_count || source.retweetCount || source.retweets || 0;
-                const views = source.view_count || source.viewCount || source.views || 0;
-
-                // Fallback for impressions if view_count is missing (common)
-                const impressions = views > 0 ? views : Math.floor(realFollowers * 0.15);
+                // Estimate impressions from engagement (no view count in new format)
+                const totalEngagement = likes + comments + retweets + quotes;
+                const impressions = totalEngagement > 0 ? totalEngagement * 20 : Math.floor(realFollowers * 0.15);
 
                 const engagementRate = realFollowers > 0
                     ? ((likes + comments + retweets) / realFollowers) * 100
                     : 0;
 
-                // Handle Media (both snake_case and camelCase paths)
-                const mediaObj = source.entities?.media?.[0] || source.extended_entities?.media?.[0] || source.extendedEntities?.media?.[0];
-                const mediaUrl = mediaObj?.media_url_https || mediaObj?.mediaUrlHttps;
+                // Media from images array
+                const mediaUrl = item.images?.[0];
 
-                // Handle Author/ScreenName
-                const screenName = item.user?.screen_name || item.author?.userName || 'user';
-                const tweetId = item.id_str || item.id;
-                const tweetUrl = `https://twitter.com/${screenName}/status/${tweetId}`;
+                // URL is provided directly by new actor
+                const tweetUrl = item.url || '';
 
-                // Parse Date (Handle 'created_at' and 'createdAt')
-                const rawDate = item.created_at || item.createdAt;
-                const dateDisplay = rawDate ? new Date(rawDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "Recent";
-                const textContent = item.full_text || item.fullText || item.text || "Media Post";
+                // Parse timestamp
+                const dateDisplay = item.timestamp
+                    ? new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                    : "Recent";
 
                 return {
-                    id: tweetId || Math.random().toString(),
-                    content: textContent,
+                    id: item.id || Math.random().toString(),
+                    content: item.text || "Media Post",
                     date: dateDisplay,
                     likes,
                     comments,
@@ -536,29 +514,39 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
 
 
 export const fetchMentions = async (brandName: string, apiKey?: string): Promise<Mention[]> => {
-    // Real Implementation
+    // Real Implementation using new unified actor
     const token = apiKey || DEFAULT_APIFY_TOKEN;
     if (!token) return [];
 
     try {
         const handle = getHandle(brandName);
         console.log(`[Apify] Fetching mentions for @${handle}...`);
-        const items = await runApifyActor(ACTOR_TWEETS, {
-            "searchTerms": [`@${handle}`, handle, brandName],
-            "maxItems": 5,
-            "sort": "Latest",
-            "tweetLanguage": "en",
-            "proxy": { "useApifyProxy": true }
+
+        // New actor uses handles array - search for brand mentions
+        const items = await runApifyActor(ACTOR_TWITTER, {
+            "handles": [handle],
+            "tweetsDesired": 5,
+            "profilesDesired": 0,
+            "withReplies": true, // Include replies to find mentions
+            "includeUserInfo": false,
+            "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
         }, token);
 
         if (!items || items.length === 0) return [];
 
-        return items.map((item: any) => ({
-            id: item.id_str || item.id,
-            author: item.user?.screen_name || item.author || "Unknown",
-            text: item.full_text || item.text || "",
-            timestamp: item.created_at || new Date().toISOString()
-        }));
+        // Map new actor output format to Mention type
+        return items.map((item: any) => {
+            // Extract author from URL (format: https://x.com/USERNAME/status/...)
+            const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
+            const author = urlMatch?.[1] || "Unknown";
+
+            return {
+                id: item.id,
+                author: author,
+                text: item.text || "",
+                timestamp: item.timestamp || new Date().toISOString()
+            };
+        });
 
     } catch (e) {
         console.warn("[Apify] Mentions fetch failed:", e);

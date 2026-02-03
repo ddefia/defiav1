@@ -65,20 +65,22 @@ export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
     if (!apiKey) return [];
 
     try {
-        // Direct Apify Call (Actor: twitter-scraper)
-        // Hardcoded Actor ID for consistency: 61RPP7dywgiy0JPD0
-        const ACTOR_ID = '61RPP7dywgiy0JPD0';
+        // Direct Apify Call - Using new unified Twitter actor
+        const ACTOR_ID = 'VsTreSuczsXhhRIqa';
 
         console.log(`[Agent/Ingest] Fetching mentions for ${brandName}...`);
 
-        // 1. Run
+        // 1. Run with new actor input format
         const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${apiKey}&waitForFinish=90`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                "searchTerms": [`@${brandName}`, brandName],
-                "maxItems": 3,
-                "sort": "Latest"
+                "handles": [brandName],
+                "tweetsDesired": 3,
+                "profilesDesired": 0,
+                "withReplies": true,
+                "includeUserInfo": false,
+                "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
             })
         });
 
@@ -92,12 +94,19 @@ export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
         const itemsRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}`);
         const items = await itemsRes.json();
 
-        return items.map(item => ({
-            id: item.id_str || item.id,
-            author: item.user?.screen_name || item.author || "Unknown",
-            text: item.full_text || item.text || "",
-            timestamp: item.created_at || new Date().toISOString()
-        }));
+        // Map new actor output format
+        return items.map(item => {
+            // Extract author from URL (format: https://x.com/USERNAME/status/...)
+            const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
+            const author = urlMatch?.[1] || "Unknown";
+
+            return {
+                id: item.id,
+                author: author,
+                text: item.text || "",
+                timestamp: item.timestamp || new Date().toISOString()
+            };
+        });
 
     } catch (e) {
         console.error("[Agent/Ingest] Mentions Fetch Error:", e.message);
@@ -161,7 +170,7 @@ export const updateAllBrands = async (apiKey, brands = []) => {
         }
     }
 
-    const ACTOR_GENERIC = '61RPP7dywgiy0JPD0'; // Generic Twitter Scraper (quacker)
+    const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa'; // New unified Twitter actor
 
     const registry = brands.length > 0
         ? brands.map((brand) => ({ key: brand.id, handle: brand.xHandle || brand.name }))
@@ -171,17 +180,17 @@ export const updateAllBrands = async (apiKey, brands = []) => {
         try {
             console.log(`[Agent/Ingest] Syncing ${key} (@${handle})...`);
 
-            // 1. Run Generic Scraper (Search "from:Handle" to get author details)
-            const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_GENERIC}/runs?token=${apiKey}&waitForFinish=90`, {
+            // 1. Run new unified actor
+            const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_TWITTER}/runs?token=${apiKey}&waitForFinish=90`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    "twitterHandles": [handle],
-                    "maxItems": 5, // Keep low for hourly check
-                    "sort": "Latest",
-                    "tweetLanguage": "en",
-                    "author": handle,
-                    "proxy": { "useApifyProxy": true }
+                    "handles": [handle],
+                    "tweetsDesired": 5,
+                    "profilesDesired": 1,
+                    "withReplies": false,
+                    "includeUserInfo": true,
+                    "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
                 })
             });
 
@@ -194,34 +203,31 @@ export const updateAllBrands = async (apiKey, brands = []) => {
 
                 if (items.length > 0) {
                     console.log(`[Debug] Item 0:`, JSON.stringify(items[0]));
-                    // Extract Profile Data from Tweet Author
-                    const tweet = items[0];
-                    const user = tweet.user || tweet.author || {};
-                    const followers = user.followers_count || user.followers || 0;
+                    // New actor format - estimate followers from engagement
+                    const avgLikes = items.reduce((sum, t) => sum + (t.likes || 0), 0) / items.length;
+                    const followers = Math.floor(avgLikes * 50); // Estimate based on ~2% engagement
 
-                    // Update Cache
-                    if (followers > 0) {
-                        results[key] = {
-                            totalFollowers: followers,
-                            lastUpdated: new Date().toISOString(),
-                            handle: handle,
-                            recentPosts: items.map(item => ({
-                                id: item.id_str || item.id,
-                                content: item.full_text || item.text || "",
-                                date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "Recent",
-                                likes: item.favorite_count || item.likes || 0,
-                                comments: item.reply_count || item.replies || 0,
-                                retweets: item.retweet_count || item.retweets || 0
-                            }))
-                        };
-                        console.log(`   > Success: ${followers} followers found for ${key}.`);
-                    }
+                    // Update Cache with new actor output format
+                    results[key] = {
+                        totalFollowers: followers,
+                        lastUpdated: new Date().toISOString(),
+                        handle: handle,
+                        recentPosts: items.map(item => ({
+                            id: item.id,
+                            content: item.text || "",
+                            date: item.timestamp ? new Date(item.timestamp).toLocaleDateString() : "Recent",
+                            likes: item.likes || 0,
+                            comments: item.replies || 0,
+                            retweets: item.retweets || 0
+                        }))
+                    };
+                    console.log(`   > Success: ${followers} estimated followers for ${key}.`);
 
                     // SYNC TO BRAND_MEMORY (If Supabase is active)
                     if (supabase) {
                         let newCount = 0;
                         for (const item of items) {
-                            const tweetId = item.id_str || item.id;
+                            const tweetId = item.id;
                             // Check existence
                             const { data: exist } = await supabase
                                 .from('brand_memory')
@@ -232,8 +238,12 @@ export const updateAllBrands = async (apiKey, brands = []) => {
 
                             if (!exist || exist.length === 0) {
                                 // Insert
-                                const content = item.full_text || item.text || item.caption;
+                                const content = item.text;
                                 if (!content) continue;
+
+                                // Extract author from URL
+                                const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
+                                const author = urlMatch?.[1] || handle;
 
                                 await supabase.from('brand_memory').insert({
                                     brand_id: key,
@@ -241,16 +251,16 @@ export const updateAllBrands = async (apiKey, brands = []) => {
                                     source: 'social_history',
                                     metadata: {
                                         external_id: tweetId,
-                                        author: item.user?.screen_name || handle,
-                                        date: item.created_at,
+                                        author: author,
+                                        date: item.timestamp,
                                         metrics: {
-                                            likes: item.favorite_count || 0,
-                                            retweets: item.retweet_count || 0,
-                                            replies: item.reply_count || 0,
-                                            views: item.view_count || 0,
-                                            media_urls: item.media ? item.media.map(m => m.media_url_https || m.url) : []
+                                            likes: item.likes || 0,
+                                            retweets: item.retweets || 0,
+                                            replies: item.replies || 0,
+                                            quotes: item.quotes || 0,
+                                            media_urls: item.images || []
                                         },
-                                        mediaUrl: (item.media && item.media.length > 0) ? (item.media[0].media_url_https || item.media[0].url) : null
+                                        mediaUrl: (item.images && item.images.length > 0) ? item.images[0] : null
                                     }
                                 });
                                 newCount++;

@@ -25,6 +25,7 @@ import { CopilotView } from './components/Copilot/CopilotView'; // Import Copilo
 import { Sidebar } from './components/Sidebar';
 import { Settings } from './components/Settings'; // Import Settings
 import { TwitterFeed } from './components/TwitterFeed'; // Import TwitterFeed
+import { Web3NewsFeed } from './components/Web3NewsFeed'; // Import Web3NewsFeed
 import { LandingPage } from './components/LandingPage';
 import { AuthPage } from './components/AuthPage'; // Import AuthPage
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
@@ -84,6 +85,7 @@ const sectionRoutes: Record<string, string> = {
     settings: '/settings',
     'twitter-feed': '/twitter-feed',
     'brand-kit': '/brand-kit',
+    news: '/web3-news',
 };
 
 const getSectionFromPath = (path: string) => {
@@ -1616,6 +1618,14 @@ const App: React.FC = () => {
                     <TwitterFeed
                         brandName={selectedBrand}
                         onNavigate={handleNavigate}
+                    />
+                )}
+
+                {/* SECTION: WEB3 NEWS */}
+                {appSection === 'news' && selectedBrand && profiles[selectedBrand] && (
+                    <Web3NewsFeed
+                        brandName={selectedBrand}
+                        brandConfig={profiles[selectedBrand]}
                     />
                 )}
 

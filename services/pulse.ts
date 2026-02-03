@@ -245,32 +245,37 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
             if (apifyToken) {
                 try {
                     console.log("Fetching live trends via Apify...");
-                    // Using a generic Twitter Scraper for "Crypto Trends" or specific brand keywords
-                    // Actor: 'quacker/twitter-scraper' or similar (using the one from analytics for consistency: 61RPP7dywgiy0JPD0)
+                    // Using new unified Twitter actor VsTreSuczsXhhRIqa
                     const keywords = buildSearchTerms(brandName, apifyHandle, lunarSymbol);
 
-                    const items = await runApifyActor('61RPP7dywgiy0JPD0', {
-                        "searchTerms": [keywords],
-                        "maxItems": 5,
-                        "sort": "Latest"
+                    // Using new unified Twitter actor VsTreSuczsXhhRIqa
+                    const handle = cleanHandle(apifyHandle) || brandName;
+                    const items = await runApifyActor('VsTreSuczsXhhRIqa', {
+                        "handles": [handle],
+                        "tweetsDesired": 5,
+                        "profilesDesired": 0,
+                        "withReplies": false,
+                        "includeUserInfo": false,
+                        "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
                     }, apifyToken);
 
                     if (items && items.length > 0) {
                         return items.map((item: any) => {
-                            // Calculate Score from actual engagement (if available) or fallback depth
-                            const engagement = (item.retweet_count || 0) * 2 + (item.favorite_count || 0);
+                            // Calculate Score from actual engagement using new actor format
+                            const engagement = (item.retweets || 0) * 2 + (item.likes || 0) + (item.replies || 0);
                             const calcScore = Math.min(99, 60 + Math.ceil(engagement / 100)); // Baseline 60, +1 per 100 interactions
 
                             return {
-                                id: item.id_str || `trend-${Math.random()}`,
+                                id: item.id || `trend-${Math.random()}`,
                                 source: 'Twitter',
-                                headline: item.full_text ? item.full_text.substring(0, 50) + "..." : "Trend",
-                                summary: item.full_text || "No summary",
+                                headline: item.text ? item.text.substring(0, 50) + "..." : "Trend",
+                                summary: item.text || "No summary",
                                 relevanceScore: calcScore,
                                 relevanceReason: engagement > 1000 ? "High Engagement Velocity" : "Emerging Conversation",
                                 sentiment: 'Neutral',
                                 timestamp: 'Live',
                                 createdAt: now,
+                                url: item.url,
                                 rawData: item
                             };
                         });
@@ -289,8 +294,6 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
 
 
     // 2. Return what we found (real data only)
-    return items;
-
     return items;
 };
 

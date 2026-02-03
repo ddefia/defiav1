@@ -67,7 +67,7 @@ import { ReferenceImage, BrandConfig } from '../types';
 export const ingestTwitterHistory = async (handles: string[]) => {
     console.log(`[Ingestion] Starting Deep Social Ingestion for: ${handles.join(', ')}`);
     const results = [];
-    const ACTOR_TWEETS = '61RPP7dywgiy0JPD0';
+    const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa'; // New unified actor
     const APIFY_TOKEN = process.env.VITE_APIFY_API_TOKEN || (import.meta as any).env?.VITE_APIFY_API_TOKEN;
 
     if (!APIFY_TOKEN) {
@@ -77,36 +77,35 @@ export const ingestTwitterHistory = async (handles: string[]) => {
     for (const handle of handles) {
         try {
             console.log(`[Ingestion] Fetching history for @${handle}...`);
-            // Fetch ~30 items per handle for history
-            const tweetItems = await runApifyActor(ACTOR_TWEETS, {
-                "twitterHandles": [handle],
-                "maxItems": 30,
-                "sort": "Latest",
-                "tweetLanguage": "en",
-                "author": handle,
-                "proxy": { "useApifyProxy": true }
+            // Fetch ~30 items per handle for history using new actor
+            const tweetItems = await runApifyActor(ACTOR_TWITTER, {
+                "handles": [handle],
+                "tweetsDesired": 30,
+                "profilesDesired": 1,
+                "withReplies": false,
+                "includeUserInfo": true,
+                "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
             }, APIFY_TOKEN);
 
             let ingestedCount = 0;
             if (tweetItems && Array.isArray(tweetItems)) {
                 for (const item of tweetItems) {
-                    const text = item.full_text || item.text;
-                    const id = item.id_str || item.id;
-                    const date = item.created_at || item.createdAt;
+                    // New actor output format
+                    const text = item.text;
+                    const id = item.id;
+                    const date = item.timestamp;
 
-                    // Stats
-                    const likes = item.favorite_count || item.likeCount || 0;
-                    const retweets = item.retweet_count || item.retweetCount || 0;
-                    const replies = item.reply_count || item.replyCount || 0;
-                    const views = item.view_count || item.viewCount || 0;
-                    const engagementRate = ((likes + retweets + replies) / (item.user?.followers_count || 1000)) * 100;
+                    // Stats from new actor format
+                    const likes = item.likes || 0;
+                    const retweets = item.retweets || 0;
+                    const replies = item.replies || 0;
+                    const quotes = item.quotes || 0;
+                    // Estimate engagement rate based on likes (assuming ~2% baseline)
+                    const estimatedFollowers = likes > 0 ? likes * 50 : 1000;
+                    const engagementRate = ((likes + retweets + replies) / estimatedFollowers) * 100;
 
-                    // Extract Media
-                    const mediaUrl = item.entities?.media?.[0]?.media_url_https
-                        || item.extended_entities?.media?.[0]?.media_url_https
-                        || item.media?.[0]?.media_url_https
-                        || (item.media && item.media.length > 0 ? item.media[0].media_url_https : null)
-                        || null;
+                    // Extract Media from new actor format (images array)
+                    const mediaUrl = (item.images && item.images.length > 0) ? item.images[0] : null;
 
                     if (text && text.length > 20) {
                         const content = `Tweet by @${handle}: "${text}"`;

@@ -209,17 +209,18 @@ export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } =
     return { tweets: [], tweetExamples: [], referenceImages: [], error: 'Missing APIFY API token.' };
   }
 
-  const ACTOR_TWEETS = '61RPP7dywgiy0JPD0';
-  const runRes = await fetchImpl(`https://api.apify.com/v2/acts/${ACTOR_TWEETS}/runs?token=${token}&waitForFinish=90`, {
+  // New unified Twitter actor
+  const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa';
+  const runRes = await fetchImpl(`https://api.apify.com/v2/acts/${ACTOR_TWITTER}/runs?token=${token}&waitForFinish=90`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      twitterHandles: [handle],
-      maxItems,
-      sort: 'Latest',
-      tweetLanguage: 'en',
-      author: handle,
-      proxy: { useApifyProxy: true }
+      handles: [handle],
+      tweetsDesired: maxItems,
+      profilesDesired: 1,
+      withReplies: false,
+      includeUserInfo: true,
+      proxyConfig: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] }
     })
   });
 
@@ -233,26 +234,26 @@ export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } =
   const itemsRes = await fetchImpl(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}`);
   const items = await itemsRes.json();
 
+  // Map new actor output format
   const tweets = (items || []).map((item) => {
-    const text = item.full_text || item.text || '';
-    const likes = item.favorite_count || item.likes || 0;
-    const retweets = item.retweet_count || item.retweets || 0;
-    const replies = item.reply_count || item.replies || 0;
-    const views = item.view_count || item.views || 0;
-    const mediaUrls = (item.entities?.media || item.extended_entities?.media || item.media || [])
-      .map((m) => m.media_url_https || m.url)
-      .filter(Boolean);
+    const text = item.text || '';
+    const likes = item.likes || 0;
+    const retweets = item.retweets || 0;
+    const replies = item.replies || 0;
+    const quotes = item.quotes || 0;
+    // New actor uses images array instead of nested media objects
+    const mediaUrls = item.images || [];
 
-    const score = likes + retweets * 2 + replies * 1.5 + Math.min(views / 1000, 50);
+    const score = likes + retweets * 2 + replies * 1.5 + quotes;
 
     return {
-      id: item.id_str || item.id,
+      id: item.id,
       text,
-      createdAt: item.created_at || item.createdAt || '',
+      createdAt: item.timestamp || '',
       likes,
       retweets,
       replies,
-      views,
+      views: 0, // New actor doesn't provide view count
       mediaUrls,
       score
     };

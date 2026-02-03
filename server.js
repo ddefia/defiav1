@@ -322,62 +322,6 @@ app.post('/api/brands/register', async (req, res) => {
             return res.status(400).json({ error: 'Website URL is invalid.' });
         }
 
-        const { data: existingBrand } = await supabase
-            .from('brands')
-            .select('id, name')
-            .ilike('name', normalizedName)
-            .maybeSingle();
-
-        if (existingBrand) {
-            const sourceRows = [
-                ...normalizedDomains.map((domain) => ({
-                    brand_id: existingBrand.id,
-                    source_type: 'domain',
-                    value: domain,
-                    normalized_value: domain.toLowerCase()
-                })),
-                ...normalizedHandles.map((handle) => ({
-                    brand_id: existingBrand.id,
-                    source_type: 'x_handle',
-                    value: `@${handle}`,
-                    normalized_value: handle
-                }))
-            ];
-
-            if (youtube) {
-                sourceRows.push({
-                    brand_id: existingBrand.id,
-                    source_type: 'youtube',
-                    value: youtube,
-                    normalized_value: youtube
-                });
-            }
-
-            if (sourceRows.length > 0) {
-                const { error: sourcesError } = await supabase
-                    .from('brand_sources')
-                    .upsert(sourceRows, { onConflict: 'brand_id,source_type,normalized_value' });
-                if (sourcesError) {
-                    console.warn('[BrandRegister] Failed to upsert sources for existing brand:', sourcesError.message);
-                }
-            }
-
-            const primaryHandle = normalizedHandles[0];
-            if (primaryHandle) {
-                const { error: integrationError } = await supabase
-                    .from('brand_integrations')
-                    .upsert(
-                        { brand_id: existingBrand.id, apify_handle: primaryHandle },
-                        { onConflict: 'brand_id' }
-                    );
-                if (integrationError) {
-                    console.warn('[BrandRegister] Failed to upsert integrations for existing brand:', integrationError.message);
-                }
-            }
-
-            return res.json({ id: existingBrand.id, name: existingBrand.name });
-        }
-
         const { data: brand, error: brandError } = await supabase
             .from('brands')
             .insert({
@@ -1083,7 +1027,7 @@ if (process.env.VERCEL !== '1') {
         startAgent();
 
         // Start Scheduled Publisher (local dev)
-        startPublishing();
+        // startPublishing(); // PAUSED - enable when ready to test publishing
     });
 }
 
