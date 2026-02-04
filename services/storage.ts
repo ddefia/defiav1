@@ -1129,42 +1129,15 @@ const parseSocialDate = (dateVal: any, createdAt: string): string => {
 };
 
 // --- SYNC HISTORY IMAGES TO REFERENCE ---
+// DEPRECATED: Auto-import disabled to prevent referenceImages bloat
+// Images should only be added when explicitly saved/posted by user
 export const importHistoryToReferences = async (brandName: string) => {
-    try {
-        if (!brandName) return;
-        const profiles = loadBrandProfiles();
-        const profile = profiles[brandName];
-        if (!profile) return;
-
-        // Fetch History
-        const events = await fetchBrainHistoryEvents(brandName);
-        const imageEvents = events.filter(e => e.image && e.image.startsWith('http'));
-
-        if (imageEvents.length === 0) return;
-
-        let hasUpdates = false;
-        const existingUrls = new Set(profile.referenceImages.map(r => r.url));
-
-        imageEvents.forEach(e => {
-            if (e.image && !existingUrls.has(e.image)) {
-                profile.referenceImages.push({
-                    id: `ref-${e.id}`,
-                    url: e.image,
-                    name: `Tweet Image ${e.date}`
-                });
-                existingUrls.add(e.image);
-                hasUpdates = true;
-            }
-        });
-
-        if (hasUpdates) {
-            console.log(`[Storage] Importing ${imageEvents.length} new images from history to references.`);
-            profiles[brandName] = profile;
-            saveBrandProfiles(profiles, true); // save and dispatch update
-            // alert(`Imported ${imageEvents.length} images from History to Brand KIt.`);
-        }
-
-    } catch (e) {
-        console.error("Failed to import history images:", e);
-    }
+    console.log(`[Storage] importHistoryToReferences DISABLED - images should only be added explicitly`);
+    // NOTE: Auto-import of history images to Brand Kit DISABLED
+    // Images should only be added to referenceImages when explicitly:
+    // 1. Saved by user from generated content
+    // 2. Added to a campaign
+    // 3. Posted/published
+    // This prevents referenceImages from bloating with every historical tweet
+    return;
 };
