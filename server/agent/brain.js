@@ -55,10 +55,10 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
 
         const response = await genAI.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: { parts: [{ text: prompt }] }
+            contents: prompt
         });
 
-        const text = response.text();
+        const text = response.text;
 
         // SimpleJSON cleanup
         const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
