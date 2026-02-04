@@ -386,6 +386,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           });
         }
 
+        console.log('[Onboarding] Deep crawl data received:', {
+          pages: crawlPages.length,
+          docs: crawlDocs.length,
+          knowledgeBase: knowledgeBaseFromCrawl.length,
+          contentLength: crawlContent.length,
+          sampleKB: knowledgeBaseFromCrawl[0]?.slice(0, 100)
+        });
+
         // Build summary message
         const stats = data.stats || {};
         const categoryList = stats.categories ? Object.keys(stats.categories).join(', ') : '';
@@ -470,12 +478,18 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         tweetExamples = Array.isArray(data.tweetExamples) ? data.tweetExamples : [];
         tweetImages = Array.isArray(data.referenceImages) ? data.referenceImages : [];
 
+        console.log('[Onboarding] Twitter data received:', {
+          tweetExamples: tweetExamples.length,
+          referenceImages: tweetImages.length,
+          sampleImage: tweetImages[0]?.url
+        });
+
         setAnalysisProgress(prev => ({
           ...prev,
           twitter: {
             status: 'complete',
             message: tweetExamples.length > 0
-              ? `Collected ${tweetExamples.length} tweet examples`
+              ? `Collected ${tweetExamples.length} tweets${tweetImages.length > 0 ? ` & ${tweetImages.length} images` : ''}`
               : 'Twitter scan complete (no examples found)'
           },
           assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
@@ -622,6 +636,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           youtube: undefined,
         },
       };
+
+      console.log('[Onboarding] Final enriched data:', {
+        knowledgeBase: enriched.knowledgeBase?.length,
+        referenceImages: enriched.referenceImages?.length,
+        tweetExamples: enriched.tweetExamples?.length,
+        styleExamples: combinedExamples.length,
+        sampleKnowledge: enriched.knowledgeBase?.slice(0, 3),
+        sampleImages: enriched.referenceImages?.slice(0, 2)
+      });
 
       setEnrichedData(data);
       setStyleExamples(combinedExamples);
