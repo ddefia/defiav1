@@ -345,36 +345,88 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       let tweetExamples: string[] = [];
       let tweetImages: ReferenceImage[] = [];
 
-      // 1) Website crawl (real)
+      // 1) Website deep crawl (Apify-powered for comprehensive extraction)
+      let knowledgeBaseFromCrawl: string[] = [];
+      let defiMetrics: any = null;
+
       try {
-        const crawlRes = await fetch(`${baseUrl}/api/onboarding/crawl`, {
+        setAnalysisProgress(prev => ({
+          ...prev,
+          website: { status: 'loading', message: 'Deep scanning website, docs, and extracting knowledge...' },
+        }));
+
+        // Try deep crawl first (comprehensive)
+        const crawlRes = await fetch(`${baseUrl}/api/onboarding/deep-crawl`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: normalizedDomain })
+          body: JSON.stringify({
+            url: normalizedDomain,
+            maxPages: 50,
+            maxDepth: 10,
+            includeDocsSubdomain: true
+          })
         });
 
         if (!crawlRes.ok) {
           const data = await crawlRes.json().catch(() => ({}));
-          throw new Error(data.error || 'Website crawl failed');
+          throw new Error(data.error || 'Deep crawl failed');
         }
 
         const data = await crawlRes.json();
         crawlContent = data.content || '';
         crawlDocs = Array.isArray(data.docs) ? data.docs : [];
-        crawlPages = Array.isArray(data.pages) ? data.pages : [];
+        crawlPages = Array.isArray(data.pages) ? data.pages.map((p: any) => p.url || p) : [];
+        defiMetrics = data.defiMetrics || null;
+
+        // Extract knowledge base entries from deep crawl
+        if (data.knowledgeBase && Array.isArray(data.knowledgeBase)) {
+          knowledgeBaseFromCrawl = data.knowledgeBase.map((entry: any) => {
+            const prefix = entry.category !== 'general' ? `[${entry.category.toUpperCase()}] ` : '';
+            return `${prefix}${entry.title}: ${entry.content.slice(0, 500)}`;
+          });
+        }
+
+        // Build summary message
+        const stats = data.stats || {};
+        const categoryList = stats.categories ? Object.keys(stats.categories).join(', ') : '';
+        const summaryParts = [
+          `Scanned ${crawlPages.length} pages`,
+          knowledgeBaseFromCrawl.length > 0 ? `extracted ${knowledgeBaseFromCrawl.length} knowledge entries` : null,
+          crawlDocs.length > 0 ? `found ${crawlDocs.length} documents` : null,
+          categoryList ? `(${categoryList})` : null
+        ].filter(Boolean);
 
         setAnalysisProgress(prev => ({
           ...prev,
           website: {
             status: 'complete',
-            message: crawlPages.length > 0 ? `Scanned ${crawlPages.length} pages and extracted key messaging` : 'Website scan complete'
+            message: summaryParts.join(', ') || 'Website scan complete'
           },
           twitter: { status: 'loading', message: 'Analyzing tweets, engagement patterns, and brand voice...' },
         }));
       } catch (crawlError: any) {
+        // Fallback to simple crawl if deep crawl fails
+        console.warn('Deep crawl failed, falling back to simple crawl:', crawlError);
+        try {
+          const simpleCrawlRes = await fetch(`${baseUrl}/api/onboarding/crawl`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: normalizedDomain })
+          });
+
+          if (simpleCrawlRes.ok) {
+            const data = await simpleCrawlRes.json();
+            crawlContent = data.content || '';
+            crawlDocs = Array.isArray(data.docs) ? data.docs : [];
+            crawlPages = Array.isArray(data.pages) ? data.pages : [];
+          }
+        } catch {
+          // Both failed
+        }
+
         setAnalysisProgress(prev => ({
           ...prev,
-          website: { status: 'complete', message: crawlError?.message || 'Website scan skipped (no access)' },
+          website: { status: 'complete', message: crawlPages.length > 0 ? `Scanned ${crawlPages.length} pages` : 'Website scan completed with limited access' },
           twitter: { status: 'loading', message: 'Analyzing tweets, engagement patterns, and brand voice...' },
         }));
       }
@@ -497,12 +549,31 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         ...tweetImages
       ]);
 
+      // Build DeFi metrics knowledge entries if available
+      const defiKnowledge: string[] = [];
+      if (defiMetrics) {
+        if (defiMetrics.tvl) {
+          defiKnowledge.push(`[DEFI] Total Value Locked (TVL): $${defiMetrics.tvl.toLocaleString()}`);
+        }
+        if (defiMetrics.aprs && defiMetrics.aprs.length > 0) {
+          const topAprs = defiMetrics.aprs.slice(0, 3);
+          topAprs.forEach((apr: any) => {
+            defiKnowledge.push(`[DEFI] APR: ${apr.value}% - ${apr.context}`);
+          });
+        }
+        if (defiMetrics.pools && defiMetrics.pools.length > 0) {
+          defiKnowledge.push(`[DEFI] Active Pools: ${defiMetrics.pools.join(', ')}`);
+        }
+      }
+
       const enriched: BrandConfig = {
         colors: researchResult.colors || [],
         knowledgeBase: [
           ...baseKnowledge,
+          ...knowledgeBaseFromCrawl, // Deep crawl categorized knowledge
+          ...defiKnowledge, // DeFi-specific metrics
           ...collectorKnowledge,
-          ...crawlDocs.map((doc) => `Document: ${doc}`),
+          ...crawlDocs.map((doc) => `[DOCUMENT] ${doc}`),
           ...sourcesSummary,
           ...githubSignals,
         ],

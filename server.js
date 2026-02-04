@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { startAgent, triggerAgentRun, runBrainCycle } from './server/agent/scheduler.js';
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
-import { crawlWebsite, fetchTwitterContent, uploadCarouselGraphic } from './server/onboarding.js';
+import { crawlWebsite, deepCrawlWebsite, fetchTwitterContent, uploadCarouselGraphic, fetchDocumentContent, extractDefiMetrics } from './server/onboarding.js';
 import { fetchWeb3News, scheduledNewsFetch } from './server/services/web3News.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -225,7 +225,7 @@ app.get('/api/logs', (req, res) => {
     res.json({ entries: requestLog });
 });
 
-// --- Onboarding: Website Crawl ---
+// --- Onboarding: Website Crawl (Simple) ---
 app.post('/api/onboarding/crawl', async (req, res) => {
     try {
         const { url, maxPages } = req.body || {};
@@ -241,6 +241,52 @@ app.post('/api/onboarding/crawl', async (req, res) => {
     } catch (e) {
         console.error('[OnboardingCrawl] Failed:', e);
         return res.status(500).json({ error: 'Website crawl failed.' });
+    }
+});
+
+// --- Onboarding: Deep Website Crawl (Apify-powered) ---
+// This crawls extensively including docs subdomain, extracts knowledge base entries
+app.post('/api/onboarding/deep-crawl', async (req, res) => {
+    try {
+        const { url, maxPages, maxDepth, includeDocsSubdomain } = req.body || {};
+        const normalized = normalizeDomain(String(url || ''));
+        if (!normalized || !isValidUrl(normalized)) {
+            return res.status(400).json({ error: 'Valid URL is required.' });
+        }
+
+        console.log(`[DeepCrawl] Starting deep crawl of ${normalized}...`);
+
+        const result = await deepCrawlWebsite(normalized, {
+            maxPages: typeof maxPages === 'number' ? Math.min(Math.max(maxPages, 10), 100) : 50,
+            maxDepth: typeof maxDepth === 'number' ? Math.min(Math.max(maxDepth, 3), 20) : 10,
+            includeDocsSubdomain: includeDocsSubdomain !== false
+        });
+
+        // Extract DeFi metrics from the content
+        if (result.content) {
+            result.defiMetrics = extractDefiMetrics(result.content);
+        }
+
+        return res.json(result);
+    } catch (e) {
+        console.error('[DeepCrawl] Failed:', e);
+        return res.status(500).json({ error: 'Deep crawl failed.' });
+    }
+});
+
+// --- Onboarding: Fetch Document Content ---
+app.post('/api/onboarding/fetch-document', async (req, res) => {
+    try {
+        const { url } = req.body || {};
+        if (!url || typeof url !== 'string') {
+            return res.status(400).json({ error: 'Document URL is required.' });
+        }
+
+        const result = await fetchDocumentContent(url);
+        return res.json(result);
+    } catch (e) {
+        console.error('[FetchDocument] Failed:', e);
+        return res.status(500).json({ error: 'Document fetch failed.' });
     }
 });
 

@@ -5,6 +5,20 @@ const DEFAULT_MAX_PAGES = 8;
 const DEFAULT_MAX_CHARS = 24000;
 const DOC_EXTENSIONS = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.md', '.txt'];
 
+// Apify Website Content Crawler Actor ID
+const ACTOR_WEBSITE_CRAWLER = 'aYG0l9s7dbB7j3gbS';
+
+// Keywords to identify important content categories
+const CONTENT_CATEGORIES = {
+  docs: ['documentation', 'docs', 'guide', 'tutorial', 'getting-started', 'quickstart', 'api-reference'],
+  whitepaper: ['whitepaper', 'white-paper', 'litepaper', 'lite-paper', 'technical-paper'],
+  tokenomics: ['tokenomics', 'token', 'economics', 'supply', 'distribution', 'vesting'],
+  defi: ['apr', 'apy', 'yield', 'staking', 'liquidity', 'pool', 'farm', 'vault', 'tvl'],
+  governance: ['governance', 'dao', 'voting', 'proposal', 'treasury'],
+  security: ['audit', 'security', 'bug-bounty', 'immunefi'],
+  roadmap: ['roadmap', 'milestone', 'timeline', 'upcoming']
+};
+
 const normalizeUrl = (value) => {
   if (!value) return '';
   const trimmed = value.trim();
@@ -201,6 +215,349 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
     pages: pages.map((page) => page.url),
     docs: Array.from(docs)
   };
+};
+
+/**
+ * DEEP WEBSITE CRAWL using Apify Website Content Crawler
+ * This provides much more comprehensive content extraction including:
+ * - Deep crawling of all pages
+ * - Markdown conversion for clean text
+ * - Automatic docs subdomain detection
+ * - Content categorization
+ */
+export const deepCrawlWebsite = async (startUrl, options = {}) => {
+  const {
+    maxPages = 50,
+    maxDepth = 10,
+    includeDocsSubdomain = true,
+    waitForFinishSecs = 180
+  } = options;
+
+  const token = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';
+  if (!token) {
+    console.warn('[Onboarding] No Apify token - falling back to simple crawl');
+    return crawlWebsite(startUrl, { maxPages: 8 });
+  }
+
+  const normalized = normalizeUrl(startUrl);
+  if (!normalized) {
+    return { content: '', pages: [], docs: [], knowledgeBase: [] };
+  }
+
+  console.log(`[Onboarding] Starting deep crawl of ${normalized}...`);
+
+  try {
+    const parsedUrl = new URL(normalized);
+    const baseDomain = parsedUrl.hostname;
+
+    // Build list of URLs to crawl
+    const urlsToCrawl = [{ url: normalized }];
+
+    // Auto-detect and add docs subdomain if it exists
+    if (includeDocsSubdomain && !baseDomain.startsWith('docs.')) {
+      const docsUrl = `https://docs.${baseDomain.replace(/^www\./, '')}`;
+      urlsToCrawl.push({ url: docsUrl });
+      console.log(`[Onboarding] Also crawling docs subdomain: ${docsUrl}`);
+    }
+
+    // Run Apify Website Content Crawler
+    const runRes = await fetchImpl(
+      `https://api.apify.com/v2/acts/${ACTOR_WEBSITE_CRAWLER}/runs?token=${token}&waitForFinish=${waitForFinishSecs}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startUrls: urlsToCrawl,
+          useSitemaps: true,
+          useLlmsTxt: true,
+          respectRobotsTxtFile: true,
+          crawlerType: 'playwright:adaptive',
+          maxCrawlDepth: maxDepth,
+          maxCrawlPages: maxPages,
+          maxConcurrency: 10,
+          dynamicContentWaitSecs: 5,
+          removeElementsCssSelector: `nav, footer, script, style, noscript, svg, img[src^='data:'],
+            [role="alert"], [role="banner"], [role="dialog"], [role="alertdialog"],
+            [role="region"][aria-label*="skip" i], [aria-modal="true"],
+            .cookie-banner, .newsletter-popup, .modal, .overlay`,
+          removeCookieWarnings: true,
+          blockMedia: true,
+          htmlTransformer: 'readableText',
+          readableTextCharThreshold: 100,
+          saveMarkdown: true,
+          saveHtml: false,
+          proxyConfiguration: { useApifyProxy: true }
+        })
+      }
+    );
+
+    const runData = await runRes.json();
+
+    if (!runData.data || (runData.data.status !== 'SUCCEEDED' && runData.data.status !== 'RUNNING')) {
+      console.warn('[Onboarding] Deep crawl failed, falling back to simple crawl:', runData.data?.status);
+      return crawlWebsite(startUrl, { maxPages: 8 });
+    }
+
+    // Fetch results from dataset
+    const datasetId = runData.data.defaultDatasetId;
+    const itemsRes = await fetchImpl(
+      `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}`
+    );
+    const items = await itemsRes.json();
+
+    console.log(`[Onboarding] Deep crawl fetched ${items?.length || 0} pages`);
+
+    if (!items || items.length === 0) {
+      console.warn('[Onboarding] No results from deep crawl, falling back to simple crawl');
+      return crawlWebsite(startUrl, { maxPages: 8 });
+    }
+
+    // Process and categorize content
+    const pages = [];
+    const docs = new Set();
+    const knowledgeBase = [];
+    let totalChars = 0;
+
+    for (const item of items) {
+      const url = item.url || '';
+      const text = item.text || item.markdown || '';
+      const title = item.metadata?.title || extractTitleFromUrl(url);
+
+      if (!text || text.length < 100) continue;
+
+      // Check for document links
+      if (isDocumentLink(url)) {
+        docs.add(url);
+        continue;
+      }
+
+      // Categorize the content
+      const category = categorizeContent(url, text);
+
+      pages.push({ url, text, title, category });
+      totalChars += text.length;
+
+      // Build knowledge base entry
+      const kbEntry = {
+        id: `kb-${Date.now()}-${knowledgeBase.length}`,
+        title: title,
+        content: text.slice(0, 10000), // Limit per entry
+        source: url,
+        category: category,
+        extractedAt: new Date().toISOString()
+      };
+      knowledgeBase.push(kbEntry);
+
+      // Extract any linked documents from this page
+      const pageLinks = extractDocumentLinks(text);
+      pageLinks.forEach(link => docs.add(link));
+    }
+
+    // Sort knowledge base by category priority
+    const categoryPriority = ['whitepaper', 'tokenomics', 'docs', 'defi', 'governance', 'security', 'roadmap', 'general'];
+    knowledgeBase.sort((a, b) => {
+      const aIdx = categoryPriority.indexOf(a.category);
+      const bIdx = categoryPriority.indexOf(b.category);
+      return aIdx - bIdx;
+    });
+
+    // Build combined content string
+    const content = pages
+      .map((page) => `SOURCE: ${page.url}\nCATEGORY: ${page.category}\nTITLE: ${page.title}\n\n${page.text}`)
+      .join('\n\n---\n\n');
+
+    console.log(`[Onboarding] Deep crawl complete: ${pages.length} pages, ${knowledgeBase.length} KB entries, ${docs.size} doc links`);
+
+    return {
+      content,
+      pages: pages.map((page) => ({ url: page.url, title: page.title, category: page.category })),
+      docs: Array.from(docs),
+      knowledgeBase,
+      stats: {
+        totalPages: pages.length,
+        totalChars,
+        categories: countCategories(pages)
+      }
+    };
+
+  } catch (e) {
+    console.error('[Onboarding] Deep crawl error:', e.message);
+    // Fallback to simple crawl
+    return crawlWebsite(startUrl, { maxPages: 8 });
+  }
+};
+
+/**
+ * Categorize content based on URL and text patterns
+ */
+const categorizeContent = (url, text) => {
+  const urlLower = url.toLowerCase();
+  const textLower = text.toLowerCase().slice(0, 2000); // Check first 2000 chars
+
+  for (const [category, keywords] of Object.entries(CONTENT_CATEGORIES)) {
+    for (const keyword of keywords) {
+      if (urlLower.includes(keyword) || textLower.includes(keyword)) {
+        return category;
+      }
+    }
+  }
+  return 'general';
+};
+
+/**
+ * Extract title from URL path
+ */
+const extractTitleFromUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname;
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      const last = segments[segments.length - 1];
+      return last
+        .replace(/[-_]/g, ' ')
+        .replace(/\.[^/.]+$/, '') // Remove extension
+        .replace(/\b\w/g, l => l.toUpperCase()); // Title case
+    }
+    return parsed.hostname;
+  } catch {
+    return 'Unknown';
+  }
+};
+
+/**
+ * Extract document links from text (PDFs, etc.)
+ */
+const extractDocumentLinks = (text) => {
+  const links = [];
+  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+\.(pdf|doc|docx|pptx?|md|txt)/gi;
+  let match;
+  while ((match = urlRegex.exec(text)) !== null) {
+    links.push(match[0]);
+  }
+  return links;
+};
+
+/**
+ * Count pages by category
+ */
+const countCategories = (pages) => {
+  const counts = {};
+  for (const page of pages) {
+    counts[page.category] = (counts[page.category] || 0) + 1;
+  }
+  return counts;
+};
+
+/**
+ * Fetch and extract content from a PDF/document URL
+ */
+export const fetchDocumentContent = async (docUrl) => {
+  const token = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';
+  if (!token) {
+    return { error: 'No Apify token available' };
+  }
+
+  try {
+    console.log(`[Onboarding] Fetching document: ${docUrl}`);
+
+    // Use Apify's document-to-text or similar actor
+    // For now, we'll try to fetch and extract basic info
+    const res = await fetchWithTimeout(docUrl, {
+      headers: { 'User-Agent': 'DefiaOnboardingBot/1.0' }
+    }, 30000);
+
+    if (!res.ok) {
+      return { error: `Failed to fetch: ${res.status}` };
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    const fileName = docUrl.split('/').pop() || 'document';
+
+    // For PDFs, we'd need a PDF parser - for now return metadata
+    if (contentType.includes('pdf')) {
+      const buffer = await res.arrayBuffer();
+      return {
+        url: docUrl,
+        fileName,
+        type: 'pdf',
+        size: buffer.byteLength,
+        // PDF text extraction would require additional processing
+        extractable: true
+      };
+    }
+
+    // For text/markdown files, extract content directly
+    if (contentType.includes('text') || docUrl.endsWith('.md') || docUrl.endsWith('.txt')) {
+      const text = await res.text();
+      return {
+        url: docUrl,
+        fileName,
+        type: 'text',
+        content: text.slice(0, 50000),
+        size: text.length
+      };
+    }
+
+    return {
+      url: docUrl,
+      fileName,
+      type: 'unknown',
+      contentType
+    };
+
+  } catch (e) {
+    console.error('[Onboarding] Document fetch error:', e.message);
+    return { error: e.message };
+  }
+};
+
+/**
+ * Extract DeFi-specific data (APRs, TVL, etc.) from crawled content
+ */
+export const extractDefiMetrics = (content) => {
+  const metrics = {
+    aprs: [],
+    tvl: null,
+    pools: [],
+    tokens: []
+  };
+
+  // Extract APR/APY values
+  const aprRegex = /(\d+(?:\.\d+)?)\s*%?\s*(?:APR|APY|annual)/gi;
+  let match;
+  while ((match = aprRegex.exec(content)) !== null) {
+    const value = parseFloat(match[1]);
+    if (value > 0 && value < 10000) { // Sanity check
+      metrics.aprs.push({
+        value,
+        context: content.slice(Math.max(0, match.index - 50), match.index + 50)
+      });
+    }
+  }
+
+  // Extract TVL
+  const tvlRegex = /TVL[:\s]*\$?([\d,.]+)\s*(M|B|K)?/gi;
+  while ((match = tvlRegex.exec(content)) !== null) {
+    let value = parseFloat(match[1].replace(/,/g, ''));
+    const suffix = match[2]?.toUpperCase();
+    if (suffix === 'B') value *= 1e9;
+    else if (suffix === 'M') value *= 1e6;
+    else if (suffix === 'K') value *= 1e3;
+    if (!metrics.tvl || value > metrics.tvl) {
+      metrics.tvl = value;
+    }
+  }
+
+  // Extract pool names
+  const poolRegex = /(?:pool|farm|vault)[:\s]*([A-Z]{2,10}[-\/][A-Z]{2,10})/gi;
+  while ((match = poolRegex.exec(content)) !== null) {
+    if (!metrics.pools.includes(match[1])) {
+      metrics.pools.push(match[1]);
+    }
+  }
+
+  return metrics;
 };
 
 export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } = {}) => {
