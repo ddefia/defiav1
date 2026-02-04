@@ -88,7 +88,20 @@ const decodeBase64File = (input = '') => {
     return Buffer.from(raw, 'base64');
 };
 
-const PUBLIC_API_PATHS = new Set(['/api/health', '/api/health/extended']);
+const PUBLIC_API_PATHS = new Set([
+    '/api/health',
+    '/api/health/extended',
+    '/api/logs',
+    '/api/decisions',
+    '/api/web3-news'
+]);
+
+// Prefixes for dynamic routes that should be public
+const PUBLIC_API_PREFIXES = [
+    '/api/social-metrics/',
+    '/api/action-center/',
+    '/api/lunarcrush/'
+];
 
 const parseApiKeys = () => {
     const raw = process.env.DEFIA_API_KEYS || process.env.API_KEYS || '';
@@ -113,10 +126,17 @@ const timingSafeMatch = (a, b) => {
 app.use((req, res, next) => {
     if (!req.path.startsWith('/api')) return next();
     if (PUBLIC_API_PATHS.has(req.path)) return next();
+    // Check if path starts with any public prefix
+    if (PUBLIC_API_PREFIXES.some(prefix => req.path.startsWith(prefix))) return next();
 
     const apiKeys = parseApiKeys();
+    // In local dev (no API keys configured), allow all requests
     if (apiKeys.length === 0) {
-        return res.status(500).json({ error: 'API keys not configured' });
+        // Only block in production - allow in dev for easier testing
+        if (process.env.NODE_ENV === 'production') {
+            return res.status(500).json({ error: 'API keys not configured' });
+        }
+        return next();
     }
 
     const authHeader = req.headers.authorization || '';
