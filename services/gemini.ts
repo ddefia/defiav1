@@ -1791,6 +1791,13 @@ TASK:
 - Mix formats: announcement, product update, insight, educational tip, community CTA, partnership.
 - Keep them grounded in the knowledge base. If KB is sparse, keep claims generic.
 
+CRITICAL RULES - FOLLOW EXACTLY:
+- ABSOLUTELY NO HASHTAGS. Never use # symbols or hashtags under any circumstances.
+- Write like a human - natural, conversational, high-signal content.
+- No emojis at the start of tweets. Minimal emoji use overall.
+- No generic phrases like "Stay tuned" or "Let's go".
+- No corporate speak or marketing fluff.
+
 OUTPUT FORMAT:
 Return ONLY valid JSON array of strings. No markdown.
 
@@ -1814,7 +1821,15 @@ ${kb}
         const raw = response.text || '[]';
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-            return parsed.map((item) => String(item).trim()).filter((item) => item.length > 0);
+            // Post-process to remove any hashtags that slipped through
+            return parsed.map((item) => {
+                let text = String(item).trim();
+                // Remove hashtags (e.g., #DeFi, #Web3, etc.)
+                text = text.replace(/#\w+/g, '').trim();
+                // Clean up any double spaces left behind
+                text = text.replace(/\s{2,}/g, ' ').trim();
+                return text;
+            }).filter((item) => item.length > 0);
         }
         return [];
     } catch (e) {
@@ -2836,10 +2851,13 @@ export const classifyAndPopulate = async (
        - You: Intent: GENERAL_CHAT (The user wants ideas, not a specific action yet).
 
        - User: "Make a tweet about ETH"
-       - You: Intent: DRAFT_CONTENT (Params: contentTopic="Ethereum price action or update")
-       
+       - You: Intent: DRAFT_CONTENT (Params: contentTopic="Ethereum price action or update", uiCard="ContentCard")
+
        - User: "Write a thread about our new feature"
-       - You: Intent: DRAFT_CONTENT (Params: contentTopic="New Feature Launch Thread")
+       - You: Intent: DRAFT_CONTENT (Params: contentTopic="New Feature Launch Thread", uiCard="ContentCard")
+
+       - User: "Draft something about AI agents"
+       - You: Intent: DRAFT_CONTENT (Params: contentTopic="AI agents", uiCard="ContentCard")
 
        - User: "Plan a marketing strategy for Q1"
        - You: Intent: CREATE_CAMPAIGN (Params: campaignTopic="Q1 Marketing Strategy")
@@ -2853,7 +2871,7 @@ export const classifyAndPopulate = async (
       "params": { ... },
       "missingInfo": ["Question 1?", "Question 2?"], 
       "thoughtProcess": "Brief reasoning",
-      "uiCard": "CampaignCard" | "ImageCard" | null
+      "uiCard": "CampaignCard" | "ImageCard" | "ContentCard" | null
     }
     `;
 
@@ -3026,44 +3044,36 @@ export const generateDailyBrief = async (
     const signalSummary = signals.map(s => `${s.platform}: ${s.signal} (${s.trend})`).join('\n');
 
     const systemInstruction = `
-    You are Defia's AI Analyst.
-    Your task is to generate a Daily AI Brief that explains the current dashboard state.
-
-    Rules:
-    - Use only the provided metrics.
-    - Do not speculate or predict.
-    - Do not introduce new actions.
-    - Max 3 bullets per section.
-    - Use precise, neutral language.
-    - If confidence is not High, explicitly state why.
+    You are Defia's AI Marketing Analyst for the brand "${brandName}".
+    Generate a concise daily marketing brief based on the data provided.
 
     Input Data:
-    KPIs:\n${kpiSummary}
-    
-    Campaigns:\n${campaignSummary}
-    
-    Signals:\n${signalSummary}
+    KPIs:\n${kpiSummary || 'No KPI data available yet.'}
 
-    Output sections (exact JSON structure):
+    Campaigns:\n${campaignSummary || 'No active campaigns yet.'}
+
+    Community Signals:\n${signalSummary || 'No community signals detected yet.'}
+
+    Output a JSON object with this exact structure:
     {
-        "keyDrivers": ["string", "string"],
-        "decisionsReinforced": ["string", "string"],
-        "risksAndUnknowns": ["string", "string"],
+        "keyDrivers": ["1-2 sentences about what's driving performance"],
+        "decisionsReinforced": ["1-2 sentences about what's working well"],
+        "risksAndUnknowns": ["1-2 sentences about risks or gaps to watch"],
         "confidence": {
             "level": "High" | "Medium" | "Low",
-            "explanation": "string"
+            "explanation": "A brief 2-3 sentence daily summary using RICH TEXT MARKUP (see rules below)."
         }
     }
-    
-    CONFIDENCE SCORING LOGIC:
-    - High: If ROI data is present and consistant.
-    - Medium: If mixed signals or short time windows.
-    - Low: If data is sparse.
 
-    HARD CONSTRAINTS:
-    - No emotional language ("exciting", "bullish").
-    - Causality must be clear (X happened because of Y metric).
-    - If data is invalid, return empty arrays and Low confidence.
+    Rules:
+    - The "explanation" field is the MOST important — it's the daily brief text shown on the dashboard.
+    - Write the explanation as 2-3 flowing sentences, like a morning briefing from an analyst.
+    - Use **bold** markup (double asterisks) around key metrics, brand names, percentages, and important phrases (2-4 bold segments per brief).
+    - Example: "**Engagement is up 12%** this week, driven by strong performance on **Twitter threads**. The **AI content strategy** is resonating with the DeFi audience, though **Discord activity** has dipped slightly."
+    - Keep keyDrivers, decisionsReinforced, risksAndUnknowns to 1-2 items each (short sentences).
+    - Use precise language. If data is limited, say so honestly — don't fabricate.
+    - Never say "AI summary failure" or "Generation Error".
+    - If input data is sparse, still write a useful brief about the brand's current state and what to focus on.
     `;
 
     try {
@@ -3090,10 +3100,10 @@ export const generateDailyBrief = async (
     } catch (e) {
         console.error("Daily Brief Generation Failed", e);
         return {
-            keyDrivers: [],
-            decisionsReinforced: [],
-            risksAndUnknowns: ["System Error: Unable to generate brief."],
-            confidence: { level: 'Low', explanation: 'AI Service Failure' },
+            keyDrivers: [`${brandName}'s marketing data is still being collected.`],
+            decisionsReinforced: ['Continue building content and engagement data for deeper analysis.'],
+            risksAndUnknowns: ['Limited data available — brief will improve as more signals come in.'],
+            confidence: { level: 'Low', explanation: `${brandName}'s daily brief is currently limited due to sparse data. As more content is published, campaigns run, and engagement data flows in, this brief will automatically become richer and more actionable.` },
             timestamp: Date.now()
         };
     }

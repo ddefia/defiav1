@@ -10,6 +10,7 @@ interface ContentStudioProps {
     brandConfig: BrandConfig;
     onSchedule: (content: string, image?: string) => void;
     onUpdateBrandConfig: (config: BrandConfig) => void;
+    onNavigate?: (section: string, params?: any) => void;
     initialDraft?: string;
     initialVisualPrompt?: string;
 }
@@ -52,6 +53,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     brandConfig,
     onSchedule,
     onUpdateBrandConfig,
+    onNavigate,
     initialDraft,
     initialVisualPrompt
 }) => {
@@ -138,13 +140,17 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     // --- PERSISTENCE & DEEP LINKS ---
     useEffect(() => {
         if (initialDraft || initialVisualPrompt) {
+            // Draft takes priority over visual prompt for view selection
             if (initialDraft) {
                 setTweetTopic(initialDraft);
                 setCurrentView('create-tweet');
             }
             if (initialVisualPrompt) {
                 setVisualPrompt(initialVisualPrompt);
-                setCurrentView('create-graphic');
+                // Only switch to graphic view if there's no draft
+                if (!initialDraft) {
+                    setCurrentView('create-graphic');
+                }
             }
         } else {
             const saved = loadStudioState(brandName);
@@ -443,21 +449,10 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         setError(null);
         setTweetImageOptions([]);
         try {
-            // Map theme and style to art prompt
-            const themePrompts: Record<string, string> = {
-                web3: 'Web3, crypto, blockchain, futuristic, neon accents',
-                minimal: 'Minimalist, clean, modern, simple shapes',
-                bold: 'Bold colors, strong contrast, impactful, vibrant',
-                retro: 'Retro, vintage, nostalgic, warm tones'
-            };
-            const stylePrompts: Record<string, string> = {
-                '3d': '3D rendered, modern, depth, dimensional',
-                minimal: 'Flat design, minimal, clean lines',
-                abstract: 'Abstract shapes, artistic, creative',
-                illustrated: 'Illustrated, hand-drawn style, artistic'
-            };
-
-            const artPrompt = `${themePrompts[selectedTheme]}, ${stylePrompts[selectedImageStyle]}${tweetImageDescription ? `, ${tweetImageDescription}` : ''}`;
+            // Use image description as the art prompt, with a sensible default
+            const artPrompt = tweetImageDescription.trim()
+                ? tweetImageDescription
+                : 'Web3, crypto, modern, professional, high quality';
 
             // Get actual reference image IDs from selected indices
             const realImageIds = getSelectedReferenceImageIds(selectedRefImages);
@@ -469,7 +464,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                     artPrompt,
                     negativePrompt: 'text, words, letters, watermark, blurry, low quality',
                     size: '1K',
-                    aspectRatio: '1:1',
+                    aspectRatio: '16:9',
                     brandConfig,
                     brandName,
                     templateType: '',
@@ -1119,12 +1114,23 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                 {viewingImage && (
                     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 backdrop-blur-sm" onClick={() => setViewingImage(null)}>
                         <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
-                        <button
-                            onClick={() => setViewingImage(null)}
-                            className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
-                        >
-                            <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
-                        </button>
+                        <div className="absolute top-6 right-6 flex items-center gap-2">
+                            {onNavigate && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setViewingImage(null); onNavigate('image-editor', { image: viewingImage }); }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
+                                >
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
+                                    Edit in Image Editor
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setViewingImage(null)}
+                                className="text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
+                            >
+                                <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -1135,19 +1141,11 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     // ADD TWEET IMAGE VIEW
     // =====================================================
     if (currentView === 'add-tweet-image') {
-        const themes: { id: 'web3' | 'minimal' | 'bold' | 'retro'; label: string; bg: string; selectedBg: string }[] = [
-            { id: 'web3', label: 'Web3', bg: '#0F1A1A', selectedBg: '#1A0F05' },
-            { id: 'minimal', label: 'Minimal', bg: '#0F1A1A', selectedBg: '#0F1A1A' },
-            { id: 'bold', label: 'Bold', bg: '#1A0A1A', selectedBg: '#1A0A1A' },
-            { id: 'retro', label: 'Retro', bg: '#1A1A0A', selectedBg: '#1A1A0A' },
-        ];
-
-        const imageStyles: { id: '3d' | 'minimal' | 'abstract' | 'illustrated'; label: string }[] = [
-            { id: '3d', label: '3D / Modern' },
-            { id: 'minimal', label: 'Minimal' },
-            { id: 'abstract', label: 'Abstract' },
-            { id: 'illustrated', label: 'Illustrated' },
-        ];
+        const tweetRefImages = (brandConfig.referenceImages || []).slice(0, 8).map((img, idx) => ({
+            id: idx,
+            url: img.url || img.data,
+            name: img.name,
+        }));
 
         return (
             <div className="flex-1 flex bg-[#0A0A0B] min-h-0">
@@ -1212,56 +1210,45 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             />
                         </div>
 
-                        {/* Theme */}
-                        <div className="space-y-2.5">
-                            <label className="text-sm font-semibold text-white">Theme</label>
-                            <div className="flex gap-2.5">
-                                {themes.map(theme => (
-                                    <button
-                                        key={theme.id}
-                                        onClick={() => setSelectedTheme(theme.id)}
-                                        className={`flex-1 h-14 flex items-center justify-center rounded-[10px] text-sm font-medium transition-all ${
-                                            selectedTheme === theme.id
-                                                ? 'bg-[#1A0F05] border-2 border-[#FF5C00] text-[#FF5C00]'
-                                                : 'bg-[#0F1A1A] border border-[#2E2E2E] text-white hover:border-[#3E3E3E]'
-                                        }`}
-                                    >
-                                        {theme.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
                         {/* Reference Images */}
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-semibold text-white">Reference Images</label>
-                                <span className="text-xs text-[#64748B]">Optional</span>
+                                <span className="text-xs text-[#64748B]">Optional — Select up to 3</span>
                             </div>
-                            <div className="flex gap-3">
-                                {[0, 1, 2].map(idx => (
+                            <div className="flex gap-3 flex-wrap">
+                                {tweetRefImages.length > 0 ? tweetRefImages.map(img => (
                                     <button
-                                        key={idx}
+                                        key={img.id}
                                         onClick={() => {
-                                            if (selectedRefImages.includes(idx)) {
-                                                setSelectedRefImages(prev => prev.filter(i => i !== idx));
-                                            } else {
-                                                setSelectedRefImages(prev => [...prev, idx]);
+                                            if (selectedRefImages.includes(img.id)) {
+                                                setSelectedRefImages(prev => prev.filter(i => i !== img.id));
+                                            } else if (selectedRefImages.length < 3) {
+                                                setSelectedRefImages(prev => [...prev, img.id]);
                                             }
                                         }}
                                         className={`w-[72px] h-[72px] rounded-lg overflow-hidden transition-all ${
-                                            selectedRefImages.includes(idx)
-                                                ? 'ring-1 ring-[#FF5C00]'
-                                                : 'border border-[#2E2E2E]'
+                                            selectedRefImages.includes(img.id)
+                                                ? 'ring-2 ring-[#FF5C00] ring-offset-1 ring-offset-[#111113]'
+                                                : 'border border-[#2E2E2E] hover:border-[#3E3E3E]'
                                         }`}
+                                        title={img.name}
                                     >
-                                        <div className={`w-full h-full bg-gradient-to-br ${
-                                            idx === 0 ? 'from-pink-500 to-purple-600' :
-                                            idx === 1 ? 'from-blue-500 to-cyan-500' :
-                                            'from-green-500 to-teal-500'
-                                        }`} />
+                                        <img
+                                            src={img.url}
+                                            alt={img.name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                                (e.target as HTMLImageElement).parentElement!.classList.add('bg-gradient-to-br', 'from-purple-600', 'to-blue-600');
+                                            }}
+                                        />
                                     </button>
-                                ))}
+                                )) : (
+                                    <div className="text-[#64748B] text-xs py-3">
+                                        No reference images yet. Upload in Brand Kit or use the + button.
+                                    </div>
+                                )}
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
                                     className="w-[72px] h-[72px] flex items-center justify-center rounded-lg bg-[#0A0A0B] border border-[#2E2E2E] text-[#64748B] hover:border-[#3E3E3E] hover:text-white transition-colors"
@@ -1271,25 +1258,6 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             </div>
                         </div>
 
-                        {/* Image Style */}
-                        <div className="space-y-2.5">
-                            <label className="text-sm font-semibold text-white">Image Style</label>
-                            <div className="flex gap-2">
-                                {imageStyles.map(style => (
-                                    <button
-                                        key={style.id}
-                                        onClick={() => setSelectedImageStyle(style.id)}
-                                        className={`flex-1 h-14 flex items-center justify-center rounded-[10px] text-sm font-medium transition-all ${
-                                            selectedImageStyle === style.id
-                                                ? 'bg-[#FF5C0015] border border-[#FF5C00] text-[#FF5C00]'
-                                                : 'bg-[#0A0A0B] border border-[#2E2E2E] text-white hover:border-[#3E3E3E]'
-                                        }`}
-                                    >
-                                        {style.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
                     </div>
 
                     {/* Footer */}
@@ -1346,8 +1314,11 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                     <div key={idx} className="flex-1 flex flex-col gap-3">
                                         {/* Image */}
                                         <button
-                                            onClick={() => setSelectedImageOption(idx)}
-                                            className={`aspect-square rounded-2xl overflow-hidden transition-all ${
+                                            onClick={() => {
+                                                setSelectedImageOption(idx);
+                                                setViewingImage(img);
+                                            }}
+                                            className={`aspect-video rounded-2xl overflow-hidden transition-all cursor-pointer ${
                                                 selectedImageOption === idx
                                                     ? 'ring-[3px] ring-[#FF5C00]'
                                                     : 'border border-[#2E2E2E] hover:border-[#3E3E3E]'
@@ -1373,7 +1344,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                         <div className="flex gap-2">
                                             {selectedImageOption === idx ? (
                                                 <button
-                                                    onClick={() => setViewingImage(img)}
+                                                    onClick={() => onNavigate ? onNavigate('image-editor', { image: img }) : setViewingImage(img)}
                                                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
                                                 >
                                                     <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
@@ -1388,7 +1359,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                                         Select
                                                     </button>
                                                     <button
-                                                        onClick={() => setViewingImage(img)}
+                                                        onClick={() => onNavigate ? onNavigate('image-editor', { image: img }) : setViewingImage(img)}
                                                         className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-[#0A0A0B] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#1F1F23] transition-colors"
                                                     >
                                                         <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
@@ -1421,12 +1392,23 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                 {viewingImage && (
                     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 backdrop-blur-sm" onClick={() => setViewingImage(null)}>
                         <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
-                        <button
-                            onClick={() => setViewingImage(null)}
-                            className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
-                        >
-                            <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
-                        </button>
+                        <div className="absolute top-6 right-6 flex items-center gap-2">
+                            {onNavigate && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setViewingImage(null); onNavigate('image-editor', { image: viewingImage }); }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
+                                >
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
+                                    Edit in Image Editor
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setViewingImage(null)}
+                                className="text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
+                            >
+                                <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
@@ -1514,6 +1496,26 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
             {/* Content Grid */}
             <div className="flex-1 overflow-y-auto p-8">
+                {filteredContent.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center py-24">
+                        <div className="text-center">
+                            <div className="w-16 h-16 rounded-2xl bg-[#1F1F23] flex items-center justify-center mx-auto mb-4">
+                                <span className="material-symbols-sharp text-[#4A4A4E] text-3xl" style={{ fontVariationSettings: "'wght' 200" }}>edit_note</span>
+                            </div>
+                            <h3 className="text-base font-semibold text-white mb-1.5">No content yet</h3>
+                            <p className="text-sm text-[#6B6B70] max-w-sm mb-5">
+                                Generate your first piece of content to build your library.
+                            </p>
+                            <button
+                                onClick={() => setCurrentView('create-tweet')}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
+                            >
+                                <span className="material-symbols-sharp text-lg">add</span>
+                                Create Content
+                            </button>
+                        </div>
+                    </div>
+                ) : (
                 <div className="flex gap-6">
                     {columns.map((column, colIndex) => (
                         <div key={colIndex} className="flex-1 flex flex-col gap-6">
@@ -1644,18 +1646,30 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                         </div>
                     ))}
                 </div>
+                )}
             </div>
 
             {/* Lightbox */}
             {viewingImage && (
                 <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/95 p-10 backdrop-blur-sm" onClick={() => setViewingImage(null)}>
                     <img src={viewingImage} className="max-w-full max-h-full rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
-                    <button
-                        onClick={() => setViewingImage(null)}
-                        className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
-                    >
-                        <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
-                    </button>
+                    <div className="absolute top-6 right-6 flex items-center gap-2">
+                        {onNavigate && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setViewingImage(null); onNavigate('image-editor', { image: viewingImage }); }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors backdrop-blur-sm"
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
+                                Edit in Image Editor
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setViewingImage(null)}
+                            className="text-white/50 hover:text-white transition-colors bg-white/10 rounded-full w-10 h-10 flex items-center justify-center"
+                        >
+                            <span className="material-symbols-sharp" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                        </button>
+                    </div>
                     <div className="absolute bottom-10 flex gap-4">
                         <button
                             onClick={(e) => { e.stopPropagation(); handleDownload(viewingImage); }}

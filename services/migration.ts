@@ -32,30 +32,8 @@ export const migrateToCloud = async () => {
             }
             report.brands++;
 
-            // 2. Migrate Strategy Tasks
-            const tasks = loadStrategyTasks(brandId);
-            if (tasks.length > 0) {
-                const formattedTasks = tasks.map(t => ({
-                    brand_id: brandId,
-                    title: t.title || t.objective || "Untitled Strategy",
-                    description: t.description || JSON.stringify(t),
-                    status: t.status || 'pending',
-                    impact_score: t.impact || 5, // Default fallback
-                    created_at: t.created_at ? new Date(t.created_at).toISOString() : new Date().toISOString()
-                }));
-
-                const { error: taskError } = await supabase
-                    .from('strategy_tasks')
-                    .upsert(formattedTasks, { onConflict: 'brand_id, title' as any }); // Loose conflict matching or just insert
-
-                if (taskError) {
-                    // If conflict fails, try simple insert or ignore 
-                    // ideally we'd have a stable ID, but local Tasks might not have UUIDs
-                    report.errors.push(`Tasks ${brandId}: ${taskError.message}`);
-                } else {
-                    report.tasks += tasks.length;
-                }
-            }
+            // 2. Strategy Tasks - stored via app_storage (strategy_tasks table may not exist)
+            // Tasks are already persisted via saveStrategyTasks -> app_storage, so skip dedicated table migration
 
             // 3. Migrate Brain Logs (History) -> brain_memory
             // Note: We only migrate 'logs' that have valuable context

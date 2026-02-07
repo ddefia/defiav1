@@ -74,6 +74,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [viewingCampaignDetails, setViewingCampaignDetails] = useState<string | null>(null);
     const [contextStats, setContextStats] = useState<{ activeCampaignsCount: number, brainMemoriesCount: number, strategyDocsCount?: number } | null>(null);
     const [recommendedStrategies, setRecommendedStrategies] = useState<MarketingAction[]>([]);
+    const [expandedRecIdx, setExpandedRecIdx] = useState<number | null>(null);
 
     // UI State
     const [error, setError] = useState<string | null>(null);
@@ -109,13 +110,17 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 })
                 .slice(0, 3)
                 .map((t: any) => ({
-                    type: 'CAMPAIGN',
+                    type: t.type || 'CAMPAIGN',
                     topic: t.executionPrompt || t.title,
                     hook: t.title,
-                    goal: 'Strategic Growth',
+                    goal: t.description || 'Strategic Growth',
                     reasoning: t.reasoning,
+                    strategicAlignment: t.strategicAlignment || '',
+                    contentIdeas: t.contentIdeas || [],
+                    proof: t.proof || '',
+                    logicExplanation: t.logicExplanation || '',
                     content: null
-                }));
+                } as any));
             setRecommendedStrategies(recommendations);
         } catch (e) {
             console.error("Failed to load recommended campaigns", e);
@@ -1174,7 +1179,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                         {/* Step 1: Config */}
                         {campaignStep === 1 && (
-                            <div className="space-y-5 max-w-4xl">
+                            <div className="space-y-5">
                                 {/* Create Campaign Card */}
                                 <div className="bg-[#111113] border border-[#1F1F23] rounded-xl p-6">
                                     <h2 className="text-base font-semibold text-white mb-5">Create Campaign</h2>
@@ -1219,7 +1224,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     </div>
 
                                     {/* Platforms */}
-                                    <div>
+                                    <div className="mb-5">
                                         <label className="text-xs font-medium text-[#6B6B70] mb-3 block">Platforms</label>
                                         <div className="flex gap-3">
                                             {[
@@ -1250,6 +1255,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             ))}
                                         </div>
                                     </div>
+
+                                    {/* Additional Context */}
+                                    <div>
+                                        <label className="text-xs font-medium text-[#6B6B70] mb-2 block">Additional Context <span className="text-[#4A4A4E]">(optional)</span></label>
+                                        <textarea
+                                            value={campaignContext}
+                                            onChange={(e) => setCampaignContext(e.target.value)}
+                                            placeholder="Add any extra context, talking points, key messages, or specific angles you want the AI to focus on..."
+                                            rows={3}
+                                            className="w-full bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-4 py-3 text-white placeholder-[#4A4A4E] text-sm focus:outline-none focus:border-[#FF5C00] transition-colors resize-none"
+                                        />
+                                        <p className="text-[11px] text-[#4A4A4E] mt-1.5">This context will be used by the AI CMO when generating your campaign strategy and content.</p>
+                                    </div>
                                 </div>
 
                                 {/* AI CMO Recommended Campaigns */}
@@ -1266,69 +1284,177 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         </span>
                                     </div>
                                     <p className="text-sm text-[#6B6B70] mb-5">
-                                        Based on your brand profile, current market trends, and competitor analysis, here are 3 campaign strategies I recommend:
+                                        {recommendedStrategies.length > 0
+                                            ? `Based on your strategy tasks and market analysis, here are ${recommendedStrategies.length} campaign ${recommendedStrategies.length === 1 ? 'idea' : 'ideas'} I recommend:`
+                                            : 'Enter a campaign topic below, or type your own idea to get started:'}
                                     </p>
 
                                     {/* Recommendation Cards */}
-                                    <div className="grid grid-cols-3 gap-4 mb-6">
-                                        {[
-                                            {
-                                                id: 'token-launch',
-                                                badge: 'TOP PICK',
-                                                badgeColor: '#22C55E',
-                                                title: 'Token Launch Announcement',
-                                                desc: 'Why: Token launches see 92% higher engagement when coordinated across platforms. Your SolanaAI project is primed for a multi-channel blitz strategy.'
-                                            },
-                                            {
-                                                id: 'ama-series',
-                                                badge: 'HIGH ROI',
-                                                badgeColor: '#6B6B70',
-                                                title: 'Community AMA Series',
-                                                desc: 'Why: AMA campaigns build 3.8x more trust with crypto communities. Direct founder interaction converts followers into long-term holders.'
-                                            },
-                                            {
-                                                id: 'influencer',
-                                                badge: 'TRENDING',
-                                                badgeColor: '#6B6B70',
-                                                title: 'Influencer Collaboration Push',
-                                                desc: 'Why: Influencer collaborations drive 10x reach potential. Solana-focused KOLs have highly engaged audiences perfect for your target market.'
-                                            },
-                                        ].map((rec, idx) => (
-                                            <button
-                                                key={rec.id}
-                                                onClick={() => {
-                                                    setCampaignTheme(rec.title);
-                                                    setCampaignType('theme');
-                                                }}
-                                                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                                                    campaignTheme === rec.title
-                                                        ? 'border-[#22C55E] bg-[#22C55E]/5'
-                                                        : 'border-[#1F1F23] hover:border-[#2E2E2E]'
-                                                }`}
-                                            >
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <div className={`w-5 h-5 rounded flex items-center justify-center ${
-                                                        campaignTheme === rec.title ? 'bg-[#22C55E]' : 'border border-[#2E2E2E]'
-                                                    }`}>
-                                                        {campaignTheme === rec.title && (
-                                                            <span className="material-symbols-sharp text-white text-sm">check</span>
-                                                        )}
+                                    {recommendedStrategies.length > 0 && (
+                                        <div className="space-y-3 mb-6">
+                                            <div className="grid grid-cols-3 gap-4">
+                                                {recommendedStrategies.map((rec: any, idx: number) => {
+                                                    const badges = ['TOP PICK', 'HIGH ROI', 'TRENDING'];
+                                                    const badgeColors = ['#22C55E', '#F59E0B', '#8B5CF6'];
+                                                    // Strip action type prefixes like "TREND_JACK:", "REPLY:", "CAMPAIGN:" from titles
+                                                    const rawTitle = rec.hook || rec.topic || `Strategy ${idx + 1}`;
+                                                    const recTitle = rawTitle.replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim() || rawTitle;
+                                                    const recDesc = rec.reasoning || `Campaign opportunity: ${rec.topic || rec.hook || 'Strategic growth initiative'}`;
+                                                    const cleanDesc = recDesc.replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY)\s*:\s*/i, '').trim();
+                                                    const isExpanded = expandedRecIdx === idx;
+                                                    const isSelected = campaignTheme === recTitle;
+                                                    return (
+                                                        <div
+                                                            key={idx}
+                                                            className={`rounded-xl border-2 text-left transition-all ${
+                                                                isSelected
+                                                                    ? 'border-[#22C55E] bg-[#22C55E]/5'
+                                                                    : 'border-[#1F1F23] hover:border-[#2E2E2E]'
+                                                            }`}
+                                                        >
+                                                            {/* Card Header — clickable to select */}
+                                                            <button
+                                                                onClick={() => {
+                                                                    setCampaignTheme(recTitle);
+                                                                    setCampaignType('theme');
+                                                                }}
+                                                                className="w-full p-4 text-left"
+                                                            >
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
+                                                                        isSelected ? 'bg-[#22C55E]' : 'border border-[#2E2E2E]'
+                                                                    }`}>
+                                                                        {isSelected && (
+                                                                            <span className="material-symbols-sharp text-white text-sm">check</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <span
+                                                                        className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide flex-shrink-0"
+                                                                        style={{
+                                                                            backgroundColor: `${badgeColors[idx % badgeColors.length]}15`,
+                                                                            color: badgeColors[idx % badgeColors.length]
+                                                                        }}
+                                                                    >
+                                                                        {badges[idx % badges.length]}
+                                                                    </span>
+                                                                    <span className="text-sm font-semibold text-white flex-1 line-clamp-2">{recTitle}</span>
+                                                                </div>
+                                                                <p className="text-xs text-[#6B6B70] leading-relaxed line-clamp-3">{cleanDesc}</p>
+                                                            </button>
+
+                                                            {/* Expand toggle */}
+                                                            <button
+                                                                onClick={() => setExpandedRecIdx(isExpanded ? null : idx)}
+                                                                className="w-full px-4 py-2 text-[10px] font-medium text-[#6B6B70] hover:text-white border-t border-[#1F1F23] flex items-center justify-center gap-1 transition-colors"
+                                                            >
+                                                                {isExpanded ? 'Hide Details' : 'View Details'}
+                                                                <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Expanded Detail Panel — appears below the grid */}
+                                            {expandedRecIdx !== null && recommendedStrategies[expandedRecIdx] && (() => {
+                                                const rec = recommendedStrategies[expandedRecIdx] as any;
+                                                const rawTitle = rec.hook || rec.topic || '';
+                                                const cleanTitle = rawTitle.replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim() || rawTitle;
+                                                const reasoning = (rec.reasoning || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY)\s*:\s*/i, '').trim();
+                                                const typeLabel = (rec.type || 'CAMPAIGN').replace(/_/g, ' ');
+                                                const contentIdeas = rec.contentIdeas || [];
+                                                const strategicAlign = rec.strategicAlignment || '';
+                                                const proof = rec.proof || '';
+                                                const logicExplanation = rec.logicExplanation || '';
+                                                return (
+                                                    <div className="rounded-xl bg-[#0A0A0B] border border-[#1F1F23] p-5 animate-in fade-in duration-200">
+                                                        <div className="flex items-start justify-between mb-4">
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1.5">
+                                                                    <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-[#FF5C00]/10 text-[#FF5C00]">{typeLabel}</span>
+                                                                    <span className="text-[10px] text-[#4A4A4E]">Campaign Recommendation #{expandedRecIdx + 1}</span>
+                                                                </div>
+                                                                <h4 className="text-white text-base font-semibold">{cleanTitle}</h4>
+                                                            </div>
+                                                            <button onClick={() => setExpandedRecIdx(null)} className="p-1 rounded-md hover:bg-[#1F1F23] text-[#6B6B70] hover:text-white transition-colors">
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-5">
+                                                            {/* Left: Reasoning + Strategic Alignment */}
+                                                            <div className="space-y-4">
+                                                                {reasoning && (
+                                                                    <div>
+                                                                        <h5 className="text-[11px] font-semibold text-[#FF5C00] tracking-wider mb-1.5">STRATEGIC REASONING</h5>
+                                                                        <p className="text-[#ADADB0] text-[13px] leading-relaxed">{reasoning}</p>
+                                                                    </div>
+                                                                )}
+                                                                {strategicAlign && (
+                                                                    <div>
+                                                                        <h5 className="text-[11px] font-semibold text-[#8B5CF6] tracking-wider mb-1.5">STRATEGIC ALIGNMENT</h5>
+                                                                        <p className="text-[#8B8B8F] text-[12px] leading-relaxed">{strategicAlign}</p>
+                                                                    </div>
+                                                                )}
+                                                                {logicExplanation && (
+                                                                    <div>
+                                                                        <h5 className="text-[11px] font-semibold text-[#3B82F6] tracking-wider mb-1.5">LOGIC</h5>
+                                                                        <p className="text-[#8B8B8F] text-[12px] leading-relaxed">{logicExplanation}</p>
+                                                                    </div>
+                                                                )}
+                                                                {proof && (
+                                                                    <div>
+                                                                        <h5 className="text-[11px] font-semibold text-[#22C55E] tracking-wider mb-1.5">SUPPORTING EVIDENCE</h5>
+                                                                        <p className="text-[#8B8B8F] text-[12px] leading-relaxed">{proof}</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Right: Content Ideas + Goal */}
+                                                            <div className="space-y-4">
+                                                                {contentIdeas.length > 0 && (
+                                                                    <div>
+                                                                        <h5 className="text-[11px] font-semibold text-[#F59E0B] tracking-wider mb-1.5">CONTENT IDEAS</h5>
+                                                                        <div className="space-y-1.5">
+                                                                            {contentIdeas.map((idea: string, j: number) => (
+                                                                                <div key={j} className="flex items-start gap-2 text-[12px] text-[#ADADB0]">
+                                                                                    <span className="text-[#FF5C00] mt-0.5 flex-shrink-0">•</span>
+                                                                                    <span>{idea}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                {rec.goal && (
+                                                                    <div>
+                                                                        <h5 className="text-[11px] font-semibold text-[#6B6B70] tracking-wider mb-1.5">GOAL</h5>
+                                                                        <p className="text-[#8B8B8F] text-[12px]">{rec.goal}</p>
+                                                                    </div>
+                                                                )}
+                                                                {rec.topic && (
+                                                                    <div>
+                                                                        <h5 className="text-[11px] font-semibold text-[#6B6B70] tracking-wider mb-1.5">TOPIC</h5>
+                                                                        <p className="text-[#8B8B8F] text-[12px]">{rec.topic}</p>
+                                                                    </div>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setCampaignTheme(cleanTitle);
+                                                                        setCampaignType('theme');
+                                                                        setExpandedRecIdx(null);
+                                                                    }}
+                                                                    className="w-full mt-2 py-2.5 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors flex items-center justify-center gap-2"
+                                                                >
+                                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                                                                    Use This Strategy
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <span
-                                                        className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide"
-                                                        style={{
-                                                            backgroundColor: `${rec.badgeColor}15`,
-                                                            color: rec.badgeColor
-                                                        }}
-                                                    >
-                                                        {rec.badge}
-                                                    </span>
-                                                    <span className="text-sm font-semibold text-white flex-1">{rec.title}</span>
-                                                </div>
-                                                <p className="text-xs text-[#6B6B70] leading-relaxed">{rec.desc}</p>
-                                            </button>
-                                        ))}
-                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
 
                                     {error && (
                                         <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm mb-4">

@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AnalysisReport, SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, DailyBrief } from '../types';
 import { fetchCampaignPerformance, fetchMentions } from '../services/analytics';
 import { generateDailyBrief as generateBriefService, orchestrateMarketingDecision } from '../services/gemini';
 import { getBrainContext } from '../services/pulse';
 import { getBrandRegistryEntry, loadBrainLogs, loadCampaignState, saveDecisionLoopLastRun } from '../services/storage';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
+import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton';
 
 interface DashboardProps {
     brandName: string;
@@ -75,21 +76,66 @@ const transformMetricsToKPIs = (
     ];
 };
 
-// News items are fetched from the news service - no hardcoded mock data
-const NEWS_ITEMS: { icon: string; iconBg: string; title: string; source: string; time: string }[] = [];
+// Helper: Map agent decision action to recommendation card styling
+const getRecommendationStyle = (action: string) => {
+    const normalized = (action || '').toUpperCase();
+    switch (normalized) {
+        case 'REPLY':
+            return { type: 'Engage', typeBg: '#3B82F6', icon: '↩️', actionLabel: 'Draft Reply', actionBg: '#3B82F6', borderColor: '#3B82F633' };
+        case 'TREND_JACK':
+            return { type: 'Trend', typeBg: '#8B5CF6', icon: '⚡', actionLabel: 'Create Post', actionBg: '#8B5CF6', borderColor: '#8B5CF633' };
+        case 'CAMPAIGN':
+        case 'CAMPAIGN_IDEA':
+            return { type: 'Campaign', typeBg: '#FF5C00', icon: '📢', actionLabel: 'Plan Campaign', actionBg: '#FF5C00', borderColor: '#FF5C0033' };
+        case 'GAP_FILL':
+            return { type: 'Content Gap', typeBg: '#22C55E', icon: '🎯', actionLabel: 'Fill Gap', actionBg: '#22C55E', borderColor: '#22C55E33' };
+        case 'COMMUNITY':
+            return { type: 'Community', typeBg: '#F59E0B', icon: '👥', actionLabel: 'Engage Community', actionBg: '#F59E0B', borderColor: '#F59E0B33' };
+        default:
+            return { type: 'Strategy', typeBg: '#FF5C00', icon: '🧠', actionLabel: 'Take Action', actionBg: '#FF5C00', borderColor: '#FF5C0033' };
+    }
+};
 
-// AI recommendations are generated dynamically - no hardcoded mock data
-const AI_RECOMMENDATIONS: {
-    type: string;
-    typeBg: string;
-    icon: string;
-    title: string;
-    description: string;
-    stats: { label: string; value: string }[];
-    actionLabel: string;
-    actionBg: string;
-    borderColor: string;
-}[] = [];
+// Helper: Time ago formatting
+const timeAgo = (ts: string | number) => {
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+};
+
+// Parse **bold** markup and render as React elements
+const renderRichText = (text: string): React.ReactNode => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
+        }
+        return <span key={i}>{part}</span>;
+    });
+};
+
+// News icon helpers
+const getNewsIcon = (source: string) => {
+    const s = (source || '').toLowerCase();
+    if (s.includes('cointelegraph')) return '📰';
+    if (s.includes('decrypt')) return '🔐';
+    if (s.includes('coindesk')) return '💰';
+    if (s.includes('block')) return '🧱';
+    return '📡';
+};
+
+const getNewsIconBg = (source: string) => {
+    const s = (source || '').toLowerCase();
+    if (s.includes('cointelegraph')) return '#3B82F6';
+    if (s.includes('decrypt')) return '#8B5CF6';
+    if (s.includes('coindesk')) return '#F59E0B';
+    if (s.includes('block')) return '#22C55E';
+    return '#FF5C00';
+};
 
 export const Dashboard: React.FC<DashboardProps> = ({
     brandName,
@@ -121,31 +167,133 @@ export const Dashboard: React.FC<DashboardProps> = ({
     } | null>(null);
 
     const [isBriefOpen, setIsBriefOpen] = useState(false);
-    const [briefData, setBriefData] = useState<DailyBrief | null>(null);
+    // Pre-load brief from localStorage cache instantly, then refresh in background
+    const [briefData, setBriefData] = useState<DailyBrief | null>(() => {
+        try {
+            const cached = localStorage.getItem(`defia_daily_brief_${brandName}`);
+            if (cached) {
+                const parsed = JSON.parse(cached) as DailyBrief;
+                // Use cache if less than 12 hours old
+                if (parsed.timestamp && (Date.now() - parsed.timestamp) < 12 * 60 * 60 * 1000) {
+                    return parsed;
+                }
+            }
+        } catch {}
+        return null;
+    });
     const [briefLoading, setBriefLoading] = useState(false);
+    const [newsItems, setNewsItems] = useState<{ icon: string; iconBg: string; title: string; source: string; time: string; url?: string; rawArticle?: any }[]>([]);
+    const [newsLoading, setNewsLoading] = useState(true);
+
+    // LLM-powered recommendation state
+    const [llmRecommendations, setLlmRecommendations] = useState<any[]>([]);
+    const [regenLoading, setRegenLoading] = useState(false);
+    const autoRegenFired = useRef(false);
+    const [regenLastRun, setRegenLastRun] = useState<number>(0);
 
     const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics, campaigns), [socialMetrics, chainMetrics, campaigns]);
 
+    // Derive AI recommendations: prefer LLM-generated, fallback to raw agent decisions
+    const aiRecommendations = useMemo(() => {
+        // Priority 1: LLM-generated rich recommendations
+        if (llmRecommendations.length > 0) return llmRecommendations;
+
+        // Priority 2: Raw agent decisions (fallback)
+        if (!agentDecisions || agentDecisions.length === 0) return [];
+        return agentDecisions.slice(0, 3).map((d: any) => {
+            const style = getRecommendationStyle(d.action);
+            const draft = d.draft || '';
+            const reason = d.reason || '';
+            const titleText = reason.length > 80 ? reason.slice(0, 80) + '...' : (reason || `${(d.action || 'ACTION').toUpperCase()}: Strategic opportunity`);
+            const descText = draft ? (draft.length > 140 ? draft.slice(0, 140) + '...' : draft) : (reason || 'AI agent detected an opportunity based on market signals.');
+            return {
+                ...style,
+                title: titleText,
+                reasoning: descText,
+                contentIdeas: [] as string[],
+                strategicAlignment: '',
+                dataSignal: '',
+                impactScore: 70,
+                fullDraft: draft,
+                fullReason: reason,
+                targetId: d.targetId,
+                topic: '',
+                goal: '',
+                knowledgeConnection: false,
+                proof: null,
+            };
+        });
+    }, [agentDecisions, llmRecommendations]);
+
+    // Whether we're showing rich (LLM) or fallback cards
+    const isRichMode = llmRecommendations.length > 0;
+
+    // Fetch Web3 news for dashboard
+    useEffect(() => {
+        setNewsLoading(true);
+        const fetchNews = async () => {
+            try {
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+                const res = await fetch(`${baseUrl}/api/web3-news?brand=${encodeURIComponent(brandName)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.items && data.items.length > 0) {
+                        const mapped = data.items.slice(0, 5).map((item: any) => {
+                            // Use rawData.createdAt or rawData.news_provider for richer info
+                            const raw = item.rawData || {};
+                            const sourceName = raw.news_provider || item.source || 'Web3';
+                            const createdAt = raw.createdAt ? new Date(raw.createdAt).getTime() : (typeof item.createdAt === 'number' ? item.createdAt : 0);
+                            return {
+                                icon: getNewsIcon(sourceName),
+                                iconBg: getNewsIconBg(sourceName),
+                                title: item.headline || raw.title || item.summary || 'Untitled',
+                                source: sourceName.replace(/^(www\.)?/, '').split('/')[0],
+                                time: createdAt > 0 ? timeAgo(createdAt) : 'Recently',
+                                url: item.url,
+                                rawArticle: {
+                                    ...item,
+                                    sourceName: sourceName.replace(/^(www\.)?/, '').split('/')[0],
+                                    category: item.topic || 'defi',
+                                }
+                            };
+                        });
+                        setNewsItems(mapped);
+                    }
+                }
+            } catch (e) {
+                console.warn('[Dashboard] News fetch failed:', e);
+            } finally {
+                setNewsLoading(false);
+            }
+        };
+        fetchNews();
+    }, [brandName]);
+
+    // Pre-load daily brief: show cached instantly, then refresh in background
     useEffect(() => {
         const initBrief = async () => {
-            if (!briefData && !briefLoading) {
-                setBriefLoading(true);
-                try {
-                    await new Promise(r => setTimeout(r, 1500));
-                    const brief = await generateBriefService(brandName, kpis, campaigns, []);
-                    setBriefData(brief);
-                } catch (e) {
-                    console.error("Background Brief Gen Failed", e);
-                } finally {
-                    setBriefLoading(false);
-                }
+            // Only show loading spinner if there's no cached data to display
+            if (!briefData) setBriefLoading(true);
+            try {
+                const brief = await generateBriefService(brandName, kpis, campaigns, []);
+                setBriefData(brief);
+                // Cache to localStorage for instant display on next visit
+                try { localStorage.setItem(`defia_daily_brief_${brandName}`, JSON.stringify(brief)); } catch {}
+            } catch (e) {
+                console.error("Background Brief Gen Failed", e);
+            } finally {
+                setBriefLoading(false);
             }
         };
         initBrief();
-    }, [brandName, kpis.length]);
+    }, [brandName]);
 
     useEffect(() => {
         let mounted = true;
+        // Reset auto-regen guard when brand changes
+        autoRegenFired.current = false;
+        setLlmRecommendations([]);
+        setRegenLastRun(0);
         const loadData = async () => {
             try {
                 const [camps] = await Promise.all([fetchCampaignPerformance()]);
@@ -176,6 +324,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
         });
     }, [brandName, calendarEvents]);
 
+    // Auto-generate recommendations if stale (> 6 hours) or empty on mount
+    useEffect(() => {
+        if (autoRegenFired.current) return;
+        if (regenLoading) return;
+        // Only auto-fire if we have no LLM recommendations and no agent decisions as fallback
+        const hasData = llmRecommendations.length > 0 || (agentDecisions && agentDecisions.length > 0);
+        const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 6 * 60 * 60 * 1000);
+        if (!hasData || isStale) {
+            autoRegenFired.current = true;
+            // Delay slightly to let other data load first
+            const timer = setTimeout(() => {
+                handleRegenerate();
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [brandName, agentDecisions?.length, llmRecommendations.length]);
+
     const upcomingContent = calendarEvents
         .filter(e => {
             const target = e.scheduledAt ? new Date(e.scheduledAt) : new Date(e.date);
@@ -195,6 +360,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }, [campaigns, campaignTab]);
 
     const handleRegenerate = async () => {
+        setRegenLoading(true);
         try {
             const registry = getBrandRegistryEntry(brandName);
             const deepContext = await getBrainContext(registry?.brandId);
@@ -244,10 +410,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
             };
 
             const { analysis, actions, agentInsights } = await orchestrateMarketingDecision(enrichedContext, { calendarEvents, mentions });
+
+            // Populate decision summary (agent insights, coverage, etc.)
+            const now = Date.now();
             setDecisionSummary({
                 analysis,
                 actionCount: actions.length,
-                lastUpdated: Date.now(),
+                lastUpdated: now,
                 agentInsights,
                 inputCoverage: {
                     calendarItems: calendarEvents.length,
@@ -258,6 +427,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 }
             });
 
+            // Build rich LLM recommendation cards from actions
+            const strategicAngle = analysis?.strategicAngle || (analysis as any)?.headline || '';
+            const richRecs = actions.slice(0, 4).map((action: any, idx: number) => {
+                const style = getRecommendationStyle(action.type);
+                // Compute impact score based on action type + market context
+                const baseImpact = action.type === 'TREND_JACK' ? 92 : action.type === 'REPLY' ? 78 : action.type === 'CAMPAIGN' ? 88 : action.type === 'GAP_FILL' ? 75 : 80;
+                const impactScore = Math.min(99, baseImpact + (mentions.length > 3 ? 5 : 0) + (socialSignals.trendingTopics?.length > 2 ? 3 : 0));
+                // Data signal: what triggered this
+                const dataSignal = action.type === 'TREND_JACK'
+                    ? `Trending: ${(socialSignals.trendingTopics || [])[0] || action.topic}`
+                    : action.type === 'REPLY'
+                    ? `${mentions.length} recent mention${mentions.length !== 1 ? 's' : ''} detected`
+                    : action.type === 'CAMPAIGN'
+                    ? `Market shift: ${strategicAngle.slice(0, 60) || action.topic}`
+                    : `Content gap identified in ${action.topic || 'market'}`;
+
+                return {
+                    ...style,
+                    title: action.hook || `${style.type}: ${action.topic}`,
+                    reasoning: action.reasoning || `Strategic opportunity based on ${action.goal}`,
+                    contentIdeas: Array.isArray(action.contentIdeas) ? action.contentIdeas.slice(0, 3) : [],
+                    strategicAlignment: action.strategicAlignment || strategicAngle,
+                    dataSignal,
+                    impactScore,
+                    fullDraft: action.instructions || action.reasoning || '',
+                    fullReason: action.reasoning || action.topic || '',
+                    targetId: action.targetId || null,
+                    topic: action.topic,
+                    goal: action.goal,
+                    knowledgeConnection: brandKnowledgeBlock ? true : false,
+                    proof: (action as any).proof,
+                };
+            });
+            setLlmRecommendations(richRecs);
+            setRegenLastRun(now);
+
+            // Also create strategy tasks
             if (actions.length > 0) {
                 const newTasks = actions.map(action => ({
                     id: crypto.randomUUID(),
@@ -282,28 +488,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
             saveDecisionLoopLastRun(brandName);
         } catch (e) {
             console.error("Regen Failed", e);
+        } finally {
+            setRegenLoading(false);
         }
     };
 
-    const handleRecommendationAction = (rec: typeof AI_RECOMMENDATIONS[number]) => {
-        const title = rec.title || '';
-        const description = rec.description || '';
-        const draft = description && description !== title ? `${title}\n\n${description}` : title;
-        const type = rec.type ? rec.type.toLowerCase() : '';
-
-        const isCampaign = type.includes('campaign') || title.toLowerCase().includes('campaign') || rec.actionLabel.toLowerCase().includes('campaign');
-
+    const handleRecommendationAction = (rec: any) => {
         if (!onNavigate) {
+            const draft = rec.fullDraft || rec.reasoning || rec.title || '';
             onSchedule(draft);
             return;
         }
 
-        if (isCampaign) {
-            onNavigate('campaigns', { intent: title || description });
-            return;
-        }
-
-        onNavigate('studio', { draft, visualPrompt: rec.actionLabel || rec.type });
+        // Navigate to the recommendation detail page with full context
+        onNavigate('recommendation-detail', {
+            recommendation: rec,
+            agentInsights: decisionSummary.agentInsights,
+            analysis: decisionSummary.analysis,
+            inputCoverage: decisionSummary.inputCoverage,
+            socialMetrics,
+            trendingTopics: socialSignals.trendingTopics || [],
+            brandConfig,
+            generatedAt: decisionSummary.lastUpdated || Date.now(),
+        });
     };
 
     const getContentTypeIcon = (platform: string) => {
@@ -357,31 +564,68 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div key={i} className="rounded-xl bg-[#111113] border border-[#1F1F23] p-5">
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-[#6B6B70] text-xs font-medium tracking-wider">{kpi.label}</span>
-                                    {i === 0 && (
+                                    {i === 0 && kpi.value !== '--' && (
                                         <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#22C55E18] text-[#22C55E] text-xs font-medium">
                                             <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
                                             Live
                                         </span>
                                     )}
                                 </div>
-                                <div className="text-[32px] font-medium text-white font-mono tracking-tight mb-3">{kpi.value}</div>
-                                <div className="flex items-center gap-1">
-                                    {kpi.trend === 'up' ? (
-                                        <svg className="w-3.5 h-3.5 text-[#22C55E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                        </svg>
-                                    ) : (
-                                        <svg className="w-3.5 h-3.5 text-[#EF4444]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                                        </svg>
-                                    )}
-                                    <span className={`text-xs font-medium ${kpi.trend === 'up' ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
-                                        {kpi.delta > 0 ? '+' : ''}{kpi.delta}% this month
-                                    </span>
-                                </div>
+                                {kpi.value === '--' ? (
+                                    <>
+                                        <div className="text-[32px] font-medium text-[#2E2E2E] font-mono tracking-tight mb-3">—</div>
+                                        <span className="text-xs text-[#4A4A4E]">No data yet</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="text-[32px] font-medium text-white font-mono tracking-tight mb-3">{kpi.value}</div>
+                                        {kpi.delta !== 0 && (
+                                            <div className="flex items-center gap-1">
+                                                {kpi.trend === 'up' ? (
+                                                    <svg className="w-3.5 h-3.5 text-[#22C55E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg className="w-3.5 h-3.5 text-[#EF4444]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                                                    </svg>
+                                                )}
+                                                <span className={`text-xs font-medium ${kpi.trend === 'up' ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
+                                                    {kpi.delta > 0 ? '+' : ''}{kpi.delta}% this month
+                                                </span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         ))}
                     </div>
+
+                    {/* Daily Brief — compact 2-3 sentence text with bold markup */}
+                    {briefData && briefData.confidence?.explanation && (
+                        <div className="rounded-xl bg-[#111113] border border-[#1F1F23] px-5 py-4 mb-7">
+                            <div className="flex items-start gap-3">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/></svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <span className="text-white text-sm font-semibold">Daily Brief</span>
+                                        <span className="text-[10px] text-[#4A4A4E]">{new Date(briefData.timestamp).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                                        {(() => {
+                                            const hoursAgo = Math.floor((Date.now() - briefData.timestamp) / (1000 * 60 * 60));
+                                            if (hoursAgo >= 1) {
+                                                return <span className="text-[10px] text-[#4A4A4E]">· Generated {hoursAgo}h ago</span>;
+                                            }
+                                            return <span className="text-[10px] text-[#22C55E]">· Just now</span>;
+                                        })()}
+                                    </div>
+                                    <p className="text-[13px] text-[#ADADB0] leading-[1.65]">{renderRichText(briefData.confidence.explanation)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {briefLoading && !briefData && <SkeletonBriefCard />}
 
                     {kickoffState && (
                         <div className="rounded-xl border border-[#22C55E33] bg-[#0F1510] p-5 mb-7">
@@ -452,83 +696,263 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/></svg>
                                 </div>
                                 <span className="text-white text-sm font-semibold">AI CMO Recommendations</span>
-                                {AI_RECOMMENDATIONS.length > 0 && (
-                                    <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">{AI_RECOMMENDATIONS.length} Priority Actions</span>
+                                {!regenLoading && aiRecommendations.length > 0 && (
+                                    <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">{aiRecommendations.length} Priority Actions</span>
+                                )}
+                                {isRichMode && (
+                                    <span className="px-2 py-1 rounded-full bg-[#22C55E18] text-[#22C55E] text-[10px] font-medium">LLM Powered</span>
                                 )}
                             </div>
-                            <button
-                                onClick={handleRegenerate}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-white/5 text-[#ADADB0] text-xs font-medium hover:bg-white/10 transition-colors"
-                            >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                Refresh
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {regenLastRun > 0 && (
+                                    <span className="text-[#6B6B70] text-[10px]">Updated {timeAgo(regenLastRun)}</span>
+                                )}
+                                <button
+                                    onClick={handleRegenerate}
+                                    disabled={regenLoading}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${regenLoading ? 'bg-[#FF5C0022] text-[#FF5C00] cursor-wait' : 'bg-white/5 text-[#ADADB0] hover:bg-white/10'}`}
+                                >
+                                    <svg className={`w-3 h-3 ${regenLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    {regenLoading ? 'Analyzing...' : 'Refresh'}
+                                </button>
+                            </div>
                         </div>
-                        <div className="p-5 grid grid-cols-3 gap-4">
-                            {AI_RECOMMENDATIONS.length > 0 ? AI_RECOMMENDATIONS.map((rec, i) => (
-                                <div key={i} className="rounded-xl bg-[#0A0A0B] p-4 border" style={{ borderColor: rec.borderColor }}>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-2xl">{rec.icon}</span>
-                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: rec.typeBg }}>{rec.type}</span>
-                                    </div>
-                                    <h4 className="text-white text-sm font-semibold mb-2">{rec.title}</h4>
-                                    <p className="text-[#8B8B8F] text-xs leading-relaxed mb-4">{rec.description}</p>
-                                    <div className="flex gap-4 mb-4">
-                                        {rec.stats.map((stat, j) => (
-                                            <div key={j}>
-                                                <span className="text-white text-sm font-semibold font-mono">{stat.value}</span>
-                                                <span className="text-[#6B6B70] text-xs ml-1">{stat.label}</span>
+
+                        {/* Loading Skeleton */}
+                        {regenLoading && (
+                            <div className="p-5">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-5 h-5 rounded-full border-2 border-[#FF5C00] border-t-transparent animate-spin"></div>
+                                    <span className="text-[#FF5C00] text-xs font-medium">4-Agent Council analyzing market signals, knowledge base & social data...</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {[1, 2, 3, 4].map(i => (
+                                        <div key={i} className="rounded-xl bg-[#0A0A0B] p-4 border border-[#1F1F23] animate-pulse">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="w-8 h-8 rounded-lg bg-[#1F1F23]"></div>
+                                                <div className="w-16 h-5 rounded bg-[#1F1F23]"></div>
+                                            </div>
+                                            <div className="h-4 w-3/4 bg-[#1F1F23] rounded mb-2"></div>
+                                            <div className="h-3 w-full bg-[#1F1F23] rounded mb-1"></div>
+                                            <div className="h-3 w-2/3 bg-[#1F1F23] rounded mb-4"></div>
+                                            <div className="space-y-1.5 mb-4">
+                                                <div className="h-2.5 w-5/6 bg-[#1F1F23] rounded"></div>
+                                                <div className="h-2.5 w-4/6 bg-[#1F1F23] rounded"></div>
+                                            </div>
+                                            <div className="h-8 w-full bg-[#1F1F23] rounded-md"></div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Recommendation Cards */}
+                        {!regenLoading && (
+                            <div className="p-5">
+                                {aiRecommendations.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {aiRecommendations.map((rec: any, i: number) => (
+                                            <div key={i} className="rounded-xl bg-[#0A0A0B] p-4 border transition-all hover:border-opacity-60" style={{ borderColor: rec.borderColor }}>
+                                                {/* Header: Type badge + Impact score */}
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-lg">{rec.icon}</span>
+                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: rec.typeBg }}>{rec.type}</span>
+                                                    </div>
+                                                    {rec.impactScore > 0 && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-12 h-1.5 rounded-full bg-[#1F1F23] overflow-hidden">
+                                                                <div className="h-full rounded-full" style={{
+                                                                    width: `${rec.impactScore}%`,
+                                                                    backgroundColor: rec.impactScore >= 85 ? '#22C55E' : rec.impactScore >= 70 ? '#F59E0B' : '#6B6B70'
+                                                                }}></div>
+                                                            </div>
+                                                            <span className={`text-[10px] font-mono font-bold ${rec.impactScore >= 85 ? 'text-[#22C55E]' : rec.impactScore >= 70 ? 'text-[#F59E0B]' : 'text-[#6B6B70]'}`}>{rec.impactScore}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Title — strip action type prefixes */}
+                                                <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug">{(rec.title || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim() || rec.title}</h4>
+
+                                                {/* Strategic reasoning */}
+                                                <p className="text-[#8B8B8F] text-xs leading-relaxed mb-3">
+                                                    {rec.reasoning ? (rec.reasoning.length > 160 ? rec.reasoning.slice(0, 160) + '...' : rec.reasoning) : 'Strategic opportunity identified by AI analysis.'}
+                                                </p>
+
+                                                {/* Content Ideas (if rich mode) */}
+                                                {rec.contentIdeas && rec.contentIdeas.length > 0 && (
+                                                    <div className="mb-3 pl-3 border-l-2 border-[#FF5C0044]">
+                                                        <span className="text-[10px] font-semibold text-[#FF5C00] tracking-wider block mb-1">CONTENT IDEAS</span>
+                                                        {rec.contentIdeas.slice(0, 3).map((idea: string, j: number) => (
+                                                            <p key={j} className="text-[#ADADB0] text-[11px] leading-relaxed flex items-start gap-1.5">
+                                                                <span className="text-[#FF5C00] mt-0.5">•</span>
+                                                                <span>{idea.length > 90 ? idea.slice(0, 90) + '...' : idea}</span>
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Data signal + KB connection */}
+                                                {(rec.dataSignal || rec.knowledgeConnection) && (
+                                                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                                        {rec.dataSignal && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#1F1F23] text-[10px] text-[#ADADB0]">
+                                                                <span className="text-[#F59E0B]">⚡</span> {rec.dataSignal.length > 50 ? rec.dataSignal.slice(0, 50) + '…' : rec.dataSignal}
+                                                            </span>
+                                                        )}
+                                                        {rec.knowledgeConnection && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#22C55E11] text-[10px] text-[#22C55E]">
+                                                                <span>📚</span> Knowledge Base
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Strategic alignment (if rich mode) */}
+                                                {rec.strategicAlignment && (
+                                                    <p className="text-[10px] text-[#6B6B70] mb-3 italic">
+                                                        Alignment: {rec.strategicAlignment.length > 80 ? rec.strategicAlignment.slice(0, 80) + '…' : rec.strategicAlignment}
+                                                    </p>
+                                                )}
+
+                                                {/* CTA Button */}
+                                                <button
+                                                    onClick={() => handleRecommendationAction(rec)}
+                                                    className="w-full py-2 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
+                                                    style={{ backgroundColor: rec.actionBg, color: '#FFFFFF' }}
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                    </svg>
+                                                    {rec.actionLabel}
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
-                                    <button
-                                        onClick={() => handleRecommendationAction(rec)}
-                                        className="w-full py-2 rounded-md text-xs font-medium flex items-center justify-center gap-1.5"
-                                        style={{ backgroundColor: rec.actionBg, color: rec.actionBg === '#B2B2FF' ? '#0A0A0B' : '#FFFFFF' }}
-                                    >
-                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        {rec.actionLabel}
-                                    </button>
-                                </div>
-                            )) : (
-                                <div className="col-span-3 flex flex-col items-center justify-center py-8 text-center">
-                                    <div className="w-12 h-12 rounded-full bg-[#FF5C0015] flex items-center justify-center mb-3">
-                                        <svg className="w-6 h-6 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                        </svg>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                                        <div className="w-12 h-12 rounded-full bg-[#FF5C0015] flex items-center justify-center mb-3">
+                                            <svg className="w-6 h-6 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-[#6B6B70] text-sm mb-2">No recommendations yet</p>
+                                        <p className="text-[#6B6B70] text-xs mb-4">Click Refresh to run the 4-agent AI council and generate strategic recommendations.</p>
+                                        <button
+                                            onClick={handleRegenerate}
+                                            className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
+                                        >
+                                            Generate Recommendations
+                                        </button>
                                     </div>
-                                    <p className="text-[#6B6B70] text-sm">Recommendations auto-refresh every 6 hours. Use "Refresh" to run now.</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Agent Insights Bar */}
+                        {decisionSummary.agentInsights && decisionSummary.agentInsights.length > 0 && !regenLoading && (
+                            <div className="border-t border-[#FF5C0022] bg-[#0A0A0B]/60">
+                                <div className="px-5 py-3">
+                                    <div className="flex items-center gap-2 mb-2.5">
+                                        <span className="text-[10px] font-semibold text-[#FF5C00] tracking-widest">AGENT COUNCIL INSIGHTS</span>
+                                        <div className="flex-1 h-px bg-[#1F1F23]"></div>
+                                        {decisionSummary.inputCoverage && (
+                                            <span className="text-[10px] text-[#6B6B70]">
+                                                {decisionSummary.inputCoverage.knowledgeSignals} signals · {decisionSummary.inputCoverage.mentions} mentions · {decisionSummary.inputCoverage.trends} trends
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {decisionSummary.agentInsights.map((insight, idx) => {
+                                            const agentColors: Record<string, string> = {
+                                                'Social Listener': '#3B82F6',
+                                                'Performance Analyst': '#22C55E',
+                                                'Content Planner': '#F59E0B',
+                                                'Knowledge Curator': '#8B5CF6',
+                                            };
+                                            const agentIcons: Record<string, string> = {
+                                                'Social Listener': '👁',
+                                                'Performance Analyst': '📊',
+                                                'Content Planner': '📝',
+                                                'Knowledge Curator': '📚',
+                                            };
+                                            const color = agentColors[insight.agent] || '#FF5C00';
+                                            const icon = agentIcons[insight.agent] || '🤖';
+                                            return (
+                                                <div key={idx} className="rounded-lg bg-[#111113] border border-[#1F1F23] p-3">
+                                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                                        <span className="text-xs">{icon}</span>
+                                                        <span className="text-[10px] font-semibold" style={{ color }}>{insight.agent}</span>
+                                                    </div>
+                                                    <p className="text-[#ADADB0] text-[11px] leading-relaxed mb-1.5">
+                                                        {insight.summary ? (insight.summary.length > 100 ? insight.summary.slice(0, 100) + '...' : insight.summary) : insight.focus}
+                                                    </p>
+                                                    {insight.keySignals && insight.keySignals.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {insight.keySignals.slice(0, 2).map((signal, sIdx) => (
+                                                                <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#8B8B8F]">
+                                                                    {signal.length > 30 ? signal.slice(0, 30) + '…' : signal}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Two Column Section: News + Audience */}
                     <div className="grid grid-cols-2 gap-6 mb-7">
                         {/* Web3 News Feed */}
                         <div className="rounded-xl bg-[#111113] border border-[#1F1F23] overflow-hidden">
-                            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
+                            <button
+                                onClick={() => onNavigate('news')}
+                                className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23] w-full hover:bg-[#1A1A1D] transition-colors"
+                            >
                                 <span className="text-white text-sm font-semibold">Web3 News Feed</span>
-                                <svg className="w-4 h-4 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                            </div>
+                                <span className="text-[#FF5C00] text-xs font-medium">View All →</span>
+                            </button>
                             <div>
-                                {NEWS_ITEMS.map((item, i) => (
-                                    <div key={i} className={`flex items-center gap-3 px-5 py-4 ${i < NEWS_ITEMS.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}>
-                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: item.iconBg }}>
+                                {newsLoading ? (
+                                    <div className="px-5 py-2 space-y-1">
+                                        <SkeletonNewsItem />
+                                        <SkeletonNewsItem />
+                                        <SkeletonNewsItem />
+                                        <SkeletonNewsItem />
+                                    </div>
+                                ) : newsItems.length > 0 ? newsItems.map((item, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => {
+                                            if (item.rawArticle) {
+                                                onNavigate('news-article', { article: item.rawArticle, relatedNews: newsItems.filter((_, idx) => idx !== i).slice(0, 2).map(n => n.rawArticle).filter(Boolean) });
+                                            } else {
+                                                onNavigate('news');
+                                            }
+                                        }}
+                                        className={`flex items-center gap-3 px-5 py-4 w-full text-left hover:bg-[#1F1F23] transition-colors cursor-pointer ${i < newsItems.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}
+                                    >
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ backgroundColor: item.iconBg }}>
                                             {item.icon}
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-white text-sm font-medium">{item.title}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white text-sm font-medium line-clamp-1">{item.title}</p>
                                             <p className="text-[#6B6B70] text-xs">{item.source} · {item.time}</p>
                                         </div>
+                                        <svg className="w-4 h-4 text-[#4A4A4E] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                )) : (
+                                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                                        <p className="text-[#6B6B70] text-xs">No news available. Start server to fetch Web3 news.</p>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
 

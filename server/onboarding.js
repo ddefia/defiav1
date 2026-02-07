@@ -568,7 +568,9 @@ export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } =
 
   // New unified Twitter actor
   const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa';
-  const runRes = await fetchImpl(`https://api.apify.com/v2/acts/${ACTOR_TWITTER}/runs?token=${token}&waitForFinish=90`, {
+
+  // Start the run without waiting (so we can poll)
+  const runRes = await fetchImpl(`https://api.apify.com/v2/acts/${ACTOR_TWITTER}/runs?token=${token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -582,39 +584,89 @@ export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } =
   });
 
   const runData = await runRes.json();
-  if (!runRes.ok || !runData?.data?.defaultDatasetId) {
-    const err = runData?.error?.message || runData?.data?.status || 'Apify run failed';
+  console.log('[OnboardingTwitter] Apify run started:', {
+    ok: runRes.ok,
+    status: runRes.status,
+    runId: runData?.data?.id,
+    hasDatasetId: !!runData?.data?.defaultDatasetId
+  });
+
+  if (!runRes.ok || !runData?.data?.id) {
+    const err = runData?.error?.message || 'Apify run failed to start';
+    console.error('[OnboardingTwitter] Apify run failed:', err);
     return { tweets: [], tweetExamples: [], referenceImages: [], error: err };
   }
 
+  const runId = runData.data.id;
   const datasetId = runData.data.defaultDatasetId;
+
+  // Poll for run completion (max 120 seconds)
+  const maxWaitTime = 120000; // 2 minutes
+  const pollInterval = 3000; // 3 seconds
+  const startTime = Date.now();
+  let runStatus = runData.data.status;
+
+  while (runStatus !== 'SUCCEEDED' && runStatus !== 'FAILED' && runStatus !== 'ABORTED') {
+    if (Date.now() - startTime > maxWaitTime) {
+      console.warn('[OnboardingTwitter] Apify run timed out after 120s, status:', runStatus);
+      break;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+    const statusRes = await fetchImpl(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`);
+    const statusData = await statusRes.json();
+    runStatus = statusData?.data?.status || 'UNKNOWN';
+    console.log('[OnboardingTwitter] Polling run status:', runStatus);
+  }
+
+  console.log('[OnboardingTwitter] Final run status:', runStatus);
+
+  if (runStatus !== 'SUCCEEDED') {
+    console.error('[OnboardingTwitter] Run did not succeed:', runStatus);
+    return { tweets: [], tweetExamples: [], referenceImages: [], error: `Apify run status: ${runStatus}` };
+  }
+
   const itemsRes = await fetchImpl(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}`);
   const items = await itemsRes.json();
+  console.log('[OnboardingTwitter] Dataset items:', {
+    datasetId,
+    itemsCount: items?.length || 0,
+    sampleItem: items?.[0] ? { id: items[0].id, hasText: !!items[0].text, hasImages: !!(items[0].images?.length) } : null
+  });
 
-  // Map new actor output format
-  const tweets = (items || []).map((item) => {
-    const text = item.text || '';
-    const likes = item.likes || 0;
-    const retweets = item.retweets || 0;
-    const replies = item.replies || 0;
-    const quotes = item.quotes || 0;
-    // New actor uses images array instead of nested media objects
-    const mediaUrls = item.images || [];
+  // Map new actor output format - FILTER OUT retweets, quote tweets, and replies
+  const tweets = (items || [])
+    .filter((item) => {
+      // Skip retweets, quote tweets, and replies - we only want original content
+      if (item.isRetweet || item.isQuote || item.isReply) return false;
+      return true;
+    })
+    .map((item) => {
+      const text = item.text || '';
+      const likes = item.likes || 0;
+      const retweets = item.retweets || 0;
+      const replies = item.replies || 0;
+      const quotes = item.quotes || 0;
+      // New actor uses images array instead of nested media objects
+      const mediaUrls = item.images || [];
 
-    const score = likes + retweets * 2 + replies * 1.5 + quotes;
+      const score = likes + retweets * 2 + replies * 1.5 + quotes;
 
-    return {
-      id: item.id,
-      text,
-      createdAt: item.timestamp || '',
-      likes,
-      retweets,
-      replies,
-      views: 0, // New actor doesn't provide view count
-      mediaUrls,
-      score
-    };
-  }).filter((tweet) => tweet.text && tweet.text.length > 20);
+      return {
+        id: item.id,
+        text,
+        createdAt: item.timestamp || '',
+        likes,
+        retweets,
+        replies,
+        views: 0, // New actor doesn't provide view count
+        mediaUrls,
+        score
+      };
+    }).filter((tweet) => tweet.text && tweet.text.length > 20);
+
+  console.log('[OnboardingTwitter] Filtered tweets (original content only):', tweets.length);
 
   const topTweets = [...tweets].sort((a, b) => b.score - a.score).slice(0, 8);
   const tweetExamples = topTweets.map((tweet) => tweet.text);

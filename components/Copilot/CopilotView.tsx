@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { BrandConfig, ChatMessage, CalendarEvent, StrategyTask, GrowthReport } from '../../types';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { BrandConfig, ChatMessage, CalendarEvent, StrategyTask, GrowthReport, SocialMetrics } from '../../types';
 import { classifyAndPopulate, generateGeneralChatResponse } from '../../services/gemini';
 import { CampaignCard } from './ActionCards/CampaignCard';
 import { ImagePreviewCard } from './ActionCards/ImagePreviewCard';
+import { ContentCard } from './ActionCards/ContentCard';
 
 interface CopilotViewProps {
     brandName: string;
@@ -10,7 +11,9 @@ interface CopilotViewProps {
     calendarEvents: CalendarEvent[];
     strategyTasks: StrategyTask[];
     growthReport: GrowthReport | null;
-    onNavigate: (section: string, params: any) => void;
+    socialMetrics: SocialMetrics | null;
+    agentDecisions: any[];
+    onNavigate: (section: string, params?: any) => void;
 }
 
 interface ChatHistoryItem {
@@ -18,14 +21,48 @@ interface ChatHistoryItem {
     title: string;
     preview: string;
     timestamp: number;
+    messages: ChatMessage[];
 }
 
-const SUGGESTION_CHIPS = [
-    { icon: 'trending_up', label: 'Analyze my campaign' },
-    { icon: 'strategy', label: 'Growth strategy' },
-    { icon: 'analytics', label: 'Audience insights' },
-    { icon: 'edit_note', label: 'Content strategy' },
-];
+const STORAGE_KEY_PREFIX = 'defia_copilot_history_';
+
+// Build a dynamic welcome message based on real data
+const buildWelcomeContent = (brandName: string, brandConfig: BrandConfig, socialMetrics: SocialMetrics | null, calendarEvents: CalendarEvent[], strategyTasks: StrategyTask[], agentDecisions: any[]): string => {
+    const parts: string[] = [];
+    parts.push(`Hey! I'm your AI CMO for **${brandName}**. I have access to your knowledge base, social data, calendar, and strategic context — ask me anything.\n`);
+
+    // Show real metrics summary if available
+    const dataPoints: string[] = [];
+    if (socialMetrics && socialMetrics.totalFollowers > 0) {
+        dataPoints.push(`**${(socialMetrics.totalFollowers / 1000).toFixed(1)}K** followers`);
+    }
+    if (socialMetrics && socialMetrics.engagementRate > 0) {
+        dataPoints.push(`**${socialMetrics.engagementRate.toFixed(1)}%** engagement rate`);
+    }
+    if (calendarEvents.length > 0) {
+        const upcoming = calendarEvents.filter(e => new Date(e.scheduledAt || e.date) >= new Date()).length;
+        if (upcoming > 0) dataPoints.push(`**${upcoming}** upcoming posts scheduled`);
+    }
+    if (strategyTasks.length > 0) {
+        const pending = strategyTasks.filter(t => t.status === 'pending').length;
+        if (pending > 0) dataPoints.push(`**${pending}** pending strategy tasks`);
+    }
+    if (agentDecisions && agentDecisions.length > 0) {
+        dataPoints.push(`**${agentDecisions.length}** agent decisions to review`);
+    }
+
+    if (dataPoints.length > 0) {
+        parts.push(`Here's what I see right now:\n${dataPoints.map(d => `• ${d}`).join('\n')}`);
+    }
+
+    // Knowledge base
+    if (brandConfig?.knowledgeBase?.length > 0) {
+        parts.push(`\n📚 I have **${brandConfig.knowledgeBase.length}** knowledge base entries loaded for context.`);
+    }
+
+    parts.push(`\nWhat would you like to work on?`);
+    return parts.join('\n');
+};
 
 export const CopilotView: React.FC<CopilotViewProps> = ({
     brandName,
@@ -33,31 +70,93 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
     calendarEvents,
     strategyTasks,
     growthReport,
+    socialMetrics,
+    agentDecisions,
     onNavigate
 }) => {
     const [input, setInput] = useState('');
-    const [messages, setMessages] = useState<ChatMessage[]>(() => [{
-        id: 'welcome',
-        role: 'assistant',
-        content: `I've analyzed your NFT campaign data. Here's what I found and my recommendations:`,
-        timestamp: Date.now()
-    }]);
     const [isThinking, setIsThinking] = useState(false);
     const [showHistory, setShowHistory] = useState(true);
-    const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => {
-        const now = Date.now();
-        return [
-            { id: '1', title: 'NFT Campaign Analysis', preview: 'Analyzing performance metrics...', timestamp: now },
-            { id: '2', title: 'Twitter Growth Strategy', preview: 'Let me help you grow...', timestamp: now - 3600000 },
-            { id: '3', title: 'Content Calendar Q1', preview: 'Here\'s your content plan...', timestamp: now - 7200000 },
-            { id: '4', title: 'Discord Engagement Report', preview: 'Your community metrics...', timestamp: now - 86400000 },
-            { id: '5', title: 'Competitor Analysis', preview: 'I\'ve analyzed your competitors...', timestamp: now - 86400000 * 2 },
-            { id: '6', title: 'Launch Announcement Copy', preview: 'Here\'s the draft...', timestamp: now - 86400000 * 3 },
-            { id: '7', title: 'Email Newsletter Ideas', preview: 'Some suggestions...', timestamp: now - 86400000 * 5 },
-        ];
-    });
-    const [activeChat, setActiveChat] = useState('1');
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Load chat history from localStorage
+    const storageKey = `${STORAGE_KEY_PREFIX}${brandName}`;
+    const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>(() => {
+        try {
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            }
+        } catch (e) { }
+        return [];
+    });
+
+    const [activeChat, setActiveChat] = useState<string>(() => {
+        return chatHistory.length > 0 ? chatHistory[0].id : `chat-${Date.now()}`;
+    });
+
+    // Build the welcome message dynamically
+    const welcomeMessage = useMemo(() => buildWelcomeContent(
+        brandName, brandConfig, socialMetrics, calendarEvents, strategyTasks, agentDecisions
+    ), [brandName]);
+
+    const [messages, setMessages] = useState<ChatMessage[]>(() => {
+        // Check if active chat has saved messages
+        if (chatHistory.length > 0) {
+            const active = chatHistory.find(c => c.id === activeChat);
+            if (active && active.messages && active.messages.length > 0) return active.messages;
+        }
+        return [{
+            id: 'welcome',
+            role: 'assistant' as const,
+            content: welcomeMessage,
+            timestamp: Date.now()
+        }];
+    });
+
+    // Persist chat history to localStorage
+    const persistHistory = useCallback((history: ChatHistoryItem[]) => {
+        try {
+            // Keep only last 20 chats
+            const trimmed = history.slice(0, 20);
+            localStorage.setItem(storageKey, JSON.stringify(trimmed));
+        } catch (e) { }
+    }, [storageKey]);
+
+    // Save messages to active chat history whenever messages change
+    useEffect(() => {
+        if (messages.length <= 1) return; // Don't save just the welcome
+        setChatHistory(prev => {
+            const existingIdx = prev.findIndex(c => c.id === activeChat);
+            const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+            const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
+            const title = lastUserMsg
+                ? (lastUserMsg.content.length > 40 ? lastUserMsg.content.slice(0, 40) + '...' : lastUserMsg.content)
+                : 'New Chat';
+            const preview = lastAssistantMsg
+                ? (lastAssistantMsg.content.length > 60 ? lastAssistantMsg.content.slice(0, 60) + '...' : lastAssistantMsg.content)
+                : '';
+
+            const entry: ChatHistoryItem = {
+                id: activeChat,
+                title,
+                preview,
+                timestamp: Date.now(),
+                messages: messages.slice(-30) // Keep last 30 messages per chat
+            };
+
+            let updated: ChatHistoryItem[];
+            if (existingIdx >= 0) {
+                updated = [...prev];
+                updated[existingIdx] = entry;
+            } else {
+                updated = [entry, ...prev];
+            }
+            persistHistory(updated);
+            return updated;
+        });
+    }, [messages, activeChat]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -92,12 +191,11 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
 
             const classification = await classifyAndPopulate(history, brandConfig, marketingContext);
 
-            const aiMsgId = `ai-${Date.now()}`;
             let aiContent = "";
             let cardData = null;
 
             if (classification.type === 'MISSING_INFO') {
-                aiContent = classification.missingInfo ? classification.missingInfo[0] : "Could you provide more details?";
+                aiContent = classification.missingInfo ? classification.missingInfo[0] : "Could you provide more details so I can help you better?";
             }
             else if (classification.type === 'GENERAL_CHAT') {
                 const response = await generateGeneralChatResponse(history, brandConfig, marketingContext);
@@ -107,25 +205,25 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                 }
             }
             else if (classification.type === 'CREATE_CAMPAIGN') {
-                aiContent = `Drafting campaign regarding: ${classification.params?.campaignTopic || 'your topic'}...`;
+                aiContent = `Great — let me set up a campaign draft for **${classification.params?.campaignTopic || 'your topic'}**. Here's the campaign builder:`;
             }
             else if (classification.type === 'GENERATE_IMAGE') {
-                aiContent = `Generating visual for: ${classification.params?.imagePrompt || 'your idea'}...`;
+                aiContent = `I'll generate a visual for: **${classification.params?.imagePrompt || 'your idea'}**. Working on it now:`;
             }
             else if (classification.type === 'DRAFT_CONTENT') {
-                aiContent = `I'll help you draft content for: ${classification.params?.contentTopic || 'your topic'}. Opening the studio...`;
+                aiContent = `Let's create some content about **${classification.params?.contentTopic || 'your topic'}**. I'll generate multiple options — pick a tone and format, then hit generate:`;
             }
             else {
-                aiContent = classification.thoughtProcess || "Processing...";
+                aiContent = classification.thoughtProcess || "Let me think about that...";
             }
 
             const aiMsg: ChatMessage = {
-                id: aiMsgId,
+                id: `ai-${Date.now()}`,
                 role: 'assistant',
                 content: aiContent,
                 timestamp: Date.now(),
                 intent: classification,
-                suggestedActions: cardData
+                suggestedActions: cardData || undefined
             };
 
             setMessages(prev => [...prev, aiMsg]);
@@ -135,7 +233,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
             setMessages(prev => [...prev, {
                 id: `err-${Date.now()}`,
                 role: 'assistant',
-                content: "Sorry, I encountered an error processing that request.",
+                content: "Sorry, I encountered an error. Please try again — if this persists, the API rate limit may be reached.",
                 timestamp: Date.now()
             }]);
         } finally {
@@ -145,20 +243,54 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
 
     const handleNewChat = () => {
         const newId = `chat-${Date.now()}`;
-        setChatHistory(prev => [{
-            id: newId,
-            title: 'New Chat',
-            preview: 'Start a conversation...',
-            timestamp: Date.now()
-        }, ...prev]);
         setActiveChat(newId);
         setMessages([{
             id: 'welcome',
             role: 'assistant',
-            content: `Hello! I'm your AI CMO for ${brandName}. How can I help you today?`,
+            content: welcomeMessage,
             timestamp: Date.now()
         }]);
     };
+
+    const handleLoadChat = (chatId: string) => {
+        const chat = chatHistory.find(c => c.id === chatId);
+        if (chat && chat.messages && chat.messages.length > 0) {
+            setActiveChat(chatId);
+            setMessages(chat.messages);
+        }
+    };
+
+    const handleDeleteChat = (chatId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setChatHistory(prev => {
+            const updated = prev.filter(c => c.id !== chatId);
+            persistHistory(updated);
+            return updated;
+        });
+        if (activeChat === chatId) {
+            handleNewChat();
+        }
+    };
+
+    // Suggestion chips: context-aware based on what data we have
+    const suggestionChips = useMemo(() => {
+        const chips: { icon: string; label: string }[] = [];
+
+        if (agentDecisions && agentDecisions.length > 0) {
+            chips.push({ icon: 'psychology', label: `Review ${agentDecisions.length} agent decisions` });
+        }
+        if (strategyTasks.filter(t => t.status === 'pending').length > 0) {
+            chips.push({ icon: 'task_alt', label: 'What should I prioritize?' });
+        }
+        chips.push({ icon: 'trending_up', label: 'Analyze my performance' });
+        chips.push({ icon: 'edit_note', label: 'Draft a tweet for me' });
+
+        if (calendarEvents.length === 0) {
+            chips.push({ icon: 'calendar_month', label: 'Help me plan this week' });
+        }
+
+        return chips.slice(0, 4);
+    }, [agentDecisions?.length, strategyTasks, calendarEvents.length]);
 
     const { today, yesterday, lastWeek } = useMemo(() => {
         const now = Date.now();
@@ -176,6 +308,18 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
         return { today: todayItems, yesterday: yesterdayItems, lastWeek: lastWeekItems };
     }, [chatHistory]);
 
+    // Render markdown-like bold text
+    const renderContent = (text: string) => {
+        // Split by **bold** markers
+        const parts = text.split(/(\*\*[^*]+\*\*)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
+            }
+            return <span key={i}>{part}</span>;
+        });
+    };
+
     return (
         <div className="flex flex-1 h-[calc(100vh-0px)] bg-[#0A0A0B] text-white overflow-hidden">
             {/* Main Chat Area */}
@@ -189,8 +333,8 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                             </span>
                         </div>
                         <div>
-                            <h1 className="text-lg font-semibold text-white">AI CMO Assistant</h1>
-                            <p className="text-xs text-[#64748B]">Your intelligent marketing copilot</p>
+                            <h1 className="text-lg font-semibold text-white">AI CMO</h1>
+                            <p className="text-xs text-[#64748B]">Strategic marketing copilot for {brandName}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -203,7 +347,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                         </button>
                         <button
                             onClick={() => setShowHistory(!showHistory)}
-                            className="w-10 h-10 rounded-lg bg-[#1F1F23] border border-[#2E2E2E] flex items-center justify-center text-[#64748B] hover:text-white hover:bg-[#2A2A2D] transition-colors"
+                            className={`w-10 h-10 rounded-lg border flex items-center justify-center transition-colors ${showHistory ? 'bg-[#FF5C0015] border-[#FF5C0044] text-[#FF5C00]' : 'bg-[#1F1F23] border-[#2E2E2E] text-[#64748B] hover:text-white hover:bg-[#2A2A2D]'}`}
                         >
                             <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>history</span>
                         </button>
@@ -231,91 +375,77 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                                             ? 'bg-[#1F1F23] text-white rounded-[16px] rounded-tr-[4px]'
                                             : 'bg-[#111113] border border-[#1F1F23] text-[#E2E8F0] rounded-[16px] rounded-tl-[4px]'
                                     }`}>
-                                        <p className="whitespace-pre-wrap">{msg.content}</p>
-
-                                        {/* AI Response with Data Cards */}
-                                        {msg.role === 'assistant' && msg.id === 'welcome' && (
-                                            <div className="mt-4 space-y-4">
-                                                {/* Metrics Row */}
-                                                <div className="grid grid-cols-4 gap-3">
-                                                    {[
-                                                        { label: 'Total Mints', value: '2,847', change: '+12% vs last week', positive: true },
-                                                        { label: 'Avg. Mint Price', value: '0.08 ETH', change: '+5% avg increase', positive: true },
-                                                        { label: 'Unique Holders', value: '1,892', change: '+8% new holders', positive: true },
-                                                        { label: 'Floor Price', value: '0.12 ETH', change: '-3% from peak', positive: false },
-                                                    ].map((metric, i) => (
-                                                        <div key={i} className="bg-[#0A0A0B] rounded-lg p-3 border border-[#1F1F23]">
-                                                            <p className="text-[10px] text-[#64748B] mb-1">{metric.label}</p>
-                                                            <p className="text-lg font-semibold text-white font-mono">{metric.value}</p>
-                                                            <p className={`text-[10px] ${metric.positive ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
-                                                                {metric.change}
-                                                            </p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-
-                                                {/* Chart Placeholder */}
-                                                <div className="bg-[#0A0A0B] rounded-lg p-4 border border-[#1F1F23]">
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <span className="text-xs font-medium text-white">Mint Activity Over Time</span>
-                                                        <div className="flex items-center gap-4 text-[10px]">
-                                                            <span className="flex items-center gap-1.5">
-                                                                <span className="w-2 h-2 rounded-full bg-[#FF5C00]"></span>
-                                                                This Week
-                                                            </span>
-                                                            <span className="flex items-center gap-1.5 text-[#64748B]">
-                                                                <span className="w-2 h-2 rounded-full bg-[#3B82F6]"></span>
-                                                                Last Week
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    {/* Simple Bar Chart */}
-                                                    <div className="flex items-end gap-2 h-24">
-                                                        {[40, 65, 45, 80, 55, 90, 70].map((h, i) => (
-                                                            <div key={i} className="flex-1 flex flex-col gap-1">
-                                                                <div className="flex gap-0.5 items-end flex-1">
-                                                                    <div className="flex-1 bg-[#FF5C00] rounded-t" style={{ height: `${h}%` }}></div>
-                                                                    <div className="flex-1 bg-[#3B82F6] rounded-t" style={{ height: `${h * 0.7}%` }}></div>
-                                                                </div>
-                                                                <span className="text-[9px] text-[#64748B] text-center">
-                                                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}
-                                                                </span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                {/* Key Recommendations */}
-                                                <div className="bg-[#0A0A0B] rounded-lg p-4 border border-[#1F1F23]">
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <span className="material-symbols-sharp text-[#FF5C00] text-lg">lightbulb</span>
-                                                        <span className="text-xs font-medium text-white">Key Recommendations</span>
-                                                    </div>
-                                                    <ul className="space-y-2 text-xs text-[#94A3B8]">
-                                                        <li className="flex items-start gap-2">
-                                                            <span className="text-[#22C55E] mt-0.5">✓</span>
-                                                            Increase your Discord activity - your Dexbot activity correlates with 34% higher mints
-                                                        </li>
-                                                        <li className="flex items-start gap-2">
-                                                            <span className="text-[#22C55E] mt-0.5">✓</span>
-                                                            Schedule Twitter Spaces during peak hours (2-4 PM EST)
-                                                        </li>
-                                                        <li className="flex items-start gap-2">
-                                                            <span className="text-[#22C55E] mt-0.5">✓</span>
-                                                            Consider a collaboration with trending projects in your niche
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        )}
+                                        <p className="whitespace-pre-wrap">{renderContent(msg.content)}</p>
 
                                         {/* Suggested Actions */}
-                                        {msg.suggestedActions && (
+                                        {msg.suggestedActions && msg.suggestedActions.length > 0 && (
                                             <div className="mt-4 flex flex-col gap-2">
                                                 {msg.suggestedActions.map((action: any, idx: number) => (
                                                     <button
                                                         key={idx}
-                                                        onClick={() => setInput(action.action)}
+                                                        onClick={() => {
+                                                            setInput(action.action);
+                                                            // Auto-send after a short delay
+                                                            setTimeout(() => {
+                                                                const syntheticInput = action.action;
+                                                                setInput('');
+                                                                // Create user message and send
+                                                                const userMsg: ChatMessage = {
+                                                                    id: `usr-${Date.now()}`,
+                                                                    role: 'user',
+                                                                    content: syntheticInput,
+                                                                    timestamp: Date.now()
+                                                                };
+                                                                setMessages(prev => [...prev, userMsg]);
+                                                                setIsThinking(true);
+
+                                                                const doSend = async () => {
+                                                                    try {
+                                                                        const hist = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+                                                                        const ctx = { calendar: calendarEvents, tasks: strategyTasks, report: growthReport };
+                                                                        const cls = await classifyAndPopulate(hist, brandConfig, ctx);
+                                                                        let aiContent = "";
+                                                                        let cardData = null;
+
+                                                                        if (cls.type === 'MISSING_INFO') {
+                                                                            aiContent = cls.missingInfo?.[0] || "Could you provide more details?";
+                                                                        } else if (cls.type === 'GENERAL_CHAT') {
+                                                                            const resp = await generateGeneralChatResponse(hist, brandConfig, ctx);
+                                                                            aiContent = resp.text;
+                                                                            if (resp.actions?.length) cardData = resp.actions;
+                                                                        } else if (cls.type === 'CREATE_CAMPAIGN') {
+                                                                            aiContent = `Setting up campaign for **${cls.params?.campaignTopic || 'your topic'}**:`;
+                                                                        } else if (cls.type === 'GENERATE_IMAGE') {
+                                                                            aiContent = `Generating visual for **${cls.params?.imagePrompt || 'your idea'}**:`;
+                                                                        } else if (cls.type === 'DRAFT_CONTENT') {
+                                                                            aiContent = `Drafting content about **${cls.params?.contentTopic || 'your topic'}**:`;
+                                                                        } else {
+                                                                            aiContent = cls.thoughtProcess || "Processing...";
+                                                                        }
+
+                                                                        setMessages(prev => [...prev, {
+                                                                            id: `ai-${Date.now()}`,
+                                                                            role: 'assistant',
+                                                                            content: aiContent,
+                                                                            timestamp: Date.now(),
+                                                                            intent: cls,
+                                                                            suggestedActions: cardData || undefined
+                                                                        }]);
+                                                                    } catch (e) {
+                                                                        console.error(e);
+                                                                        setMessages(prev => [...prev, {
+                                                                            id: `err-${Date.now()}`,
+                                                                            role: 'assistant',
+                                                                            content: "Sorry, I encountered an error processing that.",
+                                                                            timestamp: Date.now()
+                                                                        }]);
+                                                                    } finally {
+                                                                        setIsThinking(false);
+                                                                    }
+                                                                };
+                                                                doSend();
+                                                            }, 100);
+                                                        }}
                                                         className="text-left w-full px-4 py-3 bg-[#0A0A0B] hover:bg-[#1F1F23] border border-[#1F1F23] rounded-lg text-sm font-medium text-[#E2E8F0] hover:text-[#FF5C00] transition-all flex items-center justify-between group"
                                                     >
                                                         <span>{action.label}</span>
@@ -345,25 +475,23 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                                                         />
                                                     </div>
                                                 )}
-                                                {msg.intent.type === 'DRAFT_CONTENT' && (
-                                                    <div className="p-4 bg-[#111113] border border-[#1F1F23] rounded-xl">
-                                                        <div className="flex items-center gap-2 mb-3 text-[#FF5C00] font-semibold text-sm">
-                                                            <span className="material-symbols-sharp">edit_note</span>
-                                                            Drafting Assistant
-                                                        </div>
-                                                        <p className="text-sm text-[#94A3B8] mb-4">
-                                                            I've set up a writing session for: <span className="font-medium text-white">{msg.intent.params?.contentTopic}</span>
-                                                        </p>
-                                                        <button
-                                                            onClick={() => onNavigate('studio', { draft: msg.intent?.params?.contentTopic })}
-                                                            className="w-full py-2.5 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
-                                                        >
-                                                            Open Content Studio
-                                                        </button>
+                                                {(msg.intent.type === 'DRAFT_CONTENT' || msg.intent.uiCard === 'ContentCard') && (
+                                                    <div className="border border-[#1F1F23] rounded-xl overflow-hidden bg-[#111113]">
+                                                        <ContentCard
+                                                            params={msg.intent.params}
+                                                            brandName={brandName}
+                                                            brandConfig={brandConfig}
+                                                            onNavigate={onNavigate}
+                                                        />
                                                     </div>
                                                 )}
                                             </div>
                                         )}
+                                    </div>
+
+                                    {/* Timestamp */}
+                                    <div className={`mt-1 text-[10px] text-[#4A4A4E] ${msg.role === 'user' ? 'text-right' : ''}`}>
+                                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </div>
                                 </div>
                             </div>
@@ -375,10 +503,15 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                                 <div className="w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF5C00 0%, #FF8400 100%)' }}>
                                     <span className="material-symbols-sharp text-white text-lg animate-pulse">auto_awesome</span>
                                 </div>
-                                <div className="flex items-center gap-1.5 py-4">
-                                    <div className="w-2 h-2 bg-[#64748B] rounded-full animate-bounce"></div>
-                                    <div className="w-2 h-2 bg-[#64748B] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                                    <div className="w-2 h-2 bg-[#64748B] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                <div className="bg-[#111113] border border-[#1F1F23] rounded-[16px] rounded-tl-[4px] px-5 py-3.5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-2 h-2 bg-[#FF5C00] rounded-full animate-bounce"></div>
+                                            <div className="w-2 h-2 bg-[#FF5C00] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                            <div className="w-2 h-2 bg-[#FF5C00] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                        </div>
+                                        <span className="text-xs text-[#64748B] ml-2">Thinking...</span>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -388,23 +521,28 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
 
                 {/* Input Area */}
                 <div className="px-8 py-4 border-t border-[#1F1F23]">
-                    {/* Suggestion Chips */}
-                    <div className="flex gap-2 mb-3 max-w-3xl mx-auto">
-                        {SUGGESTION_CHIPS.map((chip, i) => (
-                            <button
-                                key={i}
-                                onClick={() => setInput(chip.label)}
-                                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1F1F23] border border-[#2E2E2E] text-[#94A3B8] text-xs font-medium hover:bg-[#2A2A2D] hover:text-white transition-colors"
-                            >
-                                <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>{chip.icon}</span>
-                                {chip.label}
-                            </button>
-                        ))}
-                    </div>
+                    {/* Suggestion Chips — only show when last message is from assistant (not during thinking) */}
+                    {!isThinking && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && (
+                        <div className="flex gap-2 mb-3 max-w-3xl mx-auto flex-wrap">
+                            {suggestionChips.map((chip, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => {
+                                        setInput(chip.label);
+                                        // Focus the input so user can just press Enter
+                                    }}
+                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1F1F23] border border-[#2E2E2E] text-[#94A3B8] text-xs font-medium hover:bg-[#2A2A2D] hover:text-white hover:border-[#FF5C0044] transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>{chip.icon}</span>
+                                    {chip.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Input Row */}
                     <div className="flex gap-4 max-w-3xl mx-auto">
-                        <div className="flex-1 flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#111113] border border-[#1F1F23]">
+                        <div className="flex-1 flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#111113] border border-[#1F1F23] focus-within:border-[#FF5C0066] transition-colors">
                             <span className="material-symbols-sharp text-[#64748B] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>
                                 chat_bubble
                             </span>
@@ -412,22 +550,26 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                                 type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                                placeholder="Ask about campaigns, analytics, content strategy..."
+                                onKeyDown={(e) => e.key === 'Enter' && !isThinking && handleSend()}
+                                placeholder="Ask about strategy, content, analytics, or anything..."
                                 className="flex-1 bg-transparent border-none text-white placeholder-[#64748B] focus:outline-none text-sm"
                                 autoFocus
+                                disabled={isThinking}
                             />
+                            {input.trim() && (
+                                <span className="text-[10px] text-[#4A4A4E]">Enter ↵</span>
+                            )}
                         </div>
                         <button
                             onClick={handleSend}
                             disabled={!input.trim() || isThinking}
                             className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
-                                input.trim()
+                                input.trim() && !isThinking
                                     ? 'bg-gradient-to-r from-[#FF5C00] to-[#FF8400] text-white hover:opacity-90'
                                     : 'bg-[#1F1F23] text-[#64748B] cursor-not-allowed'
                             }`}
                         >
-                            <span className="material-symbols-sharp text-xl">arrow_upward</span>
+                            <span className="material-symbols-sharp text-xl">{isThinking ? 'hourglass_top' : 'arrow_upward'}</span>
                         </button>
                     </div>
                 </div>
@@ -439,13 +581,20 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                     {/* History Header */}
                     <div className="flex items-center justify-between px-5 py-5 border-b border-[#1F1F23]">
                         <span className="text-base font-semibold text-white">Chat History</span>
-                        <button className="w-8 h-8 rounded-lg bg-[#1F1F23] flex items-center justify-center text-[#64748B] hover:text-white transition-colors">
-                            <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>search</span>
-                        </button>
+                        {chatHistory.length > 0 && (
+                            <span className="text-[10px] text-[#64748B]">{chatHistory.length} chats</span>
+                        )}
                     </div>
 
                     {/* History Content */}
                     <div className="flex-1 overflow-y-auto p-3 space-y-4 min-h-0">
+                        {chatHistory.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <span className="material-symbols-sharp text-3xl text-[#2E2E2E] mb-3">forum</span>
+                                <p className="text-xs text-[#64748B]">Your conversations will appear here</p>
+                            </div>
+                        )}
+
                         {/* Today */}
                         {today.length > 0 && (
                             <div className="space-y-1">
@@ -453,13 +602,19 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                                 {today.map(item => (
                                     <button
                                         key={item.id}
-                                        onClick={() => setActiveChat(item.id)}
-                                        className={`w-full text-left px-3.5 py-3 rounded-xl transition-colors ${
+                                        onClick={() => handleLoadChat(item.id)}
+                                        className={`w-full text-left px-3.5 py-3 rounded-xl transition-colors group relative ${
                                             activeChat === item.id ? 'bg-[#1F1F23]' : 'hover:bg-[#1F1F23]/50'
                                         }`}
                                     >
-                                        <p className="text-sm font-medium text-white truncate">{item.title}</p>
+                                        <p className="text-sm font-medium text-white truncate pr-6">{item.title}</p>
                                         <p className="text-xs text-[#64748B] truncate mt-0.5">{item.preview}</p>
+                                        <button
+                                            onClick={(e) => handleDeleteChat(item.id, e)}
+                                            className="absolute top-3 right-2 w-6 h-6 rounded flex items-center justify-center text-[#64748B] hover:text-[#EF4444] hover:bg-[#EF444422] opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <span className="material-symbols-sharp text-sm">close</span>
+                                        </button>
                                     </button>
                                 ))}
                             </div>
@@ -472,13 +627,19 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                                 {yesterday.map(item => (
                                     <button
                                         key={item.id}
-                                        onClick={() => setActiveChat(item.id)}
-                                        className={`w-full text-left px-3.5 py-3 rounded-xl transition-colors ${
+                                        onClick={() => handleLoadChat(item.id)}
+                                        className={`w-full text-left px-3.5 py-3 rounded-xl transition-colors group relative ${
                                             activeChat === item.id ? 'bg-[#1F1F23]' : 'hover:bg-[#1F1F23]/50'
                                         }`}
                                     >
-                                        <p className="text-sm font-medium text-white truncate">{item.title}</p>
+                                        <p className="text-sm font-medium text-white truncate pr-6">{item.title}</p>
                                         <p className="text-xs text-[#64748B] truncate mt-0.5">{item.preview}</p>
+                                        <button
+                                            onClick={(e) => handleDeleteChat(item.id, e)}
+                                            className="absolute top-3 right-2 w-6 h-6 rounded flex items-center justify-center text-[#64748B] hover:text-[#EF4444] hover:bg-[#EF444422] opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <span className="material-symbols-sharp text-sm">close</span>
+                                        </button>
                                     </button>
                                 ))}
                             </div>
@@ -491,13 +652,19 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                                 {lastWeek.map(item => (
                                     <button
                                         key={item.id}
-                                        onClick={() => setActiveChat(item.id)}
-                                        className={`w-full text-left px-3.5 py-3 rounded-xl transition-colors ${
+                                        onClick={() => handleLoadChat(item.id)}
+                                        className={`w-full text-left px-3.5 py-3 rounded-xl transition-colors group relative ${
                                             activeChat === item.id ? 'bg-[#1F1F23]' : 'hover:bg-[#1F1F23]/50'
                                         }`}
                                     >
-                                        <p className="text-sm font-medium text-white truncate">{item.title}</p>
+                                        <p className="text-sm font-medium text-white truncate pr-6">{item.title}</p>
                                         <p className="text-xs text-[#64748B] truncate mt-0.5">{item.preview}</p>
+                                        <button
+                                            onClick={(e) => handleDeleteChat(item.id, e)}
+                                            className="absolute top-3 right-2 w-6 h-6 rounded flex items-center justify-center text-[#64748B] hover:text-[#EF4444] hover:bg-[#EF444422] opacity-0 group-hover:opacity-100 transition-all"
+                                        >
+                                            <span className="material-symbols-sharp text-sm">close</span>
+                                        </button>
                                     </button>
                                 ))}
                             </div>

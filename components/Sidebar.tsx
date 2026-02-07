@@ -28,6 +28,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'campaigns', label: 'Campaigns', icon: 'campaign' },
         { id: 'analytics', label: 'Analytics', icon: 'analytics' },
         { id: 'studio', label: 'Content Studio', icon: 'edit_square' },
+        { id: 'image-editor', label: 'Image Studio', icon: 'image' },
+        { id: 'calendar', label: 'Content Calendar', icon: 'calendar_month' },
     ];
 
     const feedsNavItems = [
@@ -198,18 +200,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     settings
                                 </span>
                                 Settings
-                            </button>
-                            <button
-                                onClick={() => { onNavigate('settings'); setIsUserMenuOpen(false); }}
-                                className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 hover:bg-[#2A2A2D] text-[#ADADB0] hover:text-white"
-                            >
-                                <span
-                                    className="material-symbols-sharp text-lg"
-                                    style={{ fontVariationSettings: "'wght' 100" }}
-                                >
-                                    person
-                                </span>
-                                Profile
                             </button>
                             <div className="h-[1px] bg-[#2A2A2D] my-2"></div>
                             <button

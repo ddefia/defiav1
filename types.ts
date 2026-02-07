@@ -477,7 +477,7 @@ export interface ChatIntentResponse {
   };
   missingInfo?: string[]; // Questions to ask user if incomplete
   thoughtProcess?: string; // AI reasoning for debug/UI
-  uiCard?: 'CampaignCard' | 'ImageCard' | 'TrendCard'; // Hint for UI rendering
+  uiCard?: 'CampaignCard' | 'ImageCard' | 'TrendCard' | 'ContentCard'; // Hint for UI rendering
 }
 
 // --- DASHBOARD V2 TYPES ---

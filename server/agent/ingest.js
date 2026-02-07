@@ -32,33 +32,9 @@ export const fetchDuneMetrics = async (apiKey) => {
     }
 };
 
-export const fetchLunarCrushTrends = async (apiKey, symbol = 'ETH') => {
-    if (!apiKey) {
-        console.warn("[Agent/Ingest] No LunarCrush Key.");
-        return [];
-    }
-
-    try {
-        console.log(`[Agent/Ingest] Fetching LunarCrush posts for ${symbol}...`);
-        // Using the same endpoint as the proxy, but direct server-to-server
-        const response = await fetch(`https://lunarcrush.com/api4/public/creator/twitter/${symbol}/posts/v1`, {
-            headers: { "Authorization": `Bearer ${apiKey}` }
-        });
-
-        if (!response.ok) throw new Error(response.statusText);
-
-        const data = await response.json();
-        // Return top 3 posts
-        return (data.data || []).slice(0, 3).map(post => ({
-            id: post.id,
-            body: post.body,
-            sentiment: post.sentiment,
-            interactions: post.interactions
-        }));
-    } catch (e) {
-        console.error("[Agent/Ingest] LunarCrush Error:", e.message);
-        return [];
-    }
+export const fetchLunarCrushTrends = async (_apiKey, _symbol = 'ETH') => {
+    // LunarCrush integration removed — returning empty array
+    return [];
 };
 
 export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
@@ -173,8 +149,8 @@ export const updateAllBrands = async (apiKey, brands = []) => {
     const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa'; // New unified Twitter actor
 
     const registry = brands.length > 0
-        ? brands.map((brand) => ({ key: brand.id, handle: brand.xHandle || brand.name }))
-        : Object.entries(TRACKED_BRANDS).map(([key, handle]) => ({ key, handle }));
+        ? brands.map((brand) => ({ key: brand.id.toLowerCase(), handle: brand.xHandle || brand.name, originalId: brand.id }))
+        : Object.entries(TRACKED_BRANDS).map(([key, handle]) => ({ key: key.toLowerCase(), handle, originalId: key }));
 
     for (const { key, handle } of registry) {
         try {
@@ -202,7 +178,6 @@ export const updateAllBrands = async (apiKey, brands = []) => {
                 const items = await itemsRes.json();
 
                 if (items.length > 0) {
-                    console.log(`[Debug] Item 0:`, JSON.stringify(items[0]));
                     // New actor format - estimate followers from engagement
                     const avgLikes = items.reduce((sum, t) => sum + (t.likes || 0), 0) / items.length;
                     const followers = Math.floor(avgLikes * 50); // Estimate based on ~2% engagement
@@ -293,58 +268,8 @@ export const updateAllBrands = async (apiKey, brands = []) => {
     }
 };
 
-export const fetchPulseTrends = async (apiKey) => {
-    // Fetch Global trends via LunarCrush (Actionable Narratives, not just Coins)
-    if (!apiKey) return [];
-    try {
-        console.log("[Agent/Ingest] Fetching Global Market TOPICS...");
-        const response = await fetch("https://lunarcrush.com/api4/public/topics/list/v1", {
-            headers: { "Authorization": `Bearer ${apiKey}` }
-        });
-
-        if (!response.ok) return [];
-
-        const data = await response.json();
-        let topics = data.data || [];
-        topics.sort((a, b) => (b.interactions_24h || 0) - (a.interactions_24h || 0));
-
-        // Take top 5 and ENRICH them with News
-        const topTopics = topics.slice(0, 5);
-
-        const enrichedTrends = await Promise.all(topTopics.map(async (t) => {
-            const topicName = t.topic;
-            let context = `High momentum topic. 24h Interactions: ${(t.interactions_24h || 0).toLocaleString()}`;
-            let headline = `${topicName} Trending`;
-
-            try {
-                // Fetch TOP NEWS for this topic
-                const newsRes = await fetch(`https://lunarcrush.com/api4/public/topic/${topicName}/news/v1`, {
-                    headers: { "Authorization": `Bearer ${apiKey}` }
-                });
-
-                if (newsRes.ok) {
-                    const newsData = await newsRes.json();
-                    const stories = newsData.data || [];
-                    if (stories.length > 0) {
-                        const topStory = stories[0];
-                        context = `News: ${topStory.post_title} (via ${topStory.creator_display_name})`;
-                    }
-                }
-            } catch (e) {
-                console.warn(`[Agent/Ingest] Failed to enrich topic ${topicName}`);
-            }
-
-            return {
-                headline: headline,
-                summary: context,
-                relevanceScore: 85 + Math.floor(Math.random() * 10) // Dynamic score
-            };
-        }));
-
-        return enrichedTrends;
-
-    } catch (e) {
-        console.error("[Agent/Ingest] Trend Fetch Error:", e.message);
-        return [];
-    }
+export const fetchPulseTrends = async (_apiKey) => {
+    // LunarCrush integration removed — returning empty array
+    // Trends are now sourced via Web3 News (Apify) on the frontend
+    return [];
 };
