@@ -12,11 +12,7 @@
     "crons": [
         {
             "path": "/api/agent/run",
-            "schedule": "0 */6 * * *"
-        },
-        {
-            "path": "/api/publish/run",
-            "schedule": "*/10 * * * *"
+            "schedule": "0 8 * * *"
         }
     ]
 }
