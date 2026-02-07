@@ -198,9 +198,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         // Priority 1: LLM-generated rich recommendations
         if (llmRecommendations.length > 0) return llmRecommendations;
 
-        // Priority 2: Raw agent decisions (fallback)
+        // Priority 2: Raw agent decisions (fallback) — filter out errored entries
         if (!agentDecisions || agentDecisions.length === 0) return [];
-        return agentDecisions.slice(0, 3).map((d: any) => {
+        const validDecisions = agentDecisions.filter((d: any) => {
+            const text = (d.reason || '') + (d.draft || '');
+            return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:');
+        });
+        if (validDecisions.length === 0) return [];
+        return validDecisions.slice(0, 3).map((d: any) => {
             const style = getRecommendationStyle(d.action);
             const draft = d.draft || '';
             const reason = d.reason || '';
