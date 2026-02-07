@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     return (
-        <div className="w-[280px] h-screen bg-[#111113] border-r border-[#1F1F23] flex flex-col shrink-0">
+        <div className="w-[280px] h-full bg-[#111113] border-r border-[#1F1F23] flex flex-col shrink-0">
             {/* Header / Logo */}
             <div className="h-[88px] flex items-center gap-2 px-8 border-b border-[#1F1F23]">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF7A2E] to-[#FF5C00] flex items-center justify-center">

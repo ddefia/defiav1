@@ -1509,7 +1509,7 @@ const App: React.FC = () => {
 
     return (
         <ToastProvider>
-        <div className="min-h-screen bg-[#0A0A0B] text-white font-sans flex flex-row h-screen overflow-hidden">
+        <div className="bg-[#0A0A0B] text-white font-sans flex flex-row h-full overflow-hidden">
             {/* SIDEBAR */}
             {selectedBrand && profiles[selectedBrand] && (
                 <Sidebar
