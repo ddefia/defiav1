@@ -22,7 +22,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
   }, []);
 
   return (
-    <div className="min-h-screen text-white overflow-x-hidden" style={{ backgroundColor: '#0A0A0B', fontFamily: 'Inter, sans-serif' }}>
+    <div className="min-h-full text-white overflow-x-hidden" style={{ backgroundColor: '#0A0A0B', fontFamily: 'Inter, sans-serif' }}>
       {/* Animated Background */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
         {/* Moving gradient orbs */}

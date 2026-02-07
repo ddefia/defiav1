@@ -989,7 +989,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
 
     return (
       <div
-        className="w-[480px] min-h-screen flex flex-col justify-between p-12"
+        className="w-[480px] min-h-full flex flex-col justify-between p-12"
         style={{ background: 'linear-gradient(180deg, #1A0A00 0%, #0A0A0B 100%)' }}
       >
         <div className="space-y-10">
@@ -2044,7 +2044,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0B] flex">
+    <div className="min-h-full bg-[#0A0A0B] flex">
       {renderLeftPanel()}
       {currentStep === 'profile' && renderProfileStep()}
       {currentStep === 'company' && renderCompanyStep()}

@@ -89,7 +89,7 @@ export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts,
     }, [sentimentScore, socialMetrics, activeNarratives]);
 
     return (
-        <div className="w-full h-full p-6 font-sans bg-[#F9FAFB] min-h-screen">
+        <div className="w-full h-full p-6 font-sans bg-[#F9FAFB] min-h-full">
 
             {/* HEADER */}
             <div className="flex items-center justify-between mb-8 border-b border-gray-200 pb-6">

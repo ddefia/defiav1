@@ -1426,7 +1426,7 @@ const App: React.FC = () => {
     // Auth loading state
     if (isAuthLoading) {
         return (
-            <div className="min-h-screen bg-[#0A0A0B] flex items-center justify-center">
+            <div className="min-h-full bg-[#0A0A0B] flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-10 h-10 border-2 border-[#FF5C00] border-t-transparent rounded-full animate-spin" />
                     <span className="text-[#6B6B70] text-sm">Loading...</span>

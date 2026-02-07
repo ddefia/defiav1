@@ -258,7 +258,7 @@ export const PulseEngine: React.FC<PulseEngineProps> = ({ brandName, brandConfig
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-180px)]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100%-180px)]">
 
                 {/* LEFT COLUMN: SIGNAL FEED (4/12) */}
                 <div className="lg:col-span-4 flex flex-col gap-6 h-full overflow-hidden">

@@ -108,10 +108,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     };
 
     return (
-        <div className="min-h-screen bg-[#0A0A0B] flex">
+        <div className="min-h-full bg-[#0A0A0B] flex">
             {/* Left Panel - Branding */}
             <div
-                className="hidden lg:flex w-[480px] min-h-screen flex-col justify-between p-12"
+                className="hidden lg:flex w-[480px] min-h-full flex-col justify-between p-12"
                 style={{ background: 'linear-gradient(180deg, #1A0A00 0%, #0A0A0B 100%)' }}
             >
                 <div className="space-y-10">
