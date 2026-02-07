@@ -25,150 +25,7 @@ const runApifyActor = async (actorId: string, input: any, token: string) => {
     return await itemsRes.json();
 };
 
-const fetchLunarCrushTrends = async (focusSymbol?: string, brandName?: string): Promise<TrendItem[]> => {
-    const token = process.env.VITE_LUNARCRUSH_API_KEY || (import.meta as any).env?.VITE_LUNARCRUSH_API_KEY;
-    if (!token) return [];
-
-    try {
-        console.log("Fetching LunarCrush TOPICS (Smart Trends)...");
-        // 1. Fetch Trending TOPICS (Meta-Narratives) instead of Coins
-        const response = await fetch("https://lunarcrush.com/api4/public/topics/list/v1", {
-            headers: {
-                "Authorization": `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
-            console.warn(`LunarCrush API Error: ${response.status}`);
-            return [];
-        }
-
-        const data = await response.json();
-        let topics = data.data || [];
-        const now = Date.now();
-
-        // 2. Sort by INTERACTIONS (Vol is often null for topics)
-        topics.sort((a: any, b: any) => (b.interactions_24h || 0) - (a.interactions_24h || 0));
-
-        // 3. Take Top 5 Actionable Topics (e.g. AI, Gaming, Tech)
-        // Filter out generic filler if needed (e.g. "Country" names if they appear and aren't relevant), 
-        // but broadly topics are good signals.
-        // 3. Take Top 10 Topics (Increased from 5 to allow filtering)
-        const candidates = topics.slice(0, 15);
-
-        // STRICT WEB3 FILTERING
-        // 1. BLACKLIST: Kill mainstream tech/finance spam
-        const BLACKLIST = [
-            'roblox', 'fortnite', 'minecraft', 'youtube', 'tiktok', 'netflix', 'disney', 'marvel', 'taylor swift',
-            'nvidia', 'samsung', 'apple', 'google', 'microsoft', 'meta', 'stock', 'shares', 'earnings', 'revenue',
-            'nasdaq', 'sp500', 'dow jones', 'interest rates', 'fed', 'inflation', 'gdp'
-        ];
-
-        // 2. WHITELIST: Content MUST contain one of these to be considered "Web3"
-        const WEB3_KEYWORDS = [
-            'crypto', 'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol', 'memecoin', 'pepe', 'doge', 'shib',
-            'bonk', 'wif', 'defi', 'nft', 'airdrop', 'token', 'altcoin', 'bull', 'bear', 'wallet', 'chain',
-            'l2', 'rollup', 'meme', 'gm', 'wagmi', 'dao', 'yield', 'staking', 'pixel', 'ordinals', 'runes',
-            'base', 'optimism', 'arb', 'sui', 'aptos', 'sei', 'injective', 'cosmos', 'atom', 'blast', 'pump'
-        ];
-
-        const focusTerms = [focusSymbol, brandName].filter(Boolean).map(term => term!.toLowerCase());
-
-        const filteredTopics = candidates.filter((t: any) => {
-            const topic = (t.topic || '').toLowerCase();
-            if (!topic) return false;
-
-            // A. CHECK BLACKLIST
-            if (BLACKLIST.some(b => topic.includes(b))) {
-                return false;
-            }
-
-            // B. CHECK WHITELIST (Strict Mode)
-            // If the topic is just "AI", it's risky. But "AI Agent" or "Crypto AI" is fine.
-            // We check if the topic matches a keyword OR if the topic itself is a known coin symbol (often length 3-4).
-            // Simplest robust check:
-            const isWeb3 = WEB3_KEYWORDS.some(k => topic.includes(k));
-            const isFocusMatch = focusTerms.some(term => term && topic.includes(term));
-
-            // Allow symbols naturally (length 3-4 uppercase in raw, but logical here) 
-            // Broaden: If it's not blacklisted, and passed LunarCrush crypto topics filter...
-            // Wait, LC "Topics" endpoint mixes everything. So we MUST enforce whitelist.
-
-            return isWeb3 || isFocusMatch;
-        }).sort((a: any, b: any) => {
-            const aTopic = (a.topic || '').toLowerCase();
-            const bTopic = (b.topic || '').toLowerCase();
-            const aFocus = focusTerms.some(term => term && aTopic.includes(term));
-            const bFocus = focusTerms.some(term => term && bTopic.includes(term));
-            if (aFocus !== bFocus) return aFocus ? -1 : 1;
-            return (b.interactions_24h || 0) - (a.interactions_24h || 0);
-        }).slice(0, 5); // Take top 5 VALID ones
-
-        // 4. Enrich with REAL NEWS (The "Why")
-        const enrichedTrends = await Promise.all(filteredTopics.map(async (t: any) => {
-            const topicName = t.topic;
-            let context = `Market Movement: High social volume detected for ${topicName}.`;
-            let headline = `${topicName} Trending`;
-
-            try {
-                // Fetch TOP NEWS for this topic
-                const newsRes = await fetch(`https://lunarcrush.com/api4/public/topic/${topicName}/news/v1`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-
-                if (newsRes.ok) {
-                    const newsData = await newsRes.json();
-                    const stories = newsData.data || [];
-
-                    if (stories.length > 0) {
-                        const topStory = stories[0];
-                        // Use the News Title as the HEADLINE (Fixing the "ai" issue)
-                        headline = topStory.post_title;
-
-                        // Use the rest as context
-                        context = `Source: ${topStory.creator_display_name || 'Market Wire'}`;
-
-                        // If title is too short, fall back
-                        if (headline.length < 10) headline = `${topicName}: Market Movement Detected`;
-                    }
-                }
-            } catch (e) {
-                console.warn(`News fetch failed for ${topicName}`, e);
-            }
-
-            let aiReasoning = "GAIA: Monitoring emerging narrative.";
-            const volume = t.interactions_24h || 0;
-            if (volume > 100000) aiReasoning = "GAIA: High Velocity Event (Viral)";
-            else if (volume > 50000) aiReasoning = "GAIA: Strong Sector Momentum";
-            else if (volume > 10000) aiReasoning = "GAIA: Growing Interest Signal";
-
-            return {
-                id: `lc-topic-${topicName}`,
-                source: 'LunarCrush',
-                topic: topicName, // New: The high-level category
-                headline: headline, // Now the Real News Title or a better fallback
-                summary: context,
-                relevanceScore: Math.min(99, 75 + Math.floor(volume / 5000)), // Base score higher for valid topics
-                relevanceReason: aiReasoning,
-                sentiment: 'Neutral',
-                timestamp: 'Live',
-                createdAt: now,
-                url: `https://lunarcrush.com/topics/${topicName}`,
-                rawData: t
-            };
-        }));
-
-        // FINAL FILTER: Remove items where we couldn't find a real headline and it's just "Topic Trending"
-        // This prevents the "ai" issue where no news was found.
-        const validTrends = enrichedTrends.filter(t => !t.headline.endsWith(' Trending') || t.relevanceScore > 90);
-
-        return validTrends;
-
-    } catch (e) {
-        console.warn("LunarCrush fetch failed", e);
-        return [];
-    }
-};
+// LunarCrush integration removed — trends are now sourced via Web3 News (Apify)
 
 // --- LunarCrush Creator Endpoints (Proxy to Backend) ---
 
@@ -235,12 +92,11 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
     const integrationKeys = loadIntegrationKeys(brandName);
     const apifyToken = process.env.VITE_APIFY_API_TOKEN || (import.meta as any).env?.VITE_APIFY_API_TOKEN || process.env.APIFY_API_TOKEN;
     const apifyHandle = integrationKeys.apify;
-    const lunarSymbol = integrationKeys.lunarCrush;
     const now = Date.now();
     let items: TrendItem[] = [];
 
-    // Parallel Fetching - Web3 News (primary), Twitter, and LunarCrush (fallback)
-    const [web3NewsItems, apifyItems, lunarItems] = await Promise.all([
+    // Parallel Fetching - Web3 News (primary) + Twitter (Apify only, no LunarCrush)
+    const [web3NewsItems, apifyItems] = await Promise.all([
         // 1. Web3 News from Apify crypto-news-scraper (PRIMARY SOURCE)
         fetchWeb3News(brandName, {
             limit: 10,
@@ -290,18 +146,14 @@ export const fetchMarketPulse = async (brandName: string): Promise<TrendItem[]> 
                 }
             }
             return null;
-        })(),
-
-        // 3. LunarCrush (fallback/supplementary)
-        fetchLunarCrushTrends(lunarSymbol, brandName)
+        })()
     ]);
 
-    // Combine results - Web3 News first (primary), then Twitter, then LunarCrush
+    // Combine results - Web3 News first (primary), then Twitter
     if (web3NewsItems && web3NewsItems.length > 0) {
         items = [...items, ...web3NewsItems];
     }
     if (apifyItems) items = [...items, ...apifyItems];
-    if (lunarItems) items = [...items, ...lunarItems];
 
     // Sort by relevance score then recency
     items.sort((a, b) => {

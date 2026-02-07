@@ -1,10 +1,25 @@
+// Fallback mapping for known brands (brand name -> Twitter handle)
+const KNOWN_HANDLES = {
+    'enki protocol': 'ENKIProtocol',
+    'enki': 'ENKIProtocol',
+    'netswap': 'netswapofficial',
+    'lazai': 'LazAINetwork',
+    'defia': 'DefiaLabs',
+    'metis': 'MetisL2',
+    'meme': 'MemecoinOrg',
+    'arbitrum': 'arbitrum',
+};
+
+const normalizeForLookup = (name) => String(name || '').toLowerCase().trim();
+
 export const fetchActiveBrands = async (supabase) => {
     if (!supabase) return [];
 
     try {
+        // The brands table has id (brand name), config (JSON), and updated_at
         const { data: brands, error } = await supabase
             .from('brands')
-            .select('id, owner_id, name');
+            .select('id, config');
 
         if (error || !brands) {
             console.warn('[BrandRegistry] Failed to load brands:', error?.message);
@@ -14,40 +29,49 @@ export const fetchActiveBrands = async (supabase) => {
         const brandIds = brands.map((brand) => brand.id);
         if (brandIds.length === 0) return [];
 
-        const { data: sources } = await supabase
-            .from('brand_sources')
-            .select('brand_id, source_type, normalized_value, value')
-            .in('brand_id', brandIds);
-
-        const { data: integrations } = await supabase
-            .from('brand_integrations')
-            .select('brand_id, apify_handle, lunarcrush_symbol')
-            .in('brand_id', brandIds);
-
-        const sourceMap = new Map();
-        (sources || []).forEach((source) => {
-            if (!sourceMap.has(source.brand_id)) {
-                sourceMap.set(source.brand_id, []);
+        // Try to fetch integration keys from app_storage
+        const integrationKeys = [];
+        for (const brandId of brandIds) {
+            const key = `defia_integration_keys_${brandId}`;
+            try {
+                const { data } = await supabase
+                    .from('app_storage')
+                    .select('value')
+                    .eq('key', key)
+                    .maybeSingle();
+                if (data?.value) {
+                    integrationKeys.push({ brandId, ...data.value });
+                }
+            } catch (e) {
+                // Ignore
             }
-            sourceMap.get(source.brand_id).push(source);
-        });
+        }
 
         const integrationMap = new Map();
-        (integrations || []).forEach((row) => {
-            integrationMap.set(row.brand_id, row);
+        integrationKeys.forEach((row) => {
+            integrationMap.set(row.brandId, row);
         });
 
         return brands.map((brand) => {
-            const brandSources = sourceMap.get(brand.id) || [];
-            const handleSource = brandSources.find((entry) => entry.source_type === 'x_handle');
             const integration = integrationMap.get(brand.id);
+
+            // Extract xHandle from config if available
+            const config = brand.config || {};
+            const configXHandle = config.xHandle || config.twitterHandle || null;
+
+            // Fallback to known handles mapping
+            const knownHandle = KNOWN_HANDLES[normalizeForLookup(brand.id)];
+
+            const xHandle = integration?.apify || configXHandle || knownHandle || null;
+
+            console.log(`[BrandRegistry] Brand "${brand.id}" -> xHandle: ${xHandle}`);
 
             return {
                 id: brand.id,
-                ownerId: brand.owner_id || null,
-                name: brand.name,
-                xHandle: integration?.apify_handle || handleSource?.normalized_value || handleSource?.value || null,
-                lunarSymbol: integration?.lunarcrush_symbol || null
+                name: brand.id, // id is the brand name
+                xHandle,
+                lunarSymbol: integration?.lunarcrush || null,
+                config // Include config for additional context
             };
         });
     } catch (e) {

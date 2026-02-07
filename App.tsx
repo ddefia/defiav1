@@ -7,7 +7,7 @@ import { searchContext, buildContextBlock } from './services/rag';
 import { fetchActionCenter } from './services/actionCenter';
 import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, loadCampaignState, saveCampaignState, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage, loadIntegrationKeys, saveIntegrationKeys, loadDecisionLoopLastRun, saveDecisionLoopLastRun } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
-import { getCurrentUser, onAuthStateChange, UserProfile } from './services/auth'; // Import auth
+import { getCurrentUser, onAuthStateChange, loadUserProfile, UserProfile } from './services/auth'; // Import auth
 import { Button } from './components/Button';
 import { Select } from './components/Select';
 import { BrandKit } from './components/BrandKit';
@@ -30,6 +30,9 @@ import { LandingPage } from './components/LandingPage';
 import { AuthPage } from './components/AuthPage'; // Import AuthPage
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { OnboardingPrompt } from './components/onboarding/OnboardingPrompt';
+import { RecommendationDetail } from './components/RecommendationDetail';
+import { NewsArticleDetail } from './components/NewsArticleDetail';
+import { ToastProvider } from './components/Toast';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals, StrategicPosture } from './types';
 
 const ONBOARDING_STORAGE_KEY = 'defia_onboarding_state_v1';
@@ -86,6 +89,8 @@ const sectionRoutes: Record<string, string> = {
     'twitter-feed': '/twitter-feed',
     'brand-kit': '/brand-kit',
     news: '/web3-news',
+    'recommendation-detail': '/recommendation-detail',
+    'news-article': '/news-article',
 };
 
 const getSectionFromPath = (path: string) => {
@@ -96,7 +101,6 @@ const getSectionFromPath = (path: string) => {
 
 
 const App: React.FC = () => {
-    console.log('App: Auth Integration Loaded v3'); // Debug: Force Rebuild
     const [route, setRoute] = useState<string>(() => window.location.pathname);
     const [onboardingState, setOnboardingState] = useState<OnboardingState>(() => loadOnboardingState());
     // App Navigation State
@@ -128,6 +132,11 @@ const App: React.FC = () => {
 
     // Initialize auth state
     useEffect(() => {
+        // Safety timeout: if auth init takes more than 4 seconds, force release
+        const authTimeout = setTimeout(() => {
+            setIsAuthLoading(false);
+        }, 4000);
+
         const initAuth = async () => {
             setIsAuthLoading(true);
             try {
@@ -150,9 +159,15 @@ const App: React.FC = () => {
                         // This runs in background and updates the UI via storage events
                         syncBrandAssetsFromStorage(userBrand.brandName).then(result => {
                             if (result.imagesAdded > 0) {
-                                console.log(`✅ Synced ${result.imagesAdded} images for ${userBrand.brandName}`);
-                                // Reload profiles to pick up new images
-                                setProfiles(loadBrandProfiles());
+                                // Reload profiles from localStorage directly (avoid cloud fetch loop)
+                                try {
+                                    const stored = localStorage.getItem('ethergraph_brand_profiles_v17');
+                                    if (stored) {
+                                        profilesSyncingRef.current = true;
+                                        setProfiles(JSON.parse(stored));
+                                        setTimeout(() => { profilesSyncingRef.current = false; }, 100);
+                                    }
+                                } catch (e) { /* ignore */ }
                             }
                         }).catch(err => {
                             console.warn('Brand asset sync failed (non-critical):', err);
@@ -162,6 +177,7 @@ const App: React.FC = () => {
             } catch (e) {
                 console.warn('Auth init failed', e);
             } finally {
+                clearTimeout(authTimeout);
                 setIsAuthLoading(false);
             }
         };
@@ -209,12 +225,9 @@ const App: React.FC = () => {
     // --- AUTOMATIC BRAIN SYNC (BACKGROUND) ---
     useEffect(() => {
         const syncBrain = async () => {
-            console.log("🧠 Brain Sync: Initiating background sync...");
             const result = await migrateToCloud();
-            if (result.success) {
-                console.log(`🧠 Brain Sync: Complete. Migrated ${result.report.brands} brands, ${result.report.tasks} tasks.`);
-            } else {
-                console.warn("🧠 Brain Sync: Failed (Non-critical)", result.error);
+            if (!result.success) {
+                console.warn("Brain Sync failed (non-critical):", result.error);
             }
         };
         // Delay slightly to prioritize UI render
@@ -226,13 +239,6 @@ const App: React.FC = () => {
     const [profiles, setProfiles] = useState<Record<string, BrandConfig>>(() => loadBrandProfiles());
     // Initialize selectedBrand to empty - will be set after auth check to user's linked brand
     const [selectedBrand, setSelectedBrand] = useState<string>('');
-
-    // Onboarding / Connect State
-    const [showOnboarding, setShowOnboarding] = useState(false);
-    const [newBrandName, setNewBrandName] = useState('');
-    const [newBrandUrl, setNewBrandUrl] = useState('');
-    const [isResearching, setIsResearching] = useState(false);
-    const [researchLogs, setResearchLogs] = useState<string[]>([]);
 
     // Calendar State
     const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
@@ -261,6 +267,9 @@ const App: React.FC = () => {
     const [automationEnabled, setAutomationEnabled] = useState<boolean>(true);
     const decisionLoopInFlightRef = useRef<Record<string, boolean>>({});
     const agentDecisionsRef = useRef<any[]>([]);
+    const strategyTasksRef = useRef<StrategyTask[]>([]);
+    const processedDecisionTimeRef = useRef<number>(0);
+    const profilesSyncingRef = useRef<boolean>(false);
 
     const DECISION_LOOP_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -287,11 +296,21 @@ const App: React.FC = () => {
     const [studioDraft, setStudioDraft] = useState<string>('');
     const [studioVisualPrompt, setStudioVisualPrompt] = useState<string>('');
 
+    // Recommendation Detail State
+    const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null);
+    const [recommendationContext, setRecommendationContext] = useState<any>({});
+
+    // News Article Detail State
+    const [selectedArticle, setSelectedArticle] = useState<any>(null);
+    const [relatedNews, setRelatedNews] = useState<any[]>([]);
+
     // Image Editor Deep Link State
     const [editorInitialImage, setEditorInitialImage] = useState<string | null>(null);
     const [editorInitialPrompt, setEditorInitialPrompt] = useState<string | null>(null);
 
     useEffect(() => {
+        // Skip saving when profiles were just loaded from cloud sync (not user-modified)
+        if (profilesSyncingRef.current) return;
         if (Object.keys(profiles).length > 0) {
             saveBrandProfiles(profiles, true);
         }
@@ -303,12 +322,23 @@ const App: React.FC = () => {
         setCalendarEvents(loadCalendarEvents(selectedBrand));
         setAutomationEnabled(loadAutomationSettings(selectedBrand).enabled);
 
+        // Fetch social metrics on brand selection (populates dashboard KPIs)
+        fetchSocialMetrics(selectedBrand).then(metrics => {
+            if (metrics) setSocialMetrics(metrics);
+        }).catch(e => console.warn("Initial social metrics fetch failed:", e));
+
         // Sync brand assets from Supabase storage (runs once per brand selection)
         syncBrandAssetsFromStorage(selectedBrand).then(result => {
             if (result.imagesAdded > 0) {
-                console.log(`✅ Synced ${result.imagesAdded} images for ${selectedBrand}`);
-                // Reload profiles to pick up new images
-                setProfiles(loadBrandProfiles());
+                // Reload profiles from localStorage directly (avoid cloud fetch side effects)
+                try {
+                    const stored = localStorage.getItem('ethergraph_brand_profiles_v17');
+                    if (stored) {
+                        profilesSyncingRef.current = true;
+                        setProfiles(JSON.parse(stored));
+                        setTimeout(() => { profilesSyncingRef.current = false; }, 100);
+                    }
+                } catch (e) { /* ignore */ }
             }
         }).catch(err => {
             console.warn('Brand asset sync failed (non-critical):', err);
@@ -349,10 +379,8 @@ const App: React.FC = () => {
         const loadedPosture = loadStrategicPosture(selectedBrand);
         setStrategicPosture(loadedPosture);
 
-        // Load History (Logs + Alert Debug)
-        console.log(`DEBUG: Selected Brand is [${selectedBrand}]`);
+        // Load History
         fetchBrainHistoryEvents(selectedBrand).then(events => {
-            console.log('Loaded history events:', events);
             setHistoryEvents(events);
         }).catch(err => console.error("History Load Error:", err));
 
@@ -360,7 +388,6 @@ const App: React.FC = () => {
         const handleSyncUpdate = (e: Event) => {
             const detail = (e as CustomEvent).detail;
             if (detail?.brandName === selectedBrand) {
-                console.log("Live Sync: Reloading calendar events for", selectedBrand);
                 setCalendarEvents(loadCalendarEvents(selectedBrand));
             }
         };
@@ -368,7 +395,6 @@ const App: React.FC = () => {
         const handlePostureUpdate = (e: Event) => {
             const detail = (e as CustomEvent).detail;
             if (detail?.brandName === selectedBrand) {
-                console.log("Live Sync: Reloading posture for", selectedBrand);
                 setStrategicPosture(loadStrategicPosture(selectedBrand));
             }
         };
@@ -410,10 +436,28 @@ const App: React.FC = () => {
         window.addEventListener(STORAGE_EVENTS.AUTOMATION_UPDATE, handleAutomationUpdate);
         window.addEventListener(STORAGE_EVENTS.INTEGRATIONS_UPDATE, handleIntegrationsUpdate);
 
-        // Listen for Brand Updates
+        // Listen for Brand Updates - read from localStorage directly to avoid cloud fetch loop
         const handleBrandUpdate = () => {
-            console.log("Live Sync: Reloading brand profiles");
-            setProfiles(loadBrandProfiles());
+            try {
+                const stored = localStorage.getItem('ethergraph_brand_profiles_v17');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    if (Object.keys(parsed).length > 0) {
+                        profilesSyncingRef.current = true;
+                        setProfiles(prev => {
+                            // Only update if actually different
+                            const prevStr = JSON.stringify(prev);
+                            const newStr = JSON.stringify(parsed);
+                            if (prevStr === newStr) return prev;
+                            return parsed;
+                        });
+                        // Reset sync flag after a tick
+                        setTimeout(() => { profilesSyncingRef.current = false; }, 100);
+                    }
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
         };
         window.addEventListener(STORAGE_EVENTS.BRAND_UPDATE, handleBrandUpdate);
 
@@ -424,7 +468,7 @@ const App: React.FC = () => {
             window.removeEventListener(STORAGE_EVENTS.AUTOMATION_UPDATE, handleAutomationUpdate);
             window.removeEventListener(STORAGE_EVENTS.INTEGRATIONS_UPDATE, handleIntegrationsUpdate);
         };
-    }, [selectedBrand, profiles, automationEnabled]);
+    }, [selectedBrand]);
 
     // Auto-Save Removed: Persistence is now handled explicitly in handlers to avoid race conditions.
 
@@ -472,6 +516,8 @@ const App: React.FC = () => {
 
     // --- Agent Decisions Polling ---
     useEffect(() => {
+        // Reset processed decision tracker when brand changes
+        processedDecisionTimeRef.current = 0;
         const fetchDecisions = async () => {
             const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
             try {
@@ -480,9 +526,10 @@ const App: React.FC = () => {
                 const res = await fetch(`${baseUrl}/api/decisions`).catch(() => null);
                 if (res && res.ok) {
                     const data = await res.json();
+                    const brandLower = selectedBrand.toLowerCase();
                     const filtered = data.filter((d: any) =>
                         d.status === 'pending' &&
-                        (!d.brandId || d.brandId === selectedBrand)
+                        (!d.brandId || d.brandId.toLowerCase() === brandLower)
                     );
                     agentDecisionsRef.current = filtered;
                     setAgentDecisions(filtered);
@@ -496,6 +543,11 @@ const App: React.FC = () => {
         return () => clearInterval(interval);
     }, [selectedBrand]);
 
+    // Keep strategyTasksRef in sync with state (without causing re-renders)
+    useEffect(() => {
+        strategyTasksRef.current = strategyTasks;
+    }, [strategyTasks]);
+
     useEffect(() => {
         if (!selectedBrand || agentDecisions.length === 0) return;
         const latestDecision = agentDecisions[0];
@@ -503,16 +555,24 @@ const App: React.FC = () => {
         const decisionTime = decisionTimestamp ? new Date(decisionTimestamp).getTime() : 0;
         if (!decisionTime) return;
 
-        const latestTaskTime = strategyTasks.reduce((max, task) => Math.max(max, task.createdAt || 0), 0);
-        if (latestTaskTime && decisionTime <= latestTaskTime) return;
+        // Skip if we already processed this decision time
+        if (processedDecisionTimeRef.current >= decisionTime) return;
+
+        const currentTasks = strategyTasksRef.current;
+        const latestTaskTime = currentTasks.reduce((max, task) => Math.max(max, task.createdAt || 0), 0);
+        if (latestTaskTime && decisionTime <= latestTaskTime) {
+            processedDecisionTimeRef.current = decisionTime;
+            return;
+        }
 
         const mapped = agentDecisions.map(mapDecisionToTask).slice(0, 5);
         if (mapped.length === 0) return;
 
+        processedDecisionTimeRef.current = decisionTime;
         setStrategyTasks(mapped);
         saveStrategyTasks(selectedBrand, mapped);
         saveDecisionLoopLastRun(selectedBrand, decisionTime);
-    }, [agentDecisions, selectedBrand, strategyTasks]);
+    }, [agentDecisions, selectedBrand]);
 
     // --- AUTO-PILOT LOGIC (Formerly in GrowthEngine) ---
     // Persistent background scanning regardless of active tab
@@ -567,11 +627,12 @@ const App: React.FC = () => {
 
                 // 2. Fetch Trends & Mentions
                 setSystemLogs(prev => ["Analysis: Fetching Trends & Mentions...", ...prev]);
-                const [trends, mentions] = await Promise.all([
+                const [trends, mentions, metricsResult] = await Promise.all([
                     fetchMarketPulse(selectedBrand).catch(e => { console.warn("Market Pulse failed", e); return []; }),
                     fetchMentions(selectedBrand).catch(e => { console.warn("Mentions failed", e); return []; }),
                     fetchSocialMetrics(selectedBrand).catch(e => { console.warn("Social Metrics failed", e); return null; })
                 ]);
+                if (metricsResult) setSocialMetrics(metricsResult);
 
                 // 2b. Update Live Signals (Prioritize High Velocity / AI Signals)
                 // Filter for high relevance (>80) or LunarCrush AI signals
@@ -1170,10 +1231,24 @@ const App: React.FC = () => {
             setSocialFilter(params.filter);
         }
 
-        // Studio: Deep Link with Content
+        // Studio: Deep Link with Content — always update state to trigger re-render
         if (section === 'studio') {
-            if (params?.draft) setStudioDraft(params.draft);
-            if (params?.visualPrompt) setStudioVisualPrompt(params.visualPrompt);
+            setStudioDraft(params?.draft || '');
+            setStudioVisualPrompt(params?.visualPrompt || '');
+        }
+
+        // Recommendation Detail: Deep Link with recommendation data
+        if (section === 'recommendation-detail') {
+            if (params?.recommendation) setSelectedRecommendation(params.recommendation);
+            setRecommendationContext({
+                agentInsights: params?.agentInsights,
+                analysis: params?.analysis,
+                inputCoverage: params?.inputCoverage,
+                socialMetrics: params?.socialMetrics,
+                trendingTopics: params?.trendingTopics,
+                brandConfig: params?.brandConfig,
+                generatedAt: params?.generatedAt,
+            });
         }
 
         // Image Editor: Deep Link with Image
@@ -1181,45 +1256,13 @@ const App: React.FC = () => {
             if (params?.image) setEditorInitialImage(params.image);
             if (params?.prompt) setEditorInitialPrompt(params.prompt);
         }
-    }, []);
 
-    // --- Onboarding / Research ---
-
-    const handleStartResearch = async () => {
-        if (!newBrandName || !newBrandUrl) return;
-
-        setIsResearching(true);
-        setResearchLogs([]);
-
-        const addLog = (msg: string) => setResearchLogs(prev => [...prev, msg]);
-
-        try {
-            addLog(`Initializing connection to ${newBrandUrl}...`);
-            await new Promise(r => setTimeout(r, 800));
-            addLog(`Analyzing metadata for ${newBrandName}...`);
-            await new Promise(r => setTimeout(r, 800));
-            addLog(`Extracting visual vectors and color palette...`);
-
-            // Actual AI Call
-            const newConfig = await researchBrandIdentity(newBrandName, newBrandUrl);
-
-            addLog(`Brand DNA compiled successfully.`);
-            await new Promise(r => setTimeout(r, 500));
-
-            // Save and Switch
-            setProfiles(prev => ({ ...prev, [newBrandName]: newConfig }));
-            setSelectedBrand(newBrandName);
-            setShowOnboarding(false);
-            setNewBrandName('');
-            setNewBrandUrl('');
-
-        } catch (e) {
-            addLog(`Error: Research failed. Manual setup required.`);
-            console.error(e);
-        } finally {
-            setIsResearching(false);
+        // News Article Detail
+        if (section === 'news-article') {
+            if (params?.article) setSelectedArticle(params.article);
+            if (params?.relatedNews) setRelatedNews(params.relatedNews);
         }
-    };
+    }, []);
 
     // --- Scheduling ---
 
@@ -1414,8 +1457,23 @@ const App: React.FC = () => {
             <AuthPage
                 mode={route === '/signup' ? 'signup' : 'login'}
                 onSuccess={(hasBrand) => {
+                    // Immediately set user and brand from the fresh login
+                    const freshUser = loadUserProfile();
+                    if (freshUser) setCurrentUser(freshUser);
+                    const userBrand = getCurrentUserBrand();
+                    if (userBrand) {
+                        setSelectedBrand(userBrand.brandName);
+                        // Ensure profiles are loaded
+                        const freshProfiles = loadBrandProfiles();
+                        if (Object.keys(freshProfiles).length > 0) {
+                            profilesSyncingRef.current = true;
+                            setProfiles(freshProfiles);
+                            setTimeout(() => { profilesSyncingRef.current = false; }, 100);
+                        }
+                    }
+
                     // If user already has a brand (demo accounts or returning users), skip onboarding
-                    if (hasBrand) {
+                    if (hasBrand || userBrand) {
                         // Mark onboarding as complete for users with existing brands
                         setOnboardingState({
                             dismissed: false,
@@ -1450,6 +1508,7 @@ const App: React.FC = () => {
     }
 
     return (
+        <ToastProvider>
         <div className="min-h-screen bg-[#0A0A0B] text-white font-sans flex flex-row h-screen overflow-hidden">
             {/* SIDEBAR */}
             {selectedBrand && profiles[selectedBrand] && (
@@ -1459,7 +1518,7 @@ const App: React.FC = () => {
                     brandName={selectedBrand}
                     profiles={profiles}
                     onSelectBrand={setSelectedBrand}
-                    onConnect={() => setShowOnboarding(true)}
+                    onConnect={handleStartOnboarding}
                 />
             )}
 
@@ -1484,12 +1543,12 @@ const App: React.FC = () => {
                 )}
 
                 {/* EMPTY STATE */}
-                {(!selectedBrand || !profiles[selectedBrand]) && !showOnboarding && (
+                {(!selectedBrand || !profiles[selectedBrand]) && (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-10 animate-fadeIn">
                         <div className="w-16 h-16 bg-brand-accent/10 text-brand-accent rounded-2xl flex items-center justify-center mb-6 text-3xl">✨</div>
                         <h2 className="text-2xl font-bold text-brand-text mb-2">Welcome to Defia Studio</h2>
                         <p className="text-brand-muted mb-8 max-w-md">Connect your brand identity to generate tailored content and strategies.</p>
-                        <Button onClick={() => setShowOnboarding(true)} className="shadow-xl shadow-brand-accent/20">+ Connect Brand</Button>
+                        <Button onClick={handleStartOnboarding} className="shadow-xl shadow-brand-accent/20">+ Connect Brand</Button>
                     </div>
                 )}
 
@@ -1585,7 +1644,7 @@ const App: React.FC = () => {
 
 
                 {appSection === 'calendar' && selectedBrand && (
-                    <div className="w-full max-w-7xl mx-auto p-6">
+                    <div className="flex-1 flex flex-col min-h-0">
                         <ContentCalendar
                             brandName={selectedBrand}
                             events={[...calendarEvents, ...historyEvents]}
@@ -1626,6 +1685,9 @@ const App: React.FC = () => {
                     <Web3NewsFeed
                         brandName={selectedBrand}
                         brandConfig={profiles[selectedBrand]}
+                        onSelectArticle={(article) => {
+                            handleNavigate('news-article', { article, relatedNews: [] });
+                        }}
                     />
                 )}
 
@@ -1636,6 +1698,7 @@ const App: React.FC = () => {
                         brandConfig={profiles[selectedBrand]}
                         onSchedule={(content, image) => handleOpenScheduleModal(content, image)}
                         onUpdateBrandConfig={handleUpdateCurrentBrandConfig}
+                        onNavigate={handleNavigate}
                         initialDraft={studioDraft}
                         initialVisualPrompt={studioVisualPrompt}
                     />
@@ -1648,6 +1711,46 @@ const App: React.FC = () => {
                         brandName={selectedBrand}
                         initialImage={editorInitialImage ?? undefined}
                         initialPrompt={editorInitialPrompt ?? undefined}
+                        onBack={() => handleNavigate('studio')}
+                        onSaveAndUse={(imageUrl) => {
+                            setStudioDraft(prev => prev || '');
+                            setEditorInitialImage(null);
+                            setEditorInitialPrompt(null);
+                            handleNavigate('studio', { draft: '', visualPrompt: '' });
+                            // Small delay so studio mounts first, then set the image
+                            setTimeout(() => {
+                                setEditorInitialImage(imageUrl);
+                            }, 100);
+                        }}
+                    />
+                )}
+
+                {/* SECTION: NEWS ARTICLE DETAIL */}
+                {appSection === 'news-article' && selectedBrand && profiles[selectedBrand] && selectedArticle && (
+                    <NewsArticleDetail
+                        article={selectedArticle}
+                        brandName={selectedBrand}
+                        brandConfig={profiles[selectedBrand]}
+                        relatedNews={relatedNews}
+                        onBack={() => handleNavigate('news')}
+                        onCreateTwitterThread={() => handleNavigate('studio', { draft: `Thread about: ${selectedArticle.headline}\n\n${selectedArticle.summary || ''}` })}
+                        onGenerateInfographic={() => handleNavigate('image-editor', { image: undefined, prompt: `Infographic about: ${selectedArticle.headline}` })}
+                        onDraftDiscordPost={() => handleNavigate('studio', { draft: `Discord announcement:\n\n${selectedArticle.headline}\n\n${selectedArticle.summary || ''}` })}
+                        onSelectRelated={(article) => {
+                            setSelectedArticle(article);
+                            setRelatedNews([]);
+                        }}
+                    />
+                )}
+
+                {/* SECTION: RECOMMENDATION DETAIL */}
+                {appSection === 'recommendation-detail' && selectedBrand && selectedRecommendation && (
+                    <RecommendationDetail
+                        recommendation={selectedRecommendation}
+                        context={recommendationContext}
+                        brandName={selectedBrand}
+                        onNavigate={handleNavigate}
+                        onBack={() => handleNavigate('dashboard')}
                     />
                 )}
 
@@ -1659,92 +1762,12 @@ const App: React.FC = () => {
                         calendarEvents={calendarEvents}
                         strategyTasks={strategyTasks}
                         growthReport={growthReport}
+                        socialMetrics={socialMetrics}
+                        agentDecisions={agentDecisions}
                         onNavigate={handleNavigate}
                     />
                 )}
 
-                {/* ONBOARDING MODAL */}
-                {showOnboarding && (
-                    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-                        <div className="bg-black border border-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden relative">
-                            {/* Decorative Grid Background */}
-                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none"></div>
-
-                            <div className="p-8 relative z-10">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white font-display flex items-center gap-2">
-                                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                            AI Brand Research
-                                        </h3>
-                                        <p className="text-gray-400 text-sm mt-1">Plug & Play: Enter your details, we'll build the brand.</p>
-                                    </div>
-                                    <button onClick={() => setShowOnboarding(false)} className="text-gray-500 hover:text-white">✕</button>
-                                </div>
-
-                                {!isResearching ? (
-                                    <div className="space-y-5">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Company Name</label>
-                                            <input
-                                                type="text"
-                                                value={newBrandName}
-                                                onChange={(e) => setNewBrandName(e.target.value)}
-                                                placeholder="e.g. Arbitrum"
-                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-accent outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Website URL</label>
-                                            <input
-                                                type="text"
-                                                value={newBrandUrl}
-                                                onChange={(e) => setNewBrandUrl(e.target.value)}
-                                                placeholder="e.g. https://arbitrum.io"
-                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-accent outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Contract Address (Optional)</label>
-                                            <input
-                                                type="text"
-                                                placeholder="0x..."
-                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:border-brand-accent outline-none"
-                                            />
-                                            <p className="text-[10px] text-gray-600 mt-1">Used for Growth Engine data integration.</p>
-                                        </div>
-
-                                        <Button
-                                            onClick={handleStartResearch}
-                                            disabled={!newBrandName || !newBrandUrl}
-                                            className="w-full bg-brand-accent hover:bg-brand-accent/90 text-white font-bold h-12 shadow-lg shadow-brand-accent/20"
-                                        >
-                                            Initialize Brand Analysis
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div className="py-8 font-mono text-xs">
-                                        <div className="flex items-center justify-center mb-6">
-                                            <div className="w-16 h-16 border-4 border-gray-800 border-t-green-500 rounded-full animate-spin"></div>
-                                        </div>
-                                        <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar p-2 bg-gray-900/50 rounded border border-gray-800">
-                                            {researchLogs.map((log, i) => (
-                                                <div key={i} className="text-green-400">
-                                                    <span className="text-gray-600 mr-2">{`>`}</span>
-                                                    {log}
-                                                </div>
-                                            ))}
-                                            <div className="text-green-400 animate-pulse">
-                                                <span className="text-gray-600 mr-2">{`>`}</span>
-                                                _
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {viewingImage && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" onClick={() => setViewingImage(null)}>
@@ -1826,6 +1849,7 @@ const App: React.FC = () => {
 
             </main>
         </div>
+        </ToastProvider>
     );
 };
 

@@ -146,9 +146,11 @@ const STEPS: { id: OnboardingStep; label: string; description: string }[] = [
 ];
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComplete }) => {
-  // Check if user already has a profile (skip profile step)
-  const existingProfile = loadUserProfile();
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>(existingProfile ? 'company' : 'profile');
+  // Check if user already has a profile (skip profile step) - only on initial mount
+  const existingProfileRef = useRef(loadUserProfile());
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>(() =>
+    existingProfileRef.current ? 'company' : 'profile'
+  );
 
   // User profile state
   const [userEmail, setUserEmail] = useState('');
@@ -176,6 +178,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   });
 
   const [enrichedData, setEnrichedData] = useState<EnrichedData | null>(null);
+
+  // Brand Kit state
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [showKnowledgeModal, setShowKnowledgeModal] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [styleExamples, setStyleExamples] = useState<string[]>([]);
   const [currentStyleIndex, setCurrentStyleIndex] = useState(0);
@@ -216,9 +225,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   const isGuestProfile = useMemo(() => {
-    if (!existingProfile) return true;
-    return existingProfile.id?.startsWith('guest-');
-  }, [existingProfile]);
+    const profile = existingProfileRef.current;
+    if (!profile) return true;
+    return profile.id?.startsWith('guest-');
+  }, []);
 
   const isAccountFormValid = useMemo(() => {
     const hasEmail = userEmail.trim().length > 0 && userEmail.includes('@');
@@ -242,7 +252,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     try {
       const { address, error: walletError } = await connectWallet();
       if (walletError) {
-        setError(walletError.message);
+        setError(walletError);
       } else if (address) {
         setUserWalletAddress(address);
       }
@@ -281,7 +291,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       });
 
       if (profileError) {
-        setError(profileError.message);
+        setError(profileError);
         return;
       }
 
@@ -495,6 +505,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
         }));
       } catch (twitterError: any) {
+        console.error('[Onboarding] Twitter fetch error:', twitterError);
         setAnalysisProgress(prev => ({
           ...prev,
           twitter: { status: 'complete', message: twitterError?.message || 'Twitter scan skipped (no access)' },
@@ -558,10 +569,21 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         ? tweetExamples
         : (researchResult.tweetExamples || []);
 
+      console.log('[Onboarding] Building reference images from:', {
+        researchResult: researchResult.referenceImages?.length || 0,
+        tweetImages: tweetImages.length,
+        sampleTweetImage: tweetImages[0]
+      });
+
       const combinedReferenceImages = dedupeReferenceImages([
         ...(researchResult.referenceImages || []),
         ...tweetImages
       ]);
+
+      console.log('[Onboarding] Combined reference images:', {
+        count: combinedReferenceImages.length,
+        sample: combinedReferenceImages[0]
+      });
 
       // Build DeFi metrics knowledge entries if available
       const defiKnowledge: string[] = [];
@@ -615,17 +637,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       }
 
       // Generate carousel content examples (AI) after enrichment
+      // Only generate 3 NEW tweets for the carousel (not using scraped content)
       let generatedExamples: string[] = [];
       try {
-        generatedExamples = await generateStyleExamples(brandName.trim(), enriched, 10);
+        generatedExamples = await generateStyleExamples(brandName.trim(), enriched, 3);
       } catch (e) {
         generatedExamples = [];
       }
 
-      const combinedExamples = dedupeStrings([
-        ...(enriched.tweetExamples || []),
-        ...generatedExamples
-      ]);
+      // Use ONLY AI-generated examples for the carousel
+      const combinedExamples = dedupeStrings([...generatedExamples]).slice(0, 3);
 
       const data: EnrichedData = {
         brandName: brandName.trim(),
@@ -646,6 +667,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         sampleImages: enriched.referenceImages?.slice(0, 2)
       });
 
+      console.log('[Onboarding] Setting enrichedData with referenceImages:', {
+        count: data.config.referenceImages?.length || 0,
+        first: data.config.referenceImages?.[0]
+      });
       setEnrichedData(data);
       setStyleExamples(combinedExamples);
 
@@ -803,6 +828,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   const ensureVariant = async (index: number, variantIndex: number) => {
+    console.log('[Onboarding] ensureVariant called with enrichedData:', {
+      hasEnrichedData: !!enrichedData,
+      hasConfig: !!enrichedData?.config,
+      referenceImagesCount: enrichedData?.config?.referenceImages?.length || 0,
+      firstImage: enrichedData?.config?.referenceImages?.[0]
+    });
+
     if (!enrichedData?.config || !styleExamples[index]) return;
     const exampleText = styleExamples[index];
     const variants = getVariantConfigs(exampleText, enrichedData.config);
@@ -827,16 +859,37 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     try {
       const variant = variants[variantIndex];
       const artPrompt = buildGraphicPrompt(exampleText, variant.mode, enrichedData.config);
-      const referenceId = variant.mode === 'article_image'
-        ? pickReferenceImageId(enrichedData.config)
-        : undefined;
-      const selectedReferenceImages = referenceId ? [referenceId] : [];
 
+      // DEBUG: Log the full reference images state at generation time
+      console.log('[Onboarding] enrichedData.config.referenceImages at generation:', {
+        exists: !!enrichedData.config.referenceImages,
+        count: enrichedData.config.referenceImages?.length || 0,
+        first3: (enrichedData.config.referenceImages || []).slice(0, 3).map(img => ({
+          id: img.id,
+          hasUrl: !!img.url,
+          hasData: !!img.data
+        }))
+      });
+
+      // ALWAYS use reference images for style consistency across all modes
+      // Pick up to 3 random reference images to guide the style
+      const allReferenceIds = (enrichedData.config.referenceImages || [])
+        .filter(img => img.id && (img.url || img.data))
+        .map(img => img.id);
+
+      // Shuffle and pick up to 3 for style reference
+      const shuffled = [...allReferenceIds].sort(() => Math.random() - 0.5);
+      const selectedReferenceImages = shuffled.slice(0, 3);
+
+      console.log('[Onboarding] Generating graphic with reference images:', selectedReferenceImages);
+
+      // Match Content Studio format exactly
       const image = await generateWeb3Graphic({
         prompt: exampleText,
         artPrompt,
+        negativePrompt: 'text, words, letters, watermark, blurry, low quality',
         size: '1K',
-        aspectRatio: '1:1',
+        aspectRatio: '16:9', // Match Content Studio default
         brandConfig: enrichedData.config,
         brandName: brandName.trim(),
         selectedReferenceImages
@@ -866,11 +919,43 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     }
   };
 
+  // Debug: Track enrichedData changes
   useEffect(() => {
+    console.log('[Onboarding] enrichedData state changed:', {
+      hasData: !!enrichedData,
+      referenceImagesCount: enrichedData?.config?.referenceImages?.length || 0
+    });
+  }, [enrichedData]);
+
+  // Track if we've already started generating for this index to prevent double-generation
+  const generatingRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    console.log('[Onboarding] Styles useEffect triggered:', {
+      currentStep,
+      hasStyleExamples: styleExamples.length > 0,
+      currentStyleIndex,
+      enrichedDataRefImages: enrichedData?.config?.referenceImages?.length || 0
+    });
     if (currentStep !== 'styles') return;
     if (!styleExamples[currentStyleIndex]) return;
+
+    // Only generate once per index
+    if (generatingRef.current.has(currentStyleIndex)) {
+      console.log('[Onboarding] Skipping - already generating for index:', currentStyleIndex);
+      return;
+    }
+
+    // Check if we already have a graphic for this index
+    const existing = styleGraphics[currentStyleIndex];
+    if (existing?.variants?.[0]?.status === 'ready' || existing?.variants?.[0]?.status === 'loading') {
+      console.log('[Onboarding] Skipping - already have graphic for index:', currentStyleIndex);
+      return;
+    }
+
+    generatingRef.current.add(currentStyleIndex);
     ensureVariant(currentStyleIndex, 0);
-  }, [currentStep, currentStyleIndex, styleExamples, enrichedData]);
+  }, [currentStep, currentStyleIndex, styleExamples.length]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -1370,142 +1455,360 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     </div>
   );
 
+  // Handle file uploads for knowledge base
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'pdf' | 'image') => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingFile(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (type === 'pdf' && file.type === 'application/pdf') {
+          // For PDFs, we'd normally parse them - for now just add as knowledge
+          const text = `[DOCUMENT] Uploaded: ${file.name}`;
+          if (enrichedData) {
+            setEnrichedData({
+              ...enrichedData,
+              config: {
+                ...enrichedData.config,
+                knowledgeBase: [...(enrichedData.config.knowledgeBase || []), text]
+              }
+            });
+          }
+        } else if (type === 'image' && file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const data = event.target?.result as string;
+            if (enrichedData && data) {
+              const newImage: ReferenceImage = {
+                id: `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                name: file.name,
+                data,
+                category: 'Uploaded'
+              };
+              setEnrichedData({
+                ...enrichedData,
+                config: {
+                  ...enrichedData.config,
+                  referenceImages: [...(enrichedData.config.referenceImages || []), newImage]
+                }
+              });
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    } catch (err) {
+      console.error('Upload failed:', err);
+    } finally {
+      setUploadingFile(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  // Extract brand colors from config
+  const brandColors = enrichedData?.config.colors || [];
+  const primaryColor = brandColors[0]?.hex || '#FF5C00';
+
+  // Get first reference image as potential logo
+  const potentialLogo = enrichedData?.config.referenceImages?.find(img =>
+    img.name?.toLowerCase().includes('logo') || img.category?.toLowerCase().includes('logo')
+  ) || enrichedData?.config.referenceImages?.[0];
+
   const renderReviewStep = () => (
-    <div className="flex-1 overflow-y-auto px-16 py-12">
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-white text-2xl font-semibold">Your Company Profile</h2>
-          <button className="px-4 py-2.5 rounded-lg bg-[#1F1F23] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#2A2A2E] transition-colors">
+    <div className="flex-1 overflow-y-auto px-12 py-10">
+      {/* Image Viewer Modal */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-8"
+          onClick={() => setViewingImage(null)}
+        >
+          <button
+            onClick={() => setViewingImage(null)}
+            className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={viewingImage}
+            alt="Preview"
+            className="max-w-[90vw] max-h-[85vh] rounded-2xl shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      {/* Hidden file inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.txt"
+        multiple
+        className="hidden"
+        onChange={(e) => handleFileUpload(e, 'pdf')}
+      />
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => handleFileUpload(e, 'image')}
+      />
+
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header with Logo */}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-6">
+            {/* Company Logo/Avatar */}
+            <div
+              className="w-20 h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-[#1F1F23] to-[#0A0A0B] border border-[#2A2A2E] flex items-center justify-center cursor-pointer hover:border-[#FF5C00] transition-colors"
+              onClick={() => potentialLogo?.url && setViewingImage(potentialLogo.url)}
+              style={{ backgroundColor: primaryColor + '20' }}
+            >
+              {potentialLogo?.url || potentialLogo?.data ? (
+                <img
+                  src={potentialLogo.url || potentialLogo.data}
+                  alt="Logo"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl font-bold" style={{ color: primaryColor }}>
+                  {enrichedData?.brandName?.charAt(0) || 'B'}
+                </span>
+              )}
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">{enrichedData?.brandName}</h1>
+              <p className="text-[#8E8E93] mt-1">{enrichedData?.config.targetAudience?.split(',')[0] || 'Web3 Technology'}</p>
+              <div className="flex items-center gap-4 mt-2">
+                <a href={enrichedData?.sources.domains[0]} target="_blank" rel="noopener noreferrer" className="text-[#FF5C00] text-sm hover:underline flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                  </svg>
+                  {enrichedData?.sources.domains[0]?.replace('https://', '')}
+                </a>
+                <a href={`https://x.com/${enrichedData?.sources.xHandles[0]}`} target="_blank" rel="noopener noreferrer" className="text-[#FF5C00] text-sm hover:underline flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                  @{enrichedData?.sources.xHandles[0]}
+                </a>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setCurrentStep('company')}
+            className="px-4 py-2.5 rounded-xl bg-[#1F1F23] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#2A2A2E] transition-colors"
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
-            Edit
+            Edit Details
           </button>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF5C00] to-[#FF8C4A] flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-white font-medium">Company Information</p>
-                <p className="text-[#8E8E93] text-sm">Basic details about your company</p>
-              </div>
+        {/* Brand Colors */}
+        {brandColors.length > 0 && (
+          <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                </div>
+                Brand Colors
+              </h3>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-[#6B6B70]">Company Name</p>
-                <p className="text-white">{enrichedData?.brandName}</p>
-              </div>
-              <div>
-                <p className="text-[#6B6B70]">Industry</p>
-                <p className="text-white">{enrichedData?.config.targetAudience?.split(',')[0] || 'Technology'}</p>
-              </div>
-              <div>
-                <p className="text-[#6B6B70]">Website</p>
-                <p className="text-[#FF5C00]">{enrichedData?.sources.domains[0]}</p>
-              </div>
-              <div>
-                <p className="text-[#6B6B70]">Twitter</p>
-                <p className="text-[#FF5C00]">@{enrichedData?.sources.xHandles[0]}</p>
-              </div>
+            <div className="flex gap-4">
+              {brandColors.map((color, index) => (
+                <div key={index} className="flex flex-col items-center gap-2">
+                  <div
+                    className="w-16 h-16 rounded-xl border-2 border-[#2A2A2E] shadow-lg"
+                    style={{ backgroundColor: color.hex }}
+                  />
+                  <span className="text-xs text-[#8E8E93]">{color.name}</span>
+                  <span className="text-xs text-[#6B6B70] font-mono">{color.hex}</span>
+                </div>
+              ))}
             </div>
           </div>
+        )}
 
-          <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Brand Voice & Personality */}
+        <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <div>
-                <p className="text-white font-medium">Brand Voice</p>
-                <p className="text-[#8E8E93] text-sm">Your unique communication style</p>
-              </div>
-            </div>
-            <p className="text-[#9CA3AF] text-sm leading-relaxed">
-              {enrichedData?.config.voiceGuidelines?.slice(0, 300) || 'Professional yet approachable, with a focus on technical credibility and community-first messaging. Clear explanations of complex DeFi concepts.'}
-              {(enrichedData?.config.voiceGuidelines?.length || 0) > 300 && '...'}
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <span className="px-3 py-1 rounded-full bg-[#1F1F23] text-[#FF5C00] text-xs font-medium">Professional</span>
-              <span className="px-3 py-1 rounded-full bg-[#1F1F23] text-[#FF5C00] text-xs font-medium">Technical</span>
-              <span className="px-3 py-1 rounded-full bg-[#1F1F23] text-[#FF5C00] text-xs font-medium">Community-Focused</span>
-            </div>
+              Brand Voice & Personality
+            </h3>
           </div>
-
-          <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-white font-medium">Knowledge Base</p>
-                  <p className="text-[#8E8E93] text-sm">{enrichedData?.config.knowledgeBase?.length || 0} items collected</p>
-                </div>
-              </div>
-              <button className="text-[#FF5C00] text-sm font-medium hover:underline">+ Add</button>
-            </div>
-            <div className="space-y-2">
-              {enrichedData?.config.knowledgeBase?.slice(0, 3).map((item, index) => (
-                <div key={index} className="flex items-start gap-2 text-sm">
-                  <svg className="w-4 h-4 text-[#FF5C00] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-[#9CA3AF]">{item.slice(0, 80)}{item.length > 80 && '...'}</span>
-                </div>
-              ))}
-              {(enrichedData?.config.knowledgeBase?.length || 0) > 3 && (
-                <p className="text-[#FF5C00] text-sm cursor-pointer hover:underline">
-                  View all {enrichedData?.config.knowledgeBase?.length} items →
-                </p>
-              )}
-            </div>
-          </div>
-
-          {enrichedData?.config.referenceImages && enrichedData.config.referenceImages.length > 0 && (
-            <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">Reference Images</p>
-                    <p className="text-[#8E8E93] text-sm">{enrichedData.config.referenceImages.length} images found</p>
-                  </div>
-                </div>
-                <button className="text-[#FF5C00] text-sm font-medium hover:underline">+ Add</button>
-              </div>
-              <div className="flex gap-3">
-                {enrichedData.config.referenceImages.slice(0, 4).map((img, index) => (
-                  <div key={img.id || index} className="w-20 h-20 rounded-xl bg-[#1F1F23] overflow-hidden">
-                    <img src={img.url || img.data} alt={img.name || ''} className="w-full h-full object-cover" onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }} />
-                  </div>
+          <p className="text-[#C5C5C7] text-sm leading-relaxed mb-4">
+            {enrichedData?.config.voiceGuidelines || 'Professional yet approachable, with a focus on technical credibility and community-first messaging. Clear explanations of complex concepts while maintaining authenticity.'}
+          </p>
+          {enrichedData?.config.bannedPhrases && enrichedData.config.bannedPhrases.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-[#2A2A2E]">
+              <p className="text-xs text-[#6B6B70] uppercase tracking-wider mb-2">Avoid These Phrases</p>
+              <div className="flex gap-2 flex-wrap">
+                {enrichedData.config.bannedPhrases.slice(0, 6).map((phrase, index) => (
+                  <span key={index} className="px-2 py-1 rounded-md bg-red-500/10 text-red-400 text-xs">{phrase}</span>
                 ))}
-                {enrichedData.config.referenceImages.length > 4 && (
-                  <div className="w-20 h-20 rounded-xl bg-[#1F1F23] flex items-center justify-center">
-                    <span className="text-[#6B6B70] text-sm">+{enrichedData.config.referenceImages.length - 4}</span>
-                  </div>
-                )}
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-4 pt-4">
+        {/* Knowledge Base */}
+        <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              Knowledge Base
+              <span className="ml-2 px-2 py-0.5 rounded-full bg-[#1F1F23] text-[#8E8E93] text-xs">
+                {enrichedData?.config.knowledgeBase?.length || 0} items
+              </span>
+            </h3>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingFile}
+              className="px-3 py-1.5 rounded-lg bg-[#FF5C00]/10 text-[#FF5C00] text-sm font-medium hover:bg-[#FF5C00]/20 transition-colors flex items-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {uploadingFile ? 'Uploading...' : 'Add PDF/Doc'}
+            </button>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+            {enrichedData?.config.knowledgeBase?.slice(0, 8).map((item, index) => (
+              <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
+                <div className="w-6 h-6 rounded-md bg-[#1F1F23] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  {item.startsWith('[DOCUMENT]') ? (
+                    <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  ) : item.startsWith('[DEFI]') ? (
+                    <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-[#C5C5C7] text-sm leading-relaxed">{item.replace(/^\[(.*?)\]\s*/, '')}</span>
+              </div>
+            ))}
+          </div>
+          {(enrichedData?.config.knowledgeBase?.length || 0) > 8 && (
+            <button
+              onClick={() => setShowKnowledgeModal(true)}
+              className="mt-3 text-[#FF5C00] text-sm font-medium hover:underline"
+            >
+              View all {enrichedData?.config.knowledgeBase?.length} items →
+            </button>
+          )}
+        </div>
+
+        {/* Reference Images - Larger & Clickable */}
+        <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              Style Reference Images
+              <span className="ml-2 px-2 py-0.5 rounded-full bg-[#1F1F23] text-[#8E8E93] text-xs">
+                {enrichedData?.config.referenceImages?.length || 0} images
+              </span>
+            </h3>
+            <button
+              onClick={() => imageInputRef.current?.click()}
+              disabled={uploadingFile}
+              className="px-3 py-1.5 rounded-lg bg-[#FF5C00]/10 text-[#FF5C00] text-sm font-medium hover:bg-[#FF5C00]/20 transition-colors flex items-center gap-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Images
+            </button>
+          </div>
+          {enrichedData?.config.referenceImages && enrichedData.config.referenceImages.length > 0 ? (
+            <div className="grid grid-cols-4 gap-4">
+              {enrichedData.config.referenceImages.slice(0, 8).map((img, index) => (
+                <div
+                  key={img.id || index}
+                  className="aspect-square rounded-xl bg-[#0A0A0B] border border-[#1F1F23] overflow-hidden cursor-pointer hover:border-[#FF5C00] hover:shadow-lg hover:shadow-[#FF5C00]/10 transition-all group relative"
+                  onClick={() => setViewingImage(img.url || img.data || null)}
+                >
+                  <img
+                    src={img.url || img.data}
+                    alt={img.name || 'Reference'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                    </svg>
+                  </div>
+                  {img.category && (
+                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-xs">
+                      {img.category}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-[#6B6B70] text-sm">No reference images found. Add some to guide your brand's visual style.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Tweet Examples from Twitter */}
+        {enrichedData?.config.tweetExamples && enrichedData.config.tweetExamples.length > 0 && (
+          <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-sky-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                </div>
+                Content Style Examples
+                <span className="ml-2 px-2 py-0.5 rounded-full bg-[#1F1F23] text-[#8E8E93] text-xs">
+                  from @{enrichedData?.sources.xHandles[0]}
+                </span>
+              </h3>
+            </div>
+            <div className="space-y-3">
+              {enrichedData.config.tweetExamples.slice(0, 3).map((tweet, index) => (
+                <div key={index} className="p-4 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
+                  <p className="text-[#C5C5C7] text-sm leading-relaxed">{tweet}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-4 pt-4 pb-8">
           <button
             onClick={() => setCurrentStep('company')}
             className="px-6 py-3.5 rounded-xl bg-[#1F1F23] text-white font-medium flex items-center gap-2 hover:bg-[#2A2A2E] transition-colors"
@@ -1517,9 +1820,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </button>
           <button
             onClick={() => setCurrentStep('styles')}
-            className="px-8 py-3.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold flex items-center gap-2 transition-colors"
+            className="px-8 py-3.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-[#FF5C00]/20"
           >
-            <span>Continue to Styles</span>
+            <span>Continue to Content Preview</span>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>

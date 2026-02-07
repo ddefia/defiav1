@@ -1,6 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from './Button';
-import { Select } from './Select';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { editWeb3Graphic } from '../services/gemini';
 import { fetchBrainHistoryEvents } from '../services/storage';
 import { BrandConfig, CalendarEvent } from '../types';
@@ -8,62 +6,68 @@ import { BrandConfig, CalendarEvent } from '../types';
 interface ImageEditorProps {
     brandConfig?: BrandConfig;
     brandName?: string;
+    initialImage?: string;
+    initialPrompt?: string;
+    onBack?: () => void;
+    onSaveAndUse?: (imageUrl: string) => void;
 }
 
-export const ImageEditor: React.FC<ImageEditorProps & { initialImage?: string, initialPrompt?: string }> = ({ brandConfig, brandName = '', initialImage, initialPrompt }) => {
-    // State
+interface EditHistoryItem {
+    id: string;
+    prompt: string;
+    image: string;
+    timestamp: number;
+}
+
+export const ImageEditor: React.FC<ImageEditorProps> = ({
+    brandConfig,
+    brandName = '',
+    initialImage,
+    initialPrompt,
+    onBack,
+    onSaveAndUse,
+}) => {
     const [originalImage, setOriginalImage] = useState<string | null>(initialImage || null);
     const [editedImage, setEditedImage] = useState<string | null>(null);
     const [prompt, setPrompt] = useState<string>(initialPrompt || '');
-    const [isProcessing, setIsProcessing] = useState<boolean>(false);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [history, setHistory] = useState<CalendarEvent[]>([]);
-    const [aspectRatio, setAspectRatio] = useState<string>('1:1');
-    const [quality, setQuality] = useState<'1K' | '2K'>('2K');
-
-    // API Info
-    const currentModel = "Gemini 2.0 Flash (Instruction) + Imagen 3 (Generation)";
+    const [aspectRatio, setAspectRatio] = useState<string>('16:9');
+    const [quality] = useState<'1K' | '2K'>('2K');
+    const [editHistory, setEditHistory] = useState<EditHistoryItem[]>([]);
+    const [zoom, setZoom] = useState(100);
+    const [imageSize, setImageSize] = useState({ w: 0, h: 0 });
+    const [mode, setMode] = useState<'editing' | 'preview'>('editing');
+    const [sourceLabel, setSourceLabel] = useState('');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (brandName) {
-            loadHistory();
+        if (initialImage) {
+            setOriginalImage(initialImage);
+            setSourceLabel('From Content Studio');
+            detectAspectRatio(initialImage);
         }
-    }, [brandName]);
-
-    // Update state if props change (e.g. navigation from Copilot)
-    useEffect(() => {
-        if (initialImage) setOriginalImage(initialImage);
         if (initialPrompt) setPrompt(initialPrompt);
     }, [initialImage, initialPrompt]);
 
-    const loadHistory = async () => {
-        if (!brandName) return;
-        try {
-            const events = await fetchBrainHistoryEvents(brandName);
-
-            // CRASH FIX: Ensure events is an array before filtering
-            if (!Array.isArray(events)) {
-                console.warn("History events is not an array:", events);
-                setHistory([]);
-                return;
-            }
-
-            // Filter for events with images (ensure image is a string and not empty)
-            const imageEvents = events.filter(e => e && e.image && typeof e.image === 'string' && e.image.length > 5);
-            setHistory(imageEvents);
-        } catch (e) {
-            console.error("Failed to load history", e);
-            setHistory([]); // Safely default to empty
-        }
+    const detectAspectRatio = (src: string) => {
+        const img = new Image();
+        img.onload = () => {
+            setImageSize({ w: img.width, h: img.height });
+            const ratio = img.width / img.height;
+            if (ratio > 1.4) setAspectRatio('16:9');
+            else if (ratio < 0.7) setAspectRatio('9:16');
+            else if (ratio > 1.1) setAspectRatio('4:3');
+            else if (ratio < 0.9) setAspectRatio('3:4');
+            else setAspectRatio('1:1');
+        };
+        img.src = src;
     };
 
-    // Handlers
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
-
         const file = files[0];
         try {
             const base64 = await new Promise<string>((resolve) => {
@@ -71,279 +75,379 @@ export const ImageEditor: React.FC<ImageEditorProps & { initialImage?: string, i
                 reader.onloadend = () => resolve(reader.result as string);
                 reader.readAsDataURL(file);
             });
-
-            // Detect Aspect Ratio
-            const img = new Image();
-            img.onload = () => {
-                const ratio = img.width / img.height;
-                // Simple buckets for Imagen 3
-                let finalRatio = '1:1';
-                if (ratio > 1.4) finalRatio = '16:9';
-                else if (ratio < 0.7) finalRatio = '9:16';
-                else if (ratio > 1.1) finalRatio = '4:3';
-                else if (ratio < 0.9) finalRatio = '3:4';
-
-                console.log(`Examples: Detected Image Ratio: ${ratio.toFixed(2)} -> bucketed to ${finalRatio}`);
-                setAspectRatio(finalRatio);
-            };
-            img.src = base64;
-
+            detectAspectRatio(base64);
             setOriginalImage(base64);
-            setEditedImage(null); // Reset edited image on new upload
+            setEditedImage(null);
             setError(null);
+            setSourceLabel('Uploaded');
         } catch (err) {
-            console.error("Upload failed", err);
-            setError("Failed to upload image.");
+            setError('Failed to upload image.');
         }
     };
 
     const handleEdit = async () => {
-        if (!originalImage || !prompt) return;
-
+        if (!originalImage || !prompt.trim()) return;
         setIsProcessing(true);
         setError(null);
-
         try {
-            // Call the service
             const result = await editWeb3Graphic(originalImage, prompt, brandConfig, aspectRatio, quality);
             setEditedImage(result);
+            detectAspectRatio(result);
+            setEditHistory(prev => [{
+                id: `edit-${Date.now()}`,
+                prompt: prompt,
+                image: result,
+                timestamp: Date.now(),
+            }, ...prev].slice(0, 20));
         } catch (err: any) {
-            console.error("Edit failed", err);
-            setError(err.message || "Failed to edit image.");
+            setError(err.message || 'Failed to edit image.');
         } finally {
             setIsProcessing(false);
         }
     };
 
-    const handleDownload = async (imageUrl: string) => {
-        const createDownloadLink = (url: string) => {
+    const handleQuickAction = (action: string) => {
+        setPrompt(action);
+    };
+
+    const handleUndo = (item: EditHistoryItem) => {
+        setEditHistory(prev => prev.filter(h => h.id !== item.id));
+        // Find the previous state
+        const idx = editHistory.findIndex(h => h.id === item.id);
+        if (idx < editHistory.length - 1) {
+            setEditedImage(editHistory[idx + 1].image);
+        } else {
+            setEditedImage(null);
+        }
+    };
+
+    const handleResetToOriginal = () => {
+        setEditedImage(null);
+        setEditHistory([]);
+        setPrompt('');
+    };
+
+    const handleDownload = async () => {
+        const imageUrl = editedImage || originalImage;
+        if (!imageUrl) return;
+        const createLink = (url: string) => {
             const link = document.createElement('a');
             link.href = url;
-            link.download = `edited-image-${Date.now()}.png`;
+            link.download = `defia-edit-${Date.now()}.png`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         };
-
         if (imageUrl.startsWith('http')) {
             try {
-                const response = await fetch(imageUrl);
-                const blob = await response.blob();
+                const res = await fetch(imageUrl);
+                const blob = await res.blob();
                 const blobUrl = URL.createObjectURL(blob);
-                createDownloadLink(blobUrl);
+                createLink(blobUrl);
                 URL.revokeObjectURL(blobUrl);
-            } catch (e) {
-                console.error('Download failed, falling back to direct link', e);
-                createDownloadLink(imageUrl);
+            } catch {
+                createLink(imageUrl);
             }
         } else {
-            createDownloadLink(imageUrl);
+            createLink(imageUrl);
         }
     };
 
-    const handleClear = () => {
-        setOriginalImage(null);
-        setEditedImage(null);
-        setPrompt('');
-        setError(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+    const handleSave = () => {
+        const img = editedImage || originalImage;
+        if (img && onSaveAndUse) onSaveAndUse(img);
     };
 
-    return (
-        <div className="w-full max-w-7xl mx-auto p-6 space-y-6 animate-fadeIn h-full flex flex-col">
-            <div className="flex justify-between items-center border-b border-gray-200 pb-6 mb-2">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight mb-2">AI Image Studio <span className="text-[10px] bg-black text-white px-2 py-1 rounded ml-2 align-middle font-bold uppercase tracking-widest">Beta</span></h1>
-                    <p className="text-gray-500 text-sm max-w-lg">Upload an image and use magic prompts to edit it.</p>
+    const displayImage = editedImage || originalImage;
+
+    // No image loaded — upload screen
+    if (!originalImage) {
+        return (
+            <div className="flex-1 flex flex-col bg-[#0A0A0B]">
+                <div className="flex items-center gap-4 px-8 py-5 border-b border-[#1F1F23]">
+                    {onBack && (
+                        <button onClick={onBack} className="flex items-center gap-2 text-[#6B6B70] hover:text-white transition-colors text-sm">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                            Back
+                        </button>
+                    )}
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-lg">✏️</span>
+                        <span className="text-base font-semibold text-white">Image Editor</span>
+                    </div>
                 </div>
-                {originalImage && (
-                    <Button onClick={handleClear} variant="secondary">Start Over</Button>
-                )}
+                <div className="flex-1 flex items-center justify-center">
+                    <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-[500px] border-2 border-dashed border-[#2E2E2E] rounded-2xl p-16 flex flex-col items-center justify-center text-center cursor-pointer hover:border-[#FF5C00] transition-colors group"
+                    >
+                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
+                        <div className="w-20 h-20 rounded-2xl bg-[#1F1F23] flex items-center justify-center mb-5 group-hover:bg-[#FF5C0015] transition-colors">
+                            <svg className="w-10 h-10 text-[#6B6B70] group-hover:text-[#FF5C00] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Upload an Image</h3>
+                        <p className="text-sm text-[#6B6B70]">Click to upload or drag and drop · JPG, PNG</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex-1 flex flex-col bg-[#0A0A0B] min-h-0">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-3 border-b border-[#1F1F23] bg-[#111113]">
+                <div className="flex items-center gap-5">
+                    {onBack && (
+                        <button onClick={onBack} className="flex items-center gap-2 text-[#6B6B70] hover:text-white transition-colors text-sm">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                            Back
+                        </button>
+                    )}
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-lg">✏️</span>
+                        <span className="text-base font-semibold text-white">Edit Image</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FF5C0015] border border-[#FF5C0033]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF5C00]"></span>
+                        <span className="text-[11px] font-medium text-[#FF5C00]">Editing</span>
+                    </div>
+
+                    {/* Mode toggle */}
+                    <button
+                        onClick={() => setMode(mode === 'editing' ? 'preview' : 'editing')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                            mode === 'preview'
+                                ? 'bg-[#3B82F615] text-[#3B82F6] border border-[#3B82F633]'
+                                : 'text-[#6B6B70] hover:text-white'
+                        }`}
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        Preview
+                    </button>
+                </div>
+
+                <button
+                    onClick={handleDownload}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2D] transition-colors"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    Download
+                </button>
             </div>
 
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 h-full min-h-[500px]">
+            {/* Main Content */}
+            <div className="flex-1 flex min-h-0">
+                {/* Left Panel */}
+                <div className="w-[420px] flex flex-col border-r border-[#1F1F23] bg-[#111113] overflow-y-auto">
+                    <div className="p-5 space-y-5">
+                        {/* Original Image Thumbnail */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2.5">
+                                <span className="text-sm font-semibold text-white">Original Image</span>
+                                {sourceLabel && <span className="text-[11px] text-[#6B6B70]">{sourceLabel}</span>}
+                            </div>
+                            <div className="rounded-xl overflow-hidden border border-[#1F1F23] bg-[#0A0A0B]">
+                                <img
+                                    src={originalImage}
+                                    alt="Original"
+                                    className="w-full h-auto max-h-[200px] object-contain"
+                                />
+                            </div>
+                        </div>
 
-                {/* LEFT PANEL: CONTROLS */}
-                <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm flex flex-col gap-6 h-fit">
-
-                    {/* Upload Section */}
-                    {!originalImage ? (
-                        <div
-                            className="border-2 border-dashed border-zinc-200 rounded-xl p-10 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-zinc-50 hover:border-zinc-300 transition-all duration-300 h-64 group"
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileUpload}
-                                accept="image/*"
-                                className="hidden"
+                        {/* Edit Prompt */}
+                        <div>
+                            <label className="text-sm font-semibold text-white mb-2 block">What do you want to edit?</label>
+                            <textarea
+                                value={prompt}
+                                onChange={e => setPrompt(e.target.value)}
+                                placeholder={'Describe what you want to change...\n\nExample: "Remove the watermark in the bottom right corner"'}
+                                className="w-full h-[100px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-xl p-3.5 text-sm text-white placeholder-[#4A4A4E] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleEdit();
+                                    }
+                                }}
                             />
-                            <div className="w-16 h-16 bg-zinc-50 rounded-2xl flex items-center justify-center text-zinc-400 group-hover:scale-110 transition-transform mb-4 border border-zinc-100">
-                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            </div>
-                            <span className="font-bold text-zinc-700 text-sm">Click to Upload Image</span>
-                            <span className="text-xs text-zinc-400 mt-2">JPG, PNG supported</span>
                         </div>
-                    ) : (
-                        <div className="relative group rounded-xl overflow-hidden shadow-sm border border-brand-border">
-                            <img src={originalImage} className="w-full h-auto max-h-64 object-cover" alt="Original" />
-                            <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">Original</div>
-                        </div>
-                    )}
 
-                    {/* Edit Controls */}
-                    {originalImage && (
-                        <div className="space-y-4 animate-fadeIn">
+                        {/* Quick Actions */}
+                        <div>
+                            <span className="text-sm font-semibold text-white mb-2.5 block">Quick Actions</span>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { icon: '💧', label: 'Remove\nWatermark', prompt: 'Remove the watermark from the image' },
+                                    { icon: '𝐓', label: 'Remove\nText', prompt: 'Remove all text overlays from the image' },
+                                    { icon: '🎯', label: 'Remove\nObject', prompt: 'Remove the most prominent unwanted object from the image' },
+                                    { icon: '🖼️', label: 'Change\nBackground', prompt: 'Change the background to a dark gradient' },
+                                    { icon: '✨', label: 'Enhance\nQuality', prompt: 'Enhance the image quality, make it sharper and more vibrant' },
+                                    { icon: '🎨', label: 'Restyle\nWeb3', prompt: 'Restyle this image with a modern Web3 / crypto aesthetic, dark theme, neon accents' },
+                                ].map((action, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => handleQuickAction(action.prompt)}
+                                        className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border transition-all ${
+                                            prompt === action.prompt
+                                                ? 'bg-[#FF5C0010] border-[#FF5C0044] text-[#FF5C00]'
+                                                : 'bg-[#0A0A0B] border-[#1F1F23] text-[#ADADB0] hover:border-[#2E2E2E] hover:text-white'
+                                        }`}
+                                    >
+                                        <span className="text-lg">{action.icon}</span>
+                                        <span className="text-[11px] font-medium text-center leading-tight whitespace-pre-line">{action.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Edit History */}
+                        {editHistory.length > 0 && (
                             <div>
-                                <label className="text-[10px] font-bold text-zinc-400 uppercase mb-2 block tracking-widest pl-1">Magic Instruction</label>
-                                <textarea
-                                    value={prompt}
-                                    onChange={(e) => setPrompt(e.target.value)}
-                                    placeholder="e.g. Change the background to a cyberpunk city, make the logo neon blue..."
-                                    className="w-full bg-white border-2 border-gray-100 rounded-xl p-4 text-sm text-gray-900 focus:border-zinc-900 focus:ring-0 outline-none resize-none h-32 transition-all font-medium placeholder:text-gray-400"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <Select
-                                    label="Aspect Ratio"
-                                    value={aspectRatio}
-                                    onChange={(e) => setAspectRatio(e.target.value)}
-                                    options={[
-                                        { value: '1:1', label: 'Square (1:1)' },
-                                        { value: '16:9', label: 'Wide (16:9)' },
-                                        { value: '9:16', label: 'Story (9:16)' },
-                                        { value: '4:3', label: 'Classic (4:3)' },
-                                        { value: '3:4', label: 'Portrait (3:4)' }
-                                    ]}
-                                />
-                                <Select
-                                    label="Quality"
-                                    value={quality}
-                                    onChange={(e) => setQuality(e.target.value as any)}
-                                    options={[
-                                        { value: '1K', label: 'Standard (1K)' },
-                                        { value: '2K', label: 'High (2K)' }
-                                    ]}
-                                />
-                            </div>
-
-                            <Button
-                                onClick={handleEdit}
-                                isLoading={isProcessing}
-                                disabled={!prompt}
-                                className="w-full py-4 shadow-lg shadow-zinc-900/10 bg-zinc-900 text-white hover:bg-zinc-800 border-none rounded-xl font-bold"
-                            >
-                                ✨ Magic Edit
-                            </Button>
-
-                            {error && (
-                                <div className="p-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-lg">
-                                    {error}
+                                <div className="flex items-center justify-between mb-2.5">
+                                    <span className="text-sm font-semibold text-white">Edit History</span>
+                                    <button
+                                        onClick={() => { setEditHistory([]); setEditedImage(null); }}
+                                        className="text-[11px] text-[#6B6B70] hover:text-[#FF5C00] transition-colors"
+                                    >
+                                        Clear All
+                                    </button>
                                 </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* RIGHT PANEL: PREVIEW */}
-                <div className="lg:col-span-2 flex flex-col gap-6">
-                    <div className="bg-white border border-gray-100 rounded-xl p-8 flex items-center justify-center relative min-h-[400px] flex-1 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
-
-                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur border border-zinc-200 px-3 py-1.5 rounded-full text-[10px] font-bold text-zinc-500 flex items-center gap-1.5 shadow-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            Running on {currentModel}
-                        </div>
-
-                        {!editedImage && !isProcessing && (
-                            <div className="text-center opacity-40">
-                                <div className="w-20 h-20 mx-auto bg-gray-200 rounded-full flex items-center justify-center text-4xl mb-4">🪄</div>
-                                <h3 className="font-bold text-lg text-gray-500">Ready to Magic</h3>
-                                <p className="text-sm text-gray-400">Upload an image and enter a prompt to see the result here.</p>
-                            </div>
-                        )}
-
-                        {isProcessing && (
-                            <div className="text-center animate-pulse">
-                                <div className="w-16 h-16 mx-auto border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
-                                <h3 className="font-bold text-lg text-indigo-600">Generating Magic...</h3>
-                                <p className="text-sm text-gray-400">This might take a few seconds.</p>
-                            </div>
-                        )}
-
-                        {editedImage && !isProcessing && (
-                            <div className="animate-fadeIn w-full h-full flex flex-col items-center">
-                                <div className="relative rounded-lg overflow-hidden shadow-2xl border border-white/20 max-h-[600px]">
-                                    <img src={editedImage} className="max-w-full max-h-[600px] object-contain" alt="Edited Result" />
-                                </div>
-                                <div className="mt-8 flex gap-4">
-                                    <Button onClick={() => handleDownload(editedImage)} className="shadow-xl">
-                                        Download Result
-                                    </Button>
-                                    <Button onClick={() => { setOriginalImage(editedImage); setEditedImage(null); setPrompt(''); }} variant="secondary">
-                                        Use as New Base
-                                    </Button>
+                                <div className="space-y-2">
+                                    {editHistory.map(item => (
+                                        <div key={item.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                            <div className="w-5 h-5 rounded-full bg-[#22C55E18] flex items-center justify-center flex-shrink-0">
+                                                <svg className="w-3 h-3 text-[#22C55E]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                            </div>
+                                            <span className="text-xs text-[#ADADB0] flex-1 truncate">{item.prompt}</span>
+                                            <button
+                                                onClick={() => handleUndo(item)}
+                                                className="text-[11px] text-[#FF5C00] hover:text-[#FF6B1A] transition-colors font-medium flex-shrink-0"
+                                            >
+                                                Undo
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* HISTORY GALLERY */}
-                    {history.length > 0 && (
-                        <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm">
-                            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">
-                                History for {brandName || 'Brand'}
-                            </h3>
-                            <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-                                {history.slice(0, 8).map((item) => (
-                                    <div
-                                        key={item.id}
-                                        onClick={() => {
-                                            if (item.image) {
-                                                // Simplified: Just set current image to this history URL.
-                                                // If cross-origin becomes an issue for the canvas editing later, we'll need a proxy, 
-                                                // but for "Image Editor" flow (multimodal), providing the URL or base64 usually works if supported.
-                                                // Warning: editWeb3Graphic expects base64. 
-                                                // The image element will load the URL. We might need to fetch blob in handleFileUpload-like manner if we want to be safe, 
-                                                // but let's try setting it as originalImage first. 
-                                                // If 'editWeb3Graphic' logic checks for "data:", it handles base64. If it's a URL, we need to convert.
-                                                // Let's optimize: fetch blob and convert on click.
-                                                setOriginalImage(item.image); // Set immediately for UI
+                    {/* Left Footer */}
+                    <div className="mt-auto p-5 border-t border-[#1F1F23] flex items-center gap-3">
+                        <button
+                            onClick={handleResetToOriginal}
+                            className="text-sm text-[#6B6B70] hover:text-white transition-colors"
+                        >
+                            Reset to Original
+                        </button>
+                        <button
+                            onClick={handleEdit}
+                            disabled={!prompt.trim() || isProcessing}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ${
+                                isProcessing
+                                    ? 'bg-[#1F1F23] text-[#6B6B70] cursor-wait'
+                                    : !prompt.trim()
+                                    ? 'bg-[#1F1F23] text-[#4A4A4E] cursor-not-allowed'
+                                    : 'bg-gradient-to-b from-[#FF5C00] to-[#FF7A2E] text-white hover:opacity-90'
+                            }`}
+                        >
+                            {isProcessing ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-[#6B6B70] border-t-transparent rounded-full animate-spin"></div>
+                                    Processing...
+                                </>
+                            ) : (
+                                <>
+                                    <span>🔄</span>
+                                    Regenerate
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
 
-                                                // Async fetch for internal data processing if needed
-                                                // (Ideally we do this processing inside editWeb3Graphic or before setting for consistency)
-                                                // BUT 'editWeb3Graphic' takes base64. 
-                                                // Let's modify handleEdit to handle URL too? Or convert here.
-                                                // Converting HERE is better UX control.
-                                                if (item.image.startsWith('http')) {
-                                                    fetch(item.image)
-                                                        .then(res => res.blob())
-                                                        .then(blob => {
-                                                            const reader = new FileReader();
-                                                            reader.onloadend = () => setOriginalImage(reader.result as string);
-                                                            reader.readAsDataURL(blob);
-                                                        })
-                                                        .catch(e => console.error("Failed to load history image", e));
-                                                }
-
-                                                setEditedImage(null);
-                                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                                            }
-                                        }}
-                                        className="min-w-[120px] w-[120px] aspect-square rounded-lg border border-brand-border cursor-pointer hover:border-brand-accent hover:shadow-md transition-all relative group overflow-hidden"
-                                    >
-                                        <img src={item.image} className="w-full h-full object-cover" loading="lazy" />
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                            <span className="text-[10px] font-bold text-white bg-black/50 px-2 py-1 rounded">Edit This</span>
-                                        </div>
-                                    </div>
-                                ))}
+                {/* Right Panel — Preview */}
+                <div className="flex-1 flex flex-col min-h-0 bg-[#0A0A0B]">
+                    {/* Preview Area */}
+                    <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
+                        {isProcessing ? (
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-16 h-16 border-3 border-[#FF5C00] border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-sm text-[#6B6B70]">Applying edits...</p>
                             </div>
+                        ) : displayImage ? (
+                            <img
+                                src={displayImage}
+                                alt="Preview"
+                                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                style={{ transform: `scale(${zoom / 100})`, transition: 'transform 0.2s ease' }}
+                            />
+                        ) : (
+                            <div className="text-center">
+                                <div className="w-20 h-20 rounded-2xl bg-[#1F1F23] flex items-center justify-center mx-auto mb-4">
+                                    <span className="text-3xl">🖼️</span>
+                                </div>
+                                <h3 className="text-lg font-medium text-white mb-2">No Preview</h3>
+                                <p className="text-sm text-[#6B6B70]">Upload an image to get started</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Bottom Bar */}
+                    <div className="flex items-center justify-between px-6 py-3 border-t border-[#1F1F23] bg-[#111113]">
+                        <div className="flex items-center gap-4">
+                            {/* Zoom Controls */}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setZoom(z => Math.max(25, z - 25))}
+                                    className="w-7 h-7 rounded-md bg-[#1F1F23] border border-[#2E2E2E] flex items-center justify-center text-[#6B6B70] hover:text-white transition-colors text-sm"
+                                >
+                                    −
+                                </button>
+                                <span className="text-xs text-[#ADADB0] font-mono min-w-[40px] text-center">{zoom}%</span>
+                                <button
+                                    onClick={() => setZoom(z => Math.min(200, z + 25))}
+                                    className="w-7 h-7 rounded-md bg-[#1F1F23] border border-[#2E2E2E] flex items-center justify-center text-[#6B6B70] hover:text-white transition-colors text-sm"
+                                >
+                                    +
+                                </button>
+                            </div>
+
+                            {/* Dimensions */}
+                            {imageSize.w > 0 && (
+                                <span className="text-xs text-[#6B6B70] font-mono">{imageSize.w} × {imageSize.h}px</span>
+                            )}
                         </div>
-                    )}
+
+                        {/* Save Button */}
+                        {onSaveAndUse && (
+                            <button
+                                onClick={handleSave}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+                                style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                Save & Use Image
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
+
+            {/* Error Toast */}
+            {error && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl bg-[#EF444415] border border-[#EF444433] shadow-2xl">
+                    <span className="text-[#EF4444] text-sm">⚠️</span>
+                    <span className="text-sm text-[#EF4444]">{error}</span>
+                    <button onClick={() => setError(null)} className="text-[#EF4444] hover:text-white text-sm ml-2">✕</button>
+                </div>
+            )}
+
+            {/* Hidden file input */}
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
         </div>
     );
 };

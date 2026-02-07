@@ -48,11 +48,22 @@
       }
     </script>
     <style>
-      body {
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
         background-color: #0A0A0B;
+        overflow: hidden;
+      }
+      body {
         color: #FFFFFF;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+      }
+      #root {
+        zoom: 0.85;
+        height: 100%;
+        background-color: #0A0A0B;
       }
       /* Invisible Scrollbar for cleaner UI */
       ::-webkit-scrollbar {

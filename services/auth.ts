@@ -8,8 +8,11 @@ let supabaseAuth: SupabaseClient | null = null;
 if (supabaseUrl && supabaseAnonKey) {
     supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
 } else {
-    console.warn('⚠️ Supabase credentials not configured. Auth features will use local storage fallback.');
+    console.warn('⚠️ Supabase credentials not configured. Auth will be unavailable.');
 }
+
+// Production safety: local fallback auth is disabled unless explicitly enabled
+const LOCAL_AUTH_ENABLED = import.meta.env.MODE === 'development' && !supabaseAuth;
 
 export interface UserProfile {
     id: string;
@@ -98,7 +101,10 @@ export const signUp = async (
 ): Promise<{ user: UserProfile | null; error: string | null }> => {
 
     if (!supabaseAuth) {
-        // Fallback: Create local account
+        if (!LOCAL_AUTH_ENABLED) {
+            return { user: null, error: 'Authentication service is not configured. Please contact support.' };
+        }
+        // DEV ONLY: Local account creation (never runs in production)
         const existingUsers = JSON.parse(localStorage.getItem('defia_local_users') || '{}');
 
         if (existingUsers[email]) {
@@ -114,10 +120,9 @@ export const signUp = async (
             updatedAt: Date.now(),
         };
 
-        // Store user with hashed password (simple hash for local dev)
         existingUsers[email] = {
             profile,
-            passwordHash: btoa(password), // Simple encoding for local dev only
+            passwordHash: btoa(password),
         };
         localStorage.setItem('defia_local_users', JSON.stringify(existingUsers));
 
@@ -171,7 +176,10 @@ export const signIn = async (
 ): Promise<{ user: UserProfile | null; error: string | null }> => {
 
     if (!supabaseAuth) {
-        // Fallback: Local authentication
+        if (!LOCAL_AUTH_ENABLED) {
+            return { user: null, error: 'Authentication service is not configured. Please contact support.' };
+        }
+        // DEV ONLY: Local authentication (never runs in production)
         const existingUsers = JSON.parse(localStorage.getItem('defia_local_users') || '{}');
         const userRecord = existingUsers[email];
 
@@ -248,7 +256,14 @@ export const getCurrentUser = async (): Promise<UserProfile | null> => {
     }
 
     try {
-        const { data: { user } } = await supabaseAuth.auth.getUser();
+        // Add timeout to prevent hanging (e.g., in incognito or network issues)
+        const timeoutPromise = new Promise<{ data: { user: null } }>((resolve) =>
+            setTimeout(() => resolve({ data: { user: null } }), 5000)
+        );
+        const { data: { user } } = await Promise.race([
+            supabaseAuth.auth.getUser(),
+            timeoutPromise
+        ]);
 
         if (user) {
             const profile: UserProfile = {

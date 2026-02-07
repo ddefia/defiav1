@@ -19,9 +19,55 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Enable CORS for the frontend (Vite runs on 3000 usually)
-app.use(cors());
-app.use(express.json());
+// CORS: restrict to known frontend origins
+const ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:3003',
+    'http://localhost:5173',
+    process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production'
+        ? ALLOWED_ORIGINS
+        : true, // Allow all origins in dev
+    credentials: true,
+}));
+app.use(express.json({ limit: '10mb' })); // Increased limit for base64 image uploads
+
+// Basic rate limiting for API endpoints
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 60; // 60 requests per minute per IP
+
+app.use('/api', (req, res, next) => {
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const now = Date.now();
+    const record = rateLimitMap.get(ip);
+
+    if (!record || now - record.windowStart > RATE_LIMIT_WINDOW_MS) {
+        rateLimitMap.set(ip, { windowStart: now, count: 1 });
+        return next();
+    }
+
+    record.count++;
+    if (record.count > RATE_LIMIT_MAX) {
+        return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    }
+    return next();
+});
+
+// Clean up stale rate limit entries every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, record] of rateLimitMap.entries()) {
+        if (now - record.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+            rateLimitMap.delete(ip);
+        }
+    }
+}, 5 * 60 * 1000);
 
 const requestLog = [];
 const pushRequestLog = (entry) => {
@@ -295,6 +341,8 @@ app.post('/api/onboarding/twitter', async (req, res) => {
     try {
         const { handle, maxItems, brandName } = req.body || {};
         const normalizedHandle = normalizeHandle(String(handle || ''));
+        console.log('[OnboardingTwitter] Request received:', { handle, normalizedHandle, brandName });
+
         if (!normalizedHandle || !isValidHandle(normalizedHandle)) {
             return res.status(400).json({ error: 'Valid X/Twitter handle is required.' });
         }
@@ -302,6 +350,13 @@ app.post('/api/onboarding/twitter', async (req, res) => {
         const result = await fetchTwitterContent(normalizedHandle, {
             maxItems: typeof maxItems === 'number' ? Math.min(Math.max(maxItems, 5), 50) : undefined,
             brandName: brandName ? String(brandName) : undefined
+        });
+
+        console.log('[OnboardingTwitter] Result:', {
+            tweetsCount: result.tweets?.length,
+            tweetExamplesCount: result.tweetExamples?.length,
+            referenceImagesCount: result.referenceImages?.length,
+            sampleImage: result.referenceImages?.[0]
         });
 
         if (result.error) {
@@ -1009,9 +1064,8 @@ app.post('/api/web3-news/refresh', async (req, res) => {
         if (brandList.length === 0 && supabase) {
             const { data } = await supabase
                 .from('brands')
-                .select('id, name')
-                .eq('active', true);
-            brandList = data || [];
+                .select('id');
+            brandList = (data || []).map(b => ({ id: b.id, name: b.id }));
         }
 
         const results = await scheduledNewsFetch(supabase, brandList);
@@ -1033,7 +1087,8 @@ app.get('/api/social-metrics/:brand', (req, res) => {
     try {
         const cache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
         const key = brand.toLowerCase();
-        const data = cache[key];
+        // Try exact match first, then lowercase, then case-insensitive scan
+        const data = cache[brand] || cache[key] || Object.entries(cache).find(([k]) => k.toLowerCase() === key)?.[1];
 
         if (!data) {
             return res.json({ error: "Brand not tracked" });

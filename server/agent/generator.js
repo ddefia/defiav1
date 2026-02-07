@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from '@google/genai';
-import { fetchPulseTrends, fetchMentions, TRACKED_BRANDS } from './ingest.js';
+import { fetchMentions, TRACKED_BRANDS } from './ingest.js';
 import { fetchBrandProfile, getSupabaseClient } from './brandContext.js';
 
 /**
@@ -37,12 +37,10 @@ export const generateDailyBriefing = async (brandId) => {
     const positioning = profile.positioning || "";
 
     // 2. Fetch Live Market Data
-    // We use the ingest keys/functions
-    const lunarKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
     const apifyKey = process.env.APIFY_API_TOKEN;
 
-    const [trends, mentions] = await Promise.all([
-        fetchPulseTrends(lunarKey),
+    const trends = [];
+    const [mentions] = await Promise.all([
         fetchMentions(apifyKey, TRACKED_BRANDS[brandId] || brandId)
     ]);
 

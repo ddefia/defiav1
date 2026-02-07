@@ -67,17 +67,20 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
         if (cache.items.length > 0) {
             setNewsItems(transformToNewsItems(cache.items));
             setLastUpdated(cache.lastUpdated);
+            setIsLoading(false); // Show cached data immediately
         }
 
         const now = Date.now();
-        const CACHE_DURATION = 60000; // 1 minute cache
+        const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache — no need to re-fetch on every tab switch
         const shouldFetch = (now - cache.lastUpdated) > CACHE_DURATION || cache.items.length === 0;
 
         if (shouldFetch) {
             handleRefresh();
+        } else {
+            setIsLoading(false);
         }
 
-        // Auto-refresh every minute
+        // Auto-refresh every 10 minutes
         intervalRef.current = setInterval(() => {
             handleRefresh();
         }, CACHE_DURATION);
@@ -88,15 +91,22 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
     }, [brandName]);
 
     const transformToNewsItems = (items: TrendItem[]): NewsItem[] => {
-        return items.map(item => ({
-            ...item,
-            sourceName: item.source === 'LunarCrush' ? 'CoinDesk' :
-                        item.source === 'Twitter' ? 'The Block' : 'Decrypt',
-            category: item.topic?.toLowerCase() || 'defi',
-            relevanceBadge: item.relevanceScore > 80 ? `High relevance to ${brandName}` :
-                           item.relevanceScore > 60 ? 'Direct competitor analysis' :
-                           'May affect compliance strategy'
-        }));
+        return items
+            .filter(item => {
+                // Filter out LunarCrush items and items with no real headline
+                if (item.source === 'LunarCrush') return false;
+                const h = (item.headline || '').trim().toLowerCase();
+                if (!h || h === 'trend' || h === 'trending' || h.endsWith(' trending')) return false;
+                return true;
+            })
+            .map(item => ({
+                ...item,
+                sourceName: item.source === 'Twitter' ? 'The Block' : 'Decrypt',
+                category: item.topic?.toLowerCase() || 'defi',
+                relevanceBadge: item.relevanceScore > 80 ? `High relevance to ${brandName}` :
+                               item.relevanceScore > 60 ? 'Direct competitor analysis' :
+                               'May affect compliance strategy'
+            }));
     };
 
     const handleRefresh = async () => {

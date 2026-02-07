@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { fetchDuneMetrics, fetchLunarCrushTrends, fetchMentions, fetchPulseTrends, updateAllBrands, TRACKED_BRANDS } from './ingest.js'; // Legacy fallback
+import { fetchDuneMetrics, fetchMentions, updateAllBrands, TRACKED_BRANDS } from './ingest.js';
 import { analyzeState } from './brain.js';
 import { generateDailyBriefing } from './generator.js'; // Import Generator
 import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
@@ -119,16 +119,13 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
 
     const supabase = supabaseOverride || getSupabaseClient();
     const duneKey = process.env.DUNE_API_KEY;
-    const lunarKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
     const apifyKey = process.env.APIFY_API_TOKEN;
 
     try {
         // A. Global Context (Fetch Once)
         console.log("   - Scanning global market trends...");
-        const [pulse, lunarTrends] = await Promise.all([
-            fetchPulseTrends(lunarKey),
-            fetchLunarCrushTrends(lunarKey, 'ETH') // Global sentiment
-        ]);
+        const pulse = [];
+        const lunarTrends = [];
 
         const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
         let registry = activeBrands.length > 0
@@ -303,13 +300,10 @@ export const triggerAgentRun = async (brandIdentifier) => {
     }
 
     const duneKey = process.env.DUNE_API_KEY;
-    const lunarKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
     const apifyKey = process.env.APIFY_API_TOKEN;
 
-    const [pulse, lunarTrends] = await Promise.all([
-        fetchPulseTrends(lunarKey),
-        fetchLunarCrushTrends(lunarKey, target.lunarSymbol || 'ETH')
-    ]);
+    const pulse = [];
+    const lunarTrends = [];
 
     const [dune, mentions] = await Promise.all([
         fetchDuneMetrics(duneKey),
