@@ -188,6 +188,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     // LLM-powered recommendation state
     const [llmRecommendations, setLlmRecommendations] = useState<any[]>([]);
     const [regenLoading, setRegenLoading] = useState(false);
+    const [regenError, setRegenError] = useState<string | null>(null);
     const autoRegenFired = useRef(false);
     const [regenLastRun, setRegenLastRun] = useState<number>(0);
 
@@ -334,6 +335,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     useEffect(() => {
         if (autoRegenFired.current) return;
         if (regenLoading) return;
+        if (!socialSignals.trendingTopics || socialSignals.trendingTopics.length === 0) return;
         // Only auto-fire if we have no LLM recommendations and no agent decisions as fallback
         const hasData = llmRecommendations.length > 0 || (agentDecisions && agentDecisions.length > 0);
         const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 6 * 60 * 60 * 1000);
@@ -345,7 +347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }, 3000);
             return () => clearTimeout(timer);
         }
-    }, [brandName, agentDecisions?.length, llmRecommendations.length]);
+    }, [brandName, agentDecisions?.length, llmRecommendations.length, regenLoading, regenLastRun, socialSignals.trendingTopics?.length]);
 
     const upcomingContent = calendarEvents
         .filter(e => {
@@ -367,6 +369,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const handleRegenerate = async () => {
         setRegenLoading(true);
+        setRegenError(null);
         try {
             const registry = getBrandRegistryEntry(brandName);
             const deepContext = await getBrainContext(registry?.brandId);
@@ -433,6 +436,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 }
             });
 
+            if (actions.length === 0) {
+                setRegenError('AI council returned no actionable recommendations. Try refreshing once more after market signals finish loading.');
+            }
+
             // Build rich LLM recommendation cards from actions
             const strategicAngle = analysis?.strategicAngle || (analysis as any)?.headline || '';
             const richRecs = actions.slice(0, 4).map((action: any, idx: number) => {
@@ -442,7 +449,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 const impactScore = Math.min(99, baseImpact + (mentions.length > 3 ? 5 : 0) + (socialSignals.trendingTopics?.length > 2 ? 3 : 0));
                 // Data signal: what triggered this
                 const dataSignal = action.type === 'TREND_JACK'
-                    ? `Trending: ${(socialSignals.trendingTopics || [])[0] || action.topic}`
+                    ? `Trending: ${(socialSignals.trendingTopics || [])[0]?.headline || action.topic}`
                     : action.type === 'REPLY'
                     ? `${mentions.length} recent mention${mentions.length !== 1 ? 's' : ''} detected`
                     : action.type === 'CAMPAIGN'
@@ -492,8 +499,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onUpdateTasks(newTasks as any);
             }
             saveDecisionLoopLastRun(brandName);
-        } catch (e) {
+        } catch (e: any) {
             console.error("Regen Failed", e);
+            const message = e?.message || 'Refresh failed. Check your API keys and try again.';
+            setRegenError(message);
         } finally {
             setRegenLoading(false);
         }
@@ -846,12 +855,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             </svg>
                                         </div>
                                         <p className="text-[#6B6B70] text-sm mb-2">No recommendations yet</p>
-                                        <p className="text-[#6B6B70] text-xs mb-4">Click Refresh to run the 4-agent AI council and generate strategic recommendations.</p>
+                                        {regenError ? (
+                                            <p className="text-[#F87171] text-xs mb-4">{regenError}</p>
+                                        ) : (
+                                            <p className="text-[#6B6B70] text-xs mb-4">Click Refresh to run the 4-agent AI council and generate strategic recommendations.</p>
+                                        )}
                                         <button
                                             onClick={handleRegenerate}
                                             className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
                                         >
-                                            Generate Recommendations
+                                            {regenError ? 'Retry' : 'Generate Recommendations'}
                                         </button>
                                     </div>
                                 )}

@@ -692,8 +692,23 @@ app.get('/api/agent/run', async (req, res) => {
     try {
         const brandId = req.query.brandId;
         const label = req.query.label || 'API Decision Scan';
-        const result = await runBrainCycle({ label, brandIdentifier: brandId });
-        return res.json(result);
+        const runPromise = runBrainCycle({ label, brandIdentifier: brandId });
+        const timeoutMs = 55 * 1000;
+        const timeoutResult = await Promise.race([
+            runPromise,
+            new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), timeoutMs))
+        ]);
+
+        if (timeoutResult && timeoutResult.timeout) {
+            runPromise.catch((err) => console.error('[AgentRun] Background run failed:', err));
+            return res.status(202).json({
+                status: 'pending',
+                message: 'Brain cycle still running. Try again shortly.',
+                timeoutMs
+            });
+        }
+
+        return res.json(timeoutResult);
     } catch (e) {
         console.error('[AgentRun] Failed:', e);
         return res.status(500).json({ error: 'Agent run failed.' });

@@ -69,7 +69,9 @@ export const ingestTwitterHistory = async (handles: string[]) => {
     console.log(`[Ingestion] Starting Deep Social Ingestion for: ${handles.join(', ')}`);
     const results = [];
     const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa'; // New unified actor
-    const APIFY_TOKEN = process.env.VITE_APIFY_API_TOKEN || (import.meta as any).env?.VITE_APIFY_API_TOKEN;
+    const APIFY_TOKEN = process.env.VITE_APIFY_API_TOKEN
+        || (import.meta as any).env?.VITE_APIFY_API_TOKEN
+        || process.env.APIFY_API_TOKEN;
 
     if (!APIFY_TOKEN) {
         throw new Error("Missing APIFY Token");
