@@ -1068,6 +1068,25 @@ app.get('/api/web3-news', async (req, res) => {
     }
 });
 
+app.get('/api/web3-news/refresh', async (req, res) => {
+    const supabase = getSupabaseClient();
+    try {
+        let brandList = [];
+
+        if (supabase) {
+            const { data } = await supabase
+                .from('brands')
+                .select('id');
+            brandList = (data || []).map(b => ({ id: b.id, name: b.id }));
+        }
+
+        const results = await scheduledNewsFetch(supabase, brandList);
+        res.json({ success: true, results });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/web3-news/refresh', async (req, res) => {
     const { brands } = req.body;
     const supabase = getSupabaseClient();

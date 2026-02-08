@@ -9,6 +9,7 @@ import { getSupabase } from './supabaseClient';
  */
 
 const ACTOR_CRYPTO_NEWS = 'pGMem7q7HCa1dUbN2';
+const NEWS_RUN_WAIT_SECONDS = 30;
 const NEWS_STORAGE_KEY = 'defia_web3_news_cache_v1';
 
 // Default search terms for web3/crypto news
@@ -42,7 +43,7 @@ const runCryptoNewsScraper = async (
 
         // 1. Start the actor run
         const runRes = await fetch(
-            `https://api.apify.com/v2/acts/${ACTOR_CRYPTO_NEWS}/runs?token=${token}&waitForFinish=120`,
+            `https://api.apify.com/v2/acts/${ACTOR_CRYPTO_NEWS}/runs?token=${token}&waitForFinish=${NEWS_RUN_WAIT_SECONDS}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -58,6 +59,9 @@ const runCryptoNewsScraper = async (
         if (!runData.data || (runData.data.status !== 'SUCCEEDED' && runData.data.status !== 'RUNNING')) {
             console.warn(`[Web3News] Actor run failed:`, runData.data?.status);
             throw new Error(`Actor Status: ${runData.data?.status || 'Unknown'}`);
+        }
+        if (runData.data.status === 'RUNNING') {
+            throw new Error('Actor still running');
         }
 
         // 2. Fetch results from dataset
