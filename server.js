@@ -386,6 +386,72 @@ const X_AUTHORIZE_URL = 'https://x.com/i/oauth2/authorize';
 const X_TOKEN_URL = 'https://api.x.com/2/oauth2/token';
 const X_ME_URL = 'https://api.x.com/2/users/me';
 const X_TWEETS_URL = 'https://api.x.com/2/users';
+const X_BEARER_TOKEN = process.env.X_BEARER_TOKEN || '';
+
+const normalizeXHandle = (value) => normalizeHandle(String(value || '')).replace(/^@/, '');
+
+const buildXMetricsPayload = (user, tweets = []) => {
+    const recentPosts = tweets.map((t) => {
+        const metrics = t.public_metrics || {};
+        const likes = metrics.like_count || 0;
+        const retweets = metrics.retweet_count || 0;
+        const comments = metrics.reply_count || 0;
+        const quotes = metrics.quote_count || 0;
+        const engagements = likes + retweets + comments + quotes;
+        const followers = user?.public_metrics?.followers_count || 0;
+        const engagementRate = followers > 0 ? (engagements / followers) * 100 : 0;
+        return {
+            id: t.id,
+            content: t.text || '',
+            date: t.created_at ? new Date(t.created_at).toLocaleDateString() : 'Recent',
+            likes,
+            comments,
+            retweets,
+            impressions: engagements * 20,
+            engagementRate: parseFloat(engagementRate.toFixed(2)),
+            url: `https://x.com/${user?.username || 'x'}/status/${t.id}`
+        };
+    });
+
+    const followersCount = user?.public_metrics?.followers_count || 0;
+    const totalEngagements = recentPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.comments, 0);
+    const avgEngagementRate = recentPosts.length > 0 && followersCount > 0
+        ? (totalEngagements / recentPosts.length / followersCount) * 100
+        : 0;
+
+    const metrics = {
+        totalFollowers: followersCount,
+        weeklyImpressions: recentPosts.reduce((sum, p) => sum + p.impressions, 0) * 2,
+        engagementRate: parseFloat(avgEngagementRate.toFixed(2)),
+        mentions: 0,
+        topPost: recentPosts[0]?.content || 'No recent posts found',
+        recentPosts,
+        engagementHistory: [],
+        comparison: { period: 'vs Last Week', followersChange: 0, engagementChange: 0, impressionsChange: 0 },
+        isLive: true
+    };
+
+    return { metrics, recentPosts, followersCount };
+};
+
+const fetchXUserByHandle = async (handle, bearer) => {
+    const res = await fetch(`https://api.x.com/2/users/by/username/${handle}?user.fields=public_metrics,username,verified`, {
+        headers: { 'Authorization': `Bearer ${bearer}` },
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.data?.id) {
+        throw new Error('Failed to fetch X user profile');
+    }
+    return json.data;
+};
+
+const fetchXRecentTweets = async (userId, bearer) => {
+    const res = await fetch(`${X_TWEETS_URL}/${userId}/tweets?max_results=5&tweet.fields=public_metrics,created_at`, {
+        headers: { 'Authorization': `Bearer ${bearer}` },
+    });
+    const json = await res.json().catch(() => ({}));
+    return Array.isArray(json?.data) ? json.data : [];
+};
 
 app.post('/api/auth/x/authorize-url', async (req, res) => {
     try {
@@ -433,11 +499,30 @@ app.get('/api/auth/x/status', async (req, res) => {
 
     const key = `x_oauth_tokens_${brandId.toLowerCase()}`;
     try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('app_storage')
             .select('value, updated_at')
             .eq('key', key)
             .maybeSingle();
+        if (!data?.value) {
+            const { data: brandRow } = await supabase
+                .from('brands')
+                .select('name')
+                .eq('id', brandId)
+                .maybeSingle();
+            if (brandRow?.name) {
+                const fallbackKey = `x_oauth_tokens_${sanitizeText(brandRow.name).toLowerCase()}`;
+                if (fallbackKey !== key) {
+                    const fallback = await supabase
+                        .from('app_storage')
+                        .select('value, updated_at')
+                        .eq('key', fallbackKey)
+                        .maybeSingle();
+                    data = fallback.data || data;
+                    error = fallback.error || error;
+                }
+            }
+        }
         if (error || !data?.value) return res.json({ connected: false });
         const value = data.value || {};
         return res.json({
@@ -558,16 +643,46 @@ app.get('/api/auth/x/callback', async (req, res) => {
 });
 
 app.get('/api/x/metrics/:brand', async (req, res) => {
-    const brandId = sanitizeText(String(req.params.brand || ''));
+    const brandParam = sanitizeText(String(req.params.brand || ''));
     const forceRefresh = String(req.query.refresh || '') === 'true';
-    if (!brandId) return res.status(400).json({ error: 'brandId is required' });
+    if (!brandParam) return res.status(400).json({ error: 'brandId is required' });
 
     const supabase = getSupabaseServiceClient() || getSupabaseClient();
     if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
 
-    const cacheKey = `x_metrics_cache_${brandId.toLowerCase()}`;
-    const tokenKey = `x_oauth_tokens_${brandId.toLowerCase()}`;
     const now = Date.now();
+    let resolvedBrandId = null;
+    let resolvedBrandName = null;
+
+    try {
+        const byId = await supabase.from('brands').select('id, name, slug').eq('id', brandParam).maybeSingle();
+        if (byId?.data?.id) {
+            resolvedBrandId = byId.data.id;
+            resolvedBrandName = byId.data.name;
+        } else {
+            const slug = brandParam.toLowerCase().replace(/\s+/g, '-');
+            const bySlug = await supabase.from('brands').select('id, name, slug').eq('slug', slug).maybeSingle();
+            if (bySlug?.data?.id) {
+                resolvedBrandId = bySlug.data.id;
+                resolvedBrandName = bySlug.data.name;
+            } else {
+                const byName = await supabase.from('brands').select('id, name, slug').ilike('name', brandParam).maybeSingle();
+                if (byName?.data?.id) {
+                    resolvedBrandId = byName.data.id;
+                    resolvedBrandName = byName.data.name;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[XMetrics] Brand resolve skipped:', e?.message || e);
+    }
+
+    const primaryKey = (resolvedBrandId || brandParam).toLowerCase();
+    const cacheKey = `x_metrics_cache_${primaryKey}`;
+    const tokenKey = `x_oauth_tokens_${primaryKey}`;
+
+    const requestedHandle = normalizeXHandle(req.query.handle);
+    let handle = isValidHandle(requestedHandle) ? requestedHandle : '';
 
     try {
         if (!forceRefresh) {
@@ -581,121 +696,134 @@ app.get('/api/x/metrics/:brand', async (req, res) => {
             }
         }
 
+        let tokenValue = null;
         const { data: tokenRow } = await supabase
             .from('app_storage')
             .select('value')
             .eq('key', tokenKey)
             .maybeSingle();
+        tokenValue = tokenRow?.value || null;
 
-        if (!tokenRow?.value?.access_token) {
-            return res.json({ connected: false });
+        if (!tokenValue?.access_token && resolvedBrandName) {
+            const fallbackKey = `x_oauth_tokens_${sanitizeText(resolvedBrandName).toLowerCase()}`;
+            if (fallbackKey !== tokenKey) {
+                const { data: fallbackRow } = await supabase
+                    .from('app_storage')
+                    .select('value')
+                    .eq('key', fallbackKey)
+                    .maybeSingle();
+                if (fallbackRow?.value?.access_token) {
+                    tokenValue = fallbackRow.value;
+                }
+            }
         }
 
-        let tokenValue = tokenRow.value;
-        const expiresAt = tokenValue.expires_at || null;
-        if (expiresAt && expiresAt < (now + 60 * 1000) && tokenValue.refresh_token) {
-            try {
+        if (!handle && resolvedBrandId) {
+            const { data: integrationRow } = await supabase
+                .from('brand_integrations')
+                .select('apify_handle')
+                .eq('brand_id', resolvedBrandId)
+                .maybeSingle();
+            const integrationHandle = normalizeXHandle(integrationRow?.apify_handle || '');
+            if (isValidHandle(integrationHandle)) {
+                handle = integrationHandle;
+            }
+        }
+
+        const connectedUsername = tokenValue?.user?.username || '';
+        const handleMatchesConnected = handle && connectedUsername
+            ? handle.toLowerCase() === connectedUsername.toLowerCase()
+            : false;
+
+        if (tokenValue?.access_token && (!handle || handleMatchesConnected)) {
+            const expiresAt = tokenValue.expires_at || null;
+            if (expiresAt && expiresAt < (now + 60 * 1000) && tokenValue.refresh_token) {
+                try {
+                    const refreshed = await refreshXToken(tokenValue.refresh_token);
+                    tokenValue = { ...tokenValue, ...refreshed };
+                    await supabase
+                        .from('app_storage')
+                        .upsert({ key: tokenKey, value: tokenValue, updated_at: new Date().toISOString() });
+                } catch (e) {
+                    console.warn('[XMetrics] refresh failed:', e.message);
+                }
+            }
+
+            let meRes = await fetch(`${X_ME_URL}?user.fields=public_metrics,username,verified`, {
+                headers: { 'Authorization': `Bearer ${tokenValue.access_token}` },
+            });
+            if (meRes.status === 401 && tokenValue.refresh_token) {
                 const refreshed = await refreshXToken(tokenValue.refresh_token);
                 tokenValue = { ...tokenValue, ...refreshed };
                 await supabase
                     .from('app_storage')
                     .upsert({ key: tokenKey, value: tokenValue, updated_at: new Date().toISOString() });
-            } catch (e) {
-                console.warn('[XMetrics] refresh failed:', e.message);
+                meRes = await fetch(`${X_ME_URL}?user.fields=public_metrics,username,verified`, {
+                    headers: { 'Authorization': `Bearer ${tokenValue.access_token}` },
+                });
             }
-        }
 
-        const accessToken = tokenValue.access_token;
+            const meJson = await meRes.json().catch(() => ({}));
+            if (!meRes.ok || !meJson?.data?.id) {
+                return res.status(500).json({ error: 'Failed to fetch X user profile' });
+            }
 
-        let meRes = await fetch(`${X_ME_URL}?user.fields=public_metrics,username,verified`, {
-            headers: { 'Authorization': `Bearer ${accessToken}` },
-        });
-        if (meRes.status === 401 && tokenValue.refresh_token) {
-            const refreshed = await refreshXToken(tokenValue.refresh_token);
-            tokenValue = { ...tokenValue, ...refreshed };
+            const user = meJson.data;
+            const tweets = await fetchXRecentTweets(user.id, tokenValue.access_token);
+            const { metrics, followersCount } = buildXMetricsPayload(user, tweets);
+
             await supabase
                 .from('app_storage')
-                .upsert({ key: tokenKey, value: tokenValue, updated_at: new Date().toISOString() });
-            meRes = await fetch(`${X_ME_URL}?user.fields=public_metrics,username,verified`, {
-                headers: { 'Authorization': `Bearer ${tokenValue.access_token}` },
+                .upsert({
+                    key: cacheKey,
+                    value: { metrics, lastFetched: now },
+                    updated_at: new Date().toISOString()
+                });
+
+            return res.json({
+                connected: true,
+                source: 'x',
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    verified: user.verified || false,
+                    followers: followersCount,
+                    following: user.public_metrics?.following_count || 0,
+                    tweetCount: user.public_metrics?.tweet_count || 0
+                },
+                metrics
             });
         }
 
-        const meJson = await meRes.json().catch(() => ({}));
-        if (!meRes.ok || !meJson?.data?.id) {
-            return res.status(500).json({ error: 'Failed to fetch X user profile' });
+        if (X_BEARER_TOKEN && handle) {
+            const user = await fetchXUserByHandle(handle, X_BEARER_TOKEN);
+            const tweets = await fetchXRecentTweets(user.id, X_BEARER_TOKEN);
+            const { metrics, followersCount } = buildXMetricsPayload(user, tweets);
+
+            await supabase
+                .from('app_storage')
+                .upsert({
+                    key: cacheKey,
+                    value: { metrics, lastFetched: now, handle },
+                    updated_at: new Date().toISOString()
+                });
+
+            return res.json({
+                connected: false,
+                source: 'x_app',
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    verified: user.verified || false,
+                    followers: followersCount,
+                    following: user.public_metrics?.following_count || 0,
+                    tweetCount: user.public_metrics?.tweet_count || 0
+                },
+                metrics
+            });
         }
 
-        const user = meJson.data;
-        const userId = user.id;
-
-        const tweetsRes = await fetch(`${X_TWEETS_URL}/${userId}/tweets?max_results=5&tweet.fields=public_metrics,created_at`, {
-            headers: { 'Authorization': `Bearer ${tokenValue.access_token}` },
-        });
-        const tweetsJson = await tweetsRes.json().catch(() => ({}));
-        const tweets = Array.isArray(tweetsJson?.data) ? tweetsJson.data : [];
-
-        const recentPosts = tweets.map((t) => {
-            const metrics = t.public_metrics || {};
-            const likes = metrics.like_count || 0;
-            const retweets = metrics.retweet_count || 0;
-            const comments = metrics.reply_count || 0;
-            const quotes = metrics.quote_count || 0;
-            const engagements = likes + retweets + comments + quotes;
-            const followers = user.public_metrics?.followers_count || 0;
-            const engagementRate = followers > 0 ? (engagements / followers) * 100 : 0;
-            return {
-                id: t.id,
-                content: t.text || '',
-                date: t.created_at ? new Date(t.created_at).toLocaleDateString() : 'Recent',
-                likes,
-                comments,
-                retweets,
-                impressions: engagements * 20,
-                engagementRate: parseFloat(engagementRate.toFixed(2)),
-                url: `https://x.com/${user.username}/status/${t.id}`
-            };
-        });
-
-        const followersCount = user.public_metrics?.followers_count || 0;
-        const totalEngagements = recentPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.comments, 0);
-        const avgEngagementRate = recentPosts.length > 0 && followersCount > 0
-            ? (totalEngagements / recentPosts.length / followersCount) * 100
-            : 0;
-
-        const metrics = {
-            totalFollowers: followersCount,
-            weeklyImpressions: recentPosts.reduce((sum, p) => sum + p.impressions, 0) * 2,
-            engagementRate: parseFloat(avgEngagementRate.toFixed(2)),
-            mentions: 0,
-            topPost: recentPosts[0]?.content || 'No recent posts found',
-            recentPosts,
-            engagementHistory: [],
-            comparison: { period: 'vs Last Week', followersChange: 0, engagementChange: 0, impressionsChange: 0 },
-            isLive: true
-        };
-
-        await supabase
-            .from('app_storage')
-            .upsert({
-                key: cacheKey,
-                value: { metrics, lastFetched: now },
-                updated_at: new Date().toISOString()
-            });
-
-        return res.json({
-            connected: true,
-            source: 'x',
-            user: {
-                id: userId,
-                username: user.username,
-                verified: user.verified || false,
-                followers: followersCount,
-                following: user.public_metrics?.following_count || 0,
-                tweetCount: user.public_metrics?.tweet_count || 0
-            },
-            metrics
-        });
+        return res.json({ connected: false });
     } catch (e) {
         console.error('[XMetrics] Failed:', e);
         return res.status(500).json({ error: 'Failed to fetch X metrics' });

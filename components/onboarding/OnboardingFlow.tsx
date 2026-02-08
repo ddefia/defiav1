@@ -168,6 +168,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   const [brandName, setBrandName] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [twitterHandle, setTwitterHandle] = useState('');
+  const [xConnectStatus, setXConnectStatus] = useState<{ connected: boolean; username?: string | null } | null>(null);
+  const [xConnectError, setXConnectError] = useState('');
+  const [xConnectLoading, setXConnectLoading] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState('');
 
@@ -245,6 +248,53 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     }
     return hasEmail || hasWallet;
   }, [userEmail, userWalletAddress, wantsAccount, isAccountFormValid, isGuestProfile]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchXStatus = async () => {
+      const brandKey = brandName.trim();
+      if (!brandKey) return;
+      try {
+        const baseUrl = getApiBaseUrl();
+        const response = await fetch(`${baseUrl}/api/auth/x/status?brandId=${encodeURIComponent(brandKey)}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active) setXConnectStatus(data);
+      } catch {
+        if (active) setXConnectStatus(null);
+      }
+    };
+    fetchXStatus();
+    return () => { active = false; };
+  }, [brandName]);
+
+  const handleConnectX = async () => {
+    setXConnectError('');
+    setXConnectLoading(true);
+    try {
+      const brandKey = brandName.trim();
+      if (!brandKey) {
+        setXConnectError('Enter your company name first.');
+        return;
+      }
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/auth/x/authorize-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brandId: brandKey })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.url) {
+        setXConnectError(data?.error || 'Failed to start X connection.');
+        return;
+      }
+      window.location.href = data.url;
+    } catch (e: any) {
+      setXConnectError(e?.message || 'Failed to start X connection.');
+    } finally {
+      setXConnectLoading(false);
+    }
+  };
 
   const handleConnectWallet = async () => {
     setIsConnectingWallet(true);
@@ -1339,6 +1389,30 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
                 placeholder="yourhandle"
                 className="w-full h-[52px] rounded-xl bg-[#111113] border border-[#2A2A2E] pl-10 pr-4 text-white placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
               />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#2A2A2E] bg-[#111113] px-4 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-white text-sm font-medium">Connect X (optional)</p>
+                <p className="text-[#6B6B70] text-xs">
+                  Recommended for the most accurate follower + engagement tracking. If you skip, we use public data for the handle above.
+                </p>
+              </div>
+              <button
+                onClick={handleConnectX}
+                disabled={xConnectLoading}
+                className="px-4 py-2 rounded-lg bg-[#1A1A1D] border border-[#2E2E2E] text-white text-xs font-semibold hover:border-[#FF5C00] disabled:opacity-50 whitespace-nowrap"
+              >
+                {xConnectLoading ? 'Connecting...' : (xConnectStatus?.connected ? 'Reconnect X' : 'Connect X')}
+              </button>
+            </div>
+            <div className="mt-3 text-xs">
+              <span className={xConnectStatus?.connected ? 'text-green-400' : 'text-[#6B6B70]'}>
+                {xConnectStatus?.connected ? `Connected as @${xConnectStatus?.username || 'account'}` : 'Not connected'}
+              </span>
+              {xConnectError && <span className="text-red-400 ml-2">{xConnectError}</span>}
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost, SocialSignals, TrendItem, Mention, DashboardCampaign } from "../types";
 import { getIntegrationConfig } from "../config/integrations";
-import { loadIntegrationKeys } from "./storage";
+import { getBrandRegistryEntry, loadIntegrationKeys } from "./storage";
 
 
 /**
@@ -75,10 +75,13 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
     // Prefer server-side X OAuth metrics when available
     try {
         const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-        const xRes = await fetch(`${baseUrl}/api/x/metrics/${encodeURIComponent(brandName)}`);
+        const registryEntry = getBrandRegistryEntry(brandName);
+        const brandKey = registryEntry?.brandId || brandName;
+        const handleParam = handle ? `?handle=${encodeURIComponent(handle)}` : '';
+        const xRes = await fetch(`${baseUrl}/api/x/metrics/${encodeURIComponent(brandKey)}${handleParam}`);
         if (xRes.ok) {
             const xJson = await xRes.json();
-            if (xJson?.connected && xJson?.metrics) {
+            if (xJson?.metrics) {
                 return { ...xJson.metrics, isLive: true } as SocialMetrics;
             }
         }

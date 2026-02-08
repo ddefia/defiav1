@@ -28,6 +28,9 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
     const [xApiSecret, setXApiSecret] = useState('');
     const [xAccessToken, setXAccessToken] = useState('');
     const [xAccessSecret, setXAccessSecret] = useState('');
+    const [xConnectStatus, setXConnectStatus] = useState<{ connected: boolean; username?: string | null } | null>(null);
+    const [xConnectError, setXConnectError] = useState('');
+    const [xConnectLoading, setXConnectLoading] = useState(false);
 
     // Profile data from auth
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -60,6 +63,50 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
             if (profile.role) setProfileRole(profile.role === 'founder' ? 'Founder / CEO' : profile.role.charAt(0).toUpperCase() + profile.role.slice(1));
         }
     }, [brandName]);
+
+    useEffect(() => {
+        let isActive = true;
+        const fetchXStatus = async () => {
+            try {
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+                const registryEntry = getBrandRegistryEntry(brandName);
+                const brandKey = registryEntry?.brandId || brandName;
+                const response = await fetch(`${baseUrl}/api/auth/x/status?brandId=${encodeURIComponent(brandKey)}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                if (isActive) setXConnectStatus(data);
+            } catch (e) {
+                if (isActive) setXConnectStatus(null);
+            }
+        };
+        fetchXStatus();
+        return () => { isActive = false; };
+    }, [brandName]);
+
+    const handleConnectX = async () => {
+        setXConnectError('');
+        setXConnectLoading(true);
+        try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+            const registryEntry = getBrandRegistryEntry(brandName);
+            const brandKey = registryEntry?.brandId || brandName;
+            const response = await fetch(`${baseUrl}/api/auth/x/authorize-url`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ brandId: brandKey })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data?.url) {
+                setXConnectError(data?.error || 'Failed to start X connection.');
+                return;
+            }
+            window.location.href = data.url;
+        } catch (e: any) {
+            setXConnectError(e?.message || 'Failed to start X connection.');
+        } finally {
+            setXConnectLoading(false);
+        }
+    };
 
     const resolveBrandId = async (): Promise<string | null> => {
         const cached = getBrandRegistryEntry(brandName);
@@ -352,6 +399,29 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                             className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
                                         />
                                     </div>
+                                </div>
+
+                                <div className="border-t border-[#1F1F23] pt-4 mb-4">
+                                    <span className="text-xs font-semibold text-[#94A3B8] uppercase tracking-widest">X Account (Recommended)</span>
+                                    <p className="text-[11px] text-[#6B6B70] mt-1 mb-3">
+                                        Connect your official X account for the most accurate follower + engagement tracking.
+                                        If you skip this, we'll use public data for the handle above.
+                                    </p>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={handleConnectX}
+                                            disabled={xConnectLoading}
+                                            className="px-4 py-2 rounded-lg bg-[#1A1A1D] border border-[#2E2E2E] text-white text-sm font-semibold hover:border-[#FF5C00] disabled:opacity-50"
+                                        >
+                                            {xConnectLoading ? 'Connecting...' : (xConnectStatus?.connected ? 'Reconnect X' : 'Connect X')}
+                                        </button>
+                                        <span className={`text-xs ${xConnectStatus?.connected ? 'text-green-400' : 'text-[#6B6B70]'}`}>
+                                            {xConnectStatus?.connected ? `Connected as @${xConnectStatus?.username || 'account'}` : 'Not connected'}
+                                        </span>
+                                    </div>
+                                    {xConnectError && (
+                                        <p className="text-xs text-red-400 mt-2">{xConnectError}</p>
+                                    )}
                                 </div>
 
                                 <div className="mt-4 border-t border-[#1F1F23] pt-4">
