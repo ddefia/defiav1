@@ -692,7 +692,13 @@ app.get('/api/x/metrics/:brand', async (req, res) => {
                 .eq('key', cacheKey)
                 .maybeSingle();
             if (cacheRow?.value?.metrics && cacheRow.value.lastFetched && (now - cacheRow.value.lastFetched) < 15 * 60 * 1000) {
+                const cachedHandle = normalizeXHandle(cacheRow.value.handle || cacheRow.value.username || '');
+                const requestedHandle = normalizeXHandle(req.query.handle);
+                if (requestedHandle && cachedHandle && requestedHandle.toLowerCase() !== cachedHandle.toLowerCase()) {
+                    // Handle changed, skip cache to prevent stale account metrics.
+                } else {
                 return res.json({ connected: true, source: 'cache', metrics: cacheRow.value.metrics });
+                }
             }
         }
 
@@ -776,7 +782,7 @@ app.get('/api/x/metrics/:brand', async (req, res) => {
                 .from('app_storage')
                 .upsert({
                     key: cacheKey,
-                    value: { metrics, lastFetched: now },
+                    value: { metrics, lastFetched: now, handle: user.username },
                     updated_at: new Date().toISOString()
                 });
 
@@ -804,7 +810,7 @@ app.get('/api/x/metrics/:brand', async (req, res) => {
                 .from('app_storage')
                 .upsert({
                     key: cacheKey,
-                    value: { metrics, lastFetched: now, handle },
+                    value: { metrics, lastFetched: now, handle: user.username || handle },
                     updated_at: new Date().toISOString()
                 });
 
