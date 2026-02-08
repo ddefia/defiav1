@@ -70,6 +70,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     const [selectedContentType, setSelectedContentType] = useState<TweetContentType>('announcement');
     const [tweetContext, setTweetContext] = useState('');
     const [generatedTweetPreview, setGeneratedTweetPreview] = useState('');
+    const [generatedThreadPreview, setGeneratedThreadPreview] = useState<string[]>([]);
+    const [currentThreadIndex, setCurrentThreadIndex] = useState(0);
     const [isGeneratingTweet, setIsGeneratingTweet] = useState(false);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -187,6 +189,9 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         if (!tweetTopic.trim()) return;
         setIsGeneratingTweet(true);
         setError(null);
+        setGeneratedThreadPreview([]);
+        setCurrentThreadIndex(0);
+        setPreviewImage(null);
         try {
             // Map content type to tone
             const toneMap: Record<TweetContentType, string> = {
@@ -199,22 +204,54 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             };
             const tone = toneMap[selectedContentType];
 
-            const res = await generateTweet(
-                `${tweetTopic}${tweetContext ? `\n\nContext: ${tweetContext}` : ''}`,
-                brandName,
-                brandConfig,
-                tone,
-                1
-            );
+            if (selectedContentType === 'thread') {
+                const threadCount = 4;
+                const res = await generateTweet(
+                    `Create a ${threadCount}-tweet thread about: ${tweetTopic}${tweetContext ? `\n\nContext: ${tweetContext}` : ''}\nReturn each tweet as a separate item in order.`,
+                    brandName,
+                    brandConfig,
+                    tone,
+                    threadCount
+                );
 
-            let draft = '';
-            if (Array.isArray(res)) {
-                draft = res[0] || '';
-            } else if (typeof res === 'string') {
-                draft = res;
+                let tweets: string[] = [];
+                if (Array.isArray(res)) {
+                    tweets = res;
+                } else if (typeof res === 'string') {
+                    const trimmed = res.trim();
+                    if (trimmed.startsWith('[')) {
+                        try {
+                            const parsed = JSON.parse(trimmed);
+                            if (Array.isArray(parsed)) tweets = parsed;
+                        } catch {}
+                    }
+                    if (tweets.length === 0) {
+                        const split = trimmed.split(/\n{2,}/).map(t => t.trim()).filter(Boolean);
+                        tweets = split;
+                    }
+                }
+
+                const cleaned = tweets.map(t => t.trim()).filter(Boolean);
+                setGeneratedThreadPreview(cleaned);
+                setGeneratedTweetPreview(cleaned[0] || '');
+            } else {
+                const res = await generateTweet(
+                    `${tweetTopic}${tweetContext ? `\n\nContext: ${tweetContext}` : ''}`,
+                    brandName,
+                    brandConfig,
+                    tone,
+                    1
+                );
+
+                let draft = '';
+                if (Array.isArray(res)) {
+                    draft = res[0] || '';
+                } else if (typeof res === 'string') {
+                    draft = res;
+                }
+
+                setGeneratedTweetPreview(draft.trim());
             }
-
-            setGeneratedTweetPreview(draft.trim());
         } catch (e) {
             setError('Failed to generate tweet.');
             console.error(e);
@@ -429,12 +466,17 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         setTweetTopic('');
         setTweetContext('');
         setGeneratedTweetPreview('');
+        setGeneratedThreadPreview([]);
+        setCurrentThreadIndex(0);
         setPreviewImage(null);
     };
 
     const handleGoToAddTweetImage = () => {
         // Navigate from create-tweet to add-tweet-image with the generated tweet
-        setTweetForImage(generatedTweetPreview);
+        const currentText = (selectedContentType === 'thread' && generatedThreadPreview.length > 0)
+            ? (generatedThreadPreview[currentThreadIndex] || generatedThreadPreview[0])
+            : generatedTweetPreview;
+        setTweetForImage(currentText);
         setTweetImageDescription('');
         setSelectedTheme('web3');
         setSelectedImageStyle('3d');
@@ -583,6 +625,10 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     // CREATE TWEET VIEW
     // =====================================================
     if (currentView === 'create-tweet') {
+        const isThreadPreview = selectedContentType === 'thread' && generatedThreadPreview.length > 0;
+        const currentTweetText = isThreadPreview
+            ? (generatedThreadPreview[currentThreadIndex] || generatedThreadPreview[0])
+            : generatedTweetPreview;
         return (
             <div className="flex-1 flex bg-[#0A0A0B] min-h-0">
                 {/* Left Panel */}
@@ -601,7 +647,9 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             <div className="w-7 h-7 rounded-lg bg-[#1DA1F2] flex items-center justify-center">
                                 <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>tag</span>
                             </div>
-                            <span className="text-lg font-semibold text-white">Create Tweet</span>
+                            <span className="text-lg font-semibold text-white">
+                                {selectedContentType === 'thread' ? 'Create Thread' : 'Create Tweet'}
+                            </span>
                         </div>
 
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#3B82F622]">
@@ -670,7 +718,9 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
                         >
                             <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
-                            {isGeneratingTweet ? 'Generating...' : 'Generate Tweet'}
+                            {isGeneratingTweet
+                                ? (selectedContentType === 'thread' ? 'Generating Thread...' : 'Generating...')
+                                : (selectedContentType === 'thread' ? 'Generate Thread' : 'Generate Tweet')}
                         </button>
 
                         {error && (
@@ -684,7 +734,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                     <div className="flex items-center justify-end px-6 py-4 border-t border-[#1F1F23]">
                         <button
                             onClick={handleGenerateTweet}
-                            disabled={!generatedTweetPreview || isGeneratingTweet}
+                            disabled={!currentTweetText || isGeneratingTweet}
                             className="flex items-center gap-2 px-4 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>refresh</span>
@@ -720,8 +770,35 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             </div>
 
                             {/* Tweet Content */}
+                            {isThreadPreview && (
+                                <div className="flex items-center justify-between mb-2 px-2 py-1 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                    <button
+                                        onClick={() => setCurrentThreadIndex(i => Math.max(0, i - 1))}
+                                        disabled={currentThreadIndex === 0}
+                                        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
+                                            currentThreadIndex === 0 ? 'text-[#2E2E2E]' : 'text-[#6B6B70] hover:text-white bg-[#1F1F23]'
+                                        }`}
+                                        title="Previous tweet"
+                                    >
+                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>chevron_left</span>
+                                    </button>
+                                    <span className="text-[11px] font-mono text-[#6B6B70]">
+                                        Thread {currentThreadIndex + 1} / {generatedThreadPreview.length}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentThreadIndex(i => Math.min(generatedThreadPreview.length - 1, i + 1))}
+                                        disabled={currentThreadIndex >= generatedThreadPreview.length - 1}
+                                        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
+                                            currentThreadIndex >= generatedThreadPreview.length - 1 ? 'text-[#2E2E2E]' : 'text-[#6B6B70] hover:text-white bg-[#1F1F23]'
+                                        }`}
+                                        title="Next tweet"
+                                    >
+                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>chevron_right</span>
+                                    </button>
+                                </div>
+                            )}
                             <p className="text-[15px] text-white leading-relaxed whitespace-pre-wrap">
-                                {generatedTweetPreview || "🚀 Big announcement! We're launching our new NFT collection next week.\n\nHere's what makes it special:\n• 10,000 unique pieces\n• Exclusive holder benefits\n• Built on Solana for low fees\n\nWho's ready? 👇"}
+                                {currentTweetText || "🚀 Big announcement! We're launching our new NFT collection next week.\n\nHere's what makes it special:\n• 10,000 unique pieces\n• Exclusive holder benefits\n• Built on Solana for low fees\n\nWho's ready? 👇"}
                             </p>
 
                             {/* Add Image Button or Preview Image */}
@@ -738,7 +815,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             ) : (
                                 <button
                                     onClick={handleGoToAddTweetImage}
-                                    disabled={!generatedTweetPreview}
+                                    disabled={!currentTweetText}
                                     className="w-full h-[100px] flex flex-col items-center justify-center gap-2 bg-[#0A0A0B] border border-[#2E2E2E] rounded-xl text-[#64748B] hover:border-[#3E3E3E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <span className="material-symbols-sharp text-[28px]" style={{ fontVariationSettings: "'wght' 300" }}>add_photo_alternate</span>
@@ -765,22 +842,38 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                         {/* Action Buttons */}
                         <div className="flex items-center justify-center gap-3">
                             <button
-                                onClick={() => generatedTweetPreview && onSchedule(generatedTweetPreview, previewImage || undefined)}
-                                disabled={!generatedTweetPreview}
+                                onClick={() => currentTweetText && onSchedule(currentTweetText, previewImage || undefined)}
+                                disabled={!currentTweetText}
                                 className="flex items-center gap-2 px-5 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
                                 Schedule
                             </button>
                             <button
-                                onClick={() => generatedTweetPreview && handlePrepareTweet(generatedTweetPreview)}
-                                disabled={!generatedTweetPreview}
+                                onClick={() => currentTweetText && handlePrepareTweet(currentTweetText)}
+                                disabled={!currentTweetText}
                                 className="flex items-center gap-2 px-6 py-3 rounded-[10px] text-white text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
                             >
                                 <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>send</span>
                                 Post Now
                             </button>
+                            {isThreadPreview && (
+                                <button
+                                    onClick={() => {
+                                        const formatted = generatedThreadPreview.map((t, i) => {
+                                            const hasNumber = /^\s*\d+\/\d+/.test(t);
+                                            return hasNumber ? t : `${i + 1}/${generatedThreadPreview.length} ${t}`;
+                                        }).join('\n\n');
+                                        navigator.clipboard.writeText(formatted);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
+                                    title="Copy full thread"
+                                >
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>content_copy</span>
+                                    Copy Thread
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
