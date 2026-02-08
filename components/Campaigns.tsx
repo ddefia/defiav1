@@ -1044,11 +1044,11 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         Create Campaign
                                     </button>
                                     <div className="mt-6 w-full max-w-3xl">
-                                        <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center justify-between mb-3 w-full">
                                             <span className="text-xs font-semibold text-[#FF5C00] tracking-widest">RECOMMENDED CAMPAIGNS</span>
-                                            <span className="text-[10px] text-[#6B6B70]">2-3 ideas to get you started</span>
+                                            <span className="text-[10px] text-[#6B6B70] hidden sm:block">2-3 ideas to get you started</span>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 justify-items-center">
                                             {emptyStateRecommendations.slice(0, 3).map((rec, idx) => {
                                                 const rawTitle = rec.hook || rec.topic || `Idea ${idx + 1}`;
                                                 const recTitle = rawTitle.replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim() || rawTitle;
@@ -1062,7 +1062,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                             setViewMode('wizard');
                                                             setCampaignStep(1);
                                                         }}
-                                                        className="text-left p-3 rounded-xl border border-[#1F1F23] bg-[#0A0A0B] hover:border-[#2E2E2E] transition-colors"
+                                                        className="w-full max-w-[320px] text-left p-3 rounded-xl border border-[#1F1F23] bg-[#0A0A0B] hover:border-[#2E2E2E] transition-colors"
                                                     >
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-[#FF5C00]/10 text-[#FF5C00]">AI PICK</span>
