@@ -29,9 +29,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
     const [dateRange, setDateRange] = useState<DateRange>('30d');
 
     // Derived history for chart - empty if no real data
-    const historyData = (metrics?.engagementHistory && metrics.engagementHistory.length > 0)
-        ? metrics.engagementHistory.map(h => h.rate)
-        : [];
+    const engagementHistory = metrics?.engagementHistory || [];
+    const historyData = engagementHistory.map(h => h.rate);
+    const hasEngagementHistory = historyData.length > 1;
 
     // Stats from real data only - show 0 or -- if no data
     const totalFollowers = metrics?.totalFollowers || 0;
@@ -48,6 +48,47 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
         if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
         if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
         return num.toString();
+    };
+
+    const formatDelta = (value: number) => {
+        const numeric = Number(value || 0);
+        const sign = numeric > 0 ? '+' : '';
+        return `${sign}${numeric.toFixed(1)}%`;
+    };
+
+    const getDeltaTone = (value: number) => {
+        if (value > 0) return { icon: 'trending_up', className: 'text-[#22C55E]' };
+        if (value < 0) return { icon: 'trending_down', className: 'text-red-400' };
+        return { icon: 'trending_flat', className: 'text-[#6B6B70]' };
+    };
+
+    const engagementPeak = hasEngagementHistory
+        ? engagementHistory.reduce((max, item) => (item.rate > max.rate ? item : max), engagementHistory[0])
+        : null;
+    const engagementAvg = hasEngagementHistory
+        ? historyData.reduce((acc, val) => acc + val, 0) / historyData.length
+        : 0;
+    const engagementGrowth = hasEngagementHistory
+        ? ((historyData[historyData.length - 1] - historyData[0]) / Math.max(historyData[0], 0.01)) * 100
+        : 0;
+
+    const engagementSeriesPath = () => {
+        if (!hasEngagementHistory) return '';
+        const values = historyData;
+        const max = Math.max(...values);
+        const min = Math.min(...values);
+        const range = max - min || 1;
+        return values.map((val, idx) => {
+            const x = (idx / (values.length - 1)) * 100;
+            const y = 100 - ((val - min) / range) * 80 - 10; // padding
+            return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+        }).join(' ');
+    };
+
+    const engagementAreaPath = () => {
+        if (!hasEngagementHistory) return '';
+        const linePath = engagementSeriesPath();
+        return `${linePath} L 100 100 L 0 100 Z`;
     };
 
     const getPlatformIcon = (platform: string) => {
@@ -100,18 +141,22 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
             <div className="flex-1 flex flex-col gap-6 p-7 px-10 overflow-y-auto">
                 {/* Metrics Row */}
                 <div className="grid grid-cols-4 gap-4">
-                    {/* Total Impressions */}
+                    {/* Weekly Impressions */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
                         <div className="flex items-center justify-between">
-                            <span className="text-[#9CA3AF] text-[13px]">Total Impressions</span>
+                            <span className="text-[#9CA3AF] text-[13px]">Weekly Impressions</span>
                             <div className="w-8 h-8 rounded-lg bg-[#3B82F622] flex items-center justify-center">
                                 <span className="material-symbols-sharp text-[#3B82F6] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>visibility</span>
                             </div>
                         </div>
                         <span className="text-white text-[32px] font-bold">{formatNumber(impressions)}</span>
                         <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-sharp text-[#22C55E] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
-                            <span className="text-[#22C55E] text-xs font-medium">+{impressionsChange}% from last month</span>
+                            <span className={`material-symbols-sharp text-sm ${getDeltaTone(impressionsChange).className}`} style={{ fontVariationSettings: "'wght' 300" }}>
+                                {getDeltaTone(impressionsChange).icon}
+                            </span>
+                            <span className={`${getDeltaTone(impressionsChange).className} text-xs font-medium`}>
+                                {metrics ? `${formatDelta(impressionsChange)} vs last period` : 'No change data'}
+                            </span>
                         </div>
                     </div>
 
@@ -125,23 +170,31 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                         </div>
                         <span className="text-white text-[32px] font-bold">{formatNumber(totalEngagements)}</span>
                         <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-sharp text-[#22C55E] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
-                            <span className="text-[#22C55E] text-xs font-medium">+18.2% from last month</span>
+                            <span className={`material-symbols-sharp text-sm ${getDeltaTone(engagementChange).className}`} style={{ fontVariationSettings: "'wght' 300" }}>
+                                {getDeltaTone(engagementChange).icon}
+                            </span>
+                            <span className={`${getDeltaTone(engagementChange).className} text-xs font-medium`}>
+                                {metrics ? `${formatDelta(engagementChange)} vs last period` : 'No change data'}
+                            </span>
                         </div>
                     </div>
 
-                    {/* Follower Growth */}
+                    {/* Total Followers */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
                         <div className="flex items-center justify-between">
-                            <span className="text-[#9CA3AF] text-[13px]">Follower Growth</span>
+                            <span className="text-[#9CA3AF] text-[13px]">Total Followers</span>
                             <div className="w-8 h-8 rounded-lg bg-[#FF5C0022] flex items-center justify-center">
                                 <span className="material-symbols-sharp text-[#FF5C00] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>group</span>
                             </div>
                         </div>
-                        <span className="text-white text-[32px] font-bold">+{formatNumber(totalFollowers)}</span>
+                        <span className="text-white text-[32px] font-bold">{formatNumber(totalFollowers)}</span>
                         <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-sharp text-[#22C55E] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
-                            <span className="text-[#22C55E] text-xs font-medium">+{followersChange}% from last month</span>
+                            <span className={`material-symbols-sharp text-sm ${getDeltaTone(followersChange).className}`} style={{ fontVariationSettings: "'wght' 300" }}>
+                                {getDeltaTone(followersChange).icon}
+                            </span>
+                            <span className={`${getDeltaTone(followersChange).className} text-xs font-medium`}>
+                                {metrics ? `${formatDelta(followersChange)} vs last period` : 'No change data'}
+                            </span>
                         </div>
                     </div>
 
@@ -153,10 +206,14 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                 <span className="material-symbols-sharp text-[#A855F7] text-base" style={{ fontVariationSettings: "'wght' 300" }}>percent</span>
                             </div>
                         </div>
-                        <span className="text-white text-[32px] font-bold">{engagementRate}%</span>
+                        <span className="text-white text-[32px] font-bold">{engagementRate.toFixed(2)}%</span>
                         <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-sharp text-[#22C55E] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
-                            <span className="text-[#22C55E] text-xs font-medium">+{engagementChange}% from last month</span>
+                            <span className={`material-symbols-sharp text-sm ${getDeltaTone(engagementChange).className}`} style={{ fontVariationSettings: "'wght' 300" }}>
+                                {getDeltaTone(engagementChange).icon}
+                            </span>
+                            <span className={`${getDeltaTone(engagementChange).className} text-xs font-medium`}>
+                                {metrics ? `${formatDelta(engagementChange)} vs last period` : 'No change data'}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -189,67 +246,68 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
 
                             {/* Chart */}
                             <div className="relative h-60">
-                                {/* Grid Lines */}
-                                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                                    {[0, 1, 2, 3, 4].map(i => (
-                                        <div key={i} className="w-full h-px bg-[#1F1F23]"></div>
-                                    ))}
-                                </div>
+                                {chartTab === 'engagements' && hasEngagementHistory ? (
+                                    <>
+                                        {/* Grid Lines */}
+                                        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                                            {[0, 1, 2, 3, 4].map(i => (
+                                                <div key={i} className="w-full h-px bg-[#1F1F23]"></div>
+                                            ))}
+                                        </div>
 
-                                {/* Y Axis Labels */}
-                                <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-[#6B6B70] text-xs py-1">
-                                    <span>3M</span>
-                                    <span>2M</span>
-                                    <span>1M</span>
-                                    <span>500K</span>
-                                    <span>0</span>
-                                </div>
+                                        {/* Y Axis Labels */}
+                                        <div className="absolute left-0 top-0 bottom-0 w-10 flex flex-col justify-between text-[#6B6B70] text-xs py-1">
+                                            <span>{Math.max(...historyData).toFixed(2)}%</span>
+                                            <span>{((Math.max(...historyData) + Math.min(...historyData)) / 2).toFixed(2)}%</span>
+                                            <span>{Math.min(...historyData).toFixed(2)}%</span>
+                                            <span>—</span>
+                                            <span>0%</span>
+                                        </div>
 
-                                {/* Chart SVG */}
-                                <div className="absolute left-12 right-0 top-0 bottom-6">
-                                    <svg viewBox="0 0 700 200" preserveAspectRatio="none" className="w-full h-full">
-                                        <defs>
-                                            <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-                                                <stop offset="0%" stopColor="#FF5C00" stopOpacity="0.3" />
-                                                <stop offset="100%" stopColor="#FF5C00" stopOpacity="0" />
-                                            </linearGradient>
-                                        </defs>
-                                        {/* Area fill */}
-                                        <path
-                                            d="M0,180 C50,160 100,140 150,120 C200,100 250,90 300,85 C350,80 400,70 450,60 C500,50 550,45 600,35 C650,25 700,20 700,20 L700,200 L0,200 Z"
-                                            fill="url(#chartGradient)"
-                                        />
-                                        {/* Line */}
-                                        <path
-                                            d="M0,180 C50,160 100,140 150,120 C200,100 250,90 300,85 C350,80 400,70 450,60 C500,50 550,45 600,35 C650,25 700,20 700,20"
-                                            fill="none"
-                                            stroke="#FF5C00"
-                                            strokeWidth="3"
-                                            strokeLinecap="round"
-                                        />
-                                        {/* Data points */}
-                                        <circle cx="0" cy="180" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
-                                        <circle cx="150" cy="120" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
-                                        <circle cx="300" cy="85" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
-                                        <circle cx="450" cy="60" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
-                                        <circle cx="600" cy="35" r="6" fill="#FF5C00" stroke="#0A0A0B" strokeWidth="2" />
-                                    </svg>
+                                        {/* Chart SVG */}
+                                        <div className="absolute left-12 right-0 top-0 bottom-6">
+                                            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+                                                <defs>
+                                                    <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+                                                        <stop offset="0%" stopColor="#FF5C00" stopOpacity="0.3" />
+                                                        <stop offset="100%" stopColor="#FF5C00" stopOpacity="0" />
+                                                    </linearGradient>
+                                                </defs>
+                                                {/* Area fill */}
+                                                <path
+                                                    d={engagementAreaPath()}
+                                                    fill="url(#chartGradient)"
+                                                />
+                                                {/* Line */}
+                                                <path
+                                                    d={engagementSeriesPath()}
+                                                    fill="none"
+                                                    stroke="#FF5C00"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                />
+                                            </svg>
+                                        </div>
 
-                                    {/* Tooltip */}
-                                    <div className="absolute right-20 top-0 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3 py-2">
-                                        <p className="text-white text-xs font-semibold">2.4M impressions</p>
-                                        <p className="text-[#6B6B70] text-[11px]">Jan 28, 2025</p>
+                                        {/* X Axis Labels */}
+                                        <div className="absolute left-12 right-0 bottom-0 flex justify-between text-[#6B6B70] text-xs">
+                                            <span>{engagementHistory[0]?.date || 'Start'}</span>
+                                            <span>{engagementHistory[Math.floor(engagementHistory.length / 2)]?.date || ''}</span>
+                                            <span>{engagementHistory[engagementHistory.length - 1]?.date || 'Now'}</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex h-full items-center justify-center text-center">
+                                        <div>
+                                            <span className="material-symbols-sharp text-[#6B6B70] text-3xl mb-2 block" style={{ fontVariationSettings: "'wght' 200" }}>show_chart</span>
+                                            <p className="text-[#6B6B70] text-sm">
+                                                {chartTab === 'engagements'
+                                                    ? 'No engagement history yet. We will start plotting once daily snapshots are available.'
+                                                    : 'Historical data for this metric is not available yet.'}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-
-                                {/* X Axis Labels */}
-                                <div className="absolute left-12 right-0 bottom-0 flex justify-between text-[#6B6B70] text-xs">
-                                    <span>Jan 1</span>
-                                    <span>Jan 7</span>
-                                    <span>Jan 14</span>
-                                    <span>Jan 21</span>
-                                    <span>Jan 28</span>
-                                </div>
+                                )}
                             </div>
                         </div>
 
@@ -258,22 +316,32 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                             {/* Peak Day */}
                             <div className="bg-[#1A1A1D] rounded-lg p-4 flex flex-col gap-1">
                                 <span className="text-[#6B6B70] text-xs">Peak Day</span>
-                                <span className="text-white text-lg font-semibold">Jan 15</span>
-                                <span className="text-[#22C55E] text-xs font-medium">542K impressions</span>
+                                <span className="text-white text-lg font-semibold">
+                                    {chartTab === 'engagements' && engagementPeak ? engagementPeak.date : '--'}
+                                </span>
+                                <span className="text-[#22C55E] text-xs font-medium">
+                                    {chartTab === 'engagements' && engagementPeak ? `${engagementPeak.rate.toFixed(2)}%` : 'No data'}
+                                </span>
                             </div>
 
                             {/* Avg Daily */}
                             <div className="bg-[#1A1A1D] rounded-lg p-4 flex flex-col gap-1">
                                 <span className="text-[#6B6B70] text-xs">Avg. Daily</span>
-                                <span className="text-white text-lg font-semibold">80K</span>
-                                <span className="text-[#22C55E] text-xs font-medium">+18% vs last month</span>
+                                <span className="text-white text-lg font-semibold">
+                                    {chartTab === 'engagements' && hasEngagementHistory ? `${engagementAvg.toFixed(2)}%` : '--'}
+                                </span>
+                                <span className="text-[#6B6B70] text-xs font-medium">
+                                    {chartTab === 'engagements' && hasEngagementHistory ? 'Avg engagement rate' : 'No data'}
+                                </span>
                             </div>
 
                             {/* Growth Rate */}
                             <div className="bg-[#1A1A1D] rounded-lg p-4 flex flex-col gap-1">
                                 <span className="text-[#6B6B70] text-xs">Growth Rate</span>
-                                <span className="text-[#22C55E] text-lg font-semibold">+24.5%</span>
-                                <span className="text-[#6B6B70] text-xs">Month over month</span>
+                                <span className="text-white text-lg font-semibold">
+                                    {chartTab === 'engagements' && hasEngagementHistory ? formatDelta(engagementGrowth) : '--'}
+                                </span>
+                                <span className="text-[#6B6B70] text-xs">Period over period</span>
                             </div>
 
                             {/* Best Platform */}
@@ -281,9 +349,11 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                 <span className="text-[#6B6B70] text-xs">Best Platform</span>
                                 <div className="flex items-center gap-2">
                                     <span className="material-symbols-sharp text-[#1DA1F2] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>alternate_email</span>
-                                    <span className="text-white text-lg font-semibold">Twitter/X</span>
+                                    <span className="text-white text-lg font-semibold">{metrics ? 'Twitter/X' : '--'}</span>
                                 </div>
-                                <span className="text-[#6B6B70] text-xs">75% of total reach</span>
+                                <span className="text-[#6B6B70] text-xs">
+                                    {metrics ? 'Based on available social data' : 'No platform data'}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -310,15 +380,21 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                 <span className="text-[#E5E5E5] text-[13px] leading-relaxed">{insight.text}</span>
                             </div>
                         ))}
+                        {AI_INSIGHTS.length === 0 && (
+                            <div className="text-[#6B6B70] text-sm">
+                                No AI insights yet. Generate more campaigns or connect data sources to unlock insights.
+                            </div>
+                        )}
                     </div>
 
                     {/* Action Button */}
                     <button
                         className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white text-sm font-semibold"
                         style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                        disabled={AI_INSIGHTS.length === 0}
                     >
                         <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
-                        Apply AI Recommendations
+                        {AI_INSIGHTS.length === 0 ? 'No Recommendations Available' : 'Apply AI Recommendations'}
                     </button>
                 </div>
 
@@ -360,7 +436,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                     </div>
                                     <span className="text-white text-[13px] w-[100px]">{formatNumber(item.impressions)}</span>
                                     <span className="text-white text-[13px] w-[100px]">{formatNumber(item.engagement)}</span>
-                                    <span className="text-[#22C55E] text-[13px] font-semibold w-[80px]">{item.rate}%</span>
+                                    <span className="text-[#22C55E] text-[13px] font-semibold w-[80px]">
+                                        {Number(item.rate).toFixed(2)}%
+                                    </span>
                                 </div>
                             );
                         })}
