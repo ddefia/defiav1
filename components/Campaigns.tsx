@@ -139,6 +139,35 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         return () => clearTimeout(timeout);
     }, [viewMode, campaignStep, campaignType, campaignTheme, campaignGoal, campaignPlatforms, campaignStrategy, campaignTemplate, campaignReferenceImage, campaignItems, campaignStartDate, contentPlan, brandName]);
 
+    const emptyStateRecommendations: MarketingAction[] = recommendedStrategies.length > 0
+        ? recommendedStrategies.slice(0, 3)
+        : ([
+            {
+                type: 'CAMPAIGN',
+                topic: `${brandName} Growth Sprint`,
+                hook: '7-Day Growth Sprint',
+                goal: 'Drive new user acquisition with a short, high-frequency content burst.',
+                reasoning: 'Launch a 7-day sequence: daily value posts, community prompts, and a weekly recap to build momentum.',
+                content: null
+            },
+            {
+                type: 'CAMPAIGN',
+                topic: 'Community AMA Series',
+                hook: 'Community AMA Series',
+                goal: 'Boost engagement and answer core objections in real time.',
+                reasoning: 'Run a weekly AMA with founders or contributors, then clip highlights into short posts.',
+                content: null
+            },
+            {
+                type: 'CAMPAIGN',
+                topic: 'Partnership Spotlight',
+                hook: 'Partner Spotlight Week',
+                goal: 'Expand reach by co-marketing with adjacent projects.',
+                reasoning: 'Coordinate a co-branded content series and reciprocal shoutouts to tap new audiences.',
+                content: null
+            }
+        ] as MarketingAction[]);
+
     // --- Helpers ---
     const updateStrategyField = (field: keyof CampaignStrategy, value: any) => {
         if (!campaignStrategy) return;
@@ -1014,6 +1043,38 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         <span className="material-symbols-sharp text-lg">add</span>
                                         Create Campaign
                                     </button>
+                                    <div className="mt-6 w-full max-w-3xl">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-xs font-semibold text-[#FF5C00] tracking-widest">RECOMMENDED CAMPAIGNS</span>
+                                            <span className="text-[10px] text-[#6B6B70]">2-3 ideas to get you started</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {emptyStateRecommendations.slice(0, 3).map((rec, idx) => {
+                                                const rawTitle = rec.hook || rec.topic || `Idea ${idx + 1}`;
+                                                const recTitle = rawTitle.replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim() || rawTitle;
+                                                const recDesc = rec.reasoning || rec.goal || rec.topic || 'Strategic growth initiative';
+                                                return (
+                                                    <button
+                                                        key={`${recTitle}-${idx}`}
+                                                        onClick={() => {
+                                                            setCampaignTheme(recTitle);
+                                                            setCampaignType('theme');
+                                                            setViewMode('wizard');
+                                                            setCampaignStep(1);
+                                                        }}
+                                                        className="text-left p-3 rounded-xl border border-[#1F1F23] bg-[#0A0A0B] hover:border-[#2E2E2E] transition-colors"
+                                                    >
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-[#FF5C00]/10 text-[#FF5C00]">AI PICK</span>
+                                                            <span className="text-xs font-semibold text-white line-clamp-1">{recTitle}</span>
+                                                        </div>
+                                                        <p className="text-[11px] text-[#6B6B70] leading-relaxed line-clamp-3">{recDesc}</p>
+                                                        <div className="mt-3 text-[10px] text-[#FF5C00] font-semibold">Use this idea →</div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
