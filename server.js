@@ -629,7 +629,7 @@ app.get('/api/x/metrics/:brand', async (req, res) => {
         const user = meJson.data;
         const userId = user.id;
 
-        const tweetsRes = await fetch(`${X_TWEETS_URL}/${userId}/tweets?max_results=5&exclude=retweets&tweet.fields=public_metrics,created_at`, {
+        const tweetsRes = await fetch(`${X_TWEETS_URL}/${userId}/tweets?max_results=5&tweet.fields=public_metrics,created_at`, {
             headers: { 'Authorization': `Bearer ${tokenValue.access_token}` },
         });
         const tweetsJson = await tweetsRes.json().catch(() => ({}));
