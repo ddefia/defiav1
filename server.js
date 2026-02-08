@@ -150,7 +150,8 @@ const PUBLIC_API_PATHS = new Set([
 const PUBLIC_API_PREFIXES = [
     '/api/social-metrics/',
     '/api/action-center/',
-    '/api/lunarcrush/'
+    '/api/lunarcrush/',
+    '/api/auth/x/'
 ];
 
 const parseApiKeys = () => {
