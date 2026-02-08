@@ -139,7 +139,11 @@ const PUBLIC_API_PATHS = new Set([
     '/api/health/extended',
     '/api/logs',
     '/api/decisions',
-    '/api/web3-news'
+    '/api/web3-news',
+    // OAuth callbacks must be public (X won't include our API key)
+    '/api/auth/x/authorize-url',
+    '/api/auth/x/callback',
+    '/api/auth/x/status',
 ]);
 
 // Prefixes for dynamic routes that should be public
@@ -168,6 +172,70 @@ const timingSafeMatch = (a, b) => {
     if (aBuf.length !== bBuf.length) return false;
     return crypto.timingSafeEqual(aBuf, bBuf);
 };
+
+// ---- X (Twitter) OAuth helpers (Authorization Code + PKCE) ----
+const base64UrlEncode = (input) => {
+    const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input));
+    return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+};
+
+const base64UrlDecodeJson = (input) => {
+    const normalized = String(input).replace(/-/g, '+').replace(/_/g, '/');
+    const padLen = (4 - (normalized.length % 4)) % 4;
+    const padded = normalized + '='.repeat(padLen);
+    const raw = Buffer.from(padded, 'base64').toString('utf8');
+    return JSON.parse(raw);
+};
+
+const parseCookies = (cookieHeader) => {
+    const out = {};
+    const raw = String(cookieHeader || '');
+    raw.split(';').map((p) => p.trim()).filter(Boolean).forEach((pair) => {
+        const idx = pair.indexOf('=');
+        if (idx === -1) return;
+        const k = pair.slice(0, idx).trim();
+        const v = pair.slice(idx + 1).trim();
+        if (!k) return;
+        out[k] = decodeURIComponent(v);
+    });
+    return out;
+};
+
+const signXState = (payload) => {
+    const secret = process.env.X_OAUTH_STATE_SECRET || '';
+    if (!secret) throw new Error('Missing X_OAUTH_STATE_SECRET');
+    const body = base64UrlEncode(JSON.stringify(payload));
+    const sig = base64UrlEncode(crypto.createHmac('sha256', secret).update(body).digest());
+    return `${body}.${sig}`;
+};
+
+const verifyXState = (state) => {
+    const secret = process.env.X_OAUTH_STATE_SECRET || '';
+    if (!secret) throw new Error('Missing X_OAUTH_STATE_SECRET');
+    const [body, sig] = String(state || '').split('.');
+    if (!body || !sig) return null;
+    const expected = base64UrlEncode(crypto.createHmac('sha256', secret).update(body).digest());
+    if (!timingSafeMatch(expected, sig)) return null;
+    return base64UrlDecodeJson(body);
+};
+
+const buildPkcePair = () => {
+    const verifier = base64UrlEncode(crypto.randomBytes(32));
+    const challenge = base64UrlEncode(crypto.createHash('sha256').update(verifier).digest());
+    return { verifier, challenge };
+};
+
+const setCookie = (res, name, value, opts = {}) => {
+    const parts = [`${name}=${encodeURIComponent(value)}`];
+    parts.push(`Path=${opts.path || '/'}`);
+    if (opts.httpOnly !== false) parts.push('HttpOnly');
+    parts.push(`SameSite=${opts.sameSite || 'Lax'}`);
+    if (opts.secure !== false) parts.push('Secure');
+    if (opts.maxAgeSeconds !== undefined) parts.push(`Max-Age=${opts.maxAgeSeconds}`);
+    res.append('Set-Cookie', parts.join('; '));
+};
+
+const clearCookie = (res, name) => setCookie(res, name, '', { maxAgeSeconds: 0 });
 
 app.use((req, res, next) => {
     if (!req.path.startsWith('/api')) return next();
@@ -269,6 +337,182 @@ app.get('/api/health/extended', async (req, res) => {
 
 app.get('/api/logs', (req, res) => {
     res.json({ entries: requestLog });
+});
+
+// --- X OAuth (Authorization Code + PKCE) ---
+const X_OAUTH_COOKIE = 'defia_x_oauth';
+const X_AUTHORIZE_URL = 'https://x.com/i/oauth2/authorize';
+const X_TOKEN_URL = 'https://api.x.com/2/oauth2/token';
+const X_ME_URL = 'https://api.x.com/2/users/me';
+
+app.post('/api/auth/x/authorize-url', async (req, res) => {
+    try {
+        const { brandId } = req.body || {};
+        const normalizedBrandId = sanitizeText(String(brandId || ''));
+        if (!normalizedBrandId) return res.status(400).json({ error: 'brandId is required' });
+
+        const clientId = process.env.X_CLIENT_ID || '';
+        const redirectUri = process.env.X_REDIRECT_URI || '';
+        const scopes = (process.env.X_SCOPES || 'users.read tweet.read offline.access').trim();
+        if (!clientId || !redirectUri) {
+            return res.status(500).json({ error: 'X OAuth not configured (missing X_CLIENT_ID/X_REDIRECT_URI)' });
+        }
+
+        const nonce = base64UrlEncode(crypto.randomBytes(16));
+        const state = signXState({ brandId: normalizedBrandId, nonce, iat: Date.now() });
+        const { verifier, challenge } = buildPkcePair();
+
+        // Bind the flow to this browser/session.
+        setCookie(res, X_OAUTH_COOKIE, JSON.stringify({ v: verifier, n: nonce }), { maxAgeSeconds: 10 * 60 });
+
+        const params = new URLSearchParams({
+            response_type: 'code',
+            client_id: clientId,
+            redirect_uri: redirectUri,
+            scope: scopes,
+            state,
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
+        });
+
+        return res.json({ url: `${X_AUTHORIZE_URL}?${params.toString()}` });
+    } catch (e) {
+        console.error('[XOAuth] authorize-url failed:', e);
+        return res.status(500).json({ error: 'Failed to start X OAuth' });
+    }
+});
+
+app.get('/api/auth/x/status', async (req, res) => {
+    const brandId = sanitizeText(String(req.query.brandId || ''));
+    if (!brandId) return res.status(400).json({ error: 'brandId is required' });
+
+    const supabase = getSupabaseServiceClient() || getSupabaseClient();
+    if (!supabase) return res.json({ connected: false, reason: 'supabase_unconfigured' });
+
+    const key = `x_oauth_tokens_${brandId.toLowerCase()}`;
+    try {
+        const { data, error } = await supabase
+            .from('app_storage')
+            .select('value, updated_at')
+            .eq('key', key)
+            .maybeSingle();
+        if (error || !data?.value) return res.json({ connected: false });
+        const value = data.value || {};
+        return res.json({
+            connected: !!value.access_token,
+            username: value?.user?.username || null,
+            userId: value?.user?.id || null,
+            scope: value?.scope || null,
+            expiresAt: value?.expires_at || null,
+            updatedAt: data.updated_at || null,
+        });
+    } catch (e) {
+        console.error('[XOAuth] status failed:', e);
+        return res.status(500).json({ connected: false, error: 'status_failed' });
+    }
+});
+
+app.get('/api/auth/x/callback', async (req, res) => {
+    try {
+        const error = String(req.query.error || '');
+        if (error) {
+            clearCookie(res, X_OAUTH_COOKIE);
+            return res.redirect(302, '/settings');
+        }
+
+        const code = String(req.query.code || '');
+        const state = String(req.query.state || '');
+        if (!code || !state) return res.status(400).send('Missing code/state');
+
+        const decodedState = verifyXState(state);
+        if (!decodedState?.brandId || !decodedState?.nonce) return res.status(400).send('Invalid state');
+
+        const cookies = parseCookies(req.headers.cookie || '');
+        let flow = null;
+        try {
+            flow = cookies[X_OAUTH_COOKIE] ? JSON.parse(cookies[X_OAUTH_COOKIE]) : null;
+        } catch {
+            flow = null;
+        }
+        const verifier = flow?.v;
+        const nonce = flow?.n;
+        if (!verifier || !nonce || nonce !== decodedState.nonce) {
+            return res.status(400).send('OAuth session expired. Please retry Connect X.');
+        }
+
+        const clientId = process.env.X_CLIENT_ID || '';
+        const clientSecret = process.env.X_CLIENT_SECRET || '';
+        const redirectUri = process.env.X_REDIRECT_URI || '';
+        if (!clientId || !clientSecret || !redirectUri) {
+            return res.status(500).send('X OAuth not configured');
+        }
+
+        const tokenBody = new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: redirectUri,
+            client_id: clientId,
+            code_verifier: verifier,
+        });
+
+        const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+        const tokenRes = await fetch(X_TOKEN_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Basic ${basic}`,
+            },
+            body: tokenBody.toString(),
+        });
+
+        const tokenJson = await tokenRes.json().catch(() => ({}));
+        if (!tokenRes.ok || !tokenJson.access_token) {
+            console.error('[XOAuth] token exchange failed:', tokenRes.status, tokenJson);
+            clearCookie(res, X_OAUTH_COOKIE);
+            return res.redirect(302, '/settings');
+        }
+
+        const accessToken = tokenJson.access_token;
+        const refreshToken = tokenJson.refresh_token || null;
+        const expiresIn = typeof tokenJson.expires_in === 'number' ? tokenJson.expires_in : null;
+        const expiresAt = expiresIn ? Date.now() + expiresIn * 1000 : null;
+
+        const meRes = await fetch(`${X_ME_URL}?user.fields=public_metrics,username,verified`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        const meJson = await meRes.json().catch(() => ({}));
+
+        const supabase = getSupabaseServiceClient() || getSupabaseClient();
+        if (!supabase) {
+            console.error('[XOAuth] Supabase not configured; cannot persist tokens');
+            clearCookie(res, X_OAUTH_COOKIE);
+            return res.redirect(302, '/settings');
+        }
+
+        const brandId = sanitizeText(String(decodedState.brandId));
+        const key = `x_oauth_tokens_${brandId.toLowerCase()}`;
+        const value = {
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            token_type: tokenJson.token_type || null,
+            scope: tokenJson.scope || null,
+            expires_at: expiresAt,
+            user: meJson?.data ? { id: meJson.data.id, username: meJson.data.username, verified: meJson.data.verified } : null,
+            updated_at: new Date().toISOString(),
+        };
+
+        const { error: upsertError } = await supabase
+            .from('app_storage')
+            .upsert({ key, value, updated_at: new Date().toISOString() });
+        if (upsertError) console.error('[XOAuth] token persist failed:', upsertError);
+
+        clearCookie(res, X_OAUTH_COOKIE);
+        return res.redirect(302, '/settings');
+    } catch (e) {
+        console.error('[XOAuth] callback failed:', e);
+        clearCookie(res, X_OAUTH_COOKIE);
+        return res.redirect(302, '/settings');
+    }
 });
 
 // --- Onboarding: Website Crawl (Simple) ---
