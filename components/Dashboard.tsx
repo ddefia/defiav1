@@ -28,7 +28,7 @@ const transformMetricsToKPIs = (
     chain: ComputedMetrics | null,
     campaigns: DashboardCampaign[] = []
 ): KPIItem[] => {
-    const impressionsVal = metrics ? metrics.weeklyImpressions : 0;
+    const followersVal = metrics ? metrics.totalFollowers : 0;
     const newWallets = campaigns.length > 0
         ? campaigns.reduce((acc, c) => acc + c.attributedWallets, 0)
         : (chain?.netNewWallets || 0);
@@ -39,11 +39,11 @@ const transformMetricsToKPIs = (
     return [
         {
             label: 'TWITTER FOLLOWERS',
-            value: impressionsVal > 0 ? `${(impressionsVal / 1000).toFixed(1)}K` : '--',
+            value: followersVal > 0 ? `${(followersVal / 1000).toFixed(1)}K` : '--',
             delta: 0, // Real delta would come from historical data comparison
             trend: 'flat' as const,
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: impressionsVal > 1000 ? 'Strong' : 'Weak',
+            statusLabel: followersVal > 10000 ? 'Strong' : 'Weak',
             sparklineData: [] // Real sparkline would come from historical data
         },
         {
