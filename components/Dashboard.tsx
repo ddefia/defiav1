@@ -202,7 +202,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (!agentDecisions || agentDecisions.length === 0) return [];
         const validDecisions = agentDecisions.filter((d: any) => {
             const text = (d.reason || '') + (d.draft || '');
-            return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:');
+            return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:')
+                && !text.includes('is not a function') && !text.includes('TypeError') && !text.includes('Failed to');
         });
         if (validDecisions.length === 0) return [];
         return validDecisions.slice(0, 3).map((d: any) => {

@@ -46,6 +46,17 @@ const getApiKey = (): string => {
     return "";
 };
 
+// --- SAFE RESPONSE TEXT HELPER ---
+// Handles both property and function access patterns across SDK versions
+const safeResponseText = (response: any): string => {
+    if (!response) return '';
+    if (typeof response.text === 'string') return response.text;
+    if (typeof response.text === 'function') return response.text();
+    try {
+        return response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } catch { return ''; }
+};
+
 // --- THINKING EVENT BUS ---
 const dispatchThinking = (message: string, detail?: any) => {
     try {
@@ -173,7 +184,7 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
             ]
         });
 
-        return response.text ? `VISUAL STYLE REFERENCE: ${response.text}` : "";
+        const txt = safeResponseText(response); return txt ? `VISUAL STYLE REFERENCE: ${txt}` : "";
     } catch (e) {
         console.warn("Failed to analyze reference images", e);
         return "";
@@ -782,7 +793,7 @@ export const generateTweet = async (
         });
 
         if (count > 1) {
-            let text = response.text || "[]";
+            let text = safeResponseText(response) || "[]";
             // Clean Markdown code blocks if present
             text = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
@@ -799,7 +810,7 @@ export const generateTweet = async (
             }
         }
 
-        return response.text || topic;
+        return safeResponseText(response) || topic;
     } catch (e) {
         console.error("Tweet Generation Failed", e);
         return topic; // Fail safe
@@ -880,7 +891,7 @@ export const analyzeContentNotes = async (notes: string, brandName: string, imag
             }
         });
 
-        return JSON.parse(response.text || "{}");
+        return JSON.parse(safeResponseText(response) || "{}");
     } catch (e) {
         console.error("Content note analysis failed", e);
         throw e;
@@ -958,7 +969,7 @@ const assignVisualStrategy = async (drafts: any[], brandConfig: BrandConfig): Pr
     });
 
     try {
-        const result = JSON.parse(response.text || "{}");
+        const result = JSON.parse(safeResponseText(response) || "{}");
         const visuals = result.visuals || [];
 
         // Merge Visuals back into Drafts
@@ -1249,7 +1260,7 @@ export const generateCampaignDrafts = async (
         });
 
         dispatchThinking(`✅ Campaign Drafts Generated`);
-        const text = response.text || "{}";
+        const text = safeResponseText(response) || "{}";
         const json = JSON.parse(text);
 
         const validDrafts = (json.drafts || []).map((draft: any) => ({
@@ -1388,7 +1399,7 @@ export const generateCampaignStrategy = async (
             }
         });
 
-        const text = response.text;
+        const text = safeResponseText(response);
         if (!text) throw new Error("No strategy generated");
 
         // BRAIN LOG
@@ -1507,12 +1518,12 @@ TASK:
             context: `Reacting to Trend: ${trend.headline} (Relevance: ${trend.relevanceScore})`,
             systemPrompt: systemInstruction,
             userPrompt: "React to this trend now.",
-            rawOutput: response.text || "",
+            rawOutput: safeResponseText(response) || "",
             model: "gemini-2.0-flash"
         };
         saveBrainLog(log);
 
-        return response.text || "";
+        return safeResponseText(response) || "";
     } catch (error) {
         console.error("Trend reaction error", error);
         throw error;
@@ -1568,7 +1579,7 @@ export const generateBusinessConnections = async (
             config: { systemInstruction: systemInstruction }
         });
 
-        return response.text || "Unable to generate ideas.";
+        return safeResponseText(response) || "Unable to generate ideas.";
     } catch (e) {
         console.error("Business connection generation failed", e);
         return "Error generating business connection ideas.";
@@ -1648,7 +1659,7 @@ export const generateGrowthReport = async (
             }
         });
 
-        const text = response.text || "{}";
+        const text = safeResponseText(response) || "{}";
         const parsed = JSON.parse(text);
         parsed.lastUpdated = Date.now(); // Add timestamp for caching
 
@@ -1734,7 +1745,7 @@ export const refineStrategicPosture = async (
             }
         });
 
-        const text = response.text || "{}";
+        const text = safeResponseText(response) || "{}";
         const newPosture = JSON.parse(text);
 
         // Merge to ensure we don't lose fields if AI omits them
@@ -1758,7 +1769,7 @@ export const generateIdeas = async (brandName: string): Promise<string[]> => {
             model: 'gemini-2.0-flash',
             contents: `Generate 4 distinct tweet topics / ideas for a ${brandName} marketing strategist.Return only the topics as a simple list.`,
         });
-        return (response.text || '').split('\n').map(l => l.replace(/^[\d\-\.\*]+\s*/, '').trim()).filter(l => l.length > 5);
+        return (safeResponseText(response) || '').split('\n').map(l => l.replace(/^[\d\-\.\*]+\s*/, '').trim()).filter(l => l.length > 5);
     } catch (e) {
         console.warn("Idea generation failed", e);
         return [];
@@ -1818,7 +1829,7 @@ ${kb}
             }
         });
 
-        const raw = response.text || '[]';
+        const raw = safeResponseText(response) || '[]';
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
             // Post-process to remove any hashtags that slipped through
@@ -1910,7 +1921,7 @@ export const researchBrandIdentity = async (
             }
         });
 
-        const data = JSON.parse(response.text || "{}");
+        const data = JSON.parse(safeResponseText(response) || "{}");
 
         return {
             colors: data.colors || [],
@@ -1982,12 +1993,12 @@ TASK:
             context: `Replying to @${postAuthor}: "${postText}"(Sentiment: ${sentimentScore})`,
             systemPrompt: systemInstruction,
             userPrompt: "Draft reply.",
-            rawOutput: response.text || "",
+            rawOutput: safeResponseText(response) || "",
             model: "gemini-2.0-flash"
         };
         saveBrainLog(log);
 
-        return response.text || "";
+        return safeResponseText(response) || "";
     } catch (e) {
         console.error("Smart Reply generation failed", e);
         return "Thanks for the shoutout! 🚀"; // Fallback
@@ -2107,7 +2118,7 @@ TASK:
             }
         });
 
-        const text = response.text;
+        const text = safeResponseText(response);
         if (!text) throw new Error("No report generated");
 
         // BRAIN LOG
@@ -2303,7 +2314,7 @@ export const generateStrategicAnalysis = async (
             }
         });
 
-        const json = JSON.parse(response.text || "{}");
+        const json = JSON.parse(safeResponseText(response) || "{}");
         const tasks = (json.tasks || []) as StrategyTask[];
         const thoughts = json.thoughts || "No analysis provided.";
 
@@ -2330,7 +2341,7 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
     `.trim(),
             systemPrompt: systemInstruction,
             userPrompt: "Perform the audit and generate tasks.",
-            rawOutput: response.text || "",
+            rawOutput: safeResponseText(response) || "",
             structuredOutput: tasks,
             thoughts: thoughts,
             model: "gemini-2.0-flash"
@@ -2491,7 +2502,7 @@ export const analyzeBrandKit = async (text: string): Promise<string> => {
             config: { systemInstruction: systemInstruction }
         });
 
-        return response.text?.trim() || "Failed to analyze brand kit.";
+        return safeResponseText(response)?.trim() || "Failed to analyze brand kit.";
     } catch (e) {
         console.error("Brand Kit Analysis Failed", e);
         throw e;
@@ -2539,7 +2550,7 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
             contents: prompt,
             config: { responseMimeType: "application/json" }
         });
-        return JSON.parse(response.text || "{}");
+        return JSON.parse(safeResponseText(response) || "{}");
     } catch (e) {
         console.error("Brain Phase 1 Failed", e);
         return {
@@ -2600,7 +2611,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
             contents: prompt,
             config: { responseMimeType: "application/json" }
         });
-        const result = JSON.parse(response.text || "{}");
+        const result = JSON.parse(safeResponseText(response) || "{}");
         return { analysis, actions: result.actions || [] };
 
     } catch (e) {
@@ -2623,7 +2634,7 @@ const runAgentInsight = async (prompt: string, fallback: AgentInsight): Promise<
             contents: prompt,
             config: { responseMimeType: "application/json" }
         });
-        return JSON.parse(response.text || "{}");
+        return JSON.parse(safeResponseText(response) || "{}");
     } catch (e) {
         console.warn("Agent insight failed, falling back.", e);
         return fallback;
@@ -2882,7 +2893,7 @@ export const classifyAndPopulate = async (
             config: { responseMimeType: "application/json" }
         });
 
-        const text = response.text || "{}";
+        const text = safeResponseText(response) || "{}";
         const parsed = JSON.parse(text);
         return parsed as ChatIntentResponse;
 
@@ -3086,7 +3097,7 @@ export const generateDailyBrief = async (
             }
         });
 
-        const text = response.text || "{}";
+        const text = safeResponseText(response) || "{}";
         const data = JSON.parse(text);
 
         return {
