@@ -33,7 +33,8 @@ const transformMetricsToKPIs = (
         ? campaigns.reduce((acc, c) => acc + c.attributedWallets, 0)
         : (chain?.netNewWallets || 0);
     const netVol = chain ? chain.totalVolume : 0;
-    const defiaScore = metrics ? (metrics.engagementRate * 1.5 + (chain?.retentionRate || 0) * 5).toFixed(1) : '0.0';
+    const impressionsVal = metrics ? metrics.weeklyImpressions : 0;
+    const engagementRateVal = metrics ? metrics.engagementRate : 0;
 
     // Only show real data - no mock deltas or sparklines
     return [
@@ -56,21 +57,21 @@ const transformMetricsToKPIs = (
             sparklineData: []
         },
         {
-            label: 'CAMPAIGN REACH',
-            value: netVol > 0 ? `${(netVol / 1000000).toFixed(1)}M` : '--',
+            label: 'WEEKLY IMPRESSIONS',
+            value: impressionsVal > 0 ? `${(impressionsVal / 1000).toFixed(1)}K` : '--',
             delta: 0,
             trend: 'flat' as const,
-            confidence: chain ? 'High' : 'Low',
-            statusLabel: netVol > 0 ? 'Strong' : 'Weak',
+            confidence: metrics ? 'High' : 'Low',
+            statusLabel: impressionsVal > 10000 ? 'Strong' : 'Weak',
             sparklineData: []
         },
         {
             label: 'ENGAGEMENT RATE',
-            value: metrics ? `${defiaScore}%` : '--',
+            value: metrics ? `${engagementRateVal.toFixed(2)}%` : '--',
             delta: 0,
             trend: 'flat' as const,
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: metrics ? (Number(defiaScore) > 5 ? 'Strong' : 'Watch') : 'Weak',
+            statusLabel: metrics ? (engagementRateVal >= 2 ? 'Strong' : 'Watch') : 'Weak',
             sparklineData: []
         }
     ];
