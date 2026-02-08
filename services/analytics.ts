@@ -72,6 +72,20 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
     const handle = getHandle(brandName);
     const fallback = getSocialMetrics(brandName);
 
+    // Prefer server-side X OAuth metrics when available
+    try {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+        const xRes = await fetch(`${baseUrl}/api/x/metrics/${encodeURIComponent(brandName)}`);
+        if (xRes.ok) {
+            const xJson = await xRes.json();
+            if (xJson?.connected && xJson?.metrics) {
+                return { ...xJson.metrics, isLive: true } as SocialMetrics;
+            }
+        }
+    } catch (e) {
+        console.warn('[XMetrics] Fetch failed, falling back to Apify/cache:', e);
+    }
+
     // 1. Try Fetching Cached Daily Stats (Server-Side)
     let cachedStats: any = null;
     try {

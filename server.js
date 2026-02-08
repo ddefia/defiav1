@@ -151,7 +151,8 @@ const PUBLIC_API_PREFIXES = [
     '/api/social-metrics/',
     '/api/action-center/',
     '/api/lunarcrush/',
-    '/api/auth/x/'
+    '/api/auth/x/',
+    '/api/x/metrics/'
 ];
 
 const parseApiKeys = () => {
@@ -237,6 +238,45 @@ const setCookie = (res, name, value, opts = {}) => {
 };
 
 const clearCookie = (res, name) => setCookie(res, name, '', { maxAgeSeconds: 0 });
+
+const refreshXToken = async (refreshToken) => {
+    const clientId = process.env.X_CLIENT_ID || '';
+    const clientSecret = process.env.X_CLIENT_SECRET || '';
+    if (!clientId || !clientSecret) throw new Error('X OAuth not configured');
+    const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+    const tokenBody = new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: clientId,
+    });
+
+    const tokenRes = await fetch(X_TOKEN_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${basic}`,
+        },
+        body: tokenBody.toString(),
+    });
+
+    const tokenJson = await tokenRes.json().catch(() => ({}));
+    if (!tokenRes.ok || !tokenJson.access_token) {
+        const msg = tokenJson?.error_description || tokenJson?.error || 'refresh_failed';
+        throw new Error(msg);
+    }
+
+    const expiresIn = typeof tokenJson.expires_in === 'number' ? tokenJson.expires_in : null;
+    const expiresAt = expiresIn ? Date.now() + expiresIn * 1000 : null;
+
+    return {
+        access_token: tokenJson.access_token,
+        refresh_token: tokenJson.refresh_token || refreshToken,
+        token_type: tokenJson.token_type || null,
+        scope: tokenJson.scope || null,
+        expires_at: expiresAt,
+    };
+};
 
 app.use((req, res, next) => {
     if (!req.path.startsWith('/api')) return next();
@@ -345,6 +385,7 @@ const X_OAUTH_COOKIE = 'defia_x_oauth';
 const X_AUTHORIZE_URL = 'https://x.com/i/oauth2/authorize';
 const X_TOKEN_URL = 'https://api.x.com/2/oauth2/token';
 const X_ME_URL = 'https://api.x.com/2/users/me';
+const X_TWEETS_URL = 'https://api.x.com/2/users';
 
 app.post('/api/auth/x/authorize-url', async (req, res) => {
     try {
@@ -513,6 +554,151 @@ app.get('/api/auth/x/callback', async (req, res) => {
         console.error('[XOAuth] callback failed:', e);
         clearCookie(res, X_OAUTH_COOKIE);
         return res.redirect(302, '/settings');
+    }
+});
+
+app.get('/api/x/metrics/:brand', async (req, res) => {
+    const brandId = sanitizeText(String(req.params.brand || ''));
+    const forceRefresh = String(req.query.refresh || '') === 'true';
+    if (!brandId) return res.status(400).json({ error: 'brandId is required' });
+
+    const supabase = getSupabaseServiceClient() || getSupabaseClient();
+    if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+
+    const cacheKey = `x_metrics_cache_${brandId.toLowerCase()}`;
+    const tokenKey = `x_oauth_tokens_${brandId.toLowerCase()}`;
+    const now = Date.now();
+
+    try {
+        if (!forceRefresh) {
+            const { data: cacheRow } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', cacheKey)
+                .maybeSingle();
+            if (cacheRow?.value?.metrics && cacheRow.value.lastFetched && (now - cacheRow.value.lastFetched) < 15 * 60 * 1000) {
+                return res.json({ connected: true, source: 'cache', metrics: cacheRow.value.metrics });
+            }
+        }
+
+        const { data: tokenRow } = await supabase
+            .from('app_storage')
+            .select('value')
+            .eq('key', tokenKey)
+            .maybeSingle();
+
+        if (!tokenRow?.value?.access_token) {
+            return res.json({ connected: false });
+        }
+
+        let tokenValue = tokenRow.value;
+        const expiresAt = tokenValue.expires_at || null;
+        if (expiresAt && expiresAt < (now + 60 * 1000) && tokenValue.refresh_token) {
+            try {
+                const refreshed = await refreshXToken(tokenValue.refresh_token);
+                tokenValue = { ...tokenValue, ...refreshed };
+                await supabase
+                    .from('app_storage')
+                    .upsert({ key: tokenKey, value: tokenValue, updated_at: new Date().toISOString() });
+            } catch (e) {
+                console.warn('[XMetrics] refresh failed:', e.message);
+            }
+        }
+
+        const accessToken = tokenValue.access_token;
+
+        let meRes = await fetch(`${X_ME_URL}?user.fields=public_metrics,username,verified`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        if (meRes.status === 401 && tokenValue.refresh_token) {
+            const refreshed = await refreshXToken(tokenValue.refresh_token);
+            tokenValue = { ...tokenValue, ...refreshed };
+            await supabase
+                .from('app_storage')
+                .upsert({ key: tokenKey, value: tokenValue, updated_at: new Date().toISOString() });
+            meRes = await fetch(`${X_ME_URL}?user.fields=public_metrics,username,verified`, {
+                headers: { 'Authorization': `Bearer ${tokenValue.access_token}` },
+            });
+        }
+
+        const meJson = await meRes.json().catch(() => ({}));
+        if (!meRes.ok || !meJson?.data?.id) {
+            return res.status(500).json({ error: 'Failed to fetch X user profile' });
+        }
+
+        const user = meJson.data;
+        const userId = user.id;
+
+        const tweetsRes = await fetch(`${X_TWEETS_URL}/${userId}/tweets?max_results=5&exclude=retweets&tweet.fields=public_metrics,created_at`, {
+            headers: { 'Authorization': `Bearer ${tokenValue.access_token}` },
+        });
+        const tweetsJson = await tweetsRes.json().catch(() => ({}));
+        const tweets = Array.isArray(tweetsJson?.data) ? tweetsJson.data : [];
+
+        const recentPosts = tweets.map((t) => {
+            const metrics = t.public_metrics || {};
+            const likes = metrics.like_count || 0;
+            const retweets = metrics.retweet_count || 0;
+            const comments = metrics.reply_count || 0;
+            const quotes = metrics.quote_count || 0;
+            const engagements = likes + retweets + comments + quotes;
+            const followers = user.public_metrics?.followers_count || 0;
+            const engagementRate = followers > 0 ? (engagements / followers) * 100 : 0;
+            return {
+                id: t.id,
+                content: t.text || '',
+                date: t.created_at ? new Date(t.created_at).toLocaleDateString() : 'Recent',
+                likes,
+                comments,
+                retweets,
+                impressions: engagements * 20,
+                engagementRate: parseFloat(engagementRate.toFixed(2)),
+                url: `https://x.com/${user.username}/status/${t.id}`
+            };
+        });
+
+        const followersCount = user.public_metrics?.followers_count || 0;
+        const totalEngagements = recentPosts.reduce((sum, p) => sum + p.likes + p.retweets + p.comments, 0);
+        const avgEngagementRate = recentPosts.length > 0 && followersCount > 0
+            ? (totalEngagements / recentPosts.length / followersCount) * 100
+            : 0;
+
+        const metrics = {
+            totalFollowers: followersCount,
+            weeklyImpressions: recentPosts.reduce((sum, p) => sum + p.impressions, 0) * 2,
+            engagementRate: parseFloat(avgEngagementRate.toFixed(2)),
+            mentions: 0,
+            topPost: recentPosts[0]?.content || 'No recent posts found',
+            recentPosts,
+            engagementHistory: [],
+            comparison: { period: 'vs Last Week', followersChange: 0, engagementChange: 0, impressionsChange: 0 },
+            isLive: true
+        };
+
+        await supabase
+            .from('app_storage')
+            .upsert({
+                key: cacheKey,
+                value: { metrics, lastFetched: now },
+                updated_at: new Date().toISOString()
+            });
+
+        return res.json({
+            connected: true,
+            source: 'x',
+            user: {
+                id: userId,
+                username: user.username,
+                verified: user.verified || false,
+                followers: followersCount,
+                following: user.public_metrics?.following_count || 0,
+                tweetCount: user.public_metrics?.tweet_count || 0
+            },
+            metrics
+        });
+    } catch (e) {
+        console.error('[XMetrics] Failed:', e);
+        return res.status(500).json({ error: 'Failed to fetch X metrics' });
     }
 });
 
