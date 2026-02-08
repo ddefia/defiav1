@@ -190,6 +190,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [regenLoading, setRegenLoading] = useState(false);
     const [regenError, setRegenError] = useState<string | null>(null);
     const autoRegenFired = useRef(false);
+    const autoRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const autoRegenFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [regenLastRun, setRegenLastRun] = useState<number>(0);
 
     const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics, campaigns), [socialMetrics, chainMetrics, campaigns]);
@@ -335,18 +337,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
     useEffect(() => {
         if (autoRegenFired.current) return;
         if (regenLoading) return;
-        if (!socialSignals.trendingTopics || socialSignals.trendingTopics.length === 0) return;
         // Only auto-fire if we have no LLM recommendations and no agent decisions as fallback
         const hasData = llmRecommendations.length > 0 || (agentDecisions && agentDecisions.length > 0);
         const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 6 * 60 * 60 * 1000);
-        if (!hasData || isStale) {
-            autoRegenFired.current = true;
-            // Delay slightly to let other data load first
-            const timer = setTimeout(() => {
-                handleRegenerate();
-            }, 3000);
-            return () => clearTimeout(timer);
+        const shouldAuto = !hasData || isStale;
+        const hasTrends = !!(socialSignals.trendingTopics && socialSignals.trendingTopics.length > 0);
+
+        if (!shouldAuto) {
+            if (autoRegenTimerRef.current) {
+                clearTimeout(autoRegenTimerRef.current);
+                autoRegenTimerRef.current = null;
+            }
+            if (autoRegenFallbackRef.current) {
+                clearTimeout(autoRegenFallbackRef.current);
+                autoRegenFallbackRef.current = null;
+            }
+            return;
         }
+
+        if (hasTrends) {
+            if (autoRegenFallbackRef.current) {
+                clearTimeout(autoRegenFallbackRef.current);
+                autoRegenFallbackRef.current = null;
+            }
+            if (!autoRegenTimerRef.current) {
+                autoRegenTimerRef.current = setTimeout(() => {
+                    autoRegenFired.current = true;
+                    autoRegenTimerRef.current = null;
+                    handleRegenerate();
+                }, 3000);
+            }
+        } else if (!autoRegenFallbackRef.current) {
+            // Fallback: auto-run even if trends never load (network/token issues)
+            autoRegenFallbackRef.current = setTimeout(() => {
+                autoRegenFired.current = true;
+                autoRegenFallbackRef.current = null;
+                handleRegenerate();
+            }, 12000);
+        }
+
+        return () => {
+            if (autoRegenTimerRef.current) {
+                clearTimeout(autoRegenTimerRef.current);
+                autoRegenTimerRef.current = null;
+            }
+        };
     }, [brandName, agentDecisions?.length, llmRecommendations.length, regenLoading, regenLastRun, socialSignals.trendingTopics?.length]);
 
     const upcomingContent = calendarEvents
