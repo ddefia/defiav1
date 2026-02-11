@@ -11,19 +11,6 @@ interface AnalyticsPageProps {
 type ChartTab = 'impressions' | 'engagements' | 'followers';
 type DateRange = '7d' | '30d' | '90d' | 'all';
 
-// Top content is loaded from real data - no hardcoded mock data
-const MOCK_TOP_CONTENT: {
-    id: string;
-    content: string;
-    platform: string;
-    impressions: number;
-    engagement: number;
-    rate: number;
-}[] = [];
-
-// AI Insights are generated dynamically - no hardcoded mock data
-const AI_INSIGHTS: { num: number; text: string }[] = [];
-
 export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics, chainMetrics }) => {
     const [chartTab, setChartTab] = useState<ChartTab>('impressions');
     const [dateRange, setDateRange] = useState<DateRange>('30d');
@@ -104,15 +91,36 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
         }
     };
 
-    // Use real posts or mock data
-    const topContent = metrics?.recentPosts?.slice(0, 4).map(post => ({
-        id: post.id,
-        content: post.content,
-        platform: 'twitter',
-        impressions: post.impressions,
-        engagement: Math.round(post.impressions * (post.engagementRate / 100)),
-        rate: post.engagementRate,
-    })) || MOCK_TOP_CONTENT;
+    // Top content from real posts, sorted by engagement
+    const topContent = (metrics?.recentPosts || [])
+        .slice()
+        .sort((a, b) => (b.likes + b.retweets + b.comments) - (a.likes + a.retweets + a.comments))
+        .slice(0, 4)
+        .map(post => ({
+            id: post.id,
+            content: post.content,
+            platform: 'twitter',
+            impressions: post.impressions,
+            engagement: post.likes + post.retweets + (post.comments || 0),
+            rate: post.engagementRate,
+        }));
+
+    // Generate insights from actual data
+    const aiInsights: { num: number; text: string }[] = [];
+    if (metrics) {
+        if (topContent.length > 0) {
+            const best = topContent[0];
+            aiInsights.push({ num: 1, text: `Your top performing post has ${best.engagement} engagements and a ${best.rate.toFixed(2)}% engagement rate. Analyze what made it resonate and replicate that format.` });
+        }
+        if (engagementRate > 0) {
+            const benchmark = engagementRate >= 2 ? 'above' : 'below';
+            aiInsights.push({ num: aiInsights.length + 1, text: `Your average engagement rate is ${engagementRate.toFixed(2)}%, which is ${benchmark} the typical 2% benchmark for crypto accounts. ${benchmark === 'below' ? 'Focus on threads and visual content to boost interaction.' : 'Keep leveraging your current content mix.'}` });
+        }
+        if (totalFollowers > 0 && impressions > 0) {
+            const reachRate = ((impressions / totalFollowers) * 100).toFixed(0);
+            aiInsights.push({ num: aiInsights.length + 1, text: `Your content reached ~${reachRate}% of your followers this week. ${Number(reachRate) < 30 ? 'Try posting during peak hours (9-11 AM UTC) to improve reach.' : 'Solid reach — consider expanding to new audiences with trend-jacking.'}` });
+        }
+    }
 
     return (
         <div className="flex-1 flex flex-col bg-[#0A0A0B] min-h-0">
@@ -123,17 +131,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     <p className="text-sm text-[#6B6B70]">Track your marketing performance and growth metrics</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    {/* Date Range Selector */}
-                    <button className="flex items-center gap-2 px-3.5 py-2.5 bg-[#111113] border border-[#2E2E2E] rounded-lg hover:bg-[#1A1A1D] transition-colors">
-                        <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
-                        <span className="text-white text-sm font-medium">Last 30 days</span>
-                        <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>expand_more</span>
-                    </button>
-                    {/* Export Button */}
-                    <button className="flex items-center gap-1.5 px-3.5 py-2.5 border border-[#2E2E2E] rounded-lg hover:bg-[#1A1A1D] transition-colors">
-                        <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>download</span>
-                        <span className="text-white text-sm font-medium">Export</span>
-                    </button>
+                    <span className="text-[#6B6B70] text-sm">Based on recent X/Twitter data for {brandName}</span>
                 </div>
             </div>
 
@@ -372,7 +370,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
 
                     {/* Insights List */}
                     <div className="flex flex-col gap-3 mb-5">
-                        {AI_INSIGHTS.map(insight => (
+                        {aiInsights.map(insight => (
                             <div key={insight.num} className="flex items-start gap-2.5">
                                 <div className="w-6 h-6 rounded-full bg-[#FF5C00] flex items-center justify-center flex-shrink-0">
                                     <span className="text-white text-xs font-semibold">{insight.num}</span>
@@ -380,7 +378,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                 <span className="text-[#E5E5E5] text-[13px] leading-relaxed">{insight.text}</span>
                             </div>
                         ))}
-                        {AI_INSIGHTS.length === 0 && (
+                        {aiInsights.length === 0 && (
                             <div className="text-[#6B6B70] text-sm">
                                 No AI insights yet. Generate more campaigns or connect data sources to unlock insights.
                             </div>
@@ -391,10 +389,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     <button
                         className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white text-sm font-semibold"
                         style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
-                        disabled={AI_INSIGHTS.length === 0}
+                        disabled={aiInsights.length === 0}
                     >
                         <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
-                        {AI_INSIGHTS.length === 0 ? 'No Recommendations Available' : 'Apply AI Recommendations'}
+                        {aiInsights.length === 0 ? 'No Recommendations Available' : 'Apply AI Recommendations'}
                     </button>
                 </div>
 
@@ -403,10 +401,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     {/* Header */}
                     <div className="flex items-center justify-between mb-5">
                         <span className="text-white text-base font-semibold">Top Performing Content</span>
-                        <button className="text-[#FF5C00] text-sm font-medium hover:underline flex items-center gap-1">
-                            View All
-                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>arrow_forward</span>
-                        </button>
+                        <span className="text-[#6B6B70] text-xs">{topContent.length} posts</span>
                     </div>
 
                     {/* Table */}

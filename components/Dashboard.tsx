@@ -23,6 +23,12 @@ interface DashboardProps {
     onSchedule: (content: string, image?: string) => void;
 }
 
+const formatEngagements = (metrics: SocialMetrics) => {
+    const total = (metrics.recentPosts || []).reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.comments || 0), 0);
+    if (total >= 1000) return `${(total / 1000).toFixed(1)}K`;
+    return total > 0 ? total.toString() : '--';
+};
+
 const transformMetricsToKPIs = (
     metrics: SocialMetrics | null,
     chain: ComputedMetrics | null,
@@ -36,43 +42,53 @@ const transformMetricsToKPIs = (
     const impressionsVal = metrics ? metrics.weeklyImpressions : 0;
     const engagementRateVal = metrics ? metrics.engagementRate : 0;
 
-    // Only show real data - no mock deltas or sparklines
+    // Build sparklines from engagement history if available
+    const history = metrics?.engagementHistory || [];
+    const impressionSpark = history.map((h: any) => h.impressions || 0);
+    const engagementSpark = history.map((h: any) => h.rate || 0);
+
+    // Derive comparison from engagement history
+    const followersChange = metrics?.comparison?.followersChange || 0;
+    const impressionsChange = metrics?.comparison?.impressionsChange || 0;
+
+    const getTrend = (delta: number) => delta > 0 ? 'up' as const : delta < 0 ? 'down' as const : 'flat' as const;
+
     return [
         {
             label: 'TWITTER FOLLOWERS',
             value: followersVal > 0 ? `${(followersVal / 1000).toFixed(1)}K` : '--',
-            delta: 0, // Real delta would come from historical data comparison
-            trend: 'flat' as const,
+            delta: followersChange,
+            trend: getTrend(followersChange),
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: followersVal > 10000 ? 'Strong' : 'Weak',
-            sparklineData: [] // Real sparkline would come from historical data
+            statusLabel: followersVal > 10000 ? 'Strong' : followersVal > 0 ? 'Growing' : 'Weak',
+            sparklineData: []
         },
         {
-            label: 'DISCORD MEMBERS',
-            value: newWallets > 0 ? `${(newWallets / 1000).toFixed(1)}K` : '--',
+            label: 'TOTAL ENGAGEMENTS',
+            value: newWallets > 0 ? `${(newWallets / 1000).toFixed(1)}K` : (metrics ? formatEngagements(metrics) : '--'),
             delta: 0,
             trend: 'flat' as const,
-            confidence: campaigns.length > 0 ? 'High' : 'Low',
-            statusLabel: newWallets > 100 ? 'Strong' : 'Weak',
-            sparklineData: []
+            confidence: metrics ? 'High' : 'Low',
+            statusLabel: metrics ? 'Active' : 'Weak',
+            sparklineData: history.map((h: any) => h.engagements || 0)
         },
         {
             label: 'WEEKLY IMPRESSIONS',
             value: impressionsVal > 0 ? `${(impressionsVal / 1000).toFixed(1)}K` : '--',
-            delta: 0,
-            trend: 'flat' as const,
+            delta: impressionsChange,
+            trend: getTrend(impressionsChange),
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: impressionsVal > 10000 ? 'Strong' : 'Weak',
-            sparklineData: []
+            statusLabel: impressionsVal > 10000 ? 'Strong' : impressionsVal > 0 ? 'Growing' : 'Weak',
+            sparklineData: impressionSpark
         },
         {
             label: 'ENGAGEMENT RATE',
             value: metrics ? `${engagementRateVal.toFixed(2)}%` : '--',
             delta: 0,
-            trend: 'flat' as const,
+            trend: getTrend(0),
             confidence: metrics ? 'High' : 'Low',
             statusLabel: metrics ? (engagementRateVal >= 2 ? 'Strong' : 'Watch') : 'Weak',
-            sparklineData: []
+            sparklineData: engagementSpark
         }
     ];
 };
@@ -597,9 +613,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <p className="text-[#6B6B70] text-sm font-['Inter']">Track engagement, news, and create content for your Web3 brand</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="h-10 px-4 rounded-full bg-white text-[#0A0A0B] text-sm font-medium flex items-center gap-2 hover:bg-gray-100 transition-colors font-['Inter']">
-                        Export Report
-                    </button>
                     <button
                         onClick={() => onNavigate('studio')}
                         className="h-10 px-4 rounded-full bg-[#FF5C00] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#FF6B1A] transition-colors font-['Inter']"

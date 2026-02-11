@@ -33,57 +33,64 @@ export const SocialMedia: React.FC<SocialMediaProps> = ({ brandName, lunarPosts,
     // Use shared state from App/Brain
     const { sentimentScore, activeNarratives } = signals;
 
-    // --- KPI CALCULATIONS ---
+    // --- KPI CALCULATIONS (from real data only) ---
     const kpis = useMemo(() => {
-        const volumeSpike = 128; // Mock for now, or derive
-        const sentimentLabel = sentimentScore > 60 ? 'BULLISH' : 'BEARISH';
+        const sentimentLabel = sentimentScore > 60 ? 'BULLISH' : sentimentScore > 40 ? 'NEUTRAL' : 'BEARISH';
         const engagementRate = socialMetrics?.engagementRate || 0.0;
+        const followers = socialMetrics?.totalFollowers || 0;
+        const totalPosts = socialMetrics?.recentPosts?.length || 0;
+        const totalEngagements = (socialMetrics?.recentPosts || []).reduce(
+            (sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.comments || 0), 0
+        );
+        // Build sparklines from real engagement history
+        const history = socialMetrics?.engagementHistory || [];
+        const rateSpark = history.map((h: any) => h.rate || 0);
 
         return [
             {
                 label: 'Community Sentiment',
-                value: `${sentimentScore}/100`,
-                delta: 5.2,
-                trend: sentimentScore > 50 ? 'up' : 'down',
-                confidence: 'High',
+                value: sentimentScore > 0 ? `${sentimentScore}/100` : '--',
+                delta: 0,
+                trend: sentimentScore > 50 ? 'up' : sentimentScore > 0 ? 'down' : 'flat',
+                confidence: sentimentScore > 0 ? 'High' : 'Low',
                 statusLabel: sentimentLabel,
-                sparklineData: [45, 48, 52, 49, 60, 58, sentimentScore]
+                sparklineData: [] as number[]
             },
             {
-                label: 'Social Volume (24h)',
-                value: '+128%',
-                delta: 12.5,
-                trend: 'up',
-                confidence: 'High',
-                statusLabel: 'Trending',
-                sparklineData: [80, 90, 85, 110, 100, 115, 128]
+                label: 'Total Engagements',
+                value: totalEngagements > 0 ? totalEngagements.toLocaleString() : '--',
+                delta: 0,
+                trend: 'flat',
+                confidence: totalPosts > 0 ? 'High' : 'Low',
+                statusLabel: totalEngagements > 100 ? 'Active' : totalEngagements > 0 ? 'Growing' : 'Quiet',
+                sparklineData: history.map((h: any) => h.engagements || 0)
             },
             {
                 label: 'Engagement Rate',
-                value: `${engagementRate}%`,
-                delta: -0.5,
+                value: engagementRate > 0 ? `${engagementRate.toFixed(2)}%` : '--',
+                delta: 0,
                 trend: 'flat',
-                confidence: 'Med',
-                statusLabel: engagementRate > 2 ? 'Strong' : 'Watch',
-                sparklineData: [2.1, 2.3, 2.2, 2.0, 1.9, 2.1, engagementRate]
+                confidence: socialMetrics ? 'High' : 'Low',
+                statusLabel: engagementRate >= 2 ? 'Strong' : engagementRate > 0 ? 'Watch' : 'No Data',
+                sparklineData: rateSpark
             },
             {
                 label: 'Active Narratives',
-                value: activeNarratives.length.toString(),
-                delta: activeNarratives.length > 2 ? 1 : 0,
-                trend: 'up',
-                confidence: 'High',
-                statusLabel: 'Active',
-                sparklineData: [1, 1, 2, 2, 3, 3, activeNarratives.length]
+                value: activeNarratives.length > 0 ? activeNarratives.length.toString() : '--',
+                delta: 0,
+                trend: 'flat',
+                confidence: activeNarratives.length > 0 ? 'High' : 'Low',
+                statusLabel: activeNarratives.length > 2 ? 'Active' : activeNarratives.length > 0 ? 'Quiet' : 'None',
+                sparklineData: [] as number[]
             },
             {
-                label: 'Voice Share',
-                value: '4.2%',
-                delta: 0.8,
-                trend: 'up',
-                confidence: 'Low',
-                statusLabel: 'Growing',
-                sparklineData: [3.5, 3.8, 3.9, 4.0, 4.1, 4.2]
+                label: 'Followers',
+                value: followers > 0 ? `${(followers / 1000).toFixed(1)}K` : '--',
+                delta: 0,
+                trend: 'flat',
+                confidence: followers > 0 ? 'High' : 'Low',
+                statusLabel: followers > 10000 ? 'Strong' : followers > 0 ? 'Growing' : 'No Data',
+                sparklineData: [] as number[]
             }
         ];
     }, [sentimentScore, socialMetrics, activeNarratives]);

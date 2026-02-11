@@ -8,28 +8,14 @@ import fetch from 'node-fetch'; // Use built-in fetch in Node 18+, but for safet
  */
 
 export const fetchDuneMetrics = async (apiKey) => {
-    // 1. Simulation Removed for "No Mock" policy
     if (!apiKey || apiKey === 'your_dune_api_key_here') {
-        console.log("[Agent/Ingest] No Dune Key. Skipping.");
+        console.log("[Agent/Ingest] No Dune Key. Skipping on-chain metrics.");
         return null;
     }
-
-    // 2. Real Fetch (Logic ported from analytics.ts)
-    // For now, simplified to a single "Health Check" query due to complexity of mapped queries
-    try {
-        // Placeholder for real implementation if key exists
-        return {
-            source: 'Dune (Live)',
-            totalVolume: 0, // Implement specific query fetching here if needed
-            netNewWallets: 0,
-            activeWallets: 0,
-            retentionRate: 0,
-            tvlChange: 0
-        };
-    } catch (e) {
-        console.error("[Agent/Ingest] Dune Fetch Error:", e);
-        return null;
-    }
+    // Dune key present but no brand-specific queries configured yet.
+    // Returns null so brain knows on-chain data is unavailable rather than faking zeros.
+    console.log("[Agent/Ingest] Dune key present but no brand queries configured.");
+    return null;
 };
 
 export const fetchLunarCrushTrends = async (_apiKey, _symbol = 'ETH') => {
@@ -110,7 +96,7 @@ export const TRACKED_BRANDS = {
     'netswap': 'netswapofficial',
     'lazai': 'LazAINetwork',
     'defia': 'DefiaLabs',
-    'meme': 'MetisL2'
+    'metis': 'MetisL2'
 };
 
 export const updateAllBrands = async (apiKey, brands = []) => {

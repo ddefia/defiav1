@@ -530,37 +530,15 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         throw new Error("No image data returned from Gemini.");
 
     } catch (error: any) {
-        // --- FALLBACK MECHANISM FOR QUOTA LIMITS ---
-        if (error.message.includes('429') || error.message.includes('quota') || error.message.includes('RESOURCE_EXHAUSTED')) {
-            console.warn("⚠️ Quota Exceeded for Gemini 3 Pro. Falling back to Gemini 1.5 Pro...");
-            dispatchThinking("⚠️ High Traffic (Quota Hit). Switching to Backup High-Res Model...");
-
-            try {
-                const fallbackResponse = await ai.models.generateContent({
-                    model: 'gemini-2.0-flash', // High Quality Fallback
-                    // @ts-ignore
-                    contents: [{ parts: parts }],
-                    config: {
-                        imageConfig: {
-                            aspectRatio: params.aspectRatio === '1:1' ? '1:1' : params.aspectRatio === '4:5' ? '4:5' : '16:9'
-                        }
-                    },
-                });
-
-                // @ts-ignore
-                const fallbackPart = fallbackResponse.candidates?.[0]?.content?.parts?.[0];
-                // @ts-ignore
-                if (fallbackPart && fallbackPart.inlineData) {
-                    // @ts-ignore
-                    return `data:${fallbackPart.inlineData.mimeType || 'image/png'}; base64, ${fallbackPart.inlineData.data} `;
-                }
-            } catch (fallbackError: any) {
-                console.error("Fallback Model Failed:", fallbackError.message);
-                throw new Error("All High-Quality Models Busy. Please try again in 1 minute.");
-            }
+        const msg = error?.message || '';
+        // --- QUOTA LIMITS: Fail fast instead of retrying (prevents doubling API calls) ---
+        if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+            console.warn("⚠️ Quota Exceeded for Gemini 3 Pro Image.");
+            dispatchThinking("⚠️ API quota exceeded. Check billing at https://ai.dev/rate-limit");
+            throw new Error("API quota exceeded. Please check your Gemini API billing at https://ai.dev/rate-limit");
         }
 
-        console.error("Gemini generation error:", error.message);
+        console.error("Gemini generation error:", msg);
         throw error;
     }
 };
@@ -811,9 +789,13 @@ export const generateTweet = async (
         }
 
         return safeResponseText(response) || topic;
-    } catch (e) {
+    } catch (e: any) {
         console.error("Tweet Generation Failed", e);
-        return topic; // Fail safe
+        const msg = e?.message || '';
+        if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+            throw new Error('API quota exceeded. Please check your Gemini API billing at https://ai.dev/rate-limit');
+        }
+        throw new Error(`Tweet generation failed: ${msg || 'Unknown error'}`);
     }
 };
 

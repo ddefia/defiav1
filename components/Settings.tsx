@@ -197,11 +197,11 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
         setSavingIntegrations(false);
     };
 
-    const tabs: { id: SettingsTab; label: string; icon: string }[] = [
+    const tabs: { id: SettingsTab; label: string; icon: string; disabled?: boolean }[] = [
         { id: 'general', label: 'General', icon: 'person' },
-        { id: 'notifications', label: 'Notifications', icon: 'notifications' },
-        { id: 'security', label: 'Security', icon: 'shield' },
-        { id: 'billing', label: 'Billing', icon: 'credit_card' },
+        { id: 'notifications', label: 'Notifications', icon: 'notifications', disabled: true },
+        { id: 'security', label: 'Security', icon: 'shield', disabled: true },
+        { id: 'billing', label: 'Billing', icon: 'credit_card', disabled: true },
     ];
 
     return (
@@ -221,11 +221,14 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                            disabled={tab.disabled}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                                activeTab === tab.id
-                                    ? 'bg-[#FF5C00] text-white'
-                                    : 'text-[#6B6B70] hover:text-white hover:bg-[#1A1A1D]'
+                                tab.disabled
+                                    ? 'text-[#3A3A3F] cursor-not-allowed'
+                                    : activeTab === tab.id
+                                        ? 'bg-[#FF5C00] text-white'
+                                        : 'text-[#6B6B70] hover:text-white hover:bg-[#1A1A1D]'
                             }`}
                         >
                             <span
@@ -235,6 +238,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                 {tab.icon}
                             </span>
                             <span className="text-sm font-medium">{tab.label}</span>
+                            {tab.disabled && <span className="text-[10px] text-[#3A3A3F] ml-auto">Soon</span>}
                         </button>
                     ))}
 
@@ -303,12 +307,9 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                     <div className="flex items-center justify-between py-2">
                                         <div className="flex flex-col gap-1">
                                             <span className="text-white text-sm">Timezone</span>
-                                            <span className="text-[#6B6B70] text-xs">Set your local timezone for scheduling</span>
+                                            <span className="text-[#6B6B70] text-xs">Detected from your browser</span>
                                         </div>
-                                        <button className="flex items-center gap-2 px-3 py-2 bg-[#1A1A1D] border border-[#2E2E2E] rounded-md">
-                                            <span className="text-white text-[13px]">{timezone}</span>
-                                            <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>expand_more</span>
-                                        </button>
+                                        <span className="text-[#6B6B70] text-[13px]">{timezone}</span>
                                     </div>
 
                                     <div className="h-px bg-[#1F1F23]"></div>
@@ -317,12 +318,9 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                     <div className="flex items-center justify-between py-2">
                                         <div className="flex flex-col gap-1">
                                             <span className="text-white text-sm">Language</span>
-                                            <span className="text-[#6B6B70] text-xs">Select your preferred language</span>
+                                            <span className="text-[#6B6B70] text-xs">Interface language</span>
                                         </div>
-                                        <button className="flex items-center gap-2 px-3 py-2 bg-[#1A1A1D] border border-[#2E2E2E] rounded-md">
-                                            <span className="text-white text-[13px]">{language}</span>
-                                            <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>expand_more</span>
-                                        </button>
+                                        <span className="text-[#6B6B70] text-[13px]">{language}</span>
                                     </div>
 
                                     <div className="h-px bg-[#1F1F23]"></div>

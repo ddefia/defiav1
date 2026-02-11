@@ -23,8 +23,7 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         ${knowledgeBase}
         
         CURRENT STATE:
-        - On-Chain Volume: $${duneMetrics?.totalVolume?.toLocaleString() || 'N/A'}
-        - Active Wallets: ${duneMetrics?.activeWallets || 'N/A'}
+        ${duneMetrics ? `- On-Chain Volume: $${duneMetrics.totalVolume?.toLocaleString() || 'N/A'}\n        - Active Wallets: ${duneMetrics.activeWallets || 'N/A'}` : '- On-Chain Data: Not available (no Dune integration configured)'}
         
         LATEST SPECIFIC POSTS (DIRECT MENTIONS/TAGS):
         ${mentions.map(m => `- [${m.author}] "${m.text}"`).join('\n')}

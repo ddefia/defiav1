@@ -640,20 +640,14 @@ const App: React.FC = () => {
                 const highVelocityTrends = trends.filter(t => t.relevanceScore > 85);
 
                 const liveSignals: SocialSignals = {
-                    ...computeSocialSignals(trends, mentions, socialMetrics || undefined),
+                    ...computeSocialSignals(trends, mentions, metricsResult || socialMetrics || undefined),
                     trendingTopics: highVelocityTrends.length > 0 ? highVelocityTrends : trends.slice(0, 3) // Fallback to top 3 if no super-high trends
                 };
                 setSocialSignals(liveSignals);
 
                 // 2c. Generate Growth Report (Daily Briefing) - REAL TIME w/ CACHE (6h)
-                // FIX: Check storage directly if state is empty to avoid race condition on mount
-                let currentReport = growthReport;
-
-                // 1. Try Local Storage Synchronously
-                if (!currentReport) {
-                    const cachedParams = loadGrowthReport(selectedBrand);
-                    if (cachedParams) currentReport = cachedParams;
-                }
+                // Read from localStorage directly to avoid stale closure reference
+                let currentReport = loadGrowthReport(selectedBrand) || null;
 
                 // 2. If Local is Missing or is just a Seed (lastUpdated === 0), Try Cloud (Async)
                 if (!currentReport || currentReport.lastUpdated === 0) {
@@ -734,7 +728,8 @@ const App: React.FC = () => {
                 const hasTrends = trends.length > 0;
                 const hasKnowledge = knowledgeSignals.length > 0;
                 const hasMentions = mentions.length > 0;
-                const hasRecentPosts = (socialMetrics?.recentPosts?.length || 0) > 0;
+                const freshMetrics = metricsResult || socialMetrics;
+                const hasRecentPosts = (freshMetrics?.recentPosts?.length || 0) > 0;
                 const hasCalendar = calendarEvents.length > 0;
                 const signalScore = [hasTrends, hasKnowledge, hasMentions, hasRecentPosts, hasCalendar].filter(Boolean).length;
 
@@ -764,12 +759,12 @@ const App: React.FC = () => {
                     brand: { ...profiles[selectedBrand], name: selectedBrand },
                     marketState: {
                         trends: trends,
-                        analytics: socialMetrics || undefined,
+                        analytics: freshMetrics || undefined,
                         mentions: mentions
                     },
                     memory: {
                         ragDocs,
-                        recentPosts: socialMetrics?.recentPosts || [],
+                        recentPosts: freshMetrics?.recentPosts || [],
                         pastStrategies: existingTasks
                     },
                     userObjective: hasOnlyWelcome
@@ -889,7 +884,10 @@ const App: React.FC = () => {
         const interval = setInterval(runBackgroundScan, DECISION_LOOP_INTERVAL_MS);
         return () => clearInterval(interval);
 
-    }, [selectedBrand, automationEnabled, profiles, socialMetrics, strategyTasks, growthReport, calendarEvents]);
+    }, [selectedBrand, automationEnabled, profiles, calendarEvents]);
+    // NOTE: socialMetrics, strategyTasks, growthReport intentionally excluded —
+    // they are OUTPUTS of this effect. Including them caused a re-render loop
+    // that burned 80K+ Gemini API calls/day.
 
     // --- Server Health Check ---
     const [isServerOnline, setIsServerOnline] = useState<boolean>(false);

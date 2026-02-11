@@ -252,8 +252,13 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
                 setGeneratedTweetPreview(draft.trim());
             }
-        } catch (e) {
-            setError('Failed to generate tweet.');
+        } catch (e: any) {
+            const msg = e?.message || '';
+            if (msg.includes('quota')) {
+                setError('API quota exceeded — check your Gemini billing at ai.dev/rate-limit');
+            } else {
+                setError(msg || 'Failed to generate tweet.');
+            }
             console.error(e);
         } finally {
             setIsGeneratingTweet(false);
@@ -348,7 +353,13 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                 templateType: '',
             });
             setPreviewImage(img);
-        } catch (err) {
+        } catch (err: any) {
+            const msg = err?.message || '';
+            if (msg.includes('quota')) {
+                setError('API quota exceeded — check your Gemini billing at ai.dev/rate-limit');
+            } else {
+                setError(msg || 'Failed to generate image.');
+            }
             console.error('Failed to generate image:', err);
         } finally {
             setIsGenerating(false);

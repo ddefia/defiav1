@@ -390,6 +390,61 @@ const X_BEARER_TOKEN = process.env.X_BEARER_TOKEN || '';
 
 const normalizeXHandle = (value) => normalizeHandle(String(value || '')).replace(/^@/, '');
 
+// --- Metrics Snapshot Helpers ---
+const getSnapshotKey = (brandKey, daysAgo = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return `x_metrics_snapshot_${brandKey}_${d.toISOString().slice(0, 10)}`;
+};
+
+const saveMetricsSnapshot = async (supabase, brandKey, metrics) => {
+    if (!supabase || !metrics) return;
+    const key = getSnapshotKey(brandKey);
+    try {
+        await supabase.from('app_storage').upsert({
+            key,
+            value: {
+                totalFollowers: metrics.totalFollowers,
+                weeklyImpressions: metrics.weeklyImpressions,
+                engagementRate: metrics.engagementRate,
+                mentions: metrics.mentions,
+                date: new Date().toISOString().slice(0, 10)
+            },
+            updated_at: new Date().toISOString()
+        });
+    } catch (e) {
+        console.warn('[Snapshot] Failed to save:', e?.message);
+    }
+};
+
+const computeComparison = async (supabase, brandKey, currentMetrics) => {
+    const comparison = { period: 'vs 7 days ago', followersChange: 0, engagementChange: 0, impressionsChange: 0 };
+    if (!supabase || !currentMetrics) return comparison;
+    try {
+        const prevKey = getSnapshotKey(brandKey, 7);
+        const { data: prevRow } = await supabase
+            .from('app_storage')
+            .select('value')
+            .eq('key', prevKey)
+            .maybeSingle();
+        if (prevRow?.value) {
+            const prev = prevRow.value;
+            if (prev.totalFollowers > 0) {
+                comparison.followersChange = parseFloat((((currentMetrics.totalFollowers - prev.totalFollowers) / prev.totalFollowers) * 100).toFixed(1));
+            }
+            if (prev.engagementRate > 0) {
+                comparison.engagementChange = parseFloat((((currentMetrics.engagementRate - prev.engagementRate) / prev.engagementRate) * 100).toFixed(1));
+            }
+            if (prev.weeklyImpressions > 0) {
+                comparison.impressionsChange = parseFloat((((currentMetrics.weeklyImpressions - prev.weeklyImpressions) / prev.weeklyImpressions) * 100).toFixed(1));
+            }
+        }
+    } catch (e) {
+        console.warn('[Snapshot] Failed to compute comparison:', e?.message);
+    }
+    return comparison;
+};
+
 const buildXMetricsPayload = (user, tweets = []) => {
     const recentPosts = tweets.map((t) => {
         const metrics = t.public_metrics || {};
@@ -397,6 +452,7 @@ const buildXMetricsPayload = (user, tweets = []) => {
         const retweets = metrics.retweet_count || 0;
         const comments = metrics.reply_count || 0;
         const quotes = metrics.quote_count || 0;
+        const impressions = metrics.impression_count || 0;
         const engagements = likes + retweets + comments + quotes;
         const followers = user?.public_metrics?.followers_count || 0;
         const engagementRate = followers > 0 ? (engagements / followers) * 100 : 0;
@@ -407,7 +463,7 @@ const buildXMetricsPayload = (user, tweets = []) => {
             likes,
             comments,
             retweets,
-            impressions: engagements * 20,
+            impressions: impressions > 0 ? impressions : engagements,
             engagementRate: parseFloat(engagementRate.toFixed(2)),
             url: `https://x.com/${user?.username || 'x'}/status/${t.id}`
         };
@@ -419,14 +475,25 @@ const buildXMetricsPayload = (user, tweets = []) => {
         ? (totalEngagements / recentPosts.length / followersCount) * 100
         : 0;
 
+    // Build engagement history from actual post data (one point per post)
+    const engagementHistory = recentPosts.map(p => ({
+        date: p.date,
+        rate: p.engagementRate,
+        impressions: p.impressions,
+        engagements: p.likes + p.retweets + p.comments
+    })).reverse();
+
+    const weeklyImpressions = recentPosts.reduce((sum, p) => sum + p.impressions, 0);
+    const mentionCount = recentPosts.reduce((sum, p) => sum + p.comments, 0);
+
     const metrics = {
         totalFollowers: followersCount,
-        weeklyImpressions: recentPosts.reduce((sum, p) => sum + p.impressions, 0) * 2,
+        weeklyImpressions,
         engagementRate: parseFloat(avgEngagementRate.toFixed(2)),
-        mentions: 0,
+        mentions: mentionCount,
         topPost: recentPosts[0]?.content || 'No recent posts found',
         recentPosts,
-        engagementHistory: [],
+        engagementHistory,
         comparison: { period: 'vs Last Week', followersChange: 0, engagementChange: 0, impressionsChange: 0 },
         isLive: true
     };
@@ -778,6 +845,10 @@ app.get('/api/x/metrics/:brand', async (req, res) => {
             const tweets = await fetchXRecentTweets(user.id, tokenValue.access_token);
             const { metrics, followersCount } = buildXMetricsPayload(user, tweets);
 
+            // Save daily snapshot + compute week-over-week comparison
+            await saveMetricsSnapshot(supabase, primaryKey, metrics);
+            metrics.comparison = await computeComparison(supabase, primaryKey, metrics);
+
             await supabase
                 .from('app_storage')
                 .upsert({
@@ -805,6 +876,10 @@ app.get('/api/x/metrics/:brand', async (req, res) => {
             const user = await fetchXUserByHandle(handle, X_BEARER_TOKEN);
             const tweets = await fetchXRecentTweets(user.id, X_BEARER_TOKEN);
             const { metrics, followersCount } = buildXMetricsPayload(user, tweets);
+
+            // Save daily snapshot + compute week-over-week comparison
+            await saveMetricsSnapshot(supabase, primaryKey, metrics);
+            metrics.comparison = await computeComparison(supabase, primaryKey, metrics);
 
             await supabase
                 .from('app_storage')
