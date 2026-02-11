@@ -230,7 +230,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 {rec.impactScore}% <span className="text-[#6B7280] font-normal">conf</span>
                                             </span>
                                         </div>
-                                        <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug">{cleanTitle(rec.title)}</h4>
+                                        <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug line-clamp-3">{cleanTitle(rec.title)}</h4>
                                         {rec.dataSignal && (
                                             <div className="flex items-center gap-1 mb-1.5 text-[#6B7280] text-[11px]">
                                                 <span className="material-symbols-sharp text-[12px]">bolt</span>

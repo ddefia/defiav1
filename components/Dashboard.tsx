@@ -3,7 +3,6 @@ import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthRepo
 import { fetchCampaignPerformance } from '../services/analytics';
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
 import { loadCampaignState } from '../services/storage';
-import { DailyBriefDrawer } from './DailyBriefDrawer';
 import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton';
 
 interface DashboardProps {
@@ -382,14 +381,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         ))}
                     </div>
 
-                    {/* Daily Brief — clickable card that opens the full brief drawer */}
+                    {/* Daily Brief — inline expandable card */}
                     {briefData && briefData.confidence?.explanation && (
                         <div
-                            onClick={() => setIsBriefOpen(true)}
-                            className="rounded-xl overflow-hidden mb-7 cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-[#FF5C0010]"
+                            className="rounded-xl overflow-hidden mb-7 transition-all duration-200"
                             style={{ border: '1px solid #FF5C0033', background: 'linear-gradient(135deg, #111113 0%, #1A120D 100%)' }}
                         >
-                            <div className="px-5 py-4">
+                            <div
+                                onClick={() => setIsBriefOpen(!isBriefOpen)}
+                                className="px-5 py-4 cursor-pointer hover:bg-[#FFFFFF04] transition-colors"
+                            >
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2.5">
                                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center flex-shrink-0">
@@ -411,12 +412,94 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         })()}
                                     </div>
                                     <div className="flex items-center gap-1.5 text-[#FF5C00] text-xs font-medium opacity-60 hover:opacity-100 transition-opacity">
-                                        <span>View Full Brief</span>
-                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>arrow_forward</span>
+                                        <span>{isBriefOpen ? 'Collapse' : 'Expand'}</span>
+                                        <span className="material-symbols-sharp text-sm transition-transform duration-200" style={{ fontVariationSettings: "'wght' 300", transform: isBriefOpen ? 'rotate(90deg)' : 'none' }}>arrow_forward</span>
                                     </div>
                                 </div>
-                                <p className="text-[13px] text-[#ADADB0] leading-[1.7] line-clamp-3">{renderRichText(briefData.confidence.explanation)}</p>
+                                <p className={`text-[13px] text-[#ADADB0] leading-[1.7] ${isBriefOpen ? '' : 'line-clamp-3'}`}>{renderRichText(briefData.confidence.explanation)}</p>
                             </div>
+
+                            {/* Expanded brief content */}
+                            {isBriefOpen && (
+                                <div className="px-5 pb-5 border-t border-[#1F1F2380]">
+                                    <div className="grid grid-cols-2 gap-4 pt-4">
+                                        {/* Key Drivers */}
+                                        <div className="col-span-2">
+                                            <div className="flex items-center gap-2 mb-2.5">
+                                                <span className="material-symbols-sharp text-[#FF5C00] text-base" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
+                                                <h3 className="text-[10px] font-bold text-[#FF5C00] uppercase tracking-[0.15em]">Key Drivers</h3>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {briefData.keyDrivers.map((item, i) => (
+                                                    <div key={i} className="flex items-start gap-2.5 p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                                        <span className="material-symbols-sharp text-[#3B82F6] text-sm mt-0.5 shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
+                                                        <p className="text-[12px] text-[#C4C4C4] leading-relaxed">{item}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Reinforced */}
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2.5">
+                                                <span className="material-symbols-sharp text-[#22C55E] text-base" style={{ fontVariationSettings: "'wght' 300" }}>verified</span>
+                                                <h3 className="text-[10px] font-bold text-[#22C55E] uppercase tracking-[0.15em]">Reinforced</h3>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {briefData.decisionsReinforced.map((item, i) => (
+                                                    <div key={i} className="flex items-start gap-2 p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                                        <span className="material-symbols-sharp text-[#22C55E] text-xs mt-0.5 shrink-0" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check_circle</span>
+                                                        <p className="text-[12px] text-[#C4C4C4] leading-relaxed">{item}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Risks */}
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-2.5">
+                                                <span className="material-symbols-sharp text-[#F59E0B] text-base" style={{ fontVariationSettings: "'wght' 300" }}>warning</span>
+                                                <h3 className="text-[10px] font-bold text-[#F59E0B] uppercase tracking-[0.15em]">Risks</h3>
+                                            </div>
+                                            <div className="rounded-lg bg-[#F59E0B06] border border-[#F59E0B18] p-3 space-y-2">
+                                                {briefData.risksAndUnknowns.map((item, i) => (
+                                                    <div key={i} className="flex items-start gap-2">
+                                                        <span className="material-symbols-sharp text-[#F59E0B] text-xs mt-0.5 shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>error</span>
+                                                        <p className="text-[12px] text-[#D4A94E] leading-relaxed">{item}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Confidence */}
+                                        <div className="col-span-2 pt-1">
+                                            <div className="flex items-center gap-2 mb-2.5">
+                                                <span className="material-symbols-sharp text-[#8B5CF6] text-base" style={{ fontVariationSettings: "'wght' 300" }}>psychology</span>
+                                                <h3 className="text-[10px] font-bold text-[#8B5CF6] uppercase tracking-[0.15em]">Confidence</h3>
+                                            </div>
+                                            <div className="p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                                        briefData.confidence.level === 'High' ? 'bg-[#22C55E18] text-[#22C55E] border border-[#22C55E33]' :
+                                                        briefData.confidence.level === 'Medium' ? 'bg-[#F59E0B18] text-[#F59E0B] border border-[#F59E0B33]' :
+                                                        'bg-[#EF444418] text-[#EF4444] border border-[#EF444433]'
+                                                    }`}>
+                                                        {briefData.confidence.level}
+                                                    </span>
+                                                    <div className="flex-1 h-1.5 rounded-full bg-[#1F1F23] overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all duration-500 ${
+                                                            briefData.confidence.level === 'High' ? 'w-[90%] bg-gradient-to-r from-[#22C55E] to-[#4ADE80]' :
+                                                            briefData.confidence.level === 'Medium' ? 'w-[60%] bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]' :
+                                                            'w-[30%] bg-gradient-to-r from-[#EF4444] to-[#F87171]'
+                                                        }`}></div>
+                                                    </div>
+                                                </div>
+                                                <p className="text-[12px] text-[#8B8B8F] leading-relaxed">{briefData.confidence.explanation}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                     {briefLoading && !briefData && <SkeletonBriefCard />}
@@ -840,12 +923,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    <DailyBriefDrawer
-                        isOpen={isBriefOpen}
-                        onClose={() => setIsBriefOpen(false)}
-                        brief={briefData}
-                        loading={briefLoading}
-                    />
                 </div>
     );
 };

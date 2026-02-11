@@ -20,20 +20,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onConnect
 }) => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isStudioOpen, setIsStudioOpen] = useState(currentSection === 'studio' || currentSection === 'image-editor');
     const userProfile = loadUserProfile();
 
-    const mainNavItems = [
+    // Nav items with nested children support
+    type NavItem = { id: string; label: string; icon: string; isAccent?: boolean; isSub?: boolean; children?: NavItem[] };
+    const mainNavItems: NavItem[] = [
         { id: 'copilot', label: 'AI CMO', icon: 'auto_awesome', isAccent: true },
-        { id: 'recommendations', label: 'Recommendations', icon: 'lightbulb' },
         { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+        { id: 'recommendations', label: 'Recommendations', icon: 'lightbulb', isSub: true },
         { id: 'campaigns', label: 'Campaigns', icon: 'campaign' },
         { id: 'analytics', label: 'Analytics', icon: 'analytics' },
-        { id: 'studio', label: 'Content Studio', icon: 'edit_square' },
-        { id: 'image-editor', label: 'Image Studio', icon: 'image' },
+        { id: 'studio', label: 'Content Studio', icon: 'edit_square', children: [
+            { id: 'image-editor', label: 'Image Studio', icon: 'image' },
+        ]},
         { id: 'calendar', label: 'Content Calendar', icon: 'calendar_month' },
     ];
 
-    const feedsNavItems = [
+    const feedsNavItems: NavItem[] = [
         { id: 'news', label: 'Web3 News', icon: 'newspaper' },
         { id: 'twitter-feed', label: 'Twitter Feed', icon: 'tag' },
     ];
@@ -87,32 +91,78 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* MAIN Section */}
                 <div className="px-4 py-4 text-[#6B6B70] text-sm font-normal">MAIN</div>
 
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                     {mainNavItems.map((item) => {
                         const isActive = currentSection === item.id;
+                        const hasChildren = item.children && item.children.length > 0;
+                        const childActive = hasChildren && item.children!.some(c => currentSection === c.id);
+                        const isExpanded = hasChildren && (isStudioOpen || childActive);
+
                         return (
-                            <button
-                                key={item.id}
-                                onClick={() => onNavigate(item.id)}
-                                className={`w-full flex items-center gap-4 px-4 py-3 rounded-full transition-colors ${
-                                    isActive
-                                        ? 'bg-[#1F1F23] text-white'
-                                        : item.isAccent
-                                            ? 'text-[#FF5C00] hover:bg-[#1F1F23]/50'
-                                            : 'text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white'
-                                }`}
-                            >
-                                <span
-                                    className="material-symbols-sharp text-2xl"
-                                    style={{
-                                        color: item.isAccent ? '#FF5C00' : isActive ? '#FFFFFF' : '#6B6B70',
-                                        fontVariationSettings: "'wght' 100"
+                            <div key={item.id}>
+                                <button
+                                    onClick={() => {
+                                        if (hasChildren) {
+                                            setIsStudioOpen(!isStudioOpen);
+                                            onNavigate(item.id);
+                                        } else {
+                                            onNavigate(item.id);
+                                        }
                                     }}
+                                    className={`w-full flex items-center gap-4 rounded-full transition-colors ${item.isSub ? 'pl-12 pr-4 py-2.5' : 'px-4 py-3'} ${
+                                        isActive || childActive
+                                            ? 'bg-[#1F1F23] text-white'
+                                            : item.isAccent
+                                                ? 'text-[#FF5C00] hover:bg-[#1F1F23]/50'
+                                                : 'text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white'
+                                    }`}
                                 >
-                                    {item.icon}
-                                </span>
-                                <span className="text-base">{item.label}</span>
-                            </button>
+                                    <span
+                                        className={`material-symbols-sharp ${item.isSub ? 'text-xl' : 'text-2xl'}`}
+                                        style={{
+                                            color: item.isAccent ? '#FF5C00' : (isActive || childActive) ? '#FFFFFF' : '#6B6B70',
+                                            fontVariationSettings: "'wght' 100"
+                                        }}
+                                    >
+                                        {item.icon}
+                                    </span>
+                                    <span className={`${item.isSub ? 'text-sm' : 'text-base'} flex-1 text-left`}>{item.label}</span>
+                                    {hasChildren && (
+                                        <span
+                                            className="material-symbols-sharp text-lg text-[#6B6B70] transition-transform duration-200"
+                                            style={{ fontVariationSettings: "'wght' 100", transform: isExpanded ? 'rotate(180deg)' : 'none' }}
+                                        >
+                                            expand_more
+                                        </span>
+                                    )}
+                                </button>
+                                {/* Sub-items */}
+                                {hasChildren && isExpanded && item.children!.map(child => {
+                                    const isChildActive = currentSection === child.id;
+                                    return (
+                                        <button
+                                            key={child.id}
+                                            onClick={() => onNavigate(child.id)}
+                                            className={`w-full flex items-center gap-4 pl-12 pr-4 py-2.5 rounded-full transition-colors ${
+                                                isChildActive
+                                                    ? 'bg-[#1F1F23] text-white'
+                                                    : 'text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white'
+                                            }`}
+                                        >
+                                            <span
+                                                className="material-symbols-sharp text-xl"
+                                                style={{
+                                                    color: isChildActive ? '#FFFFFF' : '#6B6B70',
+                                                    fontVariationSettings: "'wght' 100"
+                                                }}
+                                            >
+                                                {child.icon}
+                                            </span>
+                                            <span className="text-sm">{child.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         );
                     })}
                 </div>
