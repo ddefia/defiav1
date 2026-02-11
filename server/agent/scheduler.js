@@ -168,20 +168,28 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
                 fetchMentions(apifyKey, handle)
             ]);
 
-            // 2. Analyze
-            const decision = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || {});
+            // 2. Analyze (returns { actions: [...] })
+            const decisionResult = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || {});
+            const decisions = decisionResult.actions || [decisionResult];
 
-            // 3. Act & Save
-            if (decision.action && decision.action !== 'NO_ACTION' && decision.action !== 'ERROR') {
-                const icon = decision.action === 'REPLY' ? '↩️' : decision.action === 'TREND_JACK' ? '⚡' : '📢';
-                console.log(`     - ${icon} [${brandId}] ACTION: ${decision.action}`);
+            // 3. Act & Save — process all actions
+            let savedAny = false;
+            for (const decision of decisions) {
+                if (decision.action && decision.action !== 'NO_ACTION' && decision.action !== 'ERROR') {
+                    const icon = decision.action === 'REPLY' ? '↩️' : decision.action === 'TREND_JACK' ? '⚡' : decision.action === 'CAMPAIGN' ? '📢' : decision.action === 'GAP_FILL' ? '🎯' : '💬';
+                    console.log(`     - ${icon} [${brandId}] ACTION: ${decision.action}`);
 
-                const record = { ...decision, brandId };
-                saveDecisionToFile(record);
-                await saveDecisionToDb(supabase, decision, brandId);
-                results.push({ brandId, decision });
-            } else {
-                results.push({ brandId, decision, skipped: true });
+                    const record = { ...decision, brandId };
+                    saveDecisionToFile(record);
+                    await saveDecisionToDb(supabase, decision, brandId);
+                    if (!savedAny) {
+                        results.push({ brandId, decision });
+                        savedAny = true;
+                    }
+                }
+            }
+            if (!savedAny) {
+                results.push({ brandId, decision: decisions[0] || { action: 'NO_ACTION' }, skipped: true });
             }
         }
         console.log("   - 💤 Agent Cycle Complete.");
@@ -311,13 +319,16 @@ export const triggerAgentRun = async (brandIdentifier) => {
     ]);
 
     const brandProfile = await fetchBrandProfile(supabase, target.id);
-    const decision = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || { name: target.name });
+    const decisionResult = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || { name: target.name });
+    const decisions = decisionResult.actions || [decisionResult];
 
-    if (decision?.action && decision.action !== 'NO_ACTION' && decision.action !== 'ERROR') {
-        const record = { ...decision, brandId: target.id };
-        saveDecisionToFile(record);
-        await saveDecisionToDb(supabase, decision, target.id);
+    for (const decision of decisions) {
+        if (decision?.action && decision.action !== 'NO_ACTION' && decision.action !== 'ERROR') {
+            const record = { ...decision, brandId: target.id };
+            saveDecisionToFile(record);
+            await saveDecisionToDb(supabase, decision, target.id);
+        }
     }
 
-    return { brand: target, decision };
+    return { brand: target, decision: decisions[0] || { action: 'NO_ACTION' } };
 };

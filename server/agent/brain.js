@@ -43,16 +43,32 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         4. CAMPAIGN PLANNER: Is there a strategic opportunity for a multi-day campaign based on current trends, upcoming events, or market momentum?
         5. CONTENT STRATEGIST: Is there a content gap — a topic our audience cares about that we haven't addressed recently?
 
-        IMPORTANT: Do NOT default to REPLY. Consider CAMPAIGN and GAP_FILL equally. Only choose REPLY if there is a genuine question or FUD that demands response.
+        IMPORTANT: Do NOT default to REPLY. Consider CAMPAIGN and GAP_FILL equally. Only choose REPLY if there is a genuine question or FUD that demands a direct response.
 
-        Generate a JSON response with the BEST single action to take right now.
+        Generate a JSON response with 3 DIVERSE actions to take. Each action MUST be a DIFFERENT type. Never return multiple actions with the same type.
 
         FORMAT:
         {
-            "action": "REPLY" | "TREND_JACK" | "Tweet" | "CAMPAIGN" | "GAP_FILL" | "NO_ACTION",
-            "targetId": "ID of tweet/trend acting upon (or empty string)",
-            "reason": "Why this is important",
-            "draft": "The content to post or campaign brief"
+            "actions": [
+                {
+                    "action": "REPLY" | "TREND_JACK" | "Tweet" | "CAMPAIGN" | "GAP_FILL",
+                    "targetId": "ID of tweet/trend acting upon (or empty string)",
+                    "reason": "Why this is important",
+                    "draft": "The content to post or campaign brief"
+                },
+                {
+                    "action": "(DIFFERENT type from above)",
+                    "targetId": "",
+                    "reason": "Why this action matters",
+                    "draft": "Content draft or brief"
+                },
+                {
+                    "action": "(DIFFERENT type from both above)",
+                    "targetId": "",
+                    "reason": "Strategic rationale",
+                    "draft": "Content draft or brief"
+                }
+            ]
         }
         `;
 
@@ -65,7 +81,14 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
 
         // SimpleJSON cleanup
         const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(jsonStr);
+        const parsed = JSON.parse(jsonStr);
+
+        // Support both new multi-action format and legacy single-action format
+        if (parsed.actions && Array.isArray(parsed.actions)) {
+            return parsed; // New format: { actions: [...] }
+        }
+        // Legacy single action — wrap in array
+        return { actions: [parsed] };
 
     } catch (e) {
         console.error("[Agent/Brain] Analysis Failed:", e);

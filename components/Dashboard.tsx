@@ -669,27 +669,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         ))}
                     </div>
 
-                    {/* Daily Brief — compact 2-3 sentence text with bold markup */}
+                    {/* Daily Brief — clickable card that opens the full brief drawer */}
                     {briefData && briefData.confidence?.explanation && (
-                        <div className="rounded-xl bg-[#111113] border border-[#1F1F23] px-5 py-4 mb-7">
-                            <div className="flex items-start gap-3">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center flex-shrink-0 mt-0.5">
-                                    <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/></svg>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1.5">
+                        <div
+                            onClick={() => setIsBriefOpen(true)}
+                            className="rounded-xl overflow-hidden mb-7 cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-[#FF5C0010]"
+                            style={{ border: '1px solid #FF5C0033', background: 'linear-gradient(135deg, #111113 0%, #1A120D 100%)' }}
+                        >
+                            <div className="px-5 py-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center flex-shrink-0">
+                                            <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>auto_awesome</span>
+                                        </div>
                                         <span className="text-white text-sm font-semibold">Daily Brief</span>
                                         <span className="text-[10px] text-[#4A4A4E]">{new Date(briefData.timestamp).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span>
                                         {(() => {
                                             const hoursAgo = Math.floor((Date.now() - briefData.timestamp) / (1000 * 60 * 60));
                                             if (hoursAgo >= 1) {
-                                                return <span className="text-[10px] text-[#4A4A4E]">· Generated {hoursAgo}h ago</span>;
+                                                return <span className="text-[10px] text-[#4A4A4E]">· {hoursAgo}h ago</span>;
                                             }
-                                            return <span className="text-[10px] text-[#22C55E]">· Just now</span>;
+                                            return (
+                                                <span className="flex items-center gap-1 text-[10px] text-[#22C55E] font-medium">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+                                                    Just now
+                                                </span>
+                                            );
                                         })()}
                                     </div>
-                                    <p className="text-[13px] text-[#ADADB0] leading-[1.65]">{renderRichText(briefData.confidence.explanation)}</p>
+                                    <div className="flex items-center gap-1.5 text-[#FF5C00] text-xs font-medium opacity-60 hover:opacity-100 transition-opacity">
+                                        <span>View Full Brief</span>
+                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>arrow_forward</span>
+                                    </div>
                                 </div>
+                                <p className="text-[13px] text-[#ADADB0] leading-[1.7] line-clamp-3">{renderRichText(briefData.confidence.explanation)}</p>
                             </div>
                         </div>
                     )}
