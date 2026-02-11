@@ -1431,18 +1431,7 @@ const App: React.FC = () => {
         return () => { document.body.classList.remove('no-scroll'); };
     }, [isLanding]);
 
-    // Auth loading state
-    if (isAuthLoading) {
-        return (
-            <div className="min-h-full bg-[#0A0A0B] flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-10 h-10 border-2 border-[#FF5C00] border-t-transparent rounded-full animate-spin" />
-                    <span className="text-[#6B6B70] text-sm">Loading...</span>
-                </div>
-            </div>
-        );
-    }
-
+    // Landing page renders immediately — no auth needed
     if (isLanding) {
         return <LandingPage onOpenDashboard={() => {
             // If user is logged in, go to dashboard, otherwise go to login
@@ -1452,6 +1441,18 @@ const App: React.FC = () => {
                 navigate('/login');
             }
         }} />;
+    }
+
+    // Auth loading state — only for non-landing routes
+    if (isAuthLoading) {
+        return (
+            <div className="min-h-full bg-[#0A0A0B] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-2 border-[#FF5C00] border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[#6B6B70] text-sm">Loading...</span>
+                </div>
+            </div>
+        );
     }
 
     // Auth pages (login/signup)

@@ -136,8 +136,8 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
                 likes: p.likes,
                 comments: p.comments,
                 retweets: p.retweets,
-                impressions: Math.floor((p.likes + p.retweets + p.comments) * 20) || Math.floor(cachedStats.totalFollowers * 0.1), // Est
-                engagementRate: parseFloat((((p.likes + p.comments) / cachedStats.totalFollowers) * 100).toFixed(2))
+                impressions: Math.floor((p.likes + p.retweets + p.comments) * 50) || Math.floor(cachedStats.totalFollowers * 0.15), // ~2% engagement → 50x multiplier
+                engagementRate: parseFloat((((p.likes + p.comments + p.retweets) / Math.max(cachedStats.totalFollowers, 1)) * 100).toFixed(2))
             }));
 
             return {
@@ -169,7 +169,7 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
                 const comments = item.replies || 0;
                 const retweets = item.retweets || 0;
                 const quotes = item.quotes || 0;
-                const impressions = (likes + comments + retweets + quotes) * 20 || (cachedStats.totalFollowers * 0.15);
+                const impressions = (likes + comments + retweets + quotes) * 50 || (cachedStats.totalFollowers * 0.15);
                 const engagementRate = cachedStats.totalFollowers > 0 ? ((likes + comments + retweets) / cachedStats.totalFollowers) * 100 : 0;
                 return {
                     id: item.id || Math.random().toString(),

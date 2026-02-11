@@ -35,20 +35,24 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         ${lunarTrends.map(t => `- [${t.sentiment}] "${t.body}" (Interactions: ${t.interactions})`).join('\n')}
         
         TASK:
-        Act as a multi-role agent. check for 3 specific triggers:
-        
+        Act as a multi-role agent. Check for these 5 triggers (in priority order):
+
         1. COMMUNITY MANAGER (High Priority): Are there any direct questions or FUD in "SPECIFIC POSTS" that need a reply?
         2. NEWSROOM: Is there a "MARKET TREND" that is highly relevant to our brand that we should "Trend Jack"?
-        3. ANALYST: Is there a notable change in On-Chain metrics?
+        3. ANALYST: Is there a notable change in On-Chain metrics that warrants a data-driven tweet?
+        4. CAMPAIGN PLANNER: Is there a strategic opportunity for a multi-day campaign based on current trends, upcoming events, or market momentum?
+        5. CONTENT STRATEGIST: Is there a content gap — a topic our audience cares about that we haven't addressed recently?
+
+        IMPORTANT: Do NOT default to REPLY. Consider CAMPAIGN and GAP_FILL equally. Only choose REPLY if there is a genuine question or FUD that demands response.
 
         Generate a JSON response with the BEST single action to take right now.
-        
+
         FORMAT:
-        { 
-            "action": "REPLY" | "TREND_JACK" | "Tweet" | "NO_ACTION", 
-            "targetId": "ID of tweet/trend acting upon",
-            "reason": "Why this is important", 
-            "draft": "The content to post" 
+        {
+            "action": "REPLY" | "TREND_JACK" | "Tweet" | "CAMPAIGN" | "GAP_FILL" | "NO_ACTION",
+            "targetId": "ID of tweet/trend acting upon (or empty string)",
+            "reason": "Why this is important",
+            "draft": "The content to post or campaign brief"
         }
         `;
 

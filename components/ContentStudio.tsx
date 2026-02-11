@@ -17,8 +17,16 @@ interface ContentStudioProps {
 
 type ContentType = 'all' | 'twitter' | 'discord' | 'email' | 'graphics';
 type ContentStatus = 'published' | 'scheduled' | 'draft' | 'review';
-type CreateType = 'tweet' | 'graphic';
+type CreateType = 'tweet' | 'graphic' | 'quote-tweet';
 type TweetContentType = 'announcement' | 'article' | 'thought' | 'community' | 'thread' | 'repost';
+type QuoteTweetMode = 'amplify' | 'explain';
+
+interface FetchedTweetData {
+    text: string;
+    authorName: string;
+    authorHandle: string;
+    url: string;
+}
 
 interface ContentItem {
     id: string;
@@ -58,7 +66,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     initialVisualPrompt
 }) => {
     // View State
-    const [currentView, setCurrentView] = useState<'library' | 'create-tweet' | 'create-graphic' | 'add-tweet-image'>('library');
+    const [currentView, setCurrentView] = useState<'library' | 'create-tweet' | 'create-graphic' | 'add-tweet-image' | 'quote-tweet'>('library');
 
     // Content Library State
     const [activeTab, setActiveTab] = useState<ContentType>('all');
@@ -92,6 +100,15 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     const [selectedImageOption, setSelectedImageOption] = useState<number>(0);
     const [isGeneratingTweetImages, setIsGeneratingTweetImages] = useState(false);
     const [tweetForImage, setTweetForImage] = useState('');
+
+    // Quote Tweet State
+    const [quoteTweetUrl, setQuoteTweetUrl] = useState('');
+    const [fetchedTweetData, setFetchedTweetData] = useState<FetchedTweetData | null>(null);
+    const [isFetchingTweet, setIsFetchingTweet] = useState(false);
+    const [quoteTweetMode, setQuoteTweetMode] = useState<QuoteTweetMode>('amplify');
+    const [quoteTweetContext, setQuoteTweetContext] = useState('');
+    const [generatedQuoteTweet, setGeneratedQuoteTweet] = useState('');
+    const [isGeneratingQuoteTweet, setIsGeneratingQuoteTweet] = useState(false);
 
     // Writer State (preserved from original)
     const [writerTopic, setWriterTopic] = useState('');
@@ -417,6 +434,13 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             setTweetContext('');
             setGeneratedTweetPreview('');
             setPreviewImage(null);
+        } else if (type === 'quote-tweet') {
+            setCurrentView('quote-tweet');
+            setQuoteTweetUrl('');
+            setFetchedTweetData(null);
+            setQuoteTweetMode('amplify');
+            setQuoteTweetContext('');
+            setGeneratedQuoteTweet('');
         } else {
             setCurrentView('create-graphic');
             setGraphicTweetContent('');
@@ -494,6 +518,94 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         setTweetImageOptions([]);
         setSelectedImageOption(0);
         setCurrentView('add-tweet-image');
+    };
+
+    // --- QUOTE TWEET HANDLERS ---
+    const handleFetchTweet = async () => {
+        const url = quoteTweetUrl.trim();
+        if (!url) return;
+
+        // Basic validation
+        const tweetUrlPattern = /^https?:\/\/(twitter\.com|x\.com)\/\w+\/status\/\d+/i;
+        if (!tweetUrlPattern.test(url)) {
+            setError('Please enter a valid Twitter/X post URL (e.g. https://x.com/user/status/123...)');
+            return;
+        }
+
+        setIsFetchingTweet(true);
+        setError(null);
+        setFetchedTweetData(null);
+        setGeneratedQuoteTweet('');
+
+        try {
+            const apiBase = process.env.VITE_API_BASE_URL || (import.meta as any).env?.VITE_API_BASE_URL || '';
+            const res = await fetch(`${apiBase}/api/tweet-oembed`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Failed to fetch tweet (${res.status})`);
+            }
+
+            const data = await res.json();
+            if (!data.text) {
+                throw new Error('Could not extract tweet text. The tweet may be private or deleted.');
+            }
+
+            setFetchedTweetData({
+                text: data.text,
+                authorName: data.authorName || 'Unknown',
+                authorHandle: data.authorHandle || 'unknown',
+                url: data.url || url
+            });
+        } catch (e: any) {
+            setError(e.message || 'Failed to fetch tweet.');
+        } finally {
+            setIsFetchingTweet(false);
+        }
+    };
+
+    const handleGenerateQuoteTweet = async () => {
+        if (!fetchedTweetData) return;
+
+        setIsGeneratingQuoteTweet(true);
+        setError(null);
+        setGeneratedQuoteTweet('');
+
+        try {
+            const { text: originalText, authorHandle } = fetchedTweetData;
+            const userCtx = quoteTweetContext.trim() ? `\n\nAdditional context from me: ${quoteTweetContext.trim()}` : '';
+
+            let prompt = '';
+            if (quoteTweetMode === 'amplify') {
+                prompt = `Write a quote retweet that amplifies and endorses this tweet. Show agreement, add your unique perspective, and boost the message. Keep it concise and authentic.\n\nOriginal tweet by @${authorHandle}: "${originalText}"${userCtx}`;
+            } else {
+                prompt = `Write a quote retweet that explains this tweet/event to your audience. Include: a compelling hook, what it is about, when it happens (if applicable), and a clear call to action. Make it informative and engaging.\n\nOriginal tweet by @${authorHandle}: "${originalText}"${userCtx}`;
+            }
+
+            const res = await generateTweet(prompt, brandName, brandConfig, 'Casual', 1);
+
+            let draft = '';
+            if (Array.isArray(res)) {
+                draft = res[0] || '';
+            } else if (typeof res === 'string') {
+                draft = res;
+            }
+
+            setGeneratedQuoteTweet(draft.trim());
+        } catch (e: any) {
+            const msg = e?.message || '';
+            if (msg.includes('quota')) {
+                setError('API quota exceeded — check your Gemini billing at ai.dev/rate-limit');
+            } else {
+                setError(msg || 'Failed to generate quote tweet.');
+            }
+        } finally {
+            setIsGeneratingQuoteTweet(false);
+        }
     };
 
     const handleGenerateTweetImageOptions = async () => {
@@ -1520,6 +1632,283 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     }
 
     // =====================================================
+    // QUOTE TWEET VIEW
+    // =====================================================
+    if (currentView === 'quote-tweet') {
+        return (
+            <div className="flex-1 flex bg-[#0A0A0B] min-h-0">
+                {/* Left Panel */}
+                <div className="w-[480px] flex flex-col bg-[#111113] border-r border-[#1F1F23]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-[#1F1F23]">
+                        <button
+                            onClick={handleBackToLibrary}
+                            className="flex items-center gap-2 text-[#94A3B8] hover:text-white transition-colors"
+                        >
+                            <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>arrow_back</span>
+                            <span className="text-sm font-medium">Back</span>
+                        </button>
+
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-[#10B981] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                            </div>
+                            <span className="text-lg font-semibold text-white">Quote Tweet</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#3B82F622]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></span>
+                            <span className="text-xs font-medium text-[#3B82F6]">Draft</span>
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {/* Step 1: Tweet URL */}
+                        <div className="space-y-2.5">
+                            <label className="text-sm font-semibold text-white">Tweet URL</label>
+                            <div className="flex gap-2">
+                                <input
+                                    value={quoteTweetUrl}
+                                    onChange={e => setQuoteTweetUrl(e.target.value)}
+                                    placeholder="https://x.com/user/status/123456..."
+                                    className="flex-1 bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] px-3.5 py-3 text-sm text-white placeholder-[#64748B] focus:border-[#10B981] focus:outline-none transition-colors"
+                                    onKeyDown={e => { if (e.key === 'Enter') handleFetchTweet(); }}
+                                />
+                                <button
+                                    onClick={handleFetchTweet}
+                                    disabled={!quoteTweetUrl.trim() || isFetchingTweet}
+                                    className="px-4 py-3 rounded-[10px] bg-[#10B981] text-white text-sm font-semibold hover:bg-[#0D9668] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                >
+                                    {isFetchingTweet ? (
+                                        <>
+                                            <span className="material-symbols-sharp text-base animate-spin" style={{ fontVariationSettings: "'wght' 300" }}>progress_activity</span>
+                                            Fetching...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>download</span>
+                                            Fetch
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Fetched Tweet Preview */}
+                        {fetchedTweetData && (
+                            <div className="p-4 bg-[#0A0A0B] border border-[#2E2E2E] rounded-xl space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-sharp text-[#1DA1F2] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>tag</span>
+                                    <span className="text-sm font-semibold text-white">{fetchedTweetData.authorName}</span>
+                                    <span className="text-sm text-[#64748B]">@{fetchedTweetData.authorHandle}</span>
+                                </div>
+                                <p className="text-sm text-[#C4C4C4] leading-relaxed whitespace-pre-wrap">{fetchedTweetData.text}</p>
+                            </div>
+                        )}
+
+                        {/* Step 2: Mode Selection */}
+                        {fetchedTweetData && (
+                            <div className="space-y-2.5">
+                                <label className="text-sm font-semibold text-white">Quote Mode</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => setQuoteTweetMode('amplify')}
+                                        className={`flex flex-col gap-1.5 p-4 rounded-xl border text-left transition-all ${
+                                            quoteTweetMode === 'amplify'
+                                                ? 'bg-[#10B98115] border-[#10B981]'
+                                                : 'bg-[#0A0A0B] border-[#2E2E2E] hover:border-[#3E3E3E]'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300", color: quoteTweetMode === 'amplify' ? '#10B981' : '#64748B' }}>campaign</span>
+                                            <span className={`text-sm font-semibold ${quoteTweetMode === 'amplify' ? 'text-[#10B981]' : 'text-white'}`}>Amplify</span>
+                                        </div>
+                                        <span className={`text-xs ${quoteTweetMode === 'amplify' ? 'text-[#10B98199]' : 'text-[#64748B]'}`}>
+                                            Endorse, agree, add value
+                                        </span>
+                                    </button>
+                                    <button
+                                        onClick={() => setQuoteTweetMode('explain')}
+                                        className={`flex flex-col gap-1.5 p-4 rounded-xl border text-left transition-all ${
+                                            quoteTweetMode === 'explain'
+                                                ? 'bg-[#3B82F615] border-[#3B82F6]'
+                                                : 'bg-[#0A0A0B] border-[#2E2E2E] hover:border-[#3E3E3E]'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300", color: quoteTweetMode === 'explain' ? '#3B82F6' : '#64748B' }}>school</span>
+                                            <span className={`text-sm font-semibold ${quoteTweetMode === 'explain' ? 'text-[#3B82F6]' : 'text-white'}`}>Explain</span>
+                                        </div>
+                                        <span className={`text-xs ${quoteTweetMode === 'explain' ? 'text-[#3B82F699]' : 'text-[#64748B]'}`}>
+                                            Hook, CTA, what, when
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step 3: Optional Context */}
+                        {fetchedTweetData && (
+                            <div className="space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-semibold text-white">Extra Context</label>
+                                    <span className="text-xs text-[#64748B]">Optional</span>
+                                </div>
+                                <textarea
+                                    value={quoteTweetContext}
+                                    onChange={e => setQuoteTweetContext(e.target.value)}
+                                    placeholder="Add any specific angle, CTA, or details you want included..."
+                                    className="w-full h-[80px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#10B981] focus:outline-none resize-none transition-colors"
+                                />
+                            </div>
+                        )}
+
+                        {/* Generate Button */}
+                        {fetchedTweetData && (
+                            <button
+                                onClick={handleGenerateQuoteTweet}
+                                disabled={isGeneratingQuoteTweet}
+                                className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{ background: quoteTweetMode === 'amplify'
+                                    ? 'linear-gradient(180deg, #10B981 0%, #059669 100%)'
+                                    : 'linear-gradient(180deg, #3B82F6 0%, #2563EB 100%)' }}
+                            >
+                                <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
+                                {isGeneratingQuoteTweet
+                                    ? 'Generating...'
+                                    : `Generate ${quoteTweetMode === 'amplify' ? 'Amplify' : 'Explain'} Quote`}
+                            </button>
+                        )}
+
+                        {error && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg text-center">
+                                {error}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    {generatedQuoteTweet && (
+                        <div className="flex items-center justify-end px-6 py-4 border-t border-[#1F1F23]">
+                            <button
+                                onClick={handleGenerateQuoteTweet}
+                                disabled={isGeneratingQuoteTweet}
+                                className="flex items-center gap-2 px-4 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>refresh</span>
+                                Regenerate
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Panel - Preview */}
+                <div className="flex-1 flex items-center justify-center bg-[#0A0A0B] p-10">
+                    <div className="flex flex-col items-center gap-6 w-full max-w-[520px]">
+                        {/* Preview Label */}
+                        <div className="flex items-center gap-2 text-[#64748B]">
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>visibility</span>
+                            <span className="text-sm font-medium">Quote Tweet Preview</span>
+                        </div>
+
+                        {/* Quote Tweet Card */}
+                        <div className="w-full bg-[#111113] border border-[#1F1F23] rounded-2xl p-5 space-y-4">
+                            {/* Author (your brand) */}
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className="w-12 h-12 rounded-full"
+                                    style={{ background: 'linear-gradient(135deg, #FF5C00 0%, #FF8400 100%)' }}
+                                />
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[15px] font-semibold text-white">{brandName || 'Your Brand'}</span>
+                                        <span className="material-symbols-sharp text-[#1DA1F2] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>verified</span>
+                                    </div>
+                                    <span className="text-sm text-[#64748B]">@{brandName?.toLowerCase().replace(/\s+/g, '') || 'brand'} · Now</span>
+                                </div>
+                            </div>
+
+                            {/* Generated Quote Tweet Text */}
+                            <p className="text-[15px] text-white leading-relaxed whitespace-pre-wrap">
+                                {generatedQuoteTweet || (
+                                    <span className="text-[#4A4A4E] italic">
+                                        {fetchedTweetData
+                                            ? 'Click "Generate" to create your quote tweet...'
+                                            : 'Paste a tweet URL and fetch it to get started...'}
+                                    </span>
+                                )}
+                            </p>
+
+                            {/* Embedded Original Tweet */}
+                            {fetchedTweetData && (
+                                <div className="border border-[#2E2E2E] rounded-xl p-4 bg-[#0A0A0B] space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-[#1F1F23] flex items-center justify-center">
+                                            <span className="material-symbols-sharp text-[#64748B] text-xs" style={{ fontVariationSettings: "'wght' 300" }}>person</span>
+                                        </div>
+                                        <span className="text-[13px] font-semibold text-white">{fetchedTweetData.authorName}</span>
+                                        <span className="text-[13px] text-[#64748B]">@{fetchedTweetData.authorHandle}</span>
+                                    </div>
+                                    <p className="text-[13px] text-[#94A3B8] leading-relaxed whitespace-pre-wrap">{fetchedTweetData.text}</p>
+                                </div>
+                            )}
+
+                            {/* Tweet Actions */}
+                            <div className="flex items-center justify-between pt-2">
+                                {[
+                                    { icon: 'chat_bubble', label: 'Reply' },
+                                    { icon: 'repeat', label: 'Retweet' },
+                                    { icon: 'favorite', label: 'Like' },
+                                    { icon: 'share', label: 'Share' },
+                                ].map(action => (
+                                    <div key={action.label} className="flex items-center gap-2 text-[#64748B]">
+                                        <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>{action.icon}</span>
+                                        <span className="text-[13px]">{action.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        {generatedQuoteTweet && (
+                            <div className="flex items-center justify-center gap-3">
+                                <button
+                                    onClick={() => navigator.clipboard.writeText(generatedQuoteTweet)}
+                                    className="flex items-center gap-2 px-4 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>content_copy</span>
+                                    Copy
+                                </button>
+                                <button
+                                    onClick={() => onSchedule(generatedQuoteTweet)}
+                                    className="flex items-center gap-2 px-5 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
+                                    Schedule
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        // Open Twitter with pre-filled quote tweet
+                                        const quoteUrl = fetchedTweetData?.url || '';
+                                        const tweetText = `${generatedQuoteTweet}\n\n${quoteUrl}`;
+                                        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
+                                    }}
+                                    className="flex items-center gap-2 px-6 py-3 rounded-[10px] text-white text-sm font-semibold transition-all"
+                                    style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                                >
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>send</span>
+                                    Post Now
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // =====================================================
     // CONTENT LIBRARY VIEW (default)
     // =====================================================
     return (
@@ -1561,6 +1950,13 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                 >
                                     <span className="material-symbols-sharp text-lg text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>image</span>
                                     Graphic / Banner
+                                </button>
+                                <button
+                                    onClick={() => openCreateView('quote-tweet')}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-lg text-[#10B981]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                    Quote Tweet
                                 </button>
                             </div>
                         )}

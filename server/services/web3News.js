@@ -52,6 +52,10 @@ export const runCryptoNewsScraper = async (searchQuery, limit, token) => {
         const items = await itemsRes.json();
 
         console.log(`[Web3News] Fetched ${items?.length || 0} news items`);
+        if (items?.length > 0) {
+            console.log('[Web3News] Sample item fields:', Object.keys(items[0]));
+            console.log('[Web3News] Sample image fields:', { image: items[0].image, imageUrl: items[0].imageUrl, thumbnail: items[0].thumbnail, media: items[0].media, og_image: items[0].og_image });
+        }
         return items || [];
 
     } catch (e) {
@@ -116,7 +120,7 @@ export const transformNewsItems = (items, brandName) => {
             timestamp,
             createdAt,
             url: item.url || '',
-            imageUrl: item.image || null,
+            imageUrl: item.image || item.imageUrl || item.thumbnail || item.media || item.og_image || null,
             rawData: item
         };
     });

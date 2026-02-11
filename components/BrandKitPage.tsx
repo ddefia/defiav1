@@ -21,34 +21,17 @@ const DEFAULT_COLORS = [
     { id: '4', name: 'Success', hex: '#22C55E' },
 ];
 
-// Default target audiences
-const DEFAULT_AUDIENCES = [
-    { id: '1', icon: 'rocket_launch', color: '#FF5C00', title: 'Web3 Project Founders', description: 'Early-stage to growth-stage crypto projects looking to scale their marketing efforts efficiently.' },
-    { id: '2', icon: 'work', color: '#3B82F6', title: 'Marketing Teams & Agencies', description: 'Crypto-focused marketing professionals seeking automation tools to manage multiple client campaigns.' },
-    { id: '3', icon: 'apartment', color: '#22C55E', title: 'DeFi Protocols & DAOs', description: 'Decentralized organizations needing consistent community engagement and governance communication.' },
-];
+interface AudienceItem {
+    id: string;
+    title: string;
+    description: string;
+}
 
-// Default products
-const DEFAULT_PRODUCTS = [
-    { id: '1', icon: 'smart_toy', color: '#FF5C00', name: 'AI CMO', description: 'AI-powered marketing strategist' },
-    { id: '2', icon: 'edit_note', color: '#3B82F6', name: 'Content Studio', description: 'Multi-format content creator' },
-    { id: '3', icon: 'campaign', color: '#22C55E', name: 'Campaigns', description: 'Automated campaign manager' },
-];
-
-// Default differentiators
-const DEFAULT_DIFFERENTIATORS = [
-    'AI-native platform built specifically for Web3',
-    'Real-time on-chain data integration',
-    'Automated multi-platform campaign management',
-    'Community sentiment analysis & response',
-];
-
-// Default competitors
-const DEFAULT_COMPETITORS = [
-    { id: '1', name: 'Hootsuite (Web2)', tag: 'No Web3 focus', color: '#EF4444' },
-    { id: '2', name: 'Lunar Strategy', tag: 'Agency model', color: '#F59E0B' },
-    { id: '3', name: 'Cookie3', tag: 'Analytics only', color: '#F59E0B' },
-];
+interface CompetitorItem {
+    id: string;
+    name: string;
+    notes: string;
+}
 
 export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, onChange, onBack }) => {
     const [isSaving, setIsSaving] = useState(false);
@@ -58,35 +41,46 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
     const kbFileInputRef = useRef<HTMLInputElement>(null);
     const kitFileInputRef = useRef<HTMLInputElement>(null);
 
-    // Editable fields state - initialized from config
-    const [missionStatement, setMissionStatement] = useState(config.missionStatement || '');
-    const [vision, setVision] = useState(config.vision || '');
-    const [founded, setFounded] = useState(config.founded || '');
-    const [headquarters, setHeadquarters] = useState(config.headquarters || '');
+    // Editable fields state
     const [toneGuidelines, setToneGuidelines] = useState(config.toneGuidelines || '');
-    const [tagline, setTagline] = useState(config.tagline || config.targetAudience || '');
-    const [brandDescription, setBrandDescription] = useState(config.brandDescription || config.voiceGuidelines || '');
+
+    // Competitors - editable list, starts empty (from config or [])
+    const [competitors, setCompetitors] = useState<CompetitorItem[]>(() => {
+        // Try to load from config if previously saved
+        if ((config as any).competitors && Array.isArray((config as any).competitors)) {
+            return (config as any).competitors;
+        }
+        return [];
+    });
+
+    // Target Audience - editable list, starts empty (from config or [])
+    const [audiences, setAudiences] = useState<AudienceItem[]>(() => {
+        if ((config as any).audiences && Array.isArray((config as any).audiences)) {
+            return (config as any).audiences;
+        }
+        return [];
+    });
+
+    // Inline add forms
+    const [showAddCompetitor, setShowAddCompetitor] = useState(false);
+    const [newCompetitorName, setNewCompetitorName] = useState('');
+    const [newCompetitorNotes, setNewCompetitorNotes] = useState('');
+    const [showAddAudience, setShowAddAudience] = useState(false);
+    const [newAudienceTitle, setNewAudienceTitle] = useState('');
+    const [newAudienceDesc, setNewAudienceDesc] = useState('');
 
     // Get values from config or use defaults
     const brandColors = config.colors?.length > 0 ? config.colors : DEFAULT_COLORS;
     const voiceTags = config.voiceGuidelines?.split(',').map(s => s.trim()).filter(Boolean) || ['Professional', 'Innovative', 'Technical'];
-    const keywords = config.keywords?.length > 0 ? config.keywords : ['DeFi', 'Web3 Marketing', 'AI Automation', 'Crypto Growth', 'Community'];
 
     const handleSave = async () => {
         setIsSaving(true);
-        // Save all editable fields to the brand config
         onChange({
             ...config,
-            missionStatement,
-            vision,
-            founded,
-            headquarters,
             toneGuidelines,
-            tagline,
-            brandDescription,
-            targetAudience: tagline, // Keep backwards compatibility
+            competitors: competitors as any,
+            audiences: audiences as any,
         });
-        // Small delay for UX feedback
         await new Promise(resolve => setTimeout(resolve, 300));
         setIsSaving(false);
     };
@@ -201,12 +195,36 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
         });
     };
 
-    const addKeyword = () => {
-        const keyword = prompt('Enter new keyword:');
-        if (keyword) {
-            // For now store in a simple way - could be enhanced
-            alert(`Keyword "${keyword}" added!`);
-        }
+    const addCompetitor = () => {
+        if (!newCompetitorName.trim()) return;
+        setCompetitors(prev => [...prev, {
+            id: Date.now().toString(),
+            name: newCompetitorName.trim(),
+            notes: newCompetitorNotes.trim()
+        }]);
+        setNewCompetitorName('');
+        setNewCompetitorNotes('');
+        setShowAddCompetitor(false);
+    };
+
+    const removeCompetitor = (id: string) => {
+        setCompetitors(prev => prev.filter(c => c.id !== id));
+    };
+
+    const addAudience = () => {
+        if (!newAudienceTitle.trim()) return;
+        setAudiences(prev => [...prev, {
+            id: Date.now().toString(),
+            title: newAudienceTitle.trim(),
+            description: newAudienceDesc.trim()
+        }]);
+        setNewAudienceTitle('');
+        setNewAudienceDesc('');
+        setShowAddAudience(false);
+    };
+
+    const removeAudience = (id: string) => {
+        setAudiences(prev => prev.filter(a => a.id !== id));
     };
 
     return (
@@ -240,85 +258,21 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
             <div className="flex-1 flex gap-6 p-7 px-10 overflow-hidden">
                 {/* Left Column */}
                 <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
-                    {/* Company Information */}
+                    {/* Company Information - Just Brand Name */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
                         <div className="flex items-center gap-2.5 mb-5">
                             <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>apartment</span>
                             <span className="text-white text-base font-semibold">Company Information</span>
                         </div>
 
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-white text-[13px] font-medium">Brand Name</label>
-                                <input
-                                    type="text"
-                                    value={brandName}
-                                    readOnly
-                                    className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white outline-none"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                <label className="text-white text-[13px] font-medium">Tagline</label>
-                                <input
-                                    type="text"
-                                    value={tagline}
-                                    onChange={(e) => setTagline(e.target.value)}
-                                    placeholder="Enter your brand tagline..."
-                                    className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white outline-none focus:border-[#FF5C00] transition-colors"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                <label className="text-white text-[13px] font-medium">Brand Description</label>
-                                <textarea
-                                    value={brandDescription}
-                                    onChange={(e) => setBrandDescription(e.target.value)}
-                                    placeholder="Describe your brand, products, and mission..."
-                                    rows={4}
-                                    className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white outline-none focus:border-[#FF5C00] transition-colors resize-none"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                <label className="text-white text-[13px] font-medium">Industry</label>
-                                <button className="flex items-center justify-between bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-left">
-                                    <span className="text-white text-sm">DeFi / Web3 Marketing</span>
-                                    <span className="material-symbols-sharp text-[#6B6B70] text-base" style={{ fontVariationSettings: "'wght' 300" }}>expand_more</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Brand Colors */}
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                        <div className="flex items-center justify-between mb-5">
-                            <div className="flex items-center gap-2.5">
-                                <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>palette</span>
-                                <span className="text-white text-base font-semibold">Brand Colors</span>
-                            </div>
-                            <button
-                                onClick={addColor}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2E2E2E] rounded-md text-[#6B6B70] text-xs hover:text-white hover:border-[#3E3E3E] transition-colors"
-                            >
-                                <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
-                                Add Color
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-4 gap-4">
-                            {brandColors.map(color => (
-                                <div key={color.id} className="flex flex-col gap-2">
-                                    <div
-                                        className="h-20 rounded-[10px]"
-                                        style={{ backgroundColor: color.hex, border: color.hex === '#0A0A0B' ? '1px solid #2E2E2E' : 'none' }}
-                                    ></div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-white text-[13px] font-medium">{color.name}</span>
-                                        <span className="text-[#6B6B70] text-xs">{color.hex}</span>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="flex flex-col gap-2">
+                            <label className="text-white text-[13px] font-medium">Brand Name</label>
+                            <input
+                                type="text"
+                                value={brandName}
+                                readOnly
+                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white outline-none"
+                            />
                         </div>
                     </div>
 
@@ -330,69 +284,22 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2.5">
                                 <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>menu_book</span>
-                                <span className="text-[#FF5C00] text-base font-semibold">Company Knowledge Base</span>
+                                <span className="text-[#FF5C00] text-base font-semibold">Knowledge Base</span>
                             </div>
                             <span className="px-2.5 py-1 bg-[#FF5C0022] rounded-full text-[#FF5C00] text-[11px] font-medium">AI Training Data</span>
                         </div>
 
                         <p className="text-[#9A9A9A] text-[13px] mb-5">
-                            This information helps the AI CMO understand your company deeply and generate more accurate, on-brand content.
+                            Upload documents, whitepapers, brand guides, and any content that helps the AI understand your brand. This is the core of your AI's knowledge.
                         </p>
-
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-white text-[13px] font-medium">Mission Statement</label>
-                                <textarea
-                                    rows={3}
-                                    placeholder="To democratize Web3 marketing by providing AI-powered tools..."
-                                    className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#FF5C00] transition-colors resize-none"
-                                    value={missionStatement}
-                                    onChange={(e) => setMissionStatement(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-2">
-                                <label className="text-white text-[13px] font-medium">Vision</label>
-                                <textarea
-                                    rows={3}
-                                    placeholder="Become the leading AI-powered marketing platform..."
-                                    className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#FF5C00] transition-colors resize-none"
-                                    value={vision}
-                                    onChange={(e) => setVision(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-white text-[13px] font-medium">Founded</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. 2024"
-                                        value={founded}
-                                        onChange={(e) => setFounded(e.target.value)}
-                                        className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#FF5C00] transition-colors"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-white text-[13px] font-medium">Headquarters</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Remote / Global"
-                                        value={headquarters}
-                                        onChange={(e) => setHeadquarters(e.target.value)}
-                                        className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#FF5C00] transition-colors"
-                                    />
-                                </div>
-                            </div>
-                        </div>
 
                         {/* Uploaded Knowledge Base Documents */}
                         {config.knowledgeBase && config.knowledgeBase.length > 0 && (
-                            <div className="mt-5 pt-5 border-t border-[#2E2E2E]">
+                            <div className="mb-5">
                                 <div className="flex items-center justify-between mb-3">
-                                    <span className="text-white text-[13px] font-medium">Uploaded Documents ({config.knowledgeBase.length})</span>
+                                    <span className="text-white text-[13px] font-medium">Documents ({config.knowledgeBase.length})</span>
                                 </div>
-                                <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
+                                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto">
                                     {config.knowledgeBase.map((doc, i) => (
                                         <div key={i} className="flex items-center gap-3 p-3 bg-[#1A1A1D] rounded-lg group">
                                             <div className="w-8 h-8 rounded-lg bg-[#FF5C0022] flex items-center justify-center flex-shrink-0">
@@ -430,7 +337,7 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                         )}
 
                         {/* Upload Button */}
-                        <div className="mt-5 pt-5 border-t border-[#2E2E2E]">
+                        <div className={config.knowledgeBase && config.knowledgeBase.length > 0 ? "pt-5 border-t border-[#2E2E2E]" : ""}>
                             <button
                                 onClick={() => kbFileInputRef.current?.click()}
                                 disabled={isUploadingKB}
@@ -451,79 +358,118 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                         </div>
                     </div>
 
-                    {/* Target Audience */}
+                    {/* Brand Colors */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                        <div className="flex items-center gap-2.5 mb-5">
-                            <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>group</span>
-                            <span className="text-white text-base font-semibold">Target Audience</span>
+                        <div className="flex items-center justify-between mb-5">
+                            <div className="flex items-center gap-2.5">
+                                <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>palette</span>
+                                <span className="text-white text-base font-semibold">Brand Colors</span>
+                            </div>
+                            <button
+                                onClick={addColor}
+                                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2E2E2E] rounded-md text-[#6B6B70] text-xs hover:text-white hover:border-[#3E3E3E] transition-colors"
+                            >
+                                <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
+                                Add Color
+                            </button>
                         </div>
 
-                        <div className="flex flex-col gap-3">
-                            {DEFAULT_AUDIENCES.map(audience => (
-                                <div key={audience.id} className="flex gap-3 p-4 bg-[#1A1A1D] rounded-[10px]">
+                        <div className="grid grid-cols-4 gap-4">
+                            {brandColors.map(color => (
+                                <div key={color.id} className="flex flex-col gap-2">
                                     <div
-                                        className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0"
-                                        style={{ backgroundColor: `${audience.color}22` }}
-                                    >
-                                        <span className="material-symbols-sharp text-xl" style={{ color: audience.color, fontVariationSettings: "'wght' 300" }}>{audience.icon}</span>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-white text-sm font-semibold">{audience.title}</span>
-                                        <span className="text-[#9A9A9A] text-xs leading-relaxed">{audience.description}</span>
+                                        className="h-20 rounded-[10px]"
+                                        style={{ backgroundColor: color.hex, border: color.hex === '#0A0A0B' ? '1px solid #2E2E2E' : 'none' }}
+                                    ></div>
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-white text-[13px] font-medium">{color.name}</span>
+                                        <span className="text-[#6B6B70] text-xs">{color.hex}</span>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Products & Features */}
+                    {/* Target Audience - Editable, starts empty */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
                         <div className="flex items-center justify-between mb-5">
                             <div className="flex items-center gap-2.5">
-                                <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>inventory_2</span>
-                                <span className="text-white text-base font-semibold">Products & Features</span>
+                                <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>group</span>
+                                <span className="text-white text-base font-semibold">Target Audience</span>
                             </div>
-                            <button className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2E2E2E] rounded-md text-[#6B6B70] text-xs hover:text-white hover:border-[#3E3E3E] transition-colors">
+                            <button
+                                onClick={() => setShowAddAudience(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2E2E2E] rounded-md text-[#6B6B70] text-xs hover:text-white hover:border-[#3E3E3E] transition-colors"
+                            >
                                 <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
                                 Add
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                            {DEFAULT_PRODUCTS.map(product => (
-                                <div key={product.id} className="flex flex-col gap-2 p-4 bg-[#1A1A1D] rounded-[10px]">
-                                    <div className="flex items-center gap-2">
-                                        <span className="material-symbols-sharp text-base" style={{ color: product.color, fontVariationSettings: "'wght' 300" }}>{product.icon}</span>
-                                        <span className="text-white text-[13px] font-semibold">{product.name}</span>
+                        {audiences.length === 0 && !showAddAudience && (
+                            <div className="flex flex-col items-center justify-center py-8 text-center">
+                                <span className="material-symbols-sharp text-[#2E2E2E] text-4xl mb-3" style={{ fontVariationSettings: "'wght' 300" }}>group</span>
+                                <p className="text-[#6B6B70] text-sm">No target audiences defined yet</p>
+                                <p className="text-[#4A4A4A] text-xs mt-1">Add your target audience segments to help the AI tailor content</p>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-3">
+                            {audiences.map(audience => (
+                                <div key={audience.id} className="flex gap-3 p-4 bg-[#1A1A1D] rounded-[10px] group">
+                                    <div className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0 bg-[#FF5C0022]">
+                                        <span className="material-symbols-sharp text-xl text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>person</span>
                                     </div>
-                                    <span className="text-[#9A9A9A] text-[11px]">{product.description}</span>
+                                    <div className="flex-1 flex flex-col gap-1">
+                                        <span className="text-white text-sm font-semibold">{audience.title}</span>
+                                        {audience.description && (
+                                            <span className="text-[#9A9A9A] text-xs leading-relaxed">{audience.description}</span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => removeAudience(audience.id)}
+                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-[#EF444422] text-[#6B6B70] hover:text-[#EF4444] transition-all self-start"
+                                    >
+                                        <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                    </button>
                                 </div>
                             ))}
-                        </div>
-                    </div>
 
-                    {/* Keywords & Topics */}
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                        <div className="flex items-center gap-2.5 mb-3">
-                            <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>tag</span>
-                            <span className="text-white text-base font-semibold">Keywords & Topics</span>
-                        </div>
-
-                        <p className="text-[#9A9A9A] text-xs mb-4">Topics and keywords the AI should focus on when creating content</p>
-
-                        <div className="flex flex-wrap gap-2">
-                            {keywords.map((keyword, i) => (
-                                <span key={i} className="px-3 py-1.5 bg-[#1A1A1D] border border-[#2E2E2E] rounded-md text-white text-xs">
-                                    {keyword}
-                                </span>
-                            ))}
-                            <button
-                                onClick={addKeyword}
-                                className="flex items-center gap-1 px-3 py-1.5 border border-[#2E2E2E] rounded-md text-[#6B6B70] text-xs hover:text-white hover:border-[#3E3E3E] transition-colors"
-                            >
-                                <span className="material-symbols-sharp text-xs" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
-                                Add
-                            </button>
+                            {/* Inline Add Form */}
+                            {showAddAudience && (
+                                <div className="p-4 bg-[#1A1A1D] border border-[#2E2E2E] rounded-[10px] flex flex-col gap-3">
+                                    <input
+                                        type="text"
+                                        placeholder="Audience segment (e.g. DeFi Protocol Founders)"
+                                        value={newAudienceTitle}
+                                        onChange={(e) => setNewAudienceTitle(e.target.value)}
+                                        className="bg-[#111113] border border-[#2E2E2E] rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-[#FF5C00] transition-colors"
+                                        autoFocus
+                                    />
+                                    <textarea
+                                        placeholder="Description (optional)"
+                                        value={newAudienceDesc}
+                                        onChange={(e) => setNewAudienceDesc(e.target.value)}
+                                        rows={2}
+                                        className="bg-[#111113] border border-[#2E2E2E] rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-[#FF5C00] transition-colors resize-none"
+                                    />
+                                    <div className="flex gap-2 justify-end">
+                                        <button
+                                            onClick={() => { setShowAddAudience(false); setNewAudienceTitle(''); setNewAudienceDesc(''); }}
+                                            className="px-3 py-1.5 text-[#6B6B70] text-xs hover:text-white transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={addAudience}
+                                            disabled={!newAudienceTitle.trim()}
+                                            className="px-4 py-1.5 bg-[#FF5C00] rounded-md text-white text-xs font-medium disabled:opacity-40 hover:bg-[#FF6A1A] transition-colors"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -608,71 +554,85 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                         </p>
                     </div>
 
-                    {/* Key Differentiators */}
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                        <div className="flex items-center gap-2.5 mb-5">
-                            <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>auto_awesome</span>
-                            <span className="text-white text-base font-semibold">Key Differentiators</span>
-                        </div>
-
-                        <div className="flex flex-col gap-2.5">
-                            {DEFAULT_DIFFERENTIATORS.map((diff, i) => (
-                                <div key={i} className="flex items-start gap-2.5">
-                                    <div className="w-5 h-5 rounded-full bg-[#22C55E22] flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <span className="material-symbols-sharp text-[#22C55E] text-xs" style={{ fontVariationSettings: "'wght' 400" }}>check</span>
-                                    </div>
-                                    <span className="text-[#E5E5E5] text-[13px] leading-relaxed">{diff}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Social Links */}
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                        <div className="flex items-center gap-2.5 mb-5">
-                            <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>link</span>
-                            <span className="text-white text-base font-semibold">Social Links</span>
-                        </div>
-
-                        <div className="flex flex-col gap-2.5">
-                            <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg">
-                                <span className="material-symbols-sharp text-[#1DA1F2] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>alternate_email</span>
-                                <span className="text-white text-[13px]">@{brandName}Protocol</span>
-                            </div>
-                            <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg">
-                                <span className="material-symbols-sharp text-[#5865F2] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>forum</span>
-                                <span className="text-white text-[13px]">discord.gg/{brandName.toLowerCase()}</span>
-                            </div>
-                            <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg">
-                                <span className="material-symbols-sharp text-[#FF5C00] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>language</span>
-                                <span className="text-white text-[13px]">{brandName.toLowerCase()}.io</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Competitors */}
+                    {/* Competitors - Editable, starts empty */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
                         <div className="flex items-center justify-between mb-5">
                             <div className="flex items-center gap-2.5">
                                 <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>target</span>
                                 <span className="text-white text-base font-semibold">Competitors</span>
                             </div>
-                            <button className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2E2E2E] rounded-md text-[#6B6B70] text-xs hover:text-white hover:border-[#3E3E3E] transition-colors">
+                            <button
+                                onClick={() => setShowAddCompetitor(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2E2E2E] rounded-md text-[#6B6B70] text-xs hover:text-white hover:border-[#3E3E3E] transition-colors"
+                            >
                                 <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
                                 Add
                             </button>
                         </div>
 
+                        {competitors.length === 0 && !showAddCompetitor && (
+                            <div className="flex flex-col items-center justify-center py-6 text-center">
+                                <span className="material-symbols-sharp text-[#2E2E2E] text-3xl mb-2" style={{ fontVariationSettings: "'wght' 300" }}>target</span>
+                                <p className="text-[#6B6B70] text-xs">No competitors added yet</p>
+                            </div>
+                        )}
+
                         <div className="flex flex-col gap-2">
-                            {DEFAULT_COMPETITORS.map(comp => (
-                                <div key={comp.id} className="flex items-center justify-between px-3.5 py-2.5 bg-[#1A1A1D] rounded-lg">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: comp.color }}></div>
-                                        <span className="text-white text-[13px]">{comp.name}</span>
+                            {competitors.map(comp => (
+                                <div key={comp.id} className="flex items-center justify-between px-3.5 py-2.5 bg-[#1A1A1D] rounded-lg group">
+                                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                        <div className="w-2 h-2 rounded-full bg-[#F59E0B] flex-shrink-0"></div>
+                                        <span className="text-white text-[13px] truncate">{comp.name}</span>
                                     </div>
-                                    <span className="text-[#6B6B70] text-[11px]">{comp.tag}</span>
+                                    <div className="flex items-center gap-2">
+                                        {comp.notes && (
+                                            <span className="text-[#6B6B70] text-[11px] truncate max-w-[120px]">{comp.notes}</span>
+                                        )}
+                                        <button
+                                            onClick={() => removeCompetitor(comp.id)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[#EF444422] text-[#6B6B70] hover:text-[#EF4444] transition-all"
+                                        >
+                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
+
+                            {/* Inline Add Form */}
+                            {showAddCompetitor && (
+                                <div className="p-3 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg flex flex-col gap-2.5">
+                                    <input
+                                        type="text"
+                                        placeholder="Competitor name"
+                                        value={newCompetitorName}
+                                        onChange={(e) => setNewCompetitorName(e.target.value)}
+                                        className="bg-[#111113] border border-[#2E2E2E] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#FF5C00] transition-colors"
+                                        autoFocus
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Notes (optional, e.g. 'Analytics only')"
+                                        value={newCompetitorNotes}
+                                        onChange={(e) => setNewCompetitorNotes(e.target.value)}
+                                        className="bg-[#111113] border border-[#2E2E2E] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#FF5C00] transition-colors"
+                                    />
+                                    <div className="flex gap-2 justify-end">
+                                        <button
+                                            onClick={() => { setShowAddCompetitor(false); setNewCompetitorName(''); setNewCompetitorNotes(''); }}
+                                            className="px-3 py-1.5 text-[#6B6B70] text-xs hover:text-white transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={addCompetitor}
+                                            disabled={!newCompetitorName.trim()}
+                                            className="px-4 py-1.5 bg-[#FF5C00] rounded-md text-white text-xs font-medium disabled:opacity-40 hover:bg-[#FF6A1A] transition-colors"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

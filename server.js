@@ -140,6 +140,7 @@ const PUBLIC_API_PATHS = new Set([
     '/api/logs',
     '/api/decisions',
     '/api/web3-news',
+    '/api/tweet-oembed',
     // OAuth callbacks must be public (X won't include our API key)
     '/api/auth/x/authorize-url',
     '/api/auth/x/callback',
@@ -1746,6 +1747,80 @@ app.post('/api/web3-news/refresh', async (req, res) => {
         res.json({ success: true, results });
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+// --- Tweet oEmbed Endpoint (for Quote Retweet) ---
+
+app.post('/api/tweet-oembed', async (req, res) => {
+    const { url } = req.body;
+
+    if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: 'Missing tweet URL' });
+    }
+
+    // Validate it's a Twitter/X URL
+    const tweetUrlPattern = /^https?:\/\/(twitter\.com|x\.com)\/\w+\/status\/\d+/i;
+    if (!tweetUrlPattern.test(url.trim())) {
+        return res.status(400).json({ error: 'Invalid tweet URL. Must be a twitter.com or x.com status link.' });
+    }
+
+    try {
+        const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url.trim())}&omit_script=true`;
+        const response = await fetch(oembedUrl);
+
+        if (!response.ok) {
+            throw new Error(`oEmbed returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        // data.html is like: <blockquote class="twitter-tweet"><p lang="en" dir="ltr">Tweet text here</p>&mdash; Author Name (@handle) ...</blockquote>
+
+        let text = '';
+        let authorName = data.author_name || '';
+        let authorHandle = '';
+
+        // Extract tweet text from <p> tags in HTML
+        if (data.html) {
+            const pMatch = data.html.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+            if (pMatch) {
+                // Strip inner HTML tags (links etc), keep text
+                text = pMatch[1]
+                    .replace(/<a[^>]*>(.*?)<\/a>/gi, '$1')
+                    .replace(/<br\s*\/?>/gi, '\n')
+                    .replace(/<[^>]+>/g, '')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .replace(/&mdash;/g, '—')
+                    .trim();
+            }
+
+            // Extract handle from the mdash line: "&mdash; Author Name (@handle)"
+            const handleMatch = data.html.match(/\(@(\w+)\)/);
+            if (handleMatch) {
+                authorHandle = handleMatch[1];
+            }
+        }
+
+        // Fallback: extract handle from the URL
+        if (!authorHandle) {
+            const urlHandleMatch = url.match(/(?:twitter\.com|x\.com)\/(\w+)\/status/i);
+            if (urlHandleMatch) authorHandle = urlHandleMatch[1];
+        }
+
+        res.json({
+            text,
+            authorName,
+            authorHandle,
+            url: url.trim(),
+            authorUrl: data.author_url || ''
+        });
+    } catch (e) {
+        console.error('[tweet-oembed] Error:', e.message);
+        res.status(500).json({ error: `Failed to fetch tweet: ${e.message}` });
     }
 });
 

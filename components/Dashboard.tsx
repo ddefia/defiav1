@@ -108,6 +108,10 @@ const getRecommendationStyle = (action: string) => {
             return { type: 'Content Gap', typeBg: '#22C55E', icon: '🎯', actionLabel: 'Fill Gap', actionBg: '#22C55E', borderColor: '#22C55E33' };
         case 'COMMUNITY':
             return { type: 'Community', typeBg: '#F59E0B', icon: '👥', actionLabel: 'Engage Community', actionBg: '#F59E0B', borderColor: '#F59E0B33' };
+        case 'TWEET':
+            return { type: 'Tweet', typeBg: '#1DA1F2', icon: '💬', actionLabel: 'Draft Tweet', actionBg: '#1DA1F2', borderColor: '#1DA1F233' };
+        case 'THREAD':
+            return { type: 'Thread', typeBg: '#A855F7', icon: '🧵', actionLabel: 'Write Thread', actionBg: '#A855F7', borderColor: '#A855F733' };
         default:
             return { type: 'Strategy', typeBg: '#FF5C00', icon: '🧠', actionLabel: 'Take Action', actionBg: '#FF5C00', borderColor: '#FF5C0033' };
     }

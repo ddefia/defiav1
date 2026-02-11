@@ -2561,20 +2561,21 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     OBJECTIVE: ${context.userObjective}
 
     TASK: Create a concrete Action Plan to execute this strategy.
-    
+
     GUIDELINES:
     - If the objective is specific (e.g. "Write a thread"), plan just that.
-    - If broad (e.g. "Grow awareness"), plan a mix (Tweet + Reply).
+    - If broad (e.g. "Grow awareness"), plan a DIVERSE mix of actions.
+    - **DIVERSITY (CRITICAL):** You MUST provide a variety of action types. Include at least one CAMPAIGN or THREAD alongside any TWEET or REPLY. NEVER return all the same type. Aim for 3-4 actions with at least 2 different types.
     - **CRITICAL:** Providing a "Reasoning" is mandatory. Explain WHY this specific action works given the market context.
     - **HOOK:** Give it a cool internal code name (e.g. "Operation Alpha", "Liquidity Vampire").
     - **ALIGNMENT:** Explicitly cite which part of the Brand Knowledge Base or Values this aligns with.
     - **CONCEPTS:** Propose 3 distinct content angles/headlines for this task.
-    
+
     OUTPUT JSON:
     {
         "actions": [
             {
-                "type": "TWEET" | "THREAD" | "CAMPAIGN",
+                "type": "TWEET" | "THREAD" | "CAMPAIGN" | "REPLY" | "GAP_FILL",
                 "topic": "Specific topic",
                 "goal": "What does this specific piece achieve?",
                 "instructions": "Specific constraints for the writer (e.g. 'Use the 3-part structure')",

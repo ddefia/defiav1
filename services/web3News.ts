@@ -136,7 +136,7 @@ const transformNewsToTrends = (items: CryptoNewsItem[], brandName?: string): Tre
             timestamp,
             createdAt,
             url: item.url,
-            imageUrl: item.image || undefined,
+            imageUrl: item.image || (item as any).imageUrl || (item as any).thumbnail || (item as any).media || (item as any).og_image || undefined,
             rawData: item
         };
     });

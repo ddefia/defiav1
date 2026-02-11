@@ -10,106 +10,141 @@ interface DailyBriefDrawerProps {
 
 export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onClose, brief, loading }) => {
     return (
-        <div className={`fixed inset-y-0 right-0 w-96 bg-white shadow-2xl transform transition-transform duration-300 z-50 border-l border-gray-200 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-            <div className="flex flex-col h-full">
+        <>
+            {/* Backdrop */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity"
+                    onClick={onClose}
+                />
+            )}
 
-                {/* Header */}
-                <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                    <h2 className="text-lg font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        Daily Analysis Log
-                    </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-                        ✕
-                    </button>
-                </div>
+            {/* Drawer */}
+            <div className={`fixed inset-y-0 right-0 w-[420px] bg-[#0A0A0B] shadow-2xl transform transition-transform duration-300 z-50 border-l border-[#1F1F23] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                <div className="flex flex-col h-full">
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-8">
-
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center h-48 space-y-4">
-                            <div className="w-6 h-6 border-2 border-gray-200 border-t-emerald-500 rounded-full animate-spin"></div>
-                            <p className="text-xs text-gray-400 font-mono animate-pulse">ANALYZING SIGNAL DATA...</p>
-                        </div>
-                    ) : !brief ? (
-                        <div className="text-center text-gray-400 mt-10 text-sm">
-                            Insufficient signal data.
-                        </div>
-                    ) : (
-                        <>
-                            {/* A. Key Drivers */}
-                            <section>
-                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">
-                                    A. Key Drivers
-                                </h3>
-                                <ul className="space-y-3">
-                                    {brief.keyDrivers.map((item, i) => (
-                                        <li key={i} className="text-xs text-gray-700 leading-relaxed pl-3 border-l-2 border-blue-500">
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </section>
-
-                            {/* B. Decisions Reinforced */}
-                            <section>
-                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">
-                                    B. Decisions Reinforced
-                                </h3>
-                                <ul className="space-y-3">
-                                    {brief.decisionsReinforced.map((item, i) => (
-                                        <li key={i} className="text-xs text-gray-700 leading-relaxed pl-3 border-l-2 border-emerald-500">
-                                            {item}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </section>
-
-                            {/* C. Risks & Unknowns */}
-                            <section>
-                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">
-                                    C. Risks & Unknowns
-                                </h3>
-                                <div className="bg-amber-50 rounded-lg p-3 border border-amber-100/50">
-                                    <ul className="space-y-3">
-                                        {brief.risksAndUnknowns.map((item, i) => (
-                                            <li key={i} className="text-xs text-amber-800 leading-relaxed flex items-start gap-2">
-                                                <span className="mt-1 w-1 h-1 rounded-full bg-amber-400 shrink-0"></span>
-                                                {item}
-                                            </li>
-                                        ))}
-                                    </ul>
+                    {/* Header */}
+                    <div className="px-6 py-5 border-b border-[#1F1F23] flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center">
+                                <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>summarize</span>
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold text-white tracking-tight">Daily Brief</h2>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="w-1.5 h-1.5 bg-[#22C55E] rounded-full animate-pulse"></span>
+                                    <span className="text-[10px] font-medium text-[#22C55E] tracking-wider uppercase">Live Analysis</span>
                                 </div>
-                            </section>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="w-8 h-8 rounded-lg bg-[#1F1F23] flex items-center justify-center text-[#6B6B70] hover:text-white hover:bg-[#2A2A2E] transition-colors">
+                            <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                        </button>
+                    </div>
 
-                            {/* D. Confidence */}
-                            <section>
-                                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-3">
-                                    D. Confidence
-                                </h3>
-                                <div className="group relative inline-block">
-                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide cursor-help ${brief.confidence.level === 'High' ? 'bg-emerald-100 text-emerald-800' :
-                                        brief.confidence.level === 'Medium' ? 'bg-amber-100 text-amber-800' :
-                                            'bg-rose-100 text-rose-800'
-                                        }`}>
-                                        {brief.confidence.level} Confidence
-                                    </span>
-                                    {/* Tooltip */}
-                                    <div className="absolute bottom-full left-0 mb-2 w-48 p-3 bg-black text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 leading-relaxed">
-                                        {brief.confidence.explanation}
+                    {/* Content */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-7">
+
+                        {loading ? (
+                            <div className="flex flex-col items-center justify-center h-48 space-y-4">
+                                <div className="w-8 h-8 rounded-full border-2 border-[#1F1F23] border-t-[#FF5C00] animate-spin"></div>
+                                <p className="text-xs text-[#6B6B70] font-medium animate-pulse tracking-wider uppercase">Analyzing signal data...</p>
+                            </div>
+                        ) : !brief ? (
+                            <div className="flex flex-col items-center justify-center py-16">
+                                <div className="w-14 h-14 rounded-2xl bg-[#1F1F23] flex items-center justify-center mb-4">
+                                    <span className="material-symbols-sharp text-[#4A4A4E] text-2xl" style={{ fontVariationSettings: "'wght' 200" }}>query_stats</span>
+                                </div>
+                                <p className="text-sm text-[#6B6B70]">Insufficient signal data.</p>
+                                <p className="text-xs text-[#4A4A4E] mt-1">The brief will appear after the next analysis cycle.</p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* A. Key Drivers */}
+                                <section>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="material-symbols-sharp text-[#FF5C00] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
+                                        <h3 className="text-xs font-bold text-white uppercase tracking-widest">Key Drivers</h3>
                                     </div>
-                                </div>
-                            </section>
-                        </>
-                    )}
-                </div>
+                                    <div className="space-y-2.5">
+                                        {brief.keyDrivers.map((item, i) => (
+                                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-[#111113] border border-[#1F1F23]">
+                                                <span className="material-symbols-sharp text-[#3B82F6] text-base mt-0.5 shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
+                                                <p className="text-[13px] text-[#C4C4C4] leading-relaxed">{item}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
 
-                {/* Footer */}
-                <div className="p-4 border-t border-gray-100 bg-gray-50/50 text-[9px] text-gray-400 text-center font-mono">
-                    SYSTEM ANALYSIS • {new Date().toLocaleTimeString()}
+                                {/* B. Decisions Reinforced */}
+                                <section>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="material-symbols-sharp text-[#22C55E] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>verified</span>
+                                        <h3 className="text-xs font-bold text-white uppercase tracking-widest">Decisions Reinforced</h3>
+                                    </div>
+                                    <div className="space-y-2.5">
+                                        {brief.decisionsReinforced.map((item, i) => (
+                                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-[#111113] border border-[#1F1F23]">
+                                                <span className="material-symbols-sharp text-[#22C55E] text-base mt-0.5 shrink-0" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check_circle</span>
+                                                <p className="text-[13px] text-[#C4C4C4] leading-relaxed">{item}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                {/* C. Risks & Unknowns */}
+                                <section>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="material-symbols-sharp text-[#F59E0B] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>warning</span>
+                                        <h3 className="text-xs font-bold text-white uppercase tracking-widest">Risks & Unknowns</h3>
+                                    </div>
+                                    <div className="rounded-xl bg-[#F59E0B08] border border-[#F59E0B22] p-4 space-y-2.5">
+                                        {brief.risksAndUnknowns.map((item, i) => (
+                                            <div key={i} className="flex items-start gap-2.5">
+                                                <span className="material-symbols-sharp text-[#F59E0B] text-sm mt-0.5 shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>error</span>
+                                                <p className="text-[13px] text-[#F5C563] leading-relaxed">{item}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                {/* D. Confidence */}
+                                <section>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="material-symbols-sharp text-[#8B5CF6] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>psychology</span>
+                                        <h3 className="text-xs font-bold text-white uppercase tracking-widest">Confidence</h3>
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-[#111113] border border-[#1F1F23]">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                                                brief.confidence.level === 'High' ? 'bg-[#22C55E18] text-[#22C55E] border border-[#22C55E33]' :
+                                                brief.confidence.level === 'Medium' ? 'bg-[#F59E0B18] text-[#F59E0B] border border-[#F59E0B33]' :
+                                                'bg-[#EF444418] text-[#EF4444] border border-[#EF444433]'
+                                            }`}>
+                                                {brief.confidence.level}
+                                            </span>
+                                            <div className="flex-1 h-1.5 rounded-full bg-[#1F1F23] overflow-hidden">
+                                                <div className={`h-full rounded-full transition-all ${
+                                                    brief.confidence.level === 'High' ? 'w-[90%] bg-[#22C55E]' :
+                                                    brief.confidence.level === 'Medium' ? 'w-[60%] bg-[#F59E0B]' :
+                                                    'w-[30%] bg-[#EF4444]'
+                                                }`}></div>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-[#8B8B8F] leading-relaxed">{brief.confidence.explanation}</p>
+                                    </div>
+                                </section>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-3.5 border-t border-[#1F1F23] bg-[#0A0A0B] flex items-center justify-between">
+                        <span className="text-[10px] text-[#4A4A4E] font-medium tracking-wider uppercase">System Analysis</span>
+                        <span className="text-[10px] text-[#4A4A4E] font-mono">{new Date().toLocaleTimeString()}</span>
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
