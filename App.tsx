@@ -31,6 +31,7 @@ import { AuthPage } from './components/AuthPage'; // Import AuthPage
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { OnboardingPrompt } from './components/onboarding/OnboardingPrompt';
 import { RecommendationDetail } from './components/RecommendationDetail';
+import { RecommendationsPage } from './components/RecommendationsPage';
 import { NewsArticleDetail } from './components/NewsArticleDetail';
 import { ToastProvider } from './components/Toast';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals, StrategicPosture } from './types';
@@ -1753,6 +1754,22 @@ const App: React.FC = () => {
                     />
                 )}
 
+                {/* SECTION: RECOMMENDATIONS PAGE */}
+                {appSection === 'recommendations' && selectedBrand && profiles[selectedBrand] && (
+                    <RecommendationsPage
+                        brandName={selectedBrand}
+                        brandConfig={profiles[selectedBrand]}
+                        calendarEvents={calendarEvents}
+                        socialMetrics={socialMetrics}
+                        socialSignals={socialSignals}
+                        agentDecisions={agentDecisions}
+                        tasks={strategyTasks}
+                        onUpdateTasks={setStrategyTasks}
+                        onNavigate={handleNavigate}
+                        onSchedule={handleOpenScheduleModal}
+                    />
+                )}
+
                 {/* SECTION: RECOMMENDATION DETAIL */}
                 {appSection === 'recommendation-detail' && selectedBrand && selectedRecommendation && (
                     <RecommendationDetail
@@ -1760,7 +1777,7 @@ const App: React.FC = () => {
                         context={recommendationContext}
                         brandName={selectedBrand}
                         onNavigate={handleNavigate}
-                        onBack={() => handleNavigate('dashboard')}
+                        onBack={() => handleNavigate('recommendations')}
                     />
                 )}
 

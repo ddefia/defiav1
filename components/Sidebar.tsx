@@ -24,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const mainNavItems = [
         { id: 'copilot', label: 'AI CMO', icon: 'auto_awesome', isAccent: true },
+        { id: 'recommendations', label: 'Recommendations', icon: 'lightbulb' },
         { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
         { id: 'campaigns', label: 'Campaigns', icon: 'campaign' },
         { id: 'analytics', label: 'Analytics', icon: 'analytics' },
