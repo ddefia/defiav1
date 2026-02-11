@@ -8,14 +8,16 @@ interface SettingsProps {
     config: BrandConfig;
     onChange: (newConfig: BrandConfig) => void;
     onNavigateToBrandKit?: () => void;
+    theme?: 'dark' | 'light';
+    onThemeChange?: (theme: 'dark' | 'light') => void;
 }
 
 type SettingsTab = 'general' | 'notifications' | 'security' | 'billing';
 
-export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange, onNavigateToBrandKit }) => {
+export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange, onNavigateToBrandKit, theme = 'dark', onThemeChange }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('general');
     const [automationEnabled, setAutomationEnabled] = useState(true);
-    const [darkModeEnabled, setDarkModeEnabled] = useState(true);
+    const darkModeEnabled = theme === 'dark';
     const [apifyHandle, setApifyHandle] = useState('');
     const [lunarSymbol, setLunarSymbol] = useState('');
     const [duneVolumeQuery, setDuneVolumeQuery] = useState('');
@@ -205,12 +207,12 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
     ];
 
     return (
-        <div className="flex-1 flex flex-col bg-[#0A0A0B] min-h-0">
+        <div className="flex-1 flex flex-col min-h-0" style={{ backgroundColor: 'var(--bg-primary)' }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-10 py-6 border-b border-[#1F1F23]">
+            <div className="flex items-center justify-between px-10 py-6 border-b" style={{ borderColor: 'var(--border)' }}>
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-bold text-white">Settings</h1>
-                    <p className="text-sm text-[#6B6B70]">Manage your account and brand settings</p>
+                    <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Settings</h1>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Manage your account and brand settings</p>
                 </div>
             </div>
 
@@ -225,11 +227,12 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                             disabled={tab.disabled}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
                                 tab.disabled
-                                    ? 'text-[#3A3A3F] cursor-not-allowed'
+                                    ? 'cursor-not-allowed'
                                     : activeTab === tab.id
                                         ? 'bg-[#FF5C00] text-white'
-                                        : 'text-[#6B6B70] hover:text-white hover:bg-[#1A1A1D]'
+                                        : ''
                             }`}
+                            style={tab.disabled ? { color: 'var(--text-faint)' } : activeTab !== tab.id ? { color: 'var(--text-muted)' } : undefined}
                         >
                             <span
                                 className="material-symbols-sharp text-xl"
@@ -260,9 +263,9 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                     {activeTab === 'general' && (
                         <>
                             {/* Profile Information Card */}
-                            <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                            <div className="rounded-[14px] p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                                 <div className="flex items-center justify-between mb-5">
-                                    <span className="text-white text-base font-semibold">Profile Information</span>
+                                    <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Profile Information</span>
                                     <button className="text-[#FF5C00] text-sm font-medium hover:underline">Edit</button>
                                 </div>
 
@@ -299,8 +302,8 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                             </div>
 
                             {/* Preferences Card */}
-                            <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                                <span className="text-white text-base font-semibold mb-5 block">Preferences</span>
+                            <div className="rounded-[14px] p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
+                                <span className="text-base font-semibold mb-5 block" style={{ color: 'var(--text-primary)' }}>Preferences</span>
 
                                 <div className="flex flex-col gap-4">
                                     {/* Timezone */}
@@ -325,27 +328,34 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
 
                                     <div className="h-px bg-[#1F1F23]"></div>
 
-                                    {/* Dark Mode */}
+                                    {/* Appearance */}
                                     <div className="flex items-center justify-between py-2">
                                         <div className="flex flex-col gap-1">
-                                            <span className="text-white text-sm">Dark Mode</span>
-                                            <span className="text-[#6B6B70] text-xs">Enable dark mode interface</span>
+                                            <span style={{ color: 'var(--text-primary)' }} className="text-sm">Appearance</span>
+                                            <span style={{ color: 'var(--text-muted)' }} className="text-xs">
+                                                {darkModeEnabled ? 'Dark mode' : 'Light mode'} active
+                                            </span>
                                         </div>
-                                        <button
-                                            onClick={() => setDarkModeEnabled(!darkModeEnabled)}
-                                            className={`relative w-11 h-6 rounded-full transition-colors ${darkModeEnabled ? 'bg-[#FF5C00]' : 'bg-[#2E2E2E]'}`}
-                                        >
-                                            <span
-                                                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${darkModeEnabled ? 'left-[22px]' : 'left-0.5'}`}
-                                            ></span>
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-sharp text-lg" style={{ color: darkModeEnabled ? 'var(--accent)' : 'var(--text-muted)', fontVariationSettings: "'wght' 200, 'FILL' 1" }}>
+                                                {darkModeEnabled ? 'dark_mode' : 'light_mode'}
+                                            </span>
+                                            <button
+                                                onClick={() => onThemeChange?.(darkModeEnabled ? 'light' : 'dark')}
+                                                className={`relative w-11 h-6 rounded-full transition-colors ${darkModeEnabled ? 'bg-[#FF5C00]' : 'bg-[#D1D1D6]'}`}
+                                            >
+                                                <span
+                                                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow-sm ${darkModeEnabled ? 'left-[22px]' : 'left-0.5'}`}
+                                                ></span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Integrations Card (preserving existing functionality) */}
-                            <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                                <span className="text-white text-base font-semibold mb-2 block">Data Integrations</span>
+                            <div className="rounded-[14px] p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
+                                <span className="text-base font-semibold mb-2 block" style={{ color: 'var(--text-primary)' }}>Data Integrations</span>
                                 <p className="text-[#6B6B70] text-xs mb-5">Connect per-brand data sources to improve analytics and agent accuracy.</p>
 
                                 <div className="grid grid-cols-2 gap-4 mb-4">
@@ -355,7 +365,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                             value={apifyHandle}
                                             onChange={(e) => setApifyHandle(e.target.value)}
                                             placeholder="@yourbrand"
-                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                         />
                                     </div>
                                     <div className="flex flex-col gap-2">
@@ -364,7 +374,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                             value={lunarSymbol}
                                             onChange={(e) => setLunarSymbol(e.target.value)}
                                             placeholder="ETH, METIS, etc."
-                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                         />
                                     </div>
                                 </div>
@@ -376,7 +386,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                             value={duneVolumeQuery}
                                             onChange={(e) => setDuneVolumeQuery(e.target.value)}
                                             placeholder="Query ID"
-                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                         />
                                     </div>
                                     <div className="flex flex-col gap-2">
@@ -385,7 +395,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                             value={duneUsersQuery}
                                             onChange={(e) => setDuneUsersQuery(e.target.value)}
                                             placeholder="Query ID"
-                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                         />
                                     </div>
                                     <div className="flex flex-col gap-2">
@@ -394,7 +404,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                             value={duneRetentionQuery}
                                             onChange={(e) => setDuneRetentionQuery(e.target.value)}
                                             placeholder="Query ID"
-                                            className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                            className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                         />
                                     </div>
                                 </div>
@@ -434,7 +444,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                                 value={xApiKey}
                                                 onChange={(e) => setXApiKey(e.target.value)}
                                                 placeholder="API Key"
-                                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                                className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                             />
                                         </div>
                                         <div className="flex flex-col gap-2">
@@ -444,7 +454,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                                 value={xApiSecret}
                                                 onChange={(e) => setXApiSecret(e.target.value)}
                                                 placeholder="API Secret"
-                                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                                className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                             />
                                         </div>
                                     </div>
@@ -456,7 +466,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                                 value={xAccessToken}
                                                 onChange={(e) => setXAccessToken(e.target.value)}
                                                 placeholder="Access Token"
-                                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                                className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                             />
                                         </div>
                                         <div className="flex flex-col gap-2">
@@ -466,7 +476,7 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                                 value={xAccessSecret}
                                                 onChange={(e) => setXAccessSecret(e.target.value)}
                                                 placeholder="Access Secret"
-                                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white placeholder-[#6B6B70] outline-none focus:border-[#FF5C00] transition-colors"
+                                                className="rounded-lg px-3.5 py-3 text-sm outline-none transition-colors" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                                             />
                                         </div>
                                     </div>
@@ -492,10 +502,10 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                             </div>
 
                             {/* Brand Data Management Card */}
-                            <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                            <div className="rounded-[14px] p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                                 <div className="flex items-center gap-3 mb-2">
                                     <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>database</span>
-                                    <span className="text-white text-base font-semibold">Brand Data Management</span>
+                                    <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Brand Data Management</span>
                                 </div>
                                 <p className="text-[#6B6B70] text-xs mb-5">Import demo brands or reset your current brand to its default configuration.</p>
 
@@ -594,22 +604,22 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                     )}
 
                     {activeTab === 'notifications' && (
-                        <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                            <span className="text-white text-base font-semibold mb-4 block">Notification Preferences</span>
+                        <div className="rounded-[14px] p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
+                            <span className="text-base font-semibold mb-4 block" style={{ color: 'var(--text-primary)' }}>Notification Preferences</span>
                             <p className="text-[#6B6B70] text-sm">Notification settings coming soon.</p>
                         </div>
                     )}
 
                     {activeTab === 'security' && (
-                        <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                            <span className="text-white text-base font-semibold mb-4 block">Security Settings</span>
+                        <div className="rounded-[14px] p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
+                            <span className="text-base font-semibold mb-4 block" style={{ color: 'var(--text-primary)' }}>Security Settings</span>
                             <p className="text-[#6B6B70] text-sm">Security settings coming soon.</p>
                         </div>
                     )}
 
                     {activeTab === 'billing' && (
-                        <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
-                            <span className="text-white text-base font-semibold mb-4 block">Billing & Subscription</span>
+                        <div className="rounded-[14px] p-6" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
+                            <span className="text-base font-semibold mb-4 block" style={{ color: 'var(--text-primary)' }}>Billing & Subscription</span>
                             <p className="text-[#6B6B70] text-sm">Billing settings coming soon.</p>
                         </div>
                     )}

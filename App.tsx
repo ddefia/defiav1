@@ -293,6 +293,11 @@ const App: React.FC = () => {
     // const campaignFileInputRef = useRef<HTMLInputElement>(null); // Moved
     const [activeUploadId, setActiveUploadId] = useState<string | null>(null);
 
+    // Theme State
+    const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+        try { return (localStorage.getItem('defia_theme') as 'dark' | 'light') || 'dark'; } catch { return 'dark'; }
+    });
+
     // Studio Deep Link State
     const [studioDraft, setStudioDraft] = useState<string>('');
     const [studioVisualPrompt, setStudioVisualPrompt] = useState<string>('');
@@ -327,6 +332,12 @@ const App: React.FC = () => {
             saveBrandProfiles(profiles, true);
         }
     }, [profiles]);
+
+    // Apply theme to document
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('defia_theme', theme);
+    }, [theme]);
 
     useEffect(() => {
         if (!selectedBrand) return;
@@ -1700,7 +1711,7 @@ const App: React.FC = () => {
 
     return (
         <ToastProvider>
-        <div className="bg-[#0A0A0B] text-white font-sans flex flex-row h-full overflow-hidden">
+        <div className="font-sans flex flex-row h-full overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
             {/* SIDEBAR */}
             {selectedBrand && profiles[selectedBrand] && (
                 <Sidebar
@@ -1713,7 +1724,7 @@ const App: React.FC = () => {
                 />
             )}
 
-            <main className="flex-1 w-full h-full flex flex-col relative overflow-auto bg-[#0A0A0B]">
+            <main className="flex-1 w-full h-full flex flex-col relative overflow-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
                 {isDashboardRoute && !onboardingState.completed && (
                     <div className="px-6 pt-6">
                         {shouldShowOnboardingPrompt ? (
@@ -1824,6 +1835,8 @@ const App: React.FC = () => {
                         config={profiles[selectedBrand]}
                         onChange={handleUpdateCurrentBrandConfig}
                         onNavigateToBrandKit={() => handleNavigate('brand-kit', null)}
+                        theme={theme}
+                        onThemeChange={setTheme}
                     />
                 )}
 

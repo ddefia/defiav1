@@ -370,12 +370,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
 
     return (
-        <div className="flex-1 py-8 px-10 overflow-y-auto space-y-7">
+        <div className="flex-1 py-8 px-10 overflow-y-auto space-y-7" style={{ backgroundColor: 'var(--bg-primary)' }}>
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-[38px] font-normal tracking-tight text-white" style={{ fontFamily: 'Instrument Serif, serif', letterSpacing: '-1px' }}>Marketing Dashboard</h1>
-                    <p className="text-[#6B6B70] text-sm font-['Inter']">Track engagement, news, and create content for your Web3 brand</p>
+                    <h1 className="text-[38px] font-normal tracking-tight" style={{ fontFamily: 'Instrument Serif, serif', letterSpacing: '-1px', color: 'var(--text-primary)' }}>Marketing Dashboard</h1>
+                    <p className="text-sm font-['Inter']" style={{ color: 'var(--text-muted)' }}>Track engagement, news, and create content for your Web3 brand</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -390,7 +390,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {/* Metrics Row */}
                     <div className="grid grid-cols-4 gap-4 mb-7">
                         {kpis.map((kpi, i) => (
-                            <div key={i} className="rounded-xl bg-[#111113] border border-[#1F1F23] p-5">
+                            <div key={i} className="rounded-xl p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-[#6B6B70] text-xs font-medium tracking-wider">{kpi.label}</span>
                                     {i === 0 && kpi.value !== '--' && (
@@ -407,7 +407,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     </>
                                 ) : (
                                     <>
-                                        <div className="text-[32px] font-medium text-white font-mono tracking-tight mb-3">{kpi.value}</div>
+                                        <div className="text-[32px] font-medium font-mono tracking-tight mb-3" style={{ color: 'var(--text-primary)' }}>{kpi.value}</div>
                                         {kpi.delta !== 0 && (
                                             <div className="flex items-center gap-1">
                                                 {kpi.trend === 'up' ? (
@@ -619,7 +619,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <div className="text-[11px] font-semibold text-[#6B6B70] tracking-widest mb-3">DRAFTS READY</div>
                                     <div className="space-y-2">
                                         {kickoffState.drafts.slice(0, 3).map((draft, index) => (
-                                            <div key={draft.id || index} className="text-sm text-white/90 bg-[#111113] border border-[#1F1F23] rounded-lg px-3 py-2">
+                                            <div key={draft.id || index} className="text-sm text-white/90 rounded-lg px-3 py-2">
                                                 {String(draft.tweet || '').slice(0, 140)}{String(draft.tweet || '').length > 140 ? '…' : ''}
                                             </div>
                                         ))}
@@ -636,7 +636,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                                             .slice(0, 7)
                                             .map((event, index) => (
-                                                <div key={event.id || index} className="flex items-start gap-3 bg-[#111113] border border-[#1F1F23] rounded-lg px-3 py-2">
+                                                <div key={event.id || index} className="flex items-start gap-3 rounded-lg px-3 py-2">
                                                     <div className="text-[11px] font-semibold text-[#22C55E]">{formatKickoffDate(event.date)}</div>
                                                     <div className="text-sm text-white/90 flex-1">
                                                         {String(event.content || '').slice(0, 90)}{String(event.content || '').length > 90 ? '…' : ''}
@@ -735,7 +735,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {/* Two Column Section: News + Audience */}
                     <div className="grid grid-cols-2 gap-6 mb-7">
                         {/* Web3 News Feed */}
-                        <div className="rounded-xl bg-[#111113] border border-[#1F1F23] overflow-hidden">
+                        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                             <button
                                 onClick={() => onNavigate('news')}
                                 className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23] w-full hover:bg-[#1A1A1D] transition-colors"
@@ -781,7 +781,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
 
                         {/* Audience Insights */}
-                        <div className="rounded-xl bg-[#111113] border border-[#1F1F23] overflow-hidden">
+                        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                             <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
                                 <span className="text-white text-sm font-semibold">Audience Insights</span>
                                 <svg className="w-4 h-4 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -855,7 +855,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {/* Campaigns Overview */}
-                    <div className="rounded-xl bg-[#111113] border border-[#1F1F23] overflow-hidden mb-7">
+                    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }} className=" mb-7">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
                             <div className="flex items-center gap-2.5">
                                 <span className="text-white text-sm font-semibold">Campaigns Overview</span>
@@ -950,7 +950,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {/* Upcoming Content */}
-                    <div className="rounded-xl bg-[#111113] border border-[#1F1F23] overflow-hidden">
+                    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
                             <div className="flex items-center gap-2.5">
                                 <span className="text-white text-sm font-semibold">Upcoming Content</span>

@@ -48,9 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     return (
-        <div className={`${isCollapsed ? 'w-[68px]' : 'w-[280px]'} h-full bg-[#111113] border-r border-[#1F1F23] flex flex-col shrink-0 transition-all duration-200`}>
+        <div className={`${isCollapsed ? 'w-[68px]' : 'w-[280px]'} h-full flex flex-col shrink-0 transition-all duration-200`} style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border)' }}>
             {/* Header / Logo */}
-            <div className={`h-[88px] flex items-center gap-2 ${isCollapsed ? 'px-4 justify-center' : 'px-8'} border-b border-[#1F1F23]`}>
+            <div className={`h-[88px] flex items-center gap-2 ${isCollapsed ? 'px-4 justify-center' : 'px-8'}`} style={{ borderBottom: '1px solid var(--border)' }}>
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF7A2E] to-[#FF5C00] flex items-center justify-center flex-shrink-0">
                     <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 400, 'FILL' 1" }}>
                         bolt
@@ -61,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Brand Display (Single Brand) */}
             {brandName && (
-                <div className={`${isCollapsed ? 'px-3 py-4' : 'px-6 py-4'} border-b border-[#1F1F23]`}>
+                <div className={`${isCollapsed ? 'px-3 py-4' : 'px-6 py-4'}`} style={{ borderBottom: '1px solid var(--border)' }}>
                     <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF5C00]/20 to-[#FF5C00]/10 flex items-center justify-center border border-[#FF5C00]/20 flex-shrink-0">
                             <span className="text-[#FF5C00] font-bold text-sm">
@@ -71,8 +71,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {!isCollapsed && (
                             <>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-white font-medium text-sm truncate">{brandName}</p>
-                                    <p className="text-[#6B6B70] text-xs truncate">Active Brand</p>
+                                    <p className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>{brandName}</p>
+                                    <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>Active Brand</p>
                                 </div>
                                 <button
                                     onClick={() => onNavigate('settings')}
@@ -94,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Nav Content */}
             <div className={`flex-1 py-0 ${isCollapsed ? 'px-2' : 'px-4'} overflow-y-auto`}>
                 {/* MAIN Section */}
-                {!isCollapsed && <div className="px-4 py-4 text-[#6B6B70] text-sm font-normal">MAIN</div>}
+                {!isCollapsed && <div className="px-4 py-4 text-sm font-normal" style={{ color: 'var(--text-muted)' }}>MAIN</div>}
                 {isCollapsed && <div className="py-3" />}
 
                 <div className="space-y-0.5">
@@ -120,18 +120,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         isCollapsed
                                             ? 'p-3'
                                             : item.isSub ? 'pl-12 pr-4 py-2.5' : 'px-4 py-3'
-                                    } ${
-                                        isActive || childActive
-                                            ? 'bg-[#1F1F23] text-white'
-                                            : item.isAccent
-                                                ? 'text-[#FF5C00] hover:bg-[#1F1F23]/50'
-                                                : 'text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white'
                                     }`}
+                                    style={{
+                                        backgroundColor: (isActive || childActive) ? 'var(--hover-bg)' : undefined,
+                                        color: item.isAccent ? '#FF5C00' : (isActive || childActive) ? 'var(--text-primary)' : 'var(--text-muted)',
+                                    }}
                                 >
                                     <span
                                         className={`material-symbols-sharp ${item.isSub && !isCollapsed ? 'text-xl' : 'text-2xl'} flex-shrink-0`}
                                         style={{
-                                            color: item.isAccent ? '#FF5C00' : (isActive || childActive) ? '#FFFFFF' : '#6B6B70',
+                                            color: item.isAccent ? '#FF5C00' : (isActive || childActive) ? 'var(--text-primary)' : 'var(--text-muted)',
                                             fontVariationSettings: "'wght' 100"
                                         }}
                                     >
@@ -156,16 +154,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <button
                                             key={child.id}
                                             onClick={() => onNavigate(child.id)}
-                                            className={`w-full flex items-center gap-4 pl-12 pr-4 py-2.5 rounded-full transition-colors ${
-                                                isChildActive
-                                                    ? 'bg-[#1F1F23] text-white'
-                                                    : 'text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white'
-                                            }`}
+                                            className="w-full flex items-center gap-4 pl-12 pr-4 py-2.5 rounded-full transition-colors"
+                                            style={{
+                                                backgroundColor: isChildActive ? 'var(--hover-bg)' : undefined,
+                                                color: isChildActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                                            }}
                                         >
                                             <span
                                                 className="material-symbols-sharp text-xl"
                                                 style={{
-                                                    color: isChildActive ? '#FFFFFF' : '#6B6B70',
+                                                    color: isChildActive ? 'var(--text-primary)' : 'var(--text-muted)',
                                                     fontVariationSettings: "'wght' 100"
                                                 }}
                                             >
@@ -181,8 +179,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* FEEDS Section */}
-                {!isCollapsed && <div className="px-4 py-4 text-[#6B6B70] text-sm font-normal mt-2">FEEDS</div>}
-                {isCollapsed && <div className="py-2 my-2 border-t border-[#1F1F23]" />}
+                {!isCollapsed && <div className="px-4 py-4 text-sm font-normal mt-2" style={{ color: 'var(--text-muted)' }}>FEEDS</div>}
+                {isCollapsed && <div className="py-2 my-2" style={{ borderTop: '1px solid var(--border)' }} />}
 
                 <div className="space-y-1">
                     {feedsNavItems.map((item) => {
@@ -192,16 +190,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 key={item.id}
                                 onClick={() => onNavigate(item.id)}
                                 title={isCollapsed ? item.label : undefined}
-                                className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-3'} rounded-full transition-colors ${
-                                    isActive
-                                        ? 'bg-[#1F1F23] text-white'
-                                        : 'text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white'
-                                }`}
+                                className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-3'} rounded-full transition-colors`}
+                                style={{
+                                    backgroundColor: isActive ? 'var(--hover-bg)' : undefined,
+                                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                                }}
                             >
                                 <span
                                     className="material-symbols-sharp text-2xl flex-shrink-0"
                                     style={{
-                                        color: isActive ? '#FFFFFF' : '#6B6B70',
+                                        color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
                                         fontVariationSettings: "'wght' 100"
                                     }}
                                 >
@@ -219,20 +217,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
                     title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-3'} rounded-full text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white transition-colors`}
+                    className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-3'} rounded-full transition-colors`}
+                    style={{ color: 'var(--text-muted)' }}
                 >
                     <span
                         className="material-symbols-sharp text-xl flex-shrink-0 transition-transform duration-200"
-                        style={{ fontVariationSettings: "'wght' 100", transform: isCollapsed ? 'rotate(180deg)' : 'none' }}
+                        style={{ fontVariationSettings: "'wght' 300", color: 'var(--text-muted)', transform: isCollapsed ? 'rotate(180deg)' : 'none' }}
                     >
-                        left_panel_close
+                        keyboard_double_arrow_left
                     </span>
                     {!isCollapsed && <span className="text-sm">Collapse</span>}
                 </button>
             </div>
 
             {/* Footer / User Profile */}
-            <div className={`${isCollapsed ? 'px-2' : 'px-6'} py-4 border-t border-[#1F1F23]`}>
+            <div className={`${isCollapsed ? 'px-2' : 'px-6'} py-4`} style={{ borderTop: '1px solid var(--border)' }}>
                 <div
                     className={`flex items-center ${isCollapsed ? 'justify-center p-1' : 'gap-3 p-2'} cursor-pointer rounded-xl hover:bg-[#1F1F23]/50 transition-colors`}
                     onClick={() => isCollapsed ? onNavigate('settings') : setIsUserMenuOpen(!isUserMenuOpen)}
@@ -254,10 +253,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {!isCollapsed && (
                         <>
                             <div className="flex-1 min-w-0">
-                                <p className="text-white text-sm font-medium truncate">
+                                <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                                     {userProfile?.fullName || 'User'}
                                 </p>
-                                <p className="text-[#6B6B70] text-xs truncate">
+                                <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
                                     {userProfile?.email || 'No email'}
                                 </p>
                             </div>
@@ -275,7 +274,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isUserMenuOpen && !isCollapsed && (
                     <>
                         <div className="fixed inset-0 z-10" onClick={() => setIsUserMenuOpen(false)}></div>
-                        <div className="absolute bottom-24 left-4 right-4 bg-[#1F1F23] rounded-xl shadow-xl border border-[#2A2A2D] p-2 z-20">
+                        <div className="absolute bottom-24 left-4 right-4 rounded-xl shadow-xl p-2 z-20" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
                             <button
                                 onClick={() => { onNavigate('settings'); setIsUserMenuOpen(false); }}
                                 className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 hover:bg-[#2A2A2D] text-[#ADADB0] hover:text-white"
