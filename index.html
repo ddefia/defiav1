@@ -53,12 +53,16 @@
         margin: 0;
         padding: 0;
         background-color: #0A0A0B;
-        overflow: hidden;
+        /* overflow managed per-page: landing scrolls, dashboard doesn't */
       }
       body {
         color: #FFFFFF;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+      }
+      /* Lock scroll for the dashboard shell (toggled via JS class) */
+      body.no-scroll {
+        overflow: hidden;
       }
       #root {
         transform: scale(0.85);
@@ -66,6 +70,11 @@
         width: 117.647%;
         height: 117.647%;
         background-color: #0A0A0B;
+      }
+      /* Allow root to grow for scrollable pages (landing, auth) */
+      body:not(.no-scroll) #root {
+        height: auto;
+        min-height: 117.647%;
       }
       /* Invisible Scrollbar for cleaner UI */
       ::-webkit-scrollbar {

@@ -142,6 +142,8 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
             })
             .map(item => ({
                 ...item,
+                // Surface image URL: prefer imageUrl field, fallback to rawData.image for older cached items
+                imageUrl: item.imageUrl || item.rawData?.image || undefined,
                 sourceName: item.source === 'Twitter' ? 'X / Twitter' : (item.source || 'Web3 News'),
                 category: item.topic?.toLowerCase() || 'defi',
                 relevanceBadge: item.relevanceScore > 80 ? `High relevance to ${brandName}` :
@@ -374,10 +376,22 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
                                         className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 hover:border-[#2E2E2E] transition-colors cursor-pointer group"
                                     >
                                         <div className="flex gap-5">
-                                            {/* Thumbnail */}
-                                            {index % 2 === 0 && (
+                                            {/* Thumbnail — show real article image if available, gradient fallback */}
+                                            {(item.imageUrl || index % 3 === 0) && (
                                                 <div className="w-[120px] h-[80px] rounded-lg bg-gradient-to-br from-[#1A1A2E] via-[#16213E] to-[#0F3460] flex-shrink-0 overflow-hidden">
-                                                    <div className="w-full h-full bg-[url('/placeholder-news.jpg')] bg-cover bg-center opacity-70"></div>
+                                                    {item.imageUrl ? (
+                                                        <img
+                                                            src={item.imageUrl}
+                                                            alt=""
+                                                            className="w-full h-full object-cover"
+                                                            loading="lazy"
+                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <span className="material-symbols-sharp text-[#2A2A3E] text-2xl" style={{ fontVariationSettings: "'wght' 300" }}>article</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 

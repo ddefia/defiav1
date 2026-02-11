@@ -1421,6 +1421,16 @@ const App: React.FC = () => {
     const isDashboardRoute = !isLanding && !isAuthRoute && !isOnboardingRoute;
     const shouldShowOnboardingPrompt = isDashboardRoute && !onboardingState.completed && !onboardingState.dismissed;
 
+    // Toggle body scroll: landing page scrolls, dashboard/auth lock scroll
+    useEffect(() => {
+        if (isLanding) {
+            document.body.classList.remove('no-scroll');
+        } else {
+            document.body.classList.add('no-scroll');
+        }
+        return () => { document.body.classList.remove('no-scroll'); };
+    }, [isLanding]);
+
     // Auth loading state
     if (isAuthLoading) {
         return (

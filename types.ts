@@ -196,6 +196,7 @@ export interface TrendItem {
   relevanceReason: string; // Explanation of why this matters to the brand
   sentiment: 'Positive' | 'Negative' | 'Neutral';
   url?: string;
+  imageUrl?: string; // Article thumbnail/image URL
   timestamp: string; // Display string (e.g. "10m ago")
   createdAt: number; // Machine timestamp for 48h expiry logic
   rawData?: any; // Full original payload for backend processing/debugging
