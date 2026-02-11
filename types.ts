@@ -542,5 +542,7 @@ export interface DailyBrief {
     level: 'High' | 'Medium' | 'Low';
     explanation: string;
   };
+  topActions?: string[];
+  metricsSnapshot?: { label: string; value: string; trend: 'up' | 'down' | 'flat' }[];
   timestamp: number;
 }

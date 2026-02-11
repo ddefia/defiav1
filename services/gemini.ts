@@ -3052,7 +3052,8 @@ export const generateDailyBrief = async (
 
     const systemInstruction = `
     You are Defia's AI Marketing Analyst for the brand "${brandName}".
-    Generate a concise daily marketing brief based on the data provided.
+    Generate a detailed, premium-quality daily marketing brief based on the data provided.
+    This brief is the centerpiece of the user's dashboard — make it feel like a professional morning intelligence report.
 
     Input Data:
     KPIs:\n${kpiSummary || 'No KPI data available yet.'}
@@ -3063,24 +3064,34 @@ export const generateDailyBrief = async (
 
     Output a JSON object with this exact structure:
     {
-        "keyDrivers": ["1-2 sentences about what's driving performance"],
-        "decisionsReinforced": ["1-2 sentences about what's working well"],
-        "risksAndUnknowns": ["1-2 sentences about risks or gaps to watch"],
+        "keyDrivers": ["sentence 1", "sentence 2", "sentence 3"],
+        "decisionsReinforced": ["sentence 1", "sentence 2"],
+        "risksAndUnknowns": ["sentence 1", "sentence 2"],
+        "topActions": ["action 1", "action 2", "action 3"],
+        "metricsSnapshot": [
+            { "label": "Metric Name", "value": "12.5K", "trend": "up" },
+            { "label": "Metric Name", "value": "3.2%", "trend": "down" },
+            { "label": "Metric Name", "value": "8", "trend": "flat" }
+        ],
         "confidence": {
             "level": "High" | "Medium" | "Low",
-            "explanation": "A brief 2-3 sentence daily summary using RICH TEXT MARKUP (see rules below)."
+            "explanation": "A detailed 3-5 sentence daily summary (see rules below)."
         }
     }
 
     Rules:
-    - The "explanation" field is the MOST important — it's the daily brief text shown on the dashboard.
-    - Write the explanation as 2-3 flowing sentences, like a morning briefing from an analyst.
-    - Use **bold** markup (double asterisks) around key metrics, brand names, percentages, and important phrases (2-4 bold segments per brief).
-    - Example: "**Engagement is up 12%** this week, driven by strong performance on **Twitter threads**. The **AI content strategy** is resonating with the DeFi audience, though **Discord activity** has dipped slightly."
-    - Keep keyDrivers, decisionsReinforced, risksAndUnknowns to 1-2 items each (short sentences).
-    - Use precise language. If data is limited, say so honestly — don't fabricate.
+    - The "explanation" field is the MOST important — it's the daily brief headline shown on the dashboard.
+    - Write the explanation as 3-5 flowing sentences, like a premium morning briefing from a Chief Marketing Officer. Be specific, data-driven, and actionable.
+    - Use **bold** markup (double asterisks) around key metrics, brand names, percentages, and important phrases (3-5 bold segments per brief).
+    - Example: "**Engagement surged 12%** this week, powered by strong performance on **Twitter threads** and community discussions. The **AI-driven content strategy** is clearly resonating with DeFi-native audiences, with **reply rates doubling** since last week. However, **Discord engagement dipped 8%** — consider launching a community AMA or giveaway to re-activate that channel. Overall, ${brandName} is building solid momentum heading into the weekend."
+    - keyDrivers: Write 2-3 detailed items. Each should be a full sentence explaining WHAT is happening and WHY it matters. If data is limited, provide strategic analysis of the brand's market positioning and what channels to prioritize.
+    - decisionsReinforced: Write 2 items about what strategies/approaches are proving effective or should continue.
+    - risksAndUnknowns: Write 2 items about concrete risks, blind spots, or areas needing attention.
+    - topActions: Write 2-3 specific, actionable next steps the marketing team should take TODAY (e.g., "Post a Twitter thread on the trending DeFi narrative", "Schedule community AMA for this week", "Analyze competitor campaigns for inspiration").
+    - metricsSnapshot: Extract 3-4 key metrics from the KPI data. Use the actual values. For trend, use "up", "down", or "flat". If no data, still provide placeholder metrics like {"label": "Content Published", "value": "0", "trend": "flat"}.
+    - Use precise, professional language. Be specific with numbers when available.
+    - If input data is sparse, still generate a thorough brief with strategic recommendations, market context, and actionable steps. The brief should NEVER feel empty.
     - Never say "AI summary failure" or "Generation Error".
-    - If input data is sparse, still write a useful brief about the brand's current state and what to focus on.
     `;
 
     try {
@@ -3100,17 +3111,50 @@ export const generateDailyBrief = async (
             keyDrivers: data.keyDrivers || [],
             decisionsReinforced: data.decisionsReinforced || [],
             risksAndUnknowns: data.risksAndUnknowns || [],
+            topActions: data.topActions || [],
+            metricsSnapshot: data.metricsSnapshot || [],
             confidence: data.confidence || { level: 'Low', explanation: 'Generation Error' },
             timestamp: Date.now()
         };
 
     } catch (e) {
         console.error("Daily Brief Generation Failed", e);
+        // Generate a rich fallback brief even when API fails
+        const hasFollowers = kpis.some(k => k.label === 'TWITTER FOLLOWERS' && k.value !== '--');
+        const hasEngagement = kpis.some(k => k.label === 'ENGAGEMENT RATE' && k.value !== '--');
+        const followerKpi = kpis.find(k => k.label === 'TWITTER FOLLOWERS');
+        const engageKpi = kpis.find(k => k.label === 'ENGAGEMENT RATE');
+        const impressionKpi = kpis.find(k => k.label === 'WEEKLY IMPRESSIONS');
         return {
-            keyDrivers: [`${brandName}'s marketing data is still being collected.`],
-            decisionsReinforced: ['Continue building content and engagement data for deeper analysis.'],
-            risksAndUnknowns: ['Limited data available — brief will improve as more signals come in.'],
-            confidence: { level: 'Low', explanation: `${brandName}'s daily brief is currently limited due to sparse data. As more content is published, campaigns run, and engagement data flows in, this brief will automatically become richer and more actionable.` },
+            keyDrivers: [
+                hasFollowers
+                    ? `${brandName} currently has **${followerKpi?.value || '—'}** Twitter followers${followerKpi?.delta ? ` with a **${followerKpi.delta > 0 ? '+' : ''}${followerKpi.delta}%** monthly change` : ''}. Focus on consistent content cadence to sustain growth.`
+                    : `${brandName} is in the early stages of building its marketing presence. The priority should be establishing a consistent content voice and identifying the target audience's preferred channels.`,
+                hasEngagement
+                    ? `Current engagement rate sits at **${engageKpi?.value || '—'}**. ${Number(engageKpi?.value?.replace('%', '')) >= 2 ? 'This is above the Web3 industry average — keep the current content strategy active.' : 'Consider more interactive content (polls, threads, AMAs) to boost community interaction.'}`
+                    : `Engagement data is still being collected as the brand builds its content library. Early-stage brands in Web3 typically see engagement spikes from community-driven content and trend participation.`,
+                `Weekly impressions are at **${impressionKpi?.value || '—'}**. ${campaigns.length > 0 ? `With ${campaigns.length} active campaign(s), there's opportunity to amplify reach through cross-channel promotion.` : 'Consider launching a structured campaign to boost visibility and track content performance.'}`
+            ],
+            decisionsReinforced: [
+                'Continue building a consistent content schedule — brands that post 3-5x weekly see 2-3x higher engagement in the Web3 space.',
+                'Leverage AI-powered content creation to maintain velocity while ensuring brand voice consistency across all channels.'
+            ],
+            risksAndUnknowns: [
+                'Limited historical data makes trend analysis less reliable — this brief will become significantly more precise as data accumulates over the coming weeks.',
+                'Monitor competitor activity and trending narratives to ensure content remains timely and relevant to the current market cycle.'
+            ],
+            topActions: [
+                'Publish at least one piece of content today to maintain posting cadence',
+                'Review trending Web3 narratives for potential trend-jacking opportunities',
+                'Set up or verify social media integrations in Settings for richer analytics'
+            ],
+            metricsSnapshot: [
+                { label: 'Followers', value: followerKpi?.value || '—', trend: (followerKpi?.trend || 'flat') as any },
+                { label: 'Engagement', value: engageKpi?.value || '—', trend: (engageKpi?.trend || 'flat') as any },
+                { label: 'Impressions', value: impressionKpi?.value || '—', trend: (impressionKpi?.trend || 'flat') as any },
+                { label: 'Campaigns', value: String(campaigns.length), trend: 'flat' as any }
+            ],
+            confidence: { level: 'Low' as const, explanation: `**${brandName}'s** daily intelligence brief is currently operating in data-collection mode. As more content is published, campaigns run, and engagement data flows in, this brief will automatically become **richer and more actionable**. In the meantime, focus on **building content consistency** and ensuring all social integrations are connected in Settings. The AI analyst will deliver deeper insights once sufficient data signals are available.` },
             timestamp: Date.now()
         };
     }

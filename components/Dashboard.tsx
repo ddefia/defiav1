@@ -186,6 +186,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics, campaigns), [socialMetrics, chainMetrics, campaigns]);
 
+    // Derive fallback recommendations from agentDecisions if sharedRecommendations is empty
+    const displayRecommendations = useMemo(() => {
+        if (sharedRecommendations.length > 0) return sharedRecommendations;
+        if (!agentDecisions || agentDecisions.length === 0) return [];
+        const valid = agentDecisions.filter((d: any) => {
+            const text = (d.reason || '') + (d.draft || '');
+            return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:')
+                && !text.includes('is not a function') && !text.includes('TypeError') && !text.includes('Failed to');
+        });
+        const getRecStyleLocal = (action: string) => {
+            const n = (action || '').toUpperCase();
+            switch (n) {
+                case 'REPLY': return { type: 'Engagement', typeBg: '#3B82F6' };
+                case 'TREND_JACK': return { type: 'Trend', typeBg: '#8B5CF6' };
+                case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return { type: 'Campaign', typeBg: '#FF5C00' };
+                case 'GAP_FILL': return { type: 'Content', typeBg: '#22C55E' };
+                case 'COMMUNITY': return { type: 'Community', typeBg: '#F59E0B' };
+                case 'TWEET': return { type: 'Tweet', typeBg: '#1DA1F2' };
+                case 'THREAD': return { type: 'Thread', typeBg: '#A855F7' };
+                default: return { type: 'Optimization', typeBg: '#F59E0B' };
+            }
+        };
+        return valid.slice(0, 6).map((d: any) => {
+            const style = getRecStyleLocal(d.action);
+            const reason = d.reason || '';
+            const draft = d.draft || '';
+            const sentenceEnd = reason.search(/[.!?]\s/);
+            let title = sentenceEnd > 10 ? reason.slice(0, sentenceEnd + 1) : reason;
+            if (title.length > 120) title = title.slice(0, 117).replace(/\s+\S*$/, '') + '…';
+            const base = (d.action || '').toUpperCase() === 'TREND_JACK' ? 82 : (d.action || '').toUpperCase() === 'CAMPAIGN' ? 80 : 75;
+            const score = Math.min(95, base + Math.min(5, Math.floor(draft.length / 50)));
+            return { ...style, title: title || 'Strategic opportunity', impactScore: score };
+        });
+    }, [sharedRecommendations, agentDecisions]);
+
     // Fetch Web3 news for dashboard
     useEffect(() => {
         setNewsLoading(true);
@@ -422,7 +457,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             {/* Expanded brief content */}
                             {isBriefOpen && (
                                 <div className="px-5 pb-5 border-t border-[#1F1F2380]">
-                                    <div className="grid grid-cols-2 gap-4 pt-4">
+                                    {/* Metrics Snapshot Strip */}
+                                    {briefData.metricsSnapshot && briefData.metricsSnapshot.length > 0 && (
+                                        <div className="flex gap-3 pt-4 pb-3 overflow-x-auto">
+                                            {briefData.metricsSnapshot.map((m, i) => (
+                                                <div key={i} className="flex-1 min-w-[100px] p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                                    <p className="text-[10px] text-[#6B6B70] uppercase tracking-wider font-medium mb-1">{m.label}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-white text-lg font-semibold font-mono">{m.value}</span>
+                                                        <span className={`material-symbols-sharp text-sm ${m.trend === 'up' ? 'text-[#22C55E]' : m.trend === 'down' ? 'text-[#EF4444]' : 'text-[#6B6B70]'}`} style={{ fontVariationSettings: "'wght' 300" }}>
+                                                            {m.trend === 'up' ? 'trending_up' : m.trend === 'down' ? 'trending_down' : 'trending_flat'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-4 pt-2">
                                         {/* Key Drivers */}
                                         <div className="col-span-2">
                                             <div className="flex items-center gap-2 mb-2.5">
@@ -433,7 +485,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                 {briefData.keyDrivers.map((item, i) => (
                                                     <div key={i} className="flex items-start gap-2.5 p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
                                                         <span className="material-symbols-sharp text-[#3B82F6] text-sm mt-0.5 shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
-                                                        <p className="text-[12px] text-[#C4C4C4] leading-relaxed">{item}</p>
+                                                        <p className="text-[12px] text-[#C4C4C4] leading-relaxed">{renderRichText(item)}</p>
                                                     </div>
                                                 ))}
                                             </div>
@@ -449,7 +501,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                 {briefData.decisionsReinforced.map((item, i) => (
                                                     <div key={i} className="flex items-start gap-2 p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
                                                         <span className="material-symbols-sharp text-[#22C55E] text-xs mt-0.5 shrink-0" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check_circle</span>
-                                                        <p className="text-[12px] text-[#C4C4C4] leading-relaxed">{item}</p>
+                                                        <p className="text-[12px] text-[#C4C4C4] leading-relaxed">{renderRichText(item)}</p>
                                                     </div>
                                                 ))}
                                             </div>
@@ -465,11 +517,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                 {briefData.risksAndUnknowns.map((item, i) => (
                                                     <div key={i} className="flex items-start gap-2">
                                                         <span className="material-symbols-sharp text-[#F59E0B] text-xs mt-0.5 shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>error</span>
-                                                        <p className="text-[12px] text-[#D4A94E] leading-relaxed">{item}</p>
+                                                        <p className="text-[12px] text-[#D4A94E] leading-relaxed">{renderRichText(item)}</p>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
+
+                                        {/* Today's Actions */}
+                                        {briefData.topActions && briefData.topActions.length > 0 && (
+                                            <div className="col-span-2 pt-1">
+                                                <div className="flex items-center gap-2 mb-2.5">
+                                                    <span className="material-symbols-sharp text-[#3B82F6] text-base" style={{ fontVariationSettings: "'wght' 300" }}>task_alt</span>
+                                                    <h3 className="text-[10px] font-bold text-[#3B82F6] uppercase tracking-[0.15em]">Today's Priority Actions</h3>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    {briefData.topActions.map((action, i) => (
+                                                        <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-[#3B82F608] border border-[#3B82F618]">
+                                                            <div className="w-5 h-5 rounded-full bg-[#3B82F622] flex items-center justify-center flex-shrink-0">
+                                                                <span className="text-[#3B82F6] text-[10px] font-bold">{i + 1}</span>
+                                                            </div>
+                                                            <p className="text-[12px] text-[#C4C4C4] leading-relaxed flex-1">{renderRichText(action)}</p>
+                                                            <span className="material-symbols-sharp text-[14px] text-[#3B82F644]" style={{ fontVariationSettings: "'wght' 300" }}>arrow_forward</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Confidence */}
                                         <div className="col-span-2 pt-1">
@@ -494,7 +567,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                         }`}></div>
                                                     </div>
                                                 </div>
-                                                <p className="text-[12px] text-[#8B8B8F] leading-relaxed">{briefData.confidence.explanation}</p>
+                                                <p className="text-[12px] text-[#8B8B8F] leading-relaxed">{renderRichText(briefData.confidence.explanation)}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -577,11 +650,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <span className="material-symbols-sharp text-white text-[16px]">auto_awesome</span>
                                 </div>
                                 <span className="text-white text-sm font-semibold">AI CMO Recommendations</span>
-                                {sharedRecommendations.length > 0 && (
-                                    <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">{sharedRecommendations.length} Actions</span>
+                                {displayRecommendations.length > 0 && (
+                                    <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">{displayRecommendations.length} Actions</span>
                                 )}
                                 {sharedRecommendations.length > 0 && (
                                     <span className="px-2 py-1 rounded-full bg-[#22C55E18] text-[#22C55E] text-[10px] font-medium">LLM Powered</span>
+                                )}
+                                {sharedRecommendations.length === 0 && displayRecommendations.length > 0 && (
+                                    <span className="px-2 py-1 rounded-full bg-[#F59E0B18] text-[#F59E0B] text-[10px] font-medium">Agent Decisions</span>
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
@@ -609,9 +685,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <span className="text-[#FF5C00] text-xs font-medium">4-Agent Council analyzing market signals...</span>
                                 </div>
                             </div>
-                        ) : sharedRecommendations.length > 0 ? (
+                        ) : displayRecommendations.length > 0 ? (
                             <div className="p-4 space-y-2">
-                                {sharedRecommendations.slice(0, 3).map((rec: any, i: number) => (
+                                {displayRecommendations.slice(0, 3).map((rec: any, i: number) => (
                                     <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23] hover:border-[#FF5C0044] transition-all">
                                         <div className="flex items-center gap-2 min-w-0 flex-1">
                                             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: rec.typeBg }}></span>
@@ -624,8 +700,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         <span className="material-symbols-sharp text-[14px] text-[#6B7280] flex-shrink-0">chevron_right</span>
                                     </div>
                                 ))}
-                                {sharedRecommendations.length > 3 && (
-                                    <p className="text-center text-[#6B6B70] text-[11px] pt-1">+{sharedRecommendations.length - 3} more recommendations</p>
+                                {displayRecommendations.length > 3 && (
+                                    <p className="text-center text-[#6B6B70] text-[11px] pt-1">+{displayRecommendations.length - 3} more recommendations</p>
                                 )}
                                 <div className="flex items-center justify-center pt-1">
                                     <span className="text-[#FF5C00] text-xs font-medium group-hover:underline flex items-center gap-1">
