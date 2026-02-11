@@ -2880,11 +2880,15 @@ export const classifyAndPopulate = async (
         const parsed = JSON.parse(text);
         return parsed as ChatIntentResponse;
 
-    } catch (e) {
+    } catch (e: any) {
         console.error("Copilot Classification Failed", e);
+        const msg = e?.message || String(e);
+        const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('rate') || msg.includes('RESOURCE_EXHAUSTED');
         return {
-            type: 'GENERAL_CHAT',
-            thoughtProcess: "Error in classification fallback.",
+            type: 'GENERAL_CHAT' as const,
+            thoughtProcess: isQuota
+                ? "API rate limit reached. Please wait a moment and try again."
+                : `Classification error: ${msg.slice(0, 100)}`,
             params: {}
         };
     }
@@ -2922,7 +2926,7 @@ export const generateGeneralChatResponse = async (
         }
     }
 
-    const kb = brandContext.knowledgeBase.join('\n');
+    const kb = (brandContext.knowledgeBase || []).join('\n');
 
     // --- CONTEXT SERIALIZATION ---
     // Make the context richer so the AI can "Look out" for the brand
@@ -2931,11 +2935,16 @@ export const generateGeneralChatResponse = async (
     // Parse Growth Report for intelligent chatter
     let growthInsights = "No recent strategic analysis.";
     if (marketingContext?.report) {
-        growthInsights = `
-        EXECUTIVE SUMMARY: ${marketingContext.report.executiveSummary}
-        RECOMMENDED STRATEGY: ${marketingContext.report.strategicPlan.map(p => `${p.action} on ${p.subject}`).join(', ')}
-        DISABLE ACTIONS: ${marketingContext.report.strategicPlan.filter(p => p.action === 'KILL').map(p => p.subject).join(', ') || "None"}
-        `;
+        try {
+            const plan = marketingContext.report.strategicPlan || [];
+            growthInsights = `
+            EXECUTIVE SUMMARY: ${marketingContext.report.executiveSummary || 'N/A'}
+            RECOMMENDED STRATEGY: ${plan.map((p: any) => `${p.action} on ${p.subject}`).join(', ') || 'None'}
+            DISABLE ACTIONS: ${plan.filter((p: any) => p.action === 'KILL').map((p: any) => p.subject).join(', ') || "None"}
+            `;
+        } catch (e) {
+            console.warn("Growth report parsing failed", e);
+        }
     }
 
     const systemPrompt = `
@@ -3011,9 +3020,13 @@ export const generateGeneralChatResponse = async (
             return { text: rawText, actions: [] };
         }
 
-    } catch (e) {
+    } catch (e: any) {
         console.error("General Chat Failed", e);
-        return { text: "I'm having trouble connecting to my strategic brain right now. Please try again.", actions: [] };
+        const msg = e?.message || String(e);
+        const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('rate');
+        return { text: isQuota
+            ? "I've hit my API rate limit. Please wait a moment and try again."
+            : `I'm having trouble connecting right now: ${msg.slice(0, 120)}. Please try again.`, actions: [] };
     }
 };
 

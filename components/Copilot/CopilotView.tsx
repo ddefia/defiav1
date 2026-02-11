@@ -194,7 +194,13 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
             let aiContent = "";
             let cardData = null;
 
-            if (classification.type === 'MISSING_INFO') {
+            // If classification already hit rate limit, surface that directly instead of making another API call
+            const isQuotaError = classification.thoughtProcess?.includes('rate limit') || classification.thoughtProcess?.includes('429');
+
+            if (isQuotaError) {
+                aiContent = "⚠️ I've hit the Gemini API rate limit. Please wait a minute and try again — the quota resets shortly.";
+            }
+            else if (classification.type === 'MISSING_INFO') {
                 aiContent = classification.missingInfo ? classification.missingInfo[0] : "Could you provide more details so I can help you better?";
             }
             else if (classification.type === 'GENERAL_CHAT') {
