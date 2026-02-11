@@ -297,9 +297,20 @@ const App: React.FC = () => {
     const [studioDraft, setStudioDraft] = useState<string>('');
     const [studioVisualPrompt, setStudioVisualPrompt] = useState<string>('');
 
-    // Recommendation Detail State
+    // Recommendation State (Lifted — single source of truth for Dashboard + RecommendationsPage)
     const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null);
     const [recommendationContext, setRecommendationContext] = useState<any>({});
+    const [llmRecommendations, setLlmRecommendations] = useState<any[]>(() => {
+        try { const cached = localStorage.getItem(`defia_recs_${selectedBrand || ''}`); return cached ? JSON.parse(cached) : []; } catch { return []; }
+    });
+    const [regenLoading, setRegenLoading] = useState(false);
+    const [regenLastRun, setRegenLastRun] = useState<number>(() => {
+        try { return Number(localStorage.getItem(`defia_recs_ts_${selectedBrand || ''}`)) || 0; } catch { return 0; }
+    });
+    const [decisionSummary, setDecisionSummary] = useState<any>(() => {
+        try { const cached = localStorage.getItem(`defia_recs_ctx_${selectedBrand || ''}`); return cached ? JSON.parse(cached) : {}; } catch { return {}; }
+    });
+    const regenFiredRef = useRef(false);
 
     // News Article Detail State
     const [selectedArticle, setSelectedArticle] = useState<any>(null);
@@ -1208,6 +1219,176 @@ const App: React.FC = () => {
         setProfiles(prev => ({ ...prev, [selectedBrand]: newConfig }));
     };
 
+    // --- Shared Recommendation Regenerate (single source of truth) ---
+    const handleRecommendationRegenerate = async () => {
+        if (regenLoading || !selectedBrand || !profiles[selectedBrand]) return;
+        setRegenLoading(true);
+        try {
+            const bc = profiles[selectedBrand];
+            const registry = getBrandRegistryEntry(selectedBrand);
+            const deepContext = await getBrainContext(registry?.brandId);
+            const brainLogs = loadBrainLogs(selectedBrand).slice(0, 5);
+            const brainLogSignals = brainLogs.map(log => `[${log.type}] ${log.context}`).join('\n');
+            const knowledgeBase = bc?.knowledgeBase?.length
+                ? `BRAND KNOWLEDGE:\n${bc.knowledgeBase.slice(0, 8).map(entry => `- ${entry}`).join('\n')}` : '';
+            const positioning = bc?.brandCollectorProfile?.positioning?.oneLiner
+                ? `POSITIONING:\n${bc.brandCollectorProfile.positioning.oneLiner}` : '';
+            const voiceGuidelines = bc?.voiceGuidelines ? `VOICE GUIDELINES:\n${bc.voiceGuidelines}` : '';
+            const brandKnowledgeBlock = [knowledgeBase, positioning, voiceGuidelines].filter(Boolean).join('\n');
+
+            const brainContext = {
+                brand: { ...bc, name: selectedBrand },
+                marketState: { trends: socialSignals.trendingTopics || [], analytics: socialMetrics || undefined, mentions: [] },
+                memory: {
+                    ragDocs: [
+                        deepContext.context ? `DEEP MEMORY:\n${deepContext.context}` : '',
+                        brainLogSignals ? `RECENT BRAIN LOGS:\n${brainLogSignals}` : '',
+                        brandKnowledgeBlock
+                    ].filter(Boolean),
+                    recentPosts: socialMetrics?.recentPosts || [],
+                    pastStrategies: strategyTasks
+                },
+                userObjective: "Identify key market opportunities and execute a strategic response."
+            };
+
+            const mentions = await fetchMentions(selectedBrand);
+            const calendarSignal = calendarEvents.slice(0, 5).map(event => `${event.date} • ${event.platform}: ${event.content}`);
+            const mentionSignal = mentions.slice(0, 5).map(mention => `@${mention.author}: ${mention.text}`);
+            const enrichedContext = {
+                ...brainContext,
+                marketState: { ...brainContext.marketState, mentions },
+                memory: {
+                    ...brainContext.memory,
+                    ragDocs: [
+                        ...brainContext.memory.ragDocs,
+                        calendarSignal.length ? `CALENDAR:\n${calendarSignal.join('\n')}` : '',
+                        mentionSignal.length ? `MENTIONS:\n${mentionSignal.join('\n')}` : '',
+                        agentDecisions.length ? `AGENT DECISIONS:\n${agentDecisions.map((d) => `- ${d.action}: ${d.reason}`).join('\n')}` : ''
+                    ].filter(Boolean)
+                }
+            };
+
+            const { analysis, actions, agentInsights } = await orchestrateMarketingDecision(enrichedContext, { calendarEvents, mentions });
+            const now = Date.now();
+
+            const getRecStyle = (action: string) => {
+                const n = (action || '').toUpperCase();
+                switch (n) {
+                    case 'REPLY': return { type: 'Engagement', typeBg: '#3B82F6', icon: 'forum', actionLabel: 'Draft Reply', borderColor: '#3B82F644' };
+                    case 'TREND_JACK': return { type: 'Trend', typeBg: '#8B5CF6', icon: 'trending_up', actionLabel: 'Create Post', borderColor: '#8B5CF644' };
+                    case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return { type: 'Campaign', typeBg: '#FF5C00', icon: 'campaign', actionLabel: 'Plan Campaign', borderColor: '#FF5C0044' };
+                    case 'GAP_FILL': return { type: 'Content', typeBg: '#22C55E', icon: 'edit_note', actionLabel: 'Fill Gap', borderColor: '#22C55E44' };
+                    case 'COMMUNITY': return { type: 'Community', typeBg: '#F59E0B', icon: 'groups', actionLabel: 'Engage', borderColor: '#F59E0B44' };
+                    case 'TWEET': return { type: 'Tweet', typeBg: '#1DA1F2', icon: 'chat_bubble', actionLabel: 'Draft Tweet', borderColor: '#1DA1F244' };
+                    case 'THREAD': return { type: 'Thread', typeBg: '#A855F7', icon: 'segment', actionLabel: 'Write Thread', borderColor: '#A855F744' };
+                    default: return { type: 'Optimization', typeBg: '#F59E0B', icon: 'tune', actionLabel: 'Optimize', borderColor: '#F59E0B44' };
+                }
+            };
+
+            const strategicAngle = analysis?.strategicAngle || (analysis as any)?.headline || '';
+            const richRecs = actions.slice(0, 6).map((action: any) => {
+                const style = getRecStyle(action.type);
+                const baseImpact = action.type === 'TREND_JACK' ? 92 : action.type === 'REPLY' ? 78 : action.type === 'CAMPAIGN' ? 88 : action.type === 'GAP_FILL' ? 75 : 80;
+                const impactScore = Math.min(99, baseImpact + (mentions.length > 3 ? 5 : 0) + ((socialSignals.trendingTopics?.length || 0) > 2 ? 3 : 0));
+                const dataSignal = action.type === 'TREND_JACK'
+                    ? `Trending: ${(socialSignals.trendingTopics || [])[0]?.headline || action.topic}`
+                    : action.type === 'REPLY'
+                    ? `${mentions.length} recent mentions detected`
+                    : action.type === 'CAMPAIGN'
+                    ? `Market shift: ${strategicAngle.slice(0, 60) || action.topic}`
+                    : `Content gap in ${action.topic || 'market'}`;
+                return {
+                    ...style,
+                    title: action.hook || `${style.type}: ${action.topic}`,
+                    reasoning: action.reasoning || `Strategic opportunity based on ${action.goal}`,
+                    contentIdeas: Array.isArray(action.contentIdeas) ? action.contentIdeas.slice(0, 3) : [],
+                    strategicAlignment: action.strategicAlignment || strategicAngle,
+                    dataSignal, impactScore,
+                    fullDraft: action.instructions || action.reasoning || '',
+                    fullReason: action.reasoning || action.topic || '',
+                    targetId: action.targetId || null,
+                    topic: action.topic, goal: action.goal,
+                    knowledgeConnection: !!brandKnowledgeBlock,
+                    proof: (action as any).proof,
+                };
+            });
+
+            const newSummary = {
+                analysis, agentInsights, actionCount: actions.length, lastUpdated: now,
+                inputCoverage: {
+                    calendarItems: calendarEvents.length,
+                    mentions: mentions.length,
+                    trends: socialSignals.trendingTopics?.length || 0,
+                    knowledgeSignals: enrichedContext.memory.ragDocs.length + deepContext.strategyCount + deepContext.memoryCount,
+                    recentPosts: socialMetrics?.recentPosts?.length || 0
+                }
+            };
+
+            setLlmRecommendations(richRecs);
+            setRegenLastRun(now);
+            setDecisionSummary(newSummary);
+
+            // Persist to localStorage
+            try {
+                localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(richRecs));
+                localStorage.setItem(`defia_recs_ts_${selectedBrand}`, String(now));
+                localStorage.setItem(`defia_recs_ctx_${selectedBrand}`, JSON.stringify(newSummary));
+            } catch {}
+
+            // Also update strategy tasks
+            if (actions.length > 0) {
+                const newTasks = actions.map((action: any) => ({
+                    id: crypto.randomUUID(),
+                    title: action.hook || `Strategy: ${action.topic}`,
+                    description: action.reasoning || `Execute ${action.type.toLowerCase()} for ${action.goal}`,
+                    status: 'pending', type: action.type as any,
+                    contextSource: { type: 'TREND', source: 'Market Pulse', headline: action.topic },
+                    impactScore: 85, executionPrompt: action.topic,
+                    suggestedVisualTemplate: 'Auto',
+                    reasoning: action.reasoning || 'Decision loop produced this action.',
+                    strategicAlignment: action.strategicAlignment, contentIdeas: action.contentIdeas,
+                    proof: (action as any).proof, logicExplanation: (action as any).logicExplanation,
+                    createdAt: Date.now(), feedback: 'neutral'
+                }));
+                setStrategyTasks(newTasks as any);
+            }
+            saveDecisionLoopLastRun(selectedBrand);
+        } catch (e: any) {
+            console.error("Recommendation regen failed", e);
+        } finally {
+            setRegenLoading(false);
+        }
+    };
+
+    // Auto-generate recommendations on brand load if stale (>6h) or empty
+    useEffect(() => {
+        if (!selectedBrand || !profiles[selectedBrand]) return;
+        // Load cached recs for this brand
+        try {
+            const cached = localStorage.getItem(`defia_recs_${selectedBrand}`);
+            const cachedTs = Number(localStorage.getItem(`defia_recs_ts_${selectedBrand}`)) || 0;
+            const cachedCtx = localStorage.getItem(`defia_recs_ctx_${selectedBrand}`);
+            if (cached) setLlmRecommendations(JSON.parse(cached));
+            if (cachedTs) setRegenLastRun(cachedTs);
+            if (cachedCtx) setDecisionSummary(JSON.parse(cachedCtx));
+        } catch {}
+        regenFiredRef.current = false;
+    }, [selectedBrand]);
+
+    useEffect(() => {
+        if (!selectedBrand || regenFiredRef.current || regenLoading) return;
+        const hasRecs = llmRecommendations.length > 0;
+        const hasFallback = agentDecisions && agentDecisions.length > 0;
+        const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 6 * 60 * 60 * 1000);
+        if (!hasRecs && !hasFallback || isStale) {
+            const hasTrends = !!(socialSignals.trendingTopics && socialSignals.trendingTopics.length > 0);
+            const delay = hasTrends ? 3000 : 12000;
+            regenFiredRef.current = true;
+            const timer = setTimeout(() => handleRecommendationRegenerate(), delay);
+            return () => clearTimeout(timer);
+        }
+    }, [selectedBrand, agentDecisions?.length, llmRecommendations.length, regenLoading, socialSignals.trendingTopics?.length]);
+
     const handleTrendToCampaign = (trend: TrendItem) => {
         handleNavigate('campaigns', { title: trend.headline });
     };
@@ -1570,15 +1751,19 @@ const App: React.FC = () => {
                         calendarEvents={calendarEvents}
                         socialMetrics={socialMetrics}
                         chainMetrics={chainMetrics}
-                        socialSignals={socialSignals} // Pass signals
+                        socialSignals={socialSignals}
                         systemLogs={systemLogs}
                         growthReport={growthReport}
                         onNavigate={(section, params) => handleNavigate(section, params)}
                         agentDecisions={agentDecisions}
-                        // New Props from Growth Engine
                         tasks={strategyTasks}
                         onUpdateTasks={setStrategyTasks}
                         onSchedule={handleOpenScheduleModal}
+                        sharedRecommendations={llmRecommendations}
+                        sharedRegenLoading={regenLoading}
+                        sharedRegenLastRun={regenLastRun}
+                        sharedDecisionSummary={decisionSummary}
+                        onRegenerate={handleRecommendationRegenerate}
                     />
                 )}
 
@@ -1759,12 +1944,20 @@ const App: React.FC = () => {
                     <RecommendationsPage
                         brandName={selectedBrand}
                         brandConfig={profiles[selectedBrand]}
-                        calendarEvents={calendarEvents}
                         socialMetrics={socialMetrics}
                         socialSignals={socialSignals}
                         agentDecisions={agentDecisions}
-                        tasks={strategyTasks}
-                        onUpdateTasks={setStrategyTasks}
+                        recommendations={llmRecommendations}
+                        regenLoading={regenLoading}
+                        regenLastRun={regenLastRun}
+                        decisionSummary={decisionSummary}
+                        onRegenerate={handleRecommendationRegenerate}
+                        onDismiss={(idx: number) => {
+                            const updated = [...llmRecommendations];
+                            updated.splice(idx, 1);
+                            setLlmRecommendations(updated);
+                            try { localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(updated)); } catch {}
+                        }}
                         onNavigate={handleNavigate}
                         onSchedule={handleOpenScheduleModal}
                     />

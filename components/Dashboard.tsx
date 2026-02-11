@@ -21,6 +21,12 @@ interface DashboardProps {
     tasks: StrategyTask[];
     onUpdateTasks: (t: StrategyTask[]) => void;
     onSchedule: (content: string, image?: string) => void;
+    // Shared recommendation state from App.tsx
+    sharedRecommendations?: any[];
+    sharedRegenLoading?: boolean;
+    sharedRegenLastRun?: number;
+    sharedDecisionSummary?: any;
+    onRegenerate?: () => void;
 }
 
 const formatEngagements = (metrics: SocialMetrics) => {
@@ -170,7 +176,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     onUpdateTasks,
     onSchedule,
     growthReport,
-    agentDecisions
+    agentDecisions,
+    sharedRecommendations = [],
+    sharedRegenLoading = false,
+    sharedRegenLastRun = 0,
+    sharedDecisionSummary = {},
+    onRegenerate,
 }) => {
     const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([]);
     const [campaignTab, setCampaignTab] = useState<'all' | 'active' | 'completed'>('all');
@@ -769,226 +780,79 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     )}
 
-                    {/* AI CMO Recommendations */}
-                    <div className="rounded-xl border border-[#FF5C0044] overflow-hidden mb-7" style={{ background: 'linear-gradient(135deg, #111113 0%, #1A120D 100%)' }}>
+                    {/* AI CMO Recommendations — Compact Card (full page at /recommendations) */}
+                    <div
+                        onClick={() => onNavigate('recommendations')}
+                        className="rounded-xl border border-[#FF5C0044] overflow-hidden mb-7 cursor-pointer hover:border-[#FF5C0088] transition-all group"
+                        style={{ background: 'linear-gradient(135deg, #111113 0%, #1A120D 100%)' }}
+                    >
                         <div className="flex items-center justify-between px-5 py-4 border-b border-[#FF5C0033]">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/></svg>
+                                    <span className="material-symbols-sharp text-white text-[16px]">auto_awesome</span>
                                 </div>
                                 <span className="text-white text-sm font-semibold">AI CMO Recommendations</span>
-                                {!regenLoading && aiRecommendations.length > 0 && (
-                                    <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">{aiRecommendations.length} Priority Actions</span>
+                                {sharedRecommendations.length > 0 && (
+                                    <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">{sharedRecommendations.length} Actions</span>
                                 )}
-                                {isRichMode && (
+                                {sharedRecommendations.length > 0 && (
                                     <span className="px-2 py-1 rounded-full bg-[#22C55E18] text-[#22C55E] text-[10px] font-medium">LLM Powered</span>
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
-                                {regenLastRun > 0 && (
-                                    <span className="text-[#6B6B70] text-[10px]">Updated {timeAgo(regenLastRun)}</span>
+                                {sharedRegenLastRun > 0 && (
+                                    <span className="text-[#6B6B70] text-[10px]">Updated {timeAgo(sharedRegenLastRun)}</span>
                                 )}
                                 <button
-                                    onClick={handleRegenerate}
-                                    disabled={regenLoading}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${regenLoading ? 'bg-[#FF5C0022] text-[#FF5C00] cursor-wait' : 'bg-white/5 text-[#ADADB0] hover:bg-white/10'}`}
+                                    onClick={(e) => { e.stopPropagation(); if (onRegenerate) onRegenerate(); }}
+                                    disabled={sharedRegenLoading}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${sharedRegenLoading ? 'bg-[#FF5C0022] text-[#FF5C00] cursor-wait' : 'bg-white/5 text-[#ADADB0] hover:bg-white/10'}`}
                                 >
-                                    <svg className={`w-3 h-3 ${regenLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className={`w-3 h-3 ${sharedRegenLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                     </svg>
-                                    {regenLoading ? 'Analyzing...' : 'Refresh'}
+                                    {sharedRegenLoading ? 'Analyzing...' : 'Refresh'}
                                 </button>
                             </div>
                         </div>
 
-                        {/* Loading Skeleton */}
-                        {regenLoading && (
+                        {/* Compact recommendation preview — click to open full page */}
+                        {sharedRegenLoading ? (
                             <div className="p-5">
-                                <div className="flex items-center gap-3 mb-4">
+                                <div className="flex items-center gap-3">
                                     <div className="w-5 h-5 rounded-full border-2 border-[#FF5C00] border-t-transparent animate-spin"></div>
-                                    <span className="text-[#FF5C00] text-xs font-medium">4-Agent Council analyzing market signals, knowledge base & social data...</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    {[1, 2, 3, 4].map(i => (
-                                        <div key={i} className="rounded-xl bg-[#0A0A0B] p-4 border border-[#1F1F23] animate-pulse">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="w-8 h-8 rounded-lg bg-[#1F1F23]"></div>
-                                                <div className="w-16 h-5 rounded bg-[#1F1F23]"></div>
-                                            </div>
-                                            <div className="h-4 w-3/4 bg-[#1F1F23] rounded mb-2"></div>
-                                            <div className="h-3 w-full bg-[#1F1F23] rounded mb-1"></div>
-                                            <div className="h-3 w-2/3 bg-[#1F1F23] rounded mb-4"></div>
-                                            <div className="space-y-1.5 mb-4">
-                                                <div className="h-2.5 w-5/6 bg-[#1F1F23] rounded"></div>
-                                                <div className="h-2.5 w-4/6 bg-[#1F1F23] rounded"></div>
-                                            </div>
-                                            <div className="h-8 w-full bg-[#1F1F23] rounded-md"></div>
-                                        </div>
-                                    ))}
+                                    <span className="text-[#FF5C00] text-xs font-medium">4-Agent Council analyzing market signals...</span>
                                 </div>
                             </div>
-                        )}
-
-                        {/* Recommendation Cards */}
-                        {!regenLoading && (
-                            <div className="p-5">
-                                {aiRecommendations.length > 0 ? (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {aiRecommendations.map((rec: any, i: number) => (
-                                            <div key={i} className="rounded-xl bg-[#0A0A0B] p-4 border transition-all hover:border-opacity-60" style={{ borderColor: rec.borderColor }}>
-                                                {/* Header: Type badge + Impact score */}
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-lg">{rec.icon}</span>
-                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: rec.typeBg }}>{rec.type}</span>
-                                                    </div>
-                                                    {rec.impactScore > 0 && (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <div className="w-12 h-1.5 rounded-full bg-[#1F1F23] overflow-hidden">
-                                                                <div className="h-full rounded-full" style={{
-                                                                    width: `${rec.impactScore}%`,
-                                                                    backgroundColor: rec.impactScore >= 85 ? '#22C55E' : rec.impactScore >= 70 ? '#F59E0B' : '#6B6B70'
-                                                                }}></div>
-                                                            </div>
-                                                            <span className={`text-[10px] font-mono font-bold ${rec.impactScore >= 85 ? 'text-[#22C55E]' : rec.impactScore >= 70 ? 'text-[#F59E0B]' : 'text-[#6B6B70]'}`}>{rec.impactScore}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Title — strip action type prefixes */}
-                                                <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug">{(rec.title || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim() || rec.title}</h4>
-
-                                                {/* Strategic reasoning */}
-                                                <p className="text-[#8B8B8F] text-xs leading-relaxed mb-3">
-                                                    {rec.reasoning ? (rec.reasoning.length > 160 ? rec.reasoning.slice(0, 160) + '...' : rec.reasoning) : 'Strategic opportunity identified by AI analysis.'}
-                                                </p>
-
-                                                {/* Content Ideas (if rich mode) */}
-                                                {rec.contentIdeas && rec.contentIdeas.length > 0 && (
-                                                    <div className="mb-3 pl-3 border-l-2 border-[#FF5C0044]">
-                                                        <span className="text-[10px] font-semibold text-[#FF5C00] tracking-wider block mb-1">CONTENT IDEAS</span>
-                                                        {rec.contentIdeas.slice(0, 3).map((idea: string, j: number) => (
-                                                            <p key={j} className="text-[#ADADB0] text-[11px] leading-relaxed flex items-start gap-1.5">
-                                                                <span className="text-[#FF5C00] mt-0.5">•</span>
-                                                                <span>{idea.length > 90 ? idea.slice(0, 90) + '...' : idea}</span>
-                                                            </p>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {/* Data signal + KB connection */}
-                                                {(rec.dataSignal || rec.knowledgeConnection) && (
-                                                    <div className="flex items-center gap-2 mb-3 flex-wrap">
-                                                        {rec.dataSignal && (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#1F1F23] text-[10px] text-[#ADADB0]">
-                                                                <span className="text-[#F59E0B]">⚡</span> {rec.dataSignal.length > 50 ? rec.dataSignal.slice(0, 50) + '…' : rec.dataSignal}
-                                                            </span>
-                                                        )}
-                                                        {rec.knowledgeConnection && (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#22C55E11] text-[10px] text-[#22C55E]">
-                                                                <span>📚</span> Knowledge Base
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Strategic alignment (if rich mode) */}
-                                                {rec.strategicAlignment && (
-                                                    <p className="text-[10px] text-[#6B6B70] mb-3 italic">
-                                                        Alignment: {rec.strategicAlignment.length > 80 ? rec.strategicAlignment.slice(0, 80) + '…' : rec.strategicAlignment}
-                                                    </p>
-                                                )}
-
-                                                {/* CTA Button */}
-                                                <button
-                                                    onClick={() => handleRecommendationAction(rec)}
-                                                    className="w-full py-2 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
-                                                    style={{ backgroundColor: rec.actionBg, color: '#FFFFFF' }}
-                                                >
-                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                                    </svg>
-                                                    {rec.actionLabel}
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                                        <div className="w-12 h-12 rounded-full bg-[#FF5C0015] flex items-center justify-center mb-3">
-                                            <svg className="w-6 h-6 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                            </svg>
+                        ) : sharedRecommendations.length > 0 ? (
+                            <div className="p-4 space-y-2">
+                                {sharedRecommendations.slice(0, 3).map((rec: any, i: number) => (
+                                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23] hover:border-[#FF5C0044] transition-all">
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: rec.typeBg }}></span>
+                                            <span className="text-[10px] font-bold tracking-wider uppercase flex-shrink-0" style={{ color: rec.typeBg }}>{rec.type}</span>
+                                            <span className="text-white text-sm truncate">{(rec.title || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim()}</span>
                                         </div>
-                                        <p className="text-[#6B6B70] text-sm mb-2">No recommendations yet</p>
-                                        {regenError ? (
-                                            <p className="text-[#F87171] text-xs mb-4">{regenError}</p>
-                                        ) : (
-                                            <p className="text-[#6B6B70] text-xs mb-4">Click Refresh to run the 4-agent AI council and generate strategic recommendations.</p>
-                                        )}
-                                        <button
-                                            onClick={handleRegenerate}
-                                            className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
-                                        >
-                                            {regenError ? 'Retry' : 'Generate Recommendations'}
-                                        </button>
+                                        <span className="text-xs font-medium flex-shrink-0" style={{ color: rec.impactScore >= 85 ? '#22C55E' : rec.impactScore >= 70 ? '#F59E0B' : '#6B6B70' }}>
+                                            {rec.impactScore}%
+                                        </span>
+                                        <span className="material-symbols-sharp text-[14px] text-[#6B7280] flex-shrink-0">chevron_right</span>
                                     </div>
+                                ))}
+                                {sharedRecommendations.length > 3 && (
+                                    <p className="text-center text-[#6B6B70] text-[11px] pt-1">+{sharedRecommendations.length - 3} more recommendations</p>
                                 )}
-                            </div>
-                        )}
-
-                        {/* Agent Insights Bar */}
-                        {decisionSummary.agentInsights && decisionSummary.agentInsights.length > 0 && !regenLoading && (
-                            <div className="border-t border-[#FF5C0022] bg-[#0A0A0B]/60">
-                                <div className="px-5 py-3">
-                                    <div className="flex items-center gap-2 mb-2.5">
-                                        <span className="text-[10px] font-semibold text-[#FF5C00] tracking-widest">AGENT COUNCIL INSIGHTS</span>
-                                        <div className="flex-1 h-px bg-[#1F1F23]"></div>
-                                        {decisionSummary.inputCoverage && (
-                                            <span className="text-[10px] text-[#6B6B70]">
-                                                {decisionSummary.inputCoverage.knowledgeSignals} signals · {decisionSummary.inputCoverage.mentions} mentions · {decisionSummary.inputCoverage.trends} trends
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="grid grid-cols-4 gap-3">
-                                        {decisionSummary.agentInsights.map((insight, idx) => {
-                                            const agentColors: Record<string, string> = {
-                                                'Social Listener': '#3B82F6',
-                                                'Performance Analyst': '#22C55E',
-                                                'Content Planner': '#F59E0B',
-                                                'Knowledge Curator': '#8B5CF6',
-                                            };
-                                            const agentIcons: Record<string, string> = {
-                                                'Social Listener': '👁',
-                                                'Performance Analyst': '📊',
-                                                'Content Planner': '📝',
-                                                'Knowledge Curator': '📚',
-                                            };
-                                            const color = agentColors[insight.agent] || '#FF5C00';
-                                            const icon = agentIcons[insight.agent] || '🤖';
-                                            return (
-                                                <div key={idx} className="rounded-lg bg-[#111113] border border-[#1F1F23] p-3">
-                                                    <div className="flex items-center gap-1.5 mb-1.5">
-                                                        <span className="text-xs">{icon}</span>
-                                                        <span className="text-[10px] font-semibold" style={{ color }}>{insight.agent}</span>
-                                                    </div>
-                                                    <p className="text-[#ADADB0] text-[11px] leading-relaxed mb-1.5">
-                                                        {insight.summary ? (insight.summary.length > 100 ? insight.summary.slice(0, 100) + '...' : insight.summary) : insight.focus}
-                                                    </p>
-                                                    {insight.keySignals && insight.keySignals.length > 0 && (
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {insight.keySignals.slice(0, 2).map((signal, sIdx) => (
-                                                                <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#8B8B8F]">
-                                                                    {signal.length > 30 ? signal.slice(0, 30) + '…' : signal}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                <div className="flex items-center justify-center pt-1">
+                                    <span className="text-[#FF5C00] text-xs font-medium group-hover:underline flex items-center gap-1">
+                                        View All Recommendations
+                                        <span className="material-symbols-sharp text-[14px]">arrow_forward</span>
+                                    </span>
                                 </div>
+                            </div>
+                        ) : (
+                            <div className="p-5 text-center">
+                                <p className="text-[#6B6B70] text-sm mb-2">No recommendations yet</p>
+                                <p className="text-[#6B6B70] text-xs">Click Refresh or open the full Recommendations page.</p>
                             </div>
                         )}
                     </div>
