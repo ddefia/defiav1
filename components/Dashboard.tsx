@@ -249,10 +249,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     useEffect(() => {
         let mounted = true;
-        // Reset auto-regen guard when brand changes
-        autoRegenFired.current = false;
-        setLlmRecommendations([]);
-        setRegenLastRun(0);
         const loadData = async () => {
             try {
                 const [camps] = await Promise.all([fetchCampaignPerformance()]);
