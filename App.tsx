@@ -1790,65 +1790,136 @@ const App: React.FC = () => {
 
                 {/* SCHEDULE / ADD CONTENT MODAL */}
                 {showScheduleModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md animate-fadeIn">
-                            <h3 className="text-lg font-bold text-brand-text mb-4">
-                                {itemToSchedule?.content ? 'Schedule Content' : 'Create New Post'}
-                            </h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Date</label>
-                                    <input
-                                        type="date"
-                                        value={scheduleDate}
-                                        onChange={(e) => setScheduleDate(e.target.value)}
-                                        className="w-full border border-brand-border rounded-lg p-3 text-sm focus:border-brand-accent outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-brand-muted uppercase mb-1 block">Time</label>
-                                    <input
-                                        type="time"
-                                        value={scheduleTime}
-                                        onChange={(e) => setScheduleTime(e.target.value)}
-                                        className="w-full border border-brand-border rounded-lg p-3 text-sm focus:border-brand-accent outline-none"
-                                    />
-                                </div>
-                                <div className="bg-gray-50 p-3 rounded-lg border border-brand-border space-y-3">
-                                    <textarea
-                                        value={itemToSchedule?.content || ''}
-                                        onChange={e => setItemToSchedule(prev => prev ? { ...prev, content: e.target.value } : null)}
-                                        placeholder="Write your post content..."
-                                        className="w-full bg-transparent border-none p-0 text-sm focus:ring-0 resize-none min-h-[80px]"
-                                    />
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowScheduleModal(false)}>
+                        <div
+                            className="rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+                            style={{
+                                backgroundColor: '#0A0A0B',
+                                border: '1px solid #1F1F23',
+                                boxShadow: '0 40px 80px rgba(0,0,0,0.5)',
+                                animation: 'schedModalIn 0.2s ease-out',
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <style>{`
+                                @keyframes schedModalIn {
+                                    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+                                    to { opacity: 1; transform: scale(1) translateY(0); }
+                                }
+                                .sched-input {
+                                    width: 100%;
+                                    background: #111113;
+                                    border: 1px solid #2E2E2E;
+                                    border-radius: 10px;
+                                    padding: 12px 14px;
+                                    font-size: 14px;
+                                    color: #FFFFFF;
+                                    outline: none;
+                                    transition: border-color 0.2s;
+                                    color-scheme: dark;
+                                }
+                                .sched-input:focus { border-color: #FF5C00; }
+                                .sched-input::placeholder { color: #4A4A4E; }
+                            `}</style>
 
-                                    {itemToSchedule?.image ? (
-                                        <div className="relative group">
-                                            <img src={itemToSchedule.image} className="w-full h-32 object-cover rounded-md" />
-                                            <button
-                                                onClick={() => setItemToSchedule(prev => prev ? { ...prev, image: undefined } : null)}
-                                                className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-red-50 px-2"
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2">
-                                            <input type="file" ref={scheduleFileInputRef} onChange={handleScheduleImageUpload} accept="image/*" className="hidden" />
-                                            <button
-                                                onClick={() => scheduleFileInputRef.current?.click()}
-                                                className="text-xs flex items-center gap-2 text-brand-accent font-bold hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                Add Image
-                                            </button>
-                                        </div>
-                                    )}
+                            {/* Header */}
+                            <div className="px-6 py-5 border-b border-[#1F1F23] flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center">
+                                        <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 300" }}>
+                                            {itemToSchedule?.content ? 'schedule_send' : 'edit_calendar'}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-base font-bold text-white">
+                                        {itemToSchedule?.content ? 'Schedule Content' : 'Create New Post'}
+                                    </h3>
                                 </div>
-                                <div className="flex gap-3 pt-2">
-                                    <Button onClick={() => setShowScheduleModal(false)} variant="secondary" className="flex-1">Cancel</Button>
-                                    <Button onClick={handleConfirmSchedule} disabled={!scheduleDate} className="flex-1">Confirm Schedule</Button>
+                                <button
+                                    onClick={() => setShowScheduleModal(false)}
+                                    className="w-8 h-8 rounded-lg bg-[#1F1F23] flex items-center justify-center text-[#6B6B70] hover:text-white hover:bg-[#2A2A2E] transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                </button>
+                            </div>
+
+                            {/* Body */}
+                            <div className="px-6 py-5 space-y-4">
+                                {/* Date & Time Row */}
+                                <div className="flex gap-3">
+                                    <div className="flex-1">
+                                        <label className="text-[11px] font-bold text-[#6B6B70] uppercase tracking-wider mb-1.5 block">Date</label>
+                                        <input
+                                            type="date"
+                                            value={scheduleDate}
+                                            onChange={(e) => setScheduleDate(e.target.value)}
+                                            className="sched-input"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-[11px] font-bold text-[#6B6B70] uppercase tracking-wider mb-1.5 block">Time</label>
+                                        <input
+                                            type="time"
+                                            value={scheduleTime}
+                                            onChange={(e) => setScheduleTime(e.target.value)}
+                                            className="sched-input"
+                                        />
+                                    </div>
                                 </div>
+
+                                {/* Content Area */}
+                                <div>
+                                    <label className="text-[11px] font-bold text-[#6B6B70] uppercase tracking-wider mb-1.5 block">Content</label>
+                                    <div className="rounded-xl bg-[#111113] border border-[#2E2E2E] overflow-hidden focus-within:border-[#FF5C00] transition-colors">
+                                        <textarea
+                                            value={itemToSchedule?.content || ''}
+                                            onChange={e => setItemToSchedule(prev => prev ? { ...prev, content: e.target.value } : null)}
+                                            placeholder="Write your post content..."
+                                            className="w-full bg-transparent px-4 py-3 text-sm text-white placeholder-[#4A4A4E] focus:ring-0 resize-none min-h-[100px] outline-none border-none"
+                                        />
+
+                                        {itemToSchedule?.image ? (
+                                            <div className="relative group mx-4 mb-3">
+                                                <img src={itemToSchedule.image} className="w-full h-32 object-cover rounded-lg border border-[#2E2E2E]" />
+                                                <button
+                                                    onClick={() => setItemToSchedule(prev => prev ? { ...prev, image: undefined } : null)}
+                                                    className="absolute top-2 right-2 w-7 h-7 bg-black/70 text-white rounded-lg flex items-center justify-center hover:bg-[#EF4444] transition-colors"
+                                                >
+                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="px-4 pb-3 flex items-center gap-2">
+                                                <input type="file" ref={scheduleFileInputRef} onChange={handleScheduleImageUpload} accept="image/*" className="hidden" />
+                                                <button
+                                                    onClick={() => scheduleFileInputRef.current?.click()}
+                                                    className="flex items-center gap-1.5 text-xs font-medium text-[#FF5C00] hover:text-[#FF8A4C] px-2 py-1.5 rounded-lg hover:bg-[#FF5C0010] transition-colors"
+                                                >
+                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>add_photo_alternate</span>
+                                                    Add Image
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="px-6 py-4 border-t border-[#1F1F23] flex gap-3">
+                                <button
+                                    onClick={() => setShowScheduleModal(false)}
+                                    className="flex-1 px-4 py-3 rounded-xl bg-[#1F1F23] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors border border-[#2E2E2E]"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConfirmSchedule}
+                                    disabled={!scheduleDate}
+                                    className="flex-1 px-4 py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                                    style={{ background: scheduleDate ? 'linear-gradient(135deg, #FF5C00, #FF8A4C)' : '#1F1F23' }}
+                                >
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>schedule_send</span>
+                                    Confirm Schedule
+                                </button>
                             </div>
                         </div>
                     </div>
