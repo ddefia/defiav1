@@ -18,7 +18,42 @@ interface Tweet {
     likes: number;
     retweets: number;
     replies?: number;
+    mediaUrl?: string;
+    url?: string;
 }
+
+// Format tweet content: line breaks, @mentions, #hashtags, URLs
+const formatTweetContent = (text: string): React.ReactNode => {
+    if (!text) return null;
+    // Split by newlines first, then format each line
+    return text.split('\n').map((line, lineIdx, lines) => {
+        // Regex to match @mentions, #hashtags, and URLs
+        const parts = line.split(/(@\w+|#\w+|https?:\/\/\S+)/g);
+        return (
+            <React.Fragment key={lineIdx}>
+                {parts.map((part, partIdx) => {
+                    if (part.startsWith('@')) {
+                        return <span key={partIdx} className="text-[#1D9BF0] hover:underline cursor-pointer">{part}</span>;
+                    }
+                    if (part.startsWith('#')) {
+                        return <span key={partIdx} className="text-[#1D9BF0] hover:underline cursor-pointer">{part}</span>;
+                    }
+                    if (part.match(/^https?:\/\//)) {
+                        const display = part.replace(/^https?:\/\//, '').slice(0, 30);
+                        return (
+                            <a key={partIdx} href={part} target="_blank" rel="noopener noreferrer"
+                                className="text-[#1D9BF0] hover:underline" onClick={e => e.stopPropagation()}>
+                                {display}{part.replace(/^https?:\/\//, '').length > 30 ? '…' : ''}
+                            </a>
+                        );
+                    }
+                    return <span key={partIdx}>{part}</span>;
+                })}
+                {lineIdx < lines.length - 1 && <br />}
+            </React.Fragment>
+        );
+    });
+};
 
 interface TrendingTopic {
     id: string;
@@ -55,7 +90,9 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
         timestamp: post.date ? getRelativeTime(post.date) : 'Recently',
         likes: post.likes || 0,
         retweets: post.retweets || 0,
-        replies: post.comments || 0
+        replies: post.comments || 0,
+        mediaUrl: post.mediaUrl,
+        url: post.url,
     }));
 
     // Top performing posts - sorted by engagement
@@ -72,7 +109,9 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
             timestamp: post.date ? getRelativeTime(post.date) : 'Recently',
             likes: post.likes || 0,
             retweets: post.retweets || 0,
-            replies: post.comments || 0
+            replies: post.comments || 0,
+            mediaUrl: post.mediaUrl,
+            url: post.url,
         }));
 
     // Build trending topics from engagement history
@@ -265,7 +304,8 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
                             {brandMentions.map((tweet, idx) => (
                                 <div
                                     key={tweet.id}
-                                    className={`flex gap-2.5 px-4 py-3 ${idx < brandMentions.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}
+                                    className={`flex gap-2.5 px-4 py-3 ${tweet.url ? 'cursor-pointer hover:bg-[#FFFFFF04]' : ''} ${idx < brandMentions.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}
+                                    onClick={() => tweet.url && window.open(tweet.url, '_blank')}
                                 >
                                     <div
                                         className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0"
@@ -278,7 +318,10 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
                                             <span className="text-[13px] font-semibold text-white">{tweet.handle}</span>
                                             <span className="text-xs text-[#6B7280]">· {tweet.timestamp}</span>
                                         </div>
-                                        <p className="text-[13px] text-[#D1D5DB] leading-[1.4]">{tweet.content}</p>
+                                        <p className="text-[13px] text-[#D1D5DB] leading-[1.55]">{formatTweetContent(tweet.content)}</p>
+                                        {tweet.mediaUrl && (
+                                            <img src={tweet.mediaUrl} alt="" className="rounded-lg mt-1.5 max-h-[200px] w-full object-cover border border-[#1F1F23]" loading="lazy" />
+                                        )}
                                         <div className="flex items-center gap-4 pt-1.5">
                                             <span className="text-[11px] text-[#6B7280]">❤️ {formatNumber(tweet.likes)}</span>
                                             <span className="text-[11px] text-[#6B7280]">🔄 {formatNumber(tweet.retweets)}</span>
@@ -316,7 +359,8 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
                             {topPosts.map((tweet, idx) => (
                                 <div
                                     key={tweet.id}
-                                    className={`flex gap-2.5 px-4 py-3 ${idx < topPosts.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}
+                                    className={`flex gap-2.5 px-4 py-3 ${tweet.url ? 'cursor-pointer hover:bg-[#FFFFFF04]' : ''} ${idx < topPosts.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}
+                                    onClick={() => tweet.url && window.open(tweet.url, '_blank')}
                                 >
                                     <div
                                         className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0"
@@ -329,7 +373,10 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
                                             <span className="text-[13px] font-semibold text-white">{tweet.handle}</span>
                                             <span className="text-xs text-[#6B7280]">· {tweet.timestamp}</span>
                                         </div>
-                                        <p className="text-[13px] text-[#D1D5DB] leading-[1.4]">{tweet.content}</p>
+                                        <p className="text-[13px] text-[#D1D5DB] leading-[1.55]">{formatTweetContent(tweet.content)}</p>
+                                        {tweet.mediaUrl && (
+                                            <img src={tweet.mediaUrl} alt="" className="rounded-lg mt-1.5 max-h-[200px] w-full object-cover border border-[#1F1F23]" loading="lazy" />
+                                        )}
                                         <div className="flex items-center gap-4 pt-1.5">
                                             <span className="text-[11px] text-[#6B7280]">❤️ {formatNumber(tweet.likes)}</span>
                                             <span className="text-[11px] text-[#6B7280]">🔄 {formatNumber(tweet.retweets)}</span>

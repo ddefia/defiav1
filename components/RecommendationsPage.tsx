@@ -57,6 +57,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
 
     // Derive combined recs: prefer LLM, fallback to agent decisions
+    const isFallbackMode = recommendations.length === 0;
     const allRecommendations = useMemo(() => {
         if (recommendations.length > 0) return recommendations;
         if (!agentDecisions || agentDecisions.length === 0) return [];
@@ -65,14 +66,58 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:')
                 && !text.includes('is not a function') && !text.includes('TypeError') && !text.includes('Failed to');
         });
+
+        // Helper: extract first sentence as a cleaner title
+        const extractTitle = (text: string): string => {
+            if (!text) return 'Strategic opportunity';
+            // Try to get first sentence
+            const sentenceEnd = text.search(/[.!?]\s/);
+            let title = sentenceEnd > 10 ? text.slice(0, sentenceEnd + 1) : text;
+            // If still too long, truncate at word boundary
+            if (title.length > 120) {
+                title = title.slice(0, 117).replace(/\s+\S*$/, '') + '…';
+            }
+            return title;
+        };
+
+        // Derive data signal from action type
+        const getDataSignal = (action: string): string => {
+            const a = (action || '').toUpperCase();
+            switch (a) {
+                case 'REPLY': return 'Engagement opportunity detected';
+                case 'TREND_JACK': return 'Trending topic identified';
+                case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return 'Strategic campaign opportunity';
+                case 'GAP_FILL': return 'Content gap identified';
+                case 'TWEET': return 'Posting opportunity';
+                case 'THREAD': return 'Thread opportunity';
+                default: return 'Agent decision pending review';
+            }
+        };
+
+        // Deterministic score based on action type + content length
+        const getScore = (action: string, draft: string): number => {
+            const base = (action || '').toUpperCase() === 'TREND_JACK' ? 82
+                : (action || '').toUpperCase() === 'CAMPAIGN' ? 80
+                : (action || '').toUpperCase() === 'REPLY' ? 75
+                : (action || '').toUpperCase() === 'GAP_FILL' ? 78
+                : 73;
+            const lengthBonus = Math.min(5, Math.floor((draft || '').length / 50));
+            return Math.min(95, base + lengthBonus);
+        };
+
         return valid.slice(0, 6).map((d: any) => {
             const style = getRecStyle(d.action);
+            const reason = d.reason || '';
+            const draft = d.draft || '';
             return {
-                ...style, title: (d.reason || '').slice(0, 80) || `Strategic opportunity`,
-                reasoning: d.draft || d.reason || 'AI agent detected an opportunity.',
-                contentIdeas: [], strategicAlignment: '', dataSignal: '',
-                impactScore: 70 + Math.floor(Math.random() * 15),
-                fullDraft: d.draft || '', fullReason: d.reason || '',
+                ...style,
+                title: extractTitle(reason),
+                reasoning: reason || 'AI agent detected an opportunity.',
+                contentIdeas: [],
+                strategicAlignment: '',
+                dataSignal: getDataSignal(d.action),
+                impactScore: getScore(d.action, draft),
+                fullDraft: draft, fullReason: reason,
                 targetId: d.targetId, topic: '', goal: '',
             };
         });
@@ -170,6 +215,20 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                     <span className="text-[#FF5C00] font-medium">{allRecommendations.length} pending actions</span>
                 </div>
             </div>
+
+            {/* Fallback mode banner */}
+            {isFallbackMode && allRecommendations.length > 0 && (
+                <div className="px-8 py-2 bg-[#F59E0B08] border-b border-[#F59E0B22]">
+                    <div className="flex items-center gap-2 text-xs">
+                        <span className="material-symbols-sharp text-[14px] text-[#F59E0B]">info</span>
+                        <span className="text-[#F59E0B]/80">Showing agent decisions</span>
+                        <span className="text-[#F59E0B]/40">·</span>
+                        <button onClick={onRegenerate} className="text-[#FF5C00] font-medium hover:underline">
+                            Run Analysis for AI-powered recommendations
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Main content */}
             <div className="flex-1 flex overflow-hidden">
