@@ -74,8 +74,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             const sentenceEnd = text.search(/[.!?]\s/);
             let title = sentenceEnd > 10 ? text.slice(0, sentenceEnd + 1) : text;
             // If still too long, truncate at word boundary
-            if (title.length > 120) {
-                title = title.slice(0, 117).replace(/\s+\S*$/, '') + '…';
+            if (title.length > 200) {
+                title = title.slice(0, 197).replace(/\s+\S*$/, '') + '…';
             }
             return title;
         };
@@ -109,12 +109,24 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             const style = getRecStyle(d.action);
             const reason = d.reason || '';
             const draft = d.draft || '';
+            const getStrategicAlignment = (action: string): string => {
+                const a = (action || '').toUpperCase();
+                switch (a) {
+                    case 'REPLY': return 'Engaging with relevant conversations builds authority and increases organic reach through mutual visibility.';
+                    case 'TREND_JACK': return 'Jumping on trending topics while they peak maximizes impression potential and positions the brand as culturally aware.';
+                    case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return 'Coordinated campaign pushes create compounding engagement effects across your audience base.';
+                    case 'GAP_FILL': return 'Filling content gaps maintains consistent audience engagement and algorithmic favorability.';
+                    case 'TWEET': return 'Regular posting maintains presence in followers\' feeds and compounds organic reach over time.';
+                    case 'THREAD': return 'Thread-format content drives deeper engagement and higher save/share rates than single posts.';
+                    default: return 'Strategic optimization based on current market signals and brand positioning.';
+                }
+            };
             return {
                 ...style,
                 title: extractTitle(reason),
                 reasoning: reason || 'AI agent detected an opportunity.',
                 contentIdeas: [],
-                strategicAlignment: '',
+                strategicAlignment: getStrategicAlignment(d.action),
                 dataSignal: getDataSignal(d.action),
                 impactScore: getScore(d.action, draft),
                 fullDraft: draft, fullReason: reason,
@@ -146,16 +158,10 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     }, [socialMetrics, socialSignals, brandConfig]);
 
     const handleExecute = (rec: any) => {
-        onNavigate('recommendation-detail', {
-            recommendation: rec,
-            agentInsights: decisionSummary?.agentInsights,
-            analysis: decisionSummary?.analysis,
-            inputCoverage: decisionSummary?.inputCoverage,
-            socialMetrics,
-            trendingTopics: socialSignals.trendingTopics || [],
-            brandConfig,
-            generatedAt: regenLastRun || Date.now(),
-        });
+        const draft = rec.fullDraft
+            ? rec.fullDraft.replace(/#\w+/g, '').trim()
+            : rec.contentIdeas?.[0] || `${cleanTitle(rec.fullReason || rec.title)} — strategic move for ${brandName}`;
+        onNavigate('studio', { draft, visualPrompt: rec.title });
     };
 
     // Find real index in allRecommendations for dismiss
@@ -343,19 +349,45 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     </button>
                                     <button onClick={() => handleExecute(selectedRec)}
                                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#FF5C00] to-[#FF8400] text-white text-sm font-semibold hover:opacity-90 transition-all shadow-lg shadow-[#FF5C0033]">
-                                        <span className="material-symbols-sharp text-[16px]">play_arrow</span>
-                                        Execute
+                                        <span className="material-symbols-sharp text-[16px]">edit</span>
+                                        Open in Studio
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Title + description */}
-                            <h2 className="text-white text-2xl font-bold mb-3" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
-                                {cleanTitle(selectedRec.title)}
+                            {/* Title */}
+                            <h2 className="text-white text-2xl font-bold mb-3 leading-snug" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
+                                {cleanTitle(selectedRec.fullReason || selectedRec.reasoning || selectedRec.title)}
                             </h2>
-                            <p className="text-[#9CA3AF] text-[15px] leading-relaxed mb-8 max-w-[700px]">
-                                {selectedRec.reasoning || 'Strategic opportunity identified by the AI council.'}
-                            </p>
+                            {/* Data signal subtitle — only show if different from the title */}
+                            {selectedRec.dataSignal && (
+                                <p className="text-[#9CA3AF] text-[15px] leading-relaxed mb-8 max-w-[700px] flex items-center gap-2">
+                                    <span className="material-symbols-sharp text-[16px] text-[#FF5C00]">bolt</span>
+                                    {selectedRec.dataSignal}
+                                </p>
+                            )}
+
+                            {/* Action Context Banner */}
+                            <div className="rounded-xl bg-[#111113] border border-[#1F1F23] p-4 mb-6 flex items-center gap-3">
+                                <span className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                                    style={{ backgroundColor: `${selectedRec.typeBg}22` }}>
+                                    <span className="material-symbols-sharp text-[20px]"
+                                        style={{ color: selectedRec.typeBg, fontVariationSettings: "'wght' 300" }}>{selectedRec.icon}</span>
+                                </span>
+                                <div>
+                                    <span className="text-white text-sm font-semibold">{selectedRec.type} Opportunity</span>
+                                    <p className="text-[#6B7280] text-xs mt-0.5">
+                                        {selectedRec.type === 'Engagement' ? 'Engage with an active conversation to build community presence and visibility.'
+                                            : selectedRec.type === 'Trend' ? 'Capitalize on a trending topic while it has peak attention.'
+                                            : selectedRec.type === 'Campaign' ? 'Launch a coordinated content push around a strategic theme.'
+                                            : selectedRec.type === 'Content' ? 'Fill a content gap in your posting schedule.'
+                                            : selectedRec.type === 'Community' ? 'Strengthen community bonds with targeted interaction.'
+                                            : selectedRec.type === 'Tweet' ? 'Publish timely content to maintain audience presence.'
+                                            : selectedRec.type === 'Thread' ? 'Create a multi-part thread for deeper engagement.'
+                                            : 'Optimize your content strategy based on current signals.'}
+                                    </p>
+                                </div>
+                            </div>
 
                             {/* Two column: Reasoning + Right cards */}
                             <div className="flex gap-6">
@@ -437,7 +469,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 <span className="text-[#FF5C00] text-sm font-semibold">Draft Content</span>
                                             </div>
                                             <p className="text-[#D1D5DB] text-sm leading-relaxed mb-4">
-                                                {selectedRec.fullDraft.length > 280 ? selectedRec.fullDraft.slice(0, 280) + '...' : selectedRec.fullDraft}
+                                                {selectedRec.fullDraft}
                                             </p>
                                             <button onClick={() => onNavigate('studio', { draft: selectedRec.fullDraft })}
                                                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2E2E2E] text-[#9CA3AF] text-xs hover:bg-[#1F1F23] transition-colors">

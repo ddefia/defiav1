@@ -162,6 +162,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             // Draft takes priority over visual prompt for view selection
             if (initialDraft) {
                 setTweetTopic(initialDraft);
+                setGeneratedTweetPreview(initialDraft);
                 setCurrentView('create-tweet');
             }
             if (initialVisualPrompt) {

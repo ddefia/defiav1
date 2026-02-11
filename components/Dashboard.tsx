@@ -214,10 +214,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const draft = d.draft || '';
             const sentenceEnd = reason.search(/[.!?]\s/);
             let title = sentenceEnd > 10 ? reason.slice(0, sentenceEnd + 1) : reason;
-            if (title.length > 120) title = title.slice(0, 117).replace(/\s+\S*$/, '') + '…';
+            if (title.length > 200) title = title.slice(0, 197).replace(/\s+\S*$/, '') + '…';
             const base = (d.action || '').toUpperCase() === 'TREND_JACK' ? 82 : (d.action || '').toUpperCase() === 'CAMPAIGN' ? 80 : 75;
             const score = Math.min(95, base + Math.min(5, Math.floor(draft.length / 50)));
-            return { ...style, title: title || 'Strategic opportunity', impactScore: score };
+            return { ...style, title: title || 'Strategic opportunity', fullReason: reason, fullDraft: draft, reasoning: reason, impactScore: score };
         });
     }, [sharedRecommendations, agentDecisions]);
 
