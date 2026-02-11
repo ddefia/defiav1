@@ -1,9 +1,8 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { AnalysisReport, SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, DailyBrief } from '../types';
-import { fetchCampaignPerformance, fetchMentions } from '../services/analytics';
-import { generateDailyBrief as generateBriefService, orchestrateMarketingDecision } from '../services/gemini';
-import { getBrainContext } from '../services/pulse';
-import { getBrandRegistryEntry, loadBrainLogs, loadCampaignState, saveDecisionLoopLastRun } from '../services/storage';
+import React, { useState, useMemo, useEffect } from 'react';
+import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, DailyBrief } from '../types';
+import { fetchCampaignPerformance } from '../services/analytics';
+import { generateDailyBrief as generateBriefService } from '../services/gemini';
+import { loadCampaignState } from '../services/storage';
 import { DailyBriefDrawer } from './DailyBriefDrawer';
 import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton';
 
@@ -99,30 +98,6 @@ const transformMetricsToKPIs = (
     ];
 };
 
-// Helper: Map agent decision action to recommendation card styling
-const getRecommendationStyle = (action: string) => {
-    const normalized = (action || '').toUpperCase();
-    switch (normalized) {
-        case 'REPLY':
-            return { type: 'Engage', typeBg: '#3B82F6', icon: '↩️', actionLabel: 'Draft Reply', actionBg: '#3B82F6', borderColor: '#3B82F633' };
-        case 'TREND_JACK':
-            return { type: 'Trend', typeBg: '#8B5CF6', icon: '⚡', actionLabel: 'Create Post', actionBg: '#8B5CF6', borderColor: '#8B5CF633' };
-        case 'CAMPAIGN':
-        case 'CAMPAIGN_IDEA':
-            return { type: 'Campaign', typeBg: '#FF5C00', icon: '📢', actionLabel: 'Plan Campaign', actionBg: '#FF5C00', borderColor: '#FF5C0033' };
-        case 'GAP_FILL':
-            return { type: 'Content Gap', typeBg: '#22C55E', icon: '🎯', actionLabel: 'Fill Gap', actionBg: '#22C55E', borderColor: '#22C55E33' };
-        case 'COMMUNITY':
-            return { type: 'Community', typeBg: '#F59E0B', icon: '👥', actionLabel: 'Engage Community', actionBg: '#F59E0B', borderColor: '#F59E0B33' };
-        case 'TWEET':
-            return { type: 'Tweet', typeBg: '#1DA1F2', icon: '💬', actionLabel: 'Draft Tweet', actionBg: '#1DA1F2', borderColor: '#1DA1F233' };
-        case 'THREAD':
-            return { type: 'Thread', typeBg: '#A855F7', icon: '🧵', actionLabel: 'Write Thread', actionBg: '#A855F7', borderColor: '#A855F733' };
-        default:
-            return { type: 'Strategy', typeBg: '#FF5C00', icon: '🧠', actionLabel: 'Take Action', actionBg: '#FF5C00', borderColor: '#FF5C0033' };
-    }
-};
-
 // Helper: Time ago formatting
 const timeAgo = (ts: string | number) => {
     const diff = Date.now() - new Date(ts).getTime();
@@ -185,13 +160,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
     const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([]);
     const [campaignTab, setCampaignTab] = useState<'all' | 'active' | 'completed'>('all');
-    const [decisionSummary, setDecisionSummary] = useState<{
-        analysis?: AnalysisReport | null;
-        actionCount: number;
-        lastUpdated?: number | null;
-        agentInsights?: { agent: string; focus: string; summary: string; keySignals: string[]; }[];
-        inputCoverage?: { calendarItems: number; mentions: number; trends: number; knowledgeSignals: number; recentPosts: number; };
-    }>({ analysis: null, actionCount: 0, lastUpdated: null });
     const [kickoffState, setKickoffState] = useState<{
         theme: string;
         drafts: any[];
@@ -217,57 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [newsItems, setNewsItems] = useState<{ icon: string; iconBg: string; title: string; source: string; time: string; url?: string; rawArticle?: any }[]>([]);
     const [newsLoading, setNewsLoading] = useState(true);
 
-    // LLM-powered recommendation state
-    const [llmRecommendations, setLlmRecommendations] = useState<any[]>([]);
-    const [regenLoading, setRegenLoading] = useState(false);
-    const [regenError, setRegenError] = useState<string | null>(null);
-    const autoRegenFired = useRef(false);
-    const autoRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const autoRegenFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [regenLastRun, setRegenLastRun] = useState<number>(0);
-
     const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics, campaigns), [socialMetrics, chainMetrics, campaigns]);
-
-    // Derive AI recommendations: prefer LLM-generated, fallback to raw agent decisions
-    const aiRecommendations = useMemo(() => {
-        // Priority 1: LLM-generated rich recommendations
-        if (llmRecommendations.length > 0) return llmRecommendations;
-
-        // Priority 2: Raw agent decisions (fallback) — filter out errored entries
-        if (!agentDecisions || agentDecisions.length === 0) return [];
-        const validDecisions = agentDecisions.filter((d: any) => {
-            const text = (d.reason || '') + (d.draft || '');
-            return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:')
-                && !text.includes('is not a function') && !text.includes('TypeError') && !text.includes('Failed to');
-        });
-        if (validDecisions.length === 0) return [];
-        return validDecisions.slice(0, 3).map((d: any) => {
-            const style = getRecommendationStyle(d.action);
-            const draft = d.draft || '';
-            const reason = d.reason || '';
-            const titleText = reason.length > 80 ? reason.slice(0, 80) + '...' : (reason || `${(d.action || 'ACTION').toUpperCase()}: Strategic opportunity`);
-            const descText = draft ? (draft.length > 140 ? draft.slice(0, 140) + '...' : draft) : (reason || 'AI agent detected an opportunity based on market signals.');
-            return {
-                ...style,
-                title: titleText,
-                reasoning: descText,
-                contentIdeas: [] as string[],
-                strategicAlignment: '',
-                dataSignal: '',
-                impactScore: 70,
-                fullDraft: draft,
-                fullReason: reason,
-                targetId: d.targetId,
-                topic: '',
-                goal: '',
-                knowledgeConnection: false,
-                proof: null,
-            };
-        });
-    }, [agentDecisions, llmRecommendations]);
-
-    // Whether we're showing rich (LLM) or fallback cards
-    const isRichMode = llmRecommendations.length > 0;
 
     // Fetch Web3 news for dashboard
     useEffect(() => {
@@ -365,57 +283,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         });
     }, [brandName, calendarEvents]);
 
-    // Auto-generate recommendations if stale (> 6 hours) or empty on mount
-    useEffect(() => {
-        if (autoRegenFired.current) return;
-        if (regenLoading) return;
-        // Only auto-fire if we have no LLM recommendations and no agent decisions as fallback
-        const hasData = llmRecommendations.length > 0 || (agentDecisions && agentDecisions.length > 0);
-        const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 6 * 60 * 60 * 1000);
-        const shouldAuto = !hasData || isStale;
-        const hasTrends = !!(socialSignals.trendingTopics && socialSignals.trendingTopics.length > 0);
-
-        if (!shouldAuto) {
-            if (autoRegenTimerRef.current) {
-                clearTimeout(autoRegenTimerRef.current);
-                autoRegenTimerRef.current = null;
-            }
-            if (autoRegenFallbackRef.current) {
-                clearTimeout(autoRegenFallbackRef.current);
-                autoRegenFallbackRef.current = null;
-            }
-            return;
-        }
-
-        if (hasTrends) {
-            if (autoRegenFallbackRef.current) {
-                clearTimeout(autoRegenFallbackRef.current);
-                autoRegenFallbackRef.current = null;
-            }
-            if (!autoRegenTimerRef.current) {
-                autoRegenTimerRef.current = setTimeout(() => {
-                    autoRegenFired.current = true;
-                    autoRegenTimerRef.current = null;
-                    handleRegenerate();
-                }, 3000);
-            }
-        } else if (!autoRegenFallbackRef.current) {
-            // Fallback: auto-run even if trends never load (network/token issues)
-            autoRegenFallbackRef.current = setTimeout(() => {
-                autoRegenFired.current = true;
-                autoRegenFallbackRef.current = null;
-                handleRegenerate();
-            }, 12000);
-        }
-
-        return () => {
-            if (autoRegenTimerRef.current) {
-                clearTimeout(autoRegenTimerRef.current);
-                autoRegenTimerRef.current = null;
-            }
-        };
-    }, [brandName, agentDecisions?.length, llmRecommendations.length, regenLoading, regenLastRun, socialSignals.trendingTopics?.length]);
-
     const upcomingContent = calendarEvents
         .filter(e => {
             const target = e.scheduledAt ? new Date(e.scheduledAt) : new Date(e.date);
@@ -433,167 +300,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (campaignTab === 'completed') return campaigns.filter(c => c.status === 'Pause' || c.status === 'Kill');
         return campaigns;
     }, [campaigns, campaignTab]);
-
-    const handleRegenerate = async () => {
-        setRegenLoading(true);
-        setRegenError(null);
-        try {
-            const registry = getBrandRegistryEntry(brandName);
-            const deepContext = await getBrainContext(registry?.brandId);
-            const brainLogs = loadBrainLogs(brandName).slice(0, 5);
-            const brainLogSignals = brainLogs.map(log => `[${log.type}] ${log.context}`).join('\n');
-            const knowledgeBase = brandConfig?.knowledgeBase?.length
-                ? `BRAND KNOWLEDGE:\n${brandConfig.knowledgeBase.slice(0, 8).map(entry => `- ${entry}`).join('\n')}`
-                : '';
-            const positioning = brandConfig?.brandCollectorProfile?.positioning?.oneLiner
-                ? `POSITIONING:\n${brandConfig.brandCollectorProfile.positioning.oneLiner}`
-                : '';
-            const voiceGuidelines = brandConfig?.voiceGuidelines
-                ? `VOICE GUIDELINES:\n${brandConfig.voiceGuidelines}`
-                : '';
-            const brandKnowledgeBlock = [knowledgeBase, positioning, voiceGuidelines].filter(Boolean).join('\n');
-
-            const brainContext = {
-                brand: { ...brandConfig, name: brandName },
-                marketState: { trends: socialSignals.trendingTopics || [], analytics: socialMetrics || undefined, mentions: [] },
-                memory: {
-                    ragDocs: [
-                        deepContext.context ? `DEEP MEMORY:\n${deepContext.context}` : '',
-                        brainLogSignals ? `RECENT BRAIN LOGS:\n${brainLogSignals}` : '',
-                        brandKnowledgeBlock
-                    ].filter(Boolean),
-                    recentPosts: socialMetrics?.recentPosts || [],
-                    pastStrategies: tasks
-                },
-                userObjective: "Identify key market opportunities and execute a strategic response."
-            };
-
-            const mentions = await fetchMentions(brandName);
-            const calendarSignal = calendarEvents.slice(0, 5).map(event => `${event.date} • ${event.platform}: ${event.content}`);
-            const mentionSignal = mentions.slice(0, 5).map(mention => `@${mention.author}: ${mention.text}`);
-            const enrichedContext = {
-                ...brainContext,
-                marketState: { ...brainContext.marketState, mentions },
-                memory: {
-                    ...brainContext.memory,
-                    ragDocs: [
-                        ...brainContext.memory.ragDocs,
-                        calendarSignal.length ? `CALENDAR:\n${calendarSignal.join('\n')}` : '',
-                        mentionSignal.length ? `MENTIONS:\n${mentionSignal.join('\n')}` : '',
-                        agentDecisions.length ? `AGENT DECISIONS:\n${agentDecisions.map((d) => `- ${d.action}: ${d.reason}`).join('\n')}` : ''
-                    ].filter(Boolean)
-                }
-            };
-
-            const { analysis, actions, agentInsights } = await orchestrateMarketingDecision(enrichedContext, { calendarEvents, mentions });
-
-            // Populate decision summary (agent insights, coverage, etc.)
-            const now = Date.now();
-            setDecisionSummary({
-                analysis,
-                actionCount: actions.length,
-                lastUpdated: now,
-                agentInsights,
-                inputCoverage: {
-                    calendarItems: calendarEvents.length,
-                    mentions: mentions.length,
-                    trends: socialSignals.trendingTopics?.length || 0,
-                    knowledgeSignals: enrichedContext.memory.ragDocs.length + deepContext.strategyCount + deepContext.memoryCount,
-                    recentPosts: socialMetrics?.recentPosts?.length || 0
-                }
-            });
-
-            if (actions.length === 0) {
-                setRegenError('AI council returned no actionable recommendations. Try refreshing once more after market signals finish loading.');
-            }
-
-            // Build rich LLM recommendation cards from actions
-            const strategicAngle = analysis?.strategicAngle || (analysis as any)?.headline || '';
-            const richRecs = actions.slice(0, 4).map((action: any, idx: number) => {
-                const style = getRecommendationStyle(action.type);
-                // Compute impact score based on action type + market context
-                const baseImpact = action.type === 'TREND_JACK' ? 92 : action.type === 'REPLY' ? 78 : action.type === 'CAMPAIGN' ? 88 : action.type === 'GAP_FILL' ? 75 : 80;
-                const impactScore = Math.min(99, baseImpact + (mentions.length > 3 ? 5 : 0) + (socialSignals.trendingTopics?.length > 2 ? 3 : 0));
-                // Data signal: what triggered this
-                const dataSignal = action.type === 'TREND_JACK'
-                    ? `Trending: ${(socialSignals.trendingTopics || [])[0]?.headline || action.topic}`
-                    : action.type === 'REPLY'
-                    ? `${mentions.length} recent mention${mentions.length !== 1 ? 's' : ''} detected`
-                    : action.type === 'CAMPAIGN'
-                    ? `Market shift: ${strategicAngle.slice(0, 60) || action.topic}`
-                    : `Content gap identified in ${action.topic || 'market'}`;
-
-                return {
-                    ...style,
-                    title: action.hook || `${style.type}: ${action.topic}`,
-                    reasoning: action.reasoning || `Strategic opportunity based on ${action.goal}`,
-                    contentIdeas: Array.isArray(action.contentIdeas) ? action.contentIdeas.slice(0, 3) : [],
-                    strategicAlignment: action.strategicAlignment || strategicAngle,
-                    dataSignal,
-                    impactScore,
-                    fullDraft: action.instructions || action.reasoning || '',
-                    fullReason: action.reasoning || action.topic || '',
-                    targetId: action.targetId || null,
-                    topic: action.topic,
-                    goal: action.goal,
-                    knowledgeConnection: brandKnowledgeBlock ? true : false,
-                    proof: (action as any).proof,
-                };
-            });
-            setLlmRecommendations(richRecs);
-            setRegenLastRun(now);
-
-            // Also create strategy tasks
-            if (actions.length > 0) {
-                const newTasks = actions.map(action => ({
-                    id: crypto.randomUUID(),
-                    title: action.hook || `Strategy: ${action.topic}`,
-                    description: action.reasoning || `Execute ${action.type.toLowerCase()} for ${action.goal}`,
-                    status: 'pending',
-                    type: action.type as any,
-                    contextSource: { type: 'TREND', source: 'Market Pulse', headline: action.topic },
-                    impactScore: 85,
-                    executionPrompt: action.topic,
-                    suggestedVisualTemplate: 'Auto',
-                    reasoning: action.reasoning || 'Decision loop produced this action.',
-                    strategicAlignment: action.strategicAlignment,
-                    contentIdeas: action.contentIdeas,
-                    proof: (action as any).proof,
-                    logicExplanation: (action as any).logicExplanation,
-                    createdAt: Date.now(),
-                    feedback: 'neutral'
-                }));
-                onUpdateTasks(newTasks as any);
-            }
-            saveDecisionLoopLastRun(brandName);
-        } catch (e: any) {
-            console.error("Regen Failed", e);
-            const message = e?.message || 'Refresh failed. Check your API keys and try again.';
-            setRegenError(message);
-        } finally {
-            setRegenLoading(false);
-        }
-    };
-
-    const handleRecommendationAction = (rec: any) => {
-        if (!onNavigate) {
-            const draft = rec.fullDraft || rec.reasoning || rec.title || '';
-            onSchedule(draft);
-            return;
-        }
-
-        // Navigate to the recommendation detail page with full context
-        onNavigate('recommendation-detail', {
-            recommendation: rec,
-            agentInsights: decisionSummary.agentInsights,
-            analysis: decisionSummary.analysis,
-            inputCoverage: decisionSummary.inputCoverage,
-            socialMetrics,
-            trendingTopics: socialSignals.trendingTopics || [],
-            brandConfig,
-            generatedAt: decisionSummary.lastUpdated || Date.now(),
-        });
-    };
 
     const getContentTypeIcon = (platform: string) => {
         switch (platform.toLowerCase()) {

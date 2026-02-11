@@ -1393,7 +1393,7 @@ const App: React.FC = () => {
         handleNavigate('campaigns', { title: trend.headline });
     };
 
-    const handleNavigate = useCallback((section: string, params: any) => {
+    const handleNavigate = useCallback((section: string, params?: any) => {
         setAppSection(section);
 
         // Campaigns: Pre-fill Concept
