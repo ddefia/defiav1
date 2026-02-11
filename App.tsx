@@ -1674,6 +1674,7 @@ const App: React.FC = () => {
                 {appSection === 'twitter-feed' && selectedBrand && (
                     <TwitterFeed
                         brandName={selectedBrand}
+                        socialMetrics={socialMetrics}
                         onNavigate={handleNavigate}
                     />
                 )}

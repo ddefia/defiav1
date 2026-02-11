@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TrendItem, BrandConfig } from '../types';
 import { fetchMarketPulse } from '../services/pulse';
 import { loadPulseCache, savePulseCache } from '../services/storage';
+import { getSupabase } from '../services/supabaseClient';
 
 interface Web3NewsFeedProps {
     brandName: string;
@@ -20,38 +21,47 @@ export interface NewsItem extends TrendItem {
     relevanceBadge?: string;
 }
 
-// Mock trending topics
-const TRENDING_TOPICS = [
-    { hashtag: '#SolanaDeFi', posts: '24.5k' },
-    { hashtag: '#YieldFarming', posts: '18.2k' },
-    { hashtag: '#AITrading', posts: '12.8k' },
-    { hashtag: '#CryptoRegulation', posts: '9.4k' },
-];
+interface AIInsight {
+    type: string;
+    icon: string;
+    color: string;
+    title: string;
+    description: string;
+}
 
-// Mock AI insights
-const AI_INSIGHTS = [
-    {
-        type: 'opportunity',
-        icon: 'trending_up',
-        color: '#22C55E',
-        title: 'Market Opportunity',
-        description: 'Solana DeFi growth aligns with SolanaFi\'s positioning. Consider content highlighting your yield features.'
-    },
-    {
-        type: 'competitor',
-        icon: 'visibility',
-        color: '#3B82F6',
-        title: 'Competitor Watch',
-        description: 'AI trading bot growth indicates rising competition. Differentiate with your automated strategy features.'
-    },
-    {
-        type: 'compliance',
-        icon: 'shield',
-        color: '#F59E0B',
-        title: 'Compliance Alert',
-        description: 'SEC guidelines may require updated disclosures. Review your documentation by Q2.'
+interface TrendingTopic {
+    hashtag: string;
+    count: number;
+}
+
+const NEWS_SUPABASE_KEY = 'defia_web3_news_cache_v1';
+
+/**
+ * Try to load news from the Supabase cache that the server cron populates every 6 hours.
+ * This is the fastest path — no Apify actors, just a DB read.
+ */
+const loadServerNewsCache = async (brandName: string): Promise<{ items: TrendItem[]; lastFetched: number } | null> => {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+
+    try {
+        const key = `${NEWS_SUPABASE_KEY}_${brandName.toLowerCase()}`;
+        const { data, error } = await supabase
+            .from('app_storage')
+            .select('value')
+            .eq('key', key)
+            .maybeSingle();
+
+        if (error || !data?.value) return null;
+        const cache = data.value as { items: TrendItem[]; lastFetched: number };
+        if (cache.items && cache.items.length > 0) {
+            return cache;
+        }
+        return null;
+    } catch {
+        return null;
     }
-];
+};
 
 export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConfig, onCreateContent, onSelectArticle }) => {
     const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
@@ -61,31 +71,62 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
     const [lastUpdated, setLastUpdated] = useState<number>(0);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Fetch news data
+    // Fetch news data — prioritize server cache (Supabase), then localStorage, then live fetch
     useEffect(() => {
-        const cache = loadPulseCache(brandName);
-        if (cache.items.length > 0) {
-            setNewsItems(transformToNewsItems(cache.items));
-            setLastUpdated(cache.lastUpdated);
-            setIsLoading(false); // Show cached data immediately
-        }
+        let cancelled = false;
 
-        const now = Date.now();
-        const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache — no need to re-fetch on every tab switch
-        const shouldFetch = (now - cache.lastUpdated) > CACHE_DURATION || cache.items.length === 0;
+        const loadData = async () => {
+            // 1. INSTANT: Show localStorage cache immediately (if any)
+            const localCache = loadPulseCache(brandName);
+            if (localCache.items.length > 0 && !cancelled) {
+                setNewsItems(transformToNewsItems(localCache.items));
+                setLastUpdated(localCache.lastUpdated);
+                setIsLoading(false);
+            }
 
-        if (shouldFetch) {
-            handleRefresh();
-        } else {
-            setIsLoading(false);
-        }
+            // 2. FAST: Try Supabase server cache (populated by cron every 6h)
+            try {
+                const serverCache = await loadServerNewsCache(brandName);
+                if (serverCache && serverCache.items.length > 0 && !cancelled) {
+                    const transformed = transformToNewsItems(serverCache.items);
+                    setNewsItems(transformed);
+                    setLastUpdated(serverCache.lastFetched);
+                    setIsLoading(false);
 
-        // Auto-refresh every 10 minutes
+                    // Sync server cache → localStorage for next instant load
+                    savePulseCache(brandName, { lastUpdated: serverCache.lastFetched, items: serverCache.items });
+
+                    // If server cache is fresh enough (< 12 hours), don't bother with live fetch
+                    const cacheAge = Date.now() - serverCache.lastFetched;
+                    if (cacheAge < 12 * 60 * 60 * 1000) {
+                        return; // Server cache is fresh, no need for Apify
+                    }
+                }
+            } catch (e) {
+                console.warn('[Web3News] Server cache load failed:', e);
+            }
+
+            // 3. SLOW (only if no fresh cache): Live fetch via Apify
+            const now = Date.now();
+            const CACHE_DURATION = 30 * 60 * 1000; // 30 min — much more conservative than before (was 10min)
+            const shouldFetch = (now - (lastUpdated || localCache.lastUpdated)) > CACHE_DURATION || newsItems.length === 0;
+
+            if (shouldFetch && !cancelled) {
+                await handleRefresh();
+            } else if (!cancelled) {
+                setIsLoading(false);
+            }
+        };
+
+        loadData();
+
+        // Auto-refresh every 30 minutes (not 10 — server cron handles freshness)
         intervalRef.current = setInterval(() => {
             handleRefresh();
-        }, CACHE_DURATION);
+        }, 30 * 60 * 1000);
 
         return () => {
+            cancelled = true;
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
     }, [brandName]);
@@ -101,7 +142,7 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
             })
             .map(item => ({
                 ...item,
-                sourceName: item.source === 'Twitter' ? 'The Block' : 'Decrypt',
+                sourceName: item.source === 'Twitter' ? 'X / Twitter' : (item.source || 'Web3 News'),
                 category: item.topic?.toLowerCase() || 'defi',
                 relevanceBadge: item.relevanceScore > 80 ? `High relevance to ${brandName}` :
                                item.relevanceScore > 60 ? 'Direct competitor analysis' :
@@ -139,6 +180,77 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
         return true;
     });
 
+    // Derive trending topics from actual news categories
+    const derivedTrending: TrendingTopic[] = (() => {
+        const categoryCount = new Map<string, number>();
+        newsItems.forEach(item => {
+            const cat = (item.category || 'crypto').toLowerCase();
+            categoryCount.set(cat, (categoryCount.get(cat) || 0) + 1);
+        });
+        const topicMap: Record<string, string> = {
+            defi: '#DeFi', nfts: '#NFTs', solana: '#Solana', ai: '#AIxCrypto',
+            regulations: '#CryptoRegulation', bitcoin: '#Bitcoin', ethereum: '#Ethereum', crypto: '#Crypto'
+        };
+        return Array.from(categoryCount.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 4)
+            .map(([cat, count]) => ({
+                hashtag: topicMap[cat] || `#${cat.charAt(0).toUpperCase() + cat.slice(1)}`,
+                count
+            }));
+    })();
+
+    // Derive AI insights from actual news data
+    const derivedInsights: AIInsight[] = (() => {
+        const insights: AIInsight[] = [];
+        const defiCount = newsItems.filter(i => i.category === 'defi').length;
+        const regCount = newsItems.filter(i => i.category === 'regulations').length;
+        const highRelevance = newsItems.filter(i => i.relevanceScore > 80);
+
+        if (highRelevance.length > 0) {
+            insights.push({
+                type: 'opportunity',
+                icon: 'trending_up',
+                color: '#22C55E',
+                title: 'Content Opportunity',
+                description: `${highRelevance.length} high-relevance article${highRelevance.length > 1 ? 's' : ''} found. "${highRelevance[0].headline?.slice(0, 60)}..." could be great for brand content.`
+            });
+        }
+        if (defiCount >= 2) {
+            insights.push({
+                type: 'trend',
+                icon: 'visibility',
+                color: '#3B82F6',
+                title: 'DeFi Trending',
+                description: `${defiCount} DeFi-related stories today. Consider creating content that positions ${brandName} within this narrative.`
+            });
+        }
+        if (regCount > 0) {
+            insights.push({
+                type: 'compliance',
+                icon: 'shield',
+                color: '#F59E0B',
+                title: 'Regulation Watch',
+                description: `${regCount} regulation-related article${regCount > 1 ? 's' : ''} detected. Review for potential compliance implications.`
+            });
+        }
+        if (insights.length === 0 && newsItems.length > 0) {
+            insights.push({
+                type: 'overview',
+                icon: 'newspaper',
+                color: '#9CA3AF',
+                title: 'Market Overview',
+                description: `${newsItems.length} news items tracked. Browse the feed to find content creation opportunities for ${brandName}.`
+            });
+        }
+        return insights;
+    })();
+
+    // Derive suggested action from top news item
+    const suggestedAction = filteredNews.length > 0
+        ? `Create content about "${filteredNews[0].headline?.slice(0, 80)}..." — this story has a ${filteredNews[0].relevanceScore}% relevance score to ${brandName}.`
+        : `Browse the latest Web3 news to find content creation opportunities for ${brandName}.`;
+
     const categories: { id: CategoryFilter; label: string }[] = [
         { id: 'all', label: 'All News' },
         { id: 'defi', label: 'DeFi' },
@@ -155,7 +267,10 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
         const hours = Math.floor(diff / (1000 * 60 * 60));
         if (hours < 1) return 'Just now';
         if (hours === 1) return '1 hour ago';
-        return `${hours} hours ago`;
+        if (hours < 24) return `${hours} hours ago`;
+        const days = Math.floor(hours / 24);
+        if (days === 1) return '1 day ago';
+        return `${days} days ago`;
     };
 
     const getCategoryBadge = (category?: string) => {
@@ -175,7 +290,12 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
             <div className="flex items-center justify-between px-10 py-6 border-b border-[#1F1F23]">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-bold text-white">Web3 News Feed</h1>
-                    <p className="text-sm text-[#6B6B70]">Stay informed on crypto trends that matter to your brand</p>
+                    <p className="text-sm text-[#6B6B70]">
+                        Stay informed on crypto trends that matter to your brand
+                        {lastUpdated > 0 && (
+                            <span className="ml-2 text-[#4B4B50]">· Updated {getTimeAgo(lastUpdated)}</span>
+                        )}
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
                     {/* Search Box */}
@@ -189,10 +309,14 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
                             className="bg-transparent border-none outline-none text-sm text-white placeholder-[#6B6B70] w-32"
                         />
                     </div>
-                    {/* Filter Button */}
-                    <button className="flex items-center gap-1.5 px-3.5 py-2.5 bg-transparent border border-[#2E2E2E] rounded-lg text-white text-sm font-medium hover:bg-[#1F1F23] transition-colors">
-                        <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>tune</span>
-                        Filter
+                    {/* Refresh Button */}
+                    <button
+                        onClick={handleRefresh}
+                        disabled={isLoading}
+                        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-transparent border border-[#2E2E2E] rounded-lg text-white text-sm font-medium hover:bg-[#1F1F23] transition-colors disabled:opacity-50"
+                    >
+                        <span className={`material-symbols-sharp text-base ${isLoading ? 'animate-spin' : ''}`} style={{ fontVariationSettings: "'wght' 300" }}>refresh</span>
+                        {isLoading ? 'Loading...' : 'Refresh'}
                     </button>
                 </div>
             </div>
@@ -262,9 +386,9 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
                                                 {/* Meta */}
                                                 <div className="flex items-center gap-2 text-xs">
                                                     <span className="text-[#FF5C00] font-medium">{item.sourceName}</span>
-                                                    <span className="text-[#64748B]">•</span>
+                                                    <span className="text-[#64748B]">&bull;</span>
                                                     <span className="text-[#64748B]">{getTimeAgo(item.timestamp)}</span>
-                                                    <span className="text-[#64748B]">•</span>
+                                                    <span className="text-[#64748B]">&bull;</span>
                                                     <span className={`px-2 py-0.5 rounded ${badge.bg} ${badge.text} text-[11px] font-medium`}>
                                                         {item.category?.charAt(0).toUpperCase() + (item.category?.slice(1) || '')}
                                                     </span>
@@ -310,21 +434,27 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
                         </div>
                         <p className="text-[#9CA3AF] text-[13px] mb-4">How today's news impacts your brand:</p>
 
-                        {/* Insights */}
+                        {/* Insights - derived from real data */}
                         <div className="flex flex-col gap-3">
-                            {AI_INSIGHTS.map((insight, i) => (
-                                <div key={i} className="bg-[#1A1A1D] rounded-lg p-3 space-y-1.5">
-                                    <div className="flex items-center gap-2">
-                                        <span className="material-symbols-sharp text-sm" style={{ color: insight.color, fontVariationSettings: "'wght' 300" }}>{insight.icon}</span>
-                                        <span className="text-sm font-medium" style={{ color: insight.color }}>{insight.title}</span>
-                                    </div>
-                                    <p className="text-[#9CA3AF] text-xs leading-relaxed">{insight.description}</p>
+                            {derivedInsights.length === 0 ? (
+                                <div className="bg-[#1A1A1D] rounded-lg p-3 space-y-1.5">
+                                    <p className="text-[#9CA3AF] text-xs leading-relaxed">Loading news analysis...</p>
                                 </div>
-                            ))}
+                            ) : (
+                                derivedInsights.map((insight, i) => (
+                                    <div key={i} className="bg-[#1A1A1D] rounded-lg p-3 space-y-1.5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-sharp text-sm" style={{ color: insight.color, fontVariationSettings: "'wght' 300" }}>{insight.icon}</span>
+                                            <span className="text-sm font-medium" style={{ color: insight.color }}>{insight.title}</span>
+                                        </div>
+                                        <p className="text-[#9CA3AF] text-xs leading-relaxed">{insight.description}</p>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
 
-                    {/* Trending Topics Card */}
+                    {/* Trending Topics Card - derived from real news categories */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5">
                         <div className="flex items-center gap-2 mb-4">
                             <span className="material-symbols-sharp text-[#FF5C00] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>local_fire_department</span>
@@ -332,15 +462,19 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
                         </div>
 
                         <div className="flex flex-col gap-3.5">
-                            {TRENDING_TOPICS.map((topic, i) => (
-                                <div key={i} className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[#FF5C00] text-sm font-semibold">{i + 1}</span>
-                                        <span className="text-white text-sm font-medium">{topic.hashtag}</span>
+                            {derivedTrending.length === 0 ? (
+                                <p className="text-[#64748B] text-sm">No trending topics yet</p>
+                            ) : (
+                                derivedTrending.map((topic, i) => (
+                                    <div key={i} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[#FF5C00] text-sm font-semibold">{i + 1}</span>
+                                            <span className="text-white text-sm font-medium">{topic.hashtag}</span>
+                                        </div>
+                                        <span className="text-[#64748B] text-xs">{topic.count} article{topic.count !== 1 ? 's' : ''}</span>
                                     </div>
-                                    <span className="text-[#64748B] text-xs">{topic.posts} posts</span>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     </div>
 
@@ -352,7 +486,7 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
                         </div>
 
                         <p className="text-[#D1D5DB] text-[13px] leading-relaxed mb-4">
-                            Create a thread about {brandName}'s yield optimization in response to the DeFi TVL surge news.
+                            {suggestedAction}
                         </p>
 
                         <button
