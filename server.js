@@ -1781,6 +1781,15 @@ app.get('/api/action-center/:brand', async (req, res) => {
     const brandKey = brand.toLowerCase();
     let decisions = [];
 
+    // Filter out errored or garbage decisions
+    const isValidDecision = (d) => {
+        if (!d || !d.action) return false;
+        if (d.action === 'ERROR' || d.action === 'NO_ACTION') return false;
+        const reason = (d.reason || '').toLowerCase();
+        if (reason.includes('could not load') || reason.includes('quota') || reason.includes('credentials')) return false;
+        return true;
+    };
+
     try {
         const supabase = getSupabaseClient();
         if (supabase) {
@@ -1805,14 +1814,14 @@ app.get('/api/action-center/:brand', async (req, res) => {
                     .order('created_at', { ascending: false })
                     .limit(50);
 
-                decisions = dbDecisions || [];
+                decisions = (dbDecisions || []).filter(isValidDecision);
             }
         }
 
         if (decisions.length === 0 && fs.existsSync(DECISIONS_FILE)) {
             const data = JSON.parse(fs.readFileSync(DECISIONS_FILE, 'utf-8'));
             decisions = Array.isArray(data)
-                ? data.filter(item => (item.brandId || '').toLowerCase() === brandKey)
+                ? data.filter(item => (item.brandId || '').toLowerCase() === brandKey).filter(isValidDecision)
                 : [];
         }
     } catch (e) {
