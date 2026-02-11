@@ -4,6 +4,7 @@ import { fetchCampaignPerformance } from '../services/analytics';
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
 import { loadCampaignState } from '../services/storage';
 import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton';
+import { generateSupplementalRecs } from './RecommendationsPage';
 
 interface DashboardProps {
     brandName: string;
@@ -187,39 +188,52 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics, campaigns), [socialMetrics, chainMetrics, campaigns]);
 
     // Derive fallback recommendations from agentDecisions if sharedRecommendations is empty
+    // Supplements with data-driven recs when total < 3
     const displayRecommendations = useMemo(() => {
-        if (sharedRecommendations.length > 0) return sharedRecommendations;
-        if (!agentDecisions || agentDecisions.length === 0) return [];
-        const valid = agentDecisions.filter((d: any) => {
-            const text = (d.reason || '') + (d.draft || '');
-            return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:')
-                && !text.includes('is not a function') && !text.includes('TypeError') && !text.includes('Failed to');
-        });
-        const getRecStyleLocal = (action: string) => {
-            const n = (action || '').toUpperCase();
-            switch (n) {
-                case 'REPLY': return { type: 'Engagement', typeBg: '#3B82F6' };
-                case 'TREND_JACK': return { type: 'Trend', typeBg: '#8B5CF6' };
-                case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return { type: 'Campaign', typeBg: '#FF5C00' };
-                case 'GAP_FILL': return { type: 'Content', typeBg: '#22C55E' };
-                case 'COMMUNITY': return { type: 'Community', typeBg: '#F59E0B' };
-                case 'TWEET': return { type: 'Tweet', typeBg: '#1DA1F2' };
-                case 'THREAD': return { type: 'Thread', typeBg: '#A855F7' };
-                default: return { type: 'Optimization', typeBg: '#F59E0B' };
-            }
-        };
-        return valid.slice(0, 6).map((d: any) => {
-            const style = getRecStyleLocal(d.action);
-            const reason = d.reason || '';
-            const draft = d.draft || '';
-            const sentenceEnd = reason.search(/[.!?]\s/);
-            let title = sentenceEnd > 10 ? reason.slice(0, sentenceEnd + 1) : reason;
-            if (title.length > 200) title = title.slice(0, 197).replace(/\s+\S*$/, '') + '…';
-            const base = (d.action || '').toUpperCase() === 'TREND_JACK' ? 82 : (d.action || '').toUpperCase() === 'CAMPAIGN' ? 80 : 75;
-            const score = Math.min(95, base + Math.min(5, Math.floor(draft.length / 50)));
-            return { ...style, title: title || 'Strategic opportunity', fullReason: reason, fullDraft: draft, reasoning: reason, impactScore: score };
-        });
-    }, [sharedRecommendations, agentDecisions]);
+        let primary: any[] = [];
+
+        if (sharedRecommendations.length > 0) {
+            primary = sharedRecommendations;
+        } else if (agentDecisions && agentDecisions.length > 0) {
+            const valid = agentDecisions.filter((d: any) => {
+                const text = (d.reason || '') + (d.draft || '');
+                return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:')
+                    && !text.includes('is not a function') && !text.includes('TypeError') && !text.includes('Failed to');
+            });
+            const getRecStyleLocal = (action: string) => {
+                const n = (action || '').toUpperCase();
+                switch (n) {
+                    case 'REPLY': return { type: 'Engagement', typeBg: '#3B82F6' };
+                    case 'TREND_JACK': return { type: 'Trend', typeBg: '#8B5CF6' };
+                    case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return { type: 'Campaign', typeBg: '#FF5C00' };
+                    case 'GAP_FILL': return { type: 'Content', typeBg: '#22C55E' };
+                    case 'COMMUNITY': return { type: 'Community', typeBg: '#F59E0B' };
+                    case 'TWEET': return { type: 'Tweet', typeBg: '#1DA1F2' };
+                    case 'THREAD': return { type: 'Thread', typeBg: '#A855F7' };
+                    default: return { type: 'Optimization', typeBg: '#F59E0B' };
+                }
+            };
+            primary = valid.slice(0, 6).map((d: any) => {
+                const style = getRecStyleLocal(d.action);
+                const reason = d.reason || '';
+                const draft = d.draft || '';
+                const sentenceEnd = reason.search(/[.!?]\s/);
+                let title = sentenceEnd > 10 ? reason.slice(0, sentenceEnd + 1) : reason;
+                if (title.length > 200) title = title.slice(0, 197).replace(/\s+\S*$/, '') + '…';
+                const base = (d.action || '').toUpperCase() === 'TREND_JACK' ? 82 : (d.action || '').toUpperCase() === 'CAMPAIGN' ? 80 : 75;
+                const score = Math.min(95, base + Math.min(5, Math.floor(draft.length / 50)));
+                return { ...style, title: title || 'Strategic opportunity', fullReason: reason, fullDraft: draft, reasoning: reason, impactScore: score };
+            });
+        }
+
+        // Supplement with data-driven recs if primary count is below 3
+        if (primary.length < 3) {
+            const supplemental = generateSupplementalRecs(brandName, socialSignals, socialMetrics, brandConfig);
+            return [...primary, ...supplemental].slice(0, 6);
+        }
+
+        return primary;
+    }, [sharedRecommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig]);
 
     // Fetch Web3 news for dashboard
     useEffect(() => {

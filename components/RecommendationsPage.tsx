@@ -48,6 +48,108 @@ const getPriorityLabel = (score: number) => score >= 85 ? 'High' : score >= 70 ?
 const getPriorityColor = (score: number) => score >= 85 ? '#22C55E' : score >= 70 ? '#F59E0B' : '#6B6B70';
 const cleanTitle = (title: string) => (title || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA|TWEET|THREAD)\s*:\s*/i, '').trim() || title;
 
+// Generate supplemental recommendations from available data signals (no API calls)
+// Only used to fill gaps when primary recs (LLM or agent decisions) are insufficient
+// Exported for reuse in Dashboard.tsx
+export const generateSupplementalRecs = (
+    brandName: string,
+    socialSignals: SocialSignals,
+    socialMetrics: SocialMetrics | null,
+    brandConfig: BrandConfig,
+): any[] => {
+    const recs: any[] = [];
+    const topics = socialSignals.trendingTopics || [];
+    const narratives = socialSignals.activeNarratives || [];
+    const keywords = brandConfig.keywords || [];
+    const knowledgeBase = brandConfig.knowledgeBase || [];
+    const engagementRate = socialMetrics?.engagementRate || 0;
+    const recentPostCount = socialMetrics?.recentPosts?.length || 0;
+
+    // 1. Trending topic → TREND_JACK (up to 2)
+    for (const trend of topics.slice(0, 2)) {
+        const matchingKeyword = keywords.find(kw =>
+            trend.headline.toLowerCase().includes(kw.toLowerCase()) ||
+            trend.summary.toLowerCase().includes(kw.toLowerCase())
+        );
+        const expertise = matchingKeyword || (knowledgeBase.length > 0 ? 'core expertise' : brandName);
+        recs.push({
+            ...getRecStyle('TREND_JACK'),
+            title: `Capitalize on "${trend.headline}" — connect ${brandName}'s ${expertise} to this trending narrative`,
+            reasoning: `"${trend.headline}" is trending with ${trend.relevanceScore}% relevance to ${brandName}. ${trend.relevanceReason || `This is an opportunity to position ${brandName} within an active conversation.`}`,
+            fullReason: `"${trend.headline}" is trending with ${trend.relevanceScore}% relevance to ${brandName}. ${trend.relevanceReason || `This is an opportunity to position ${brandName} within an active conversation.`} Engaging with trending topics while they peak maximizes impression potential and positions the brand as culturally aware.`,
+            fullDraft: `${trend.headline} is reshaping the landscape — and ${brandName} is built for exactly this.\n\nHere's what most people miss about ${trend.headline.toLowerCase()}:\n\n${brandName} has been focused on ${expertise} since day one. The trend is catching up to the vision.\n\nThread incoming on why this matters.`,
+            contentIdeas: [`Thread on ${brandName}'s approach to ${trend.headline}`, `Quote-tweet a key voice discussing ${trend.headline}`],
+            strategicAlignment: `Jumping on "${trend.headline}" while it has peak attention maximizes impression potential and positions ${brandName} as culturally aware.`,
+            dataSignal: `Trending: ${trend.headline} (${trend.relevanceScore}% relevance)`,
+            impactScore: Math.min(92, 78 + Math.floor(trend.relevanceScore / 10)),
+            source: 'supplemental',
+        });
+    }
+
+    // 2. Low engagement → REPLY
+    if (engagementRate < 2 || recentPostCount === 0) {
+        const narrative = narratives[0] || `${brandName} ecosystem`;
+        recs.push({
+            ...getRecStyle('REPLY'),
+            title: `Boost engagement by joining active conversations about ${narrative}`,
+            reasoning: `Current engagement rate is ${engagementRate.toFixed(1)}% with ${recentPostCount} recent posts. Engaging with relevant conversations builds authority and increases organic reach.`,
+            fullReason: `Current engagement rate is ${engagementRate.toFixed(1)}% with ${recentPostCount} recent posts. Replying to active conversations in the ${narrative} space builds authority and increases organic reach through mutual visibility. Community members who receive replies are significantly more likely to engage with future content.`,
+            fullDraft: `Great point on ${narrative} — this is exactly why ${brandName} is focused on building real utility here.\n\nThe key insight most miss: sustainable growth comes from genuine community engagement, not just announcements.\n\nWhat's your take on where ${narrative} heads next?`,
+            contentIdeas: [`Reply to a top voice discussing ${narrative}`, `Start a poll about ${narrative} priorities`],
+            strategicAlignment: 'Engaging with relevant conversations builds authority and increases organic reach through mutual visibility.',
+            dataSignal: `Engagement: ${engagementRate.toFixed(1)}% · ${recentPostCount} recent posts`,
+            impactScore: 76,
+            source: 'supplemental',
+        });
+    }
+
+    // 3. Content cadence → GAP_FILL
+    if (recentPostCount < 3) {
+        const expertise = keywords[0] || (knowledgeBase.length > 0 ? 'core technology' : brandName);
+        recs.push({
+            ...getRecStyle('GAP_FILL'),
+            title: `Fill content gap — schedule a thread about ${brandName}'s ${expertise}`,
+            reasoning: `Only ${recentPostCount} posts in recent history. Consistent posting maintains algorithmic favorability and keeps ${brandName} visible in follower feeds.`,
+            fullReason: `Only ${recentPostCount} posts in recent history. Consistent posting maintains algorithmic favorability and keeps ${brandName} visible in follower feeds. A thread about ${expertise} would demonstrate depth and attract engaged followers interested in the brand's core value proposition.`,
+            fullDraft: `Let's talk about ${expertise} — and why ${brandName} takes a different approach.\n\n1/ Most projects in this space focus on hype. ${brandName} focuses on building.\n\n2/ Here's what that actually looks like in practice:\n\n3/ [Technical insight about ${expertise}]\n\nMore coming soon.`,
+            contentIdeas: [`Educational thread on ${expertise}`, `Behind-the-scenes look at ${brandName}'s approach`],
+            strategicAlignment: 'Filling content gaps maintains consistent audience engagement and algorithmic favorability.',
+            dataSignal: `Content cadence: ${recentPostCount} recent posts (below target)`,
+            impactScore: 74,
+            source: 'supplemental',
+        });
+    }
+
+    // 4. Brand+trend intersection → CAMPAIGN_IDEA
+    for (const trend of topics) {
+        const overlap = keywords.find(kw =>
+            trend.headline.toLowerCase().includes(kw.toLowerCase()) ||
+            trend.summary.toLowerCase().includes(kw.toLowerCase())
+        );
+        if (overlap) {
+            // Skip if we already have a TREND_JACK for this same topic
+            const alreadyCovered = recs.some(r => r.title.includes(trend.headline));
+            if (!alreadyCovered) {
+                recs.push({
+                    ...getRecStyle('CAMPAIGN_IDEA'),
+                    title: `Launch a campaign around "${overlap}" — ${brandName}'s expertise meets trending demand`,
+                    reasoning: `${brandName}'s focus on "${overlap}" directly intersects with the trending topic "${trend.headline}". This is a rare alignment of brand expertise and market attention.`,
+                    fullReason: `${brandName}'s focus on "${overlap}" directly intersects with the trending topic "${trend.headline}". This creates a rare alignment where brand expertise meets active market attention. A coordinated campaign push would create compounding engagement effects across the audience base and establish ${brandName} as a thought leader in this intersection.`,
+                    fullDraft: `${brandName} + ${overlap} — here's why this matters right now.\n\nThe conversation around "${trend.headline}" is exactly where ${brandName} has been building.\n\nWe're launching a series breaking down how ${overlap} is changing the game:\n\nDay 1: The problem\nDay 2: Our approach\nDay 3: What's next\n\nStay tuned.`,
+                    contentIdeas: [`Multi-day campaign on ${overlap}`, `Infographic: ${brandName}'s ${overlap} approach vs. industry standard`],
+                    strategicAlignment: `Coordinated campaign around "${overlap}" creates compounding engagement effects and establishes thought leadership.`,
+                    dataSignal: `Brand expertise "${overlap}" × Trending "${trend.headline}"`,
+                    impactScore: 84,
+                    source: 'supplemental',
+                });
+                break; // Only one campaign idea
+            }
+        }
+    }
+
+    return recs;
+};
+
 export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     brandName, brandConfig, socialMetrics, socialSignals,
     agentDecisions, recommendations, regenLoading, regenLastRun, decisionSummary,
@@ -56,84 +158,98 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     const [selectedIdx, setSelectedIdx] = useState<number>(0);
     const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
 
-    // Derive combined recs: prefer LLM, fallback to agent decisions
+    // Derive combined recs: prefer LLM, fallback to agent decisions, supplement with data-driven recs
     const isFallbackMode = recommendations.length === 0;
     const allRecommendations = useMemo(() => {
-        if (recommendations.length > 0) return recommendations;
-        if (!agentDecisions || agentDecisions.length === 0) return [];
-        const valid = agentDecisions.filter((d: any) => {
-            const text = (d.reason || '') + (d.draft || '');
-            return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:')
-                && !text.includes('is not a function') && !text.includes('TypeError') && !text.includes('Failed to');
-        });
+        let primary: any[] = [];
 
-        // Helper: extract first sentence as a cleaner title
-        const extractTitle = (text: string): string => {
-            if (!text) return 'Strategic opportunity';
-            // Try to get first sentence
-            const sentenceEnd = text.search(/[.!?]\s/);
-            let title = sentenceEnd > 10 ? text.slice(0, sentenceEnd + 1) : text;
-            // If still too long, truncate at word boundary
-            if (title.length > 200) {
-                title = title.slice(0, 197).replace(/\s+\S*$/, '') + '…';
-            }
-            return title;
-        };
+        if (recommendations.length > 0) {
+            primary = recommendations;
+        } else if (agentDecisions && agentDecisions.length > 0) {
+            const valid = agentDecisions.filter((d: any) => {
+                const text = (d.reason || '') + (d.draft || '');
+                return !text.includes('Could not load') && !text.includes('credentials') && !text.includes('ERROR:')
+                    && !text.includes('is not a function') && !text.includes('TypeError') && !text.includes('Failed to');
+            });
 
-        // Derive data signal from action type
-        const getDataSignal = (action: string): string => {
-            const a = (action || '').toUpperCase();
-            switch (a) {
-                case 'REPLY': return 'Engagement opportunity detected';
-                case 'TREND_JACK': return 'Trending topic identified';
-                case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return 'Strategic campaign opportunity';
-                case 'GAP_FILL': return 'Content gap identified';
-                case 'TWEET': return 'Posting opportunity';
-                case 'THREAD': return 'Thread opportunity';
-                default: return 'Agent decision pending review';
-            }
-        };
+            // Helper: extract first sentence as a cleaner title
+            const extractTitle = (text: string): string => {
+                if (!text) return 'Strategic opportunity';
+                const sentenceEnd = text.search(/[.!?]\s/);
+                let title = sentenceEnd > 10 ? text.slice(0, sentenceEnd + 1) : text;
+                if (title.length > 200) {
+                    title = title.slice(0, 197).replace(/\s+\S*$/, '') + '…';
+                }
+                return title;
+            };
 
-        // Deterministic score based on action type + content length
-        const getScore = (action: string, draft: string): number => {
-            const base = (action || '').toUpperCase() === 'TREND_JACK' ? 82
-                : (action || '').toUpperCase() === 'CAMPAIGN' ? 80
-                : (action || '').toUpperCase() === 'REPLY' ? 75
-                : (action || '').toUpperCase() === 'GAP_FILL' ? 78
-                : 73;
-            const lengthBonus = Math.min(5, Math.floor((draft || '').length / 50));
-            return Math.min(95, base + lengthBonus);
-        };
-
-        return valid.slice(0, 6).map((d: any) => {
-            const style = getRecStyle(d.action);
-            const reason = d.reason || '';
-            const draft = d.draft || '';
-            const getStrategicAlignment = (action: string): string => {
+            const getDataSignal = (action: string): string => {
                 const a = (action || '').toUpperCase();
                 switch (a) {
-                    case 'REPLY': return 'Engaging with relevant conversations builds authority and increases organic reach through mutual visibility.';
-                    case 'TREND_JACK': return 'Jumping on trending topics while they peak maximizes impression potential and positions the brand as culturally aware.';
-                    case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return 'Coordinated campaign pushes create compounding engagement effects across your audience base.';
-                    case 'GAP_FILL': return 'Filling content gaps maintains consistent audience engagement and algorithmic favorability.';
-                    case 'TWEET': return 'Regular posting maintains presence in followers\' feeds and compounds organic reach over time.';
-                    case 'THREAD': return 'Thread-format content drives deeper engagement and higher save/share rates than single posts.';
-                    default: return 'Strategic optimization based on current market signals and brand positioning.';
+                    case 'REPLY': return 'Engagement opportunity detected';
+                    case 'TREND_JACK': return 'Trending topic identified';
+                    case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return 'Strategic campaign opportunity';
+                    case 'GAP_FILL': return 'Content gap identified';
+                    case 'TWEET': return 'Posting opportunity';
+                    case 'THREAD': return 'Thread opportunity';
+                    default: return 'Agent decision pending review';
                 }
             };
-            return {
-                ...style,
-                title: extractTitle(reason),
-                reasoning: reason || 'AI agent detected an opportunity.',
-                contentIdeas: [],
-                strategicAlignment: getStrategicAlignment(d.action),
-                dataSignal: getDataSignal(d.action),
-                impactScore: getScore(d.action, draft),
-                fullDraft: draft, fullReason: reason,
-                targetId: d.targetId, topic: '', goal: '',
+
+            const getScore = (action: string, draft: string): number => {
+                const base = (action || '').toUpperCase() === 'TREND_JACK' ? 82
+                    : (action || '').toUpperCase() === 'CAMPAIGN' ? 80
+                    : (action || '').toUpperCase() === 'REPLY' ? 75
+                    : (action || '').toUpperCase() === 'GAP_FILL' ? 78
+                    : 73;
+                const lengthBonus = Math.min(5, Math.floor((draft || '').length / 50));
+                return Math.min(95, base + lengthBonus);
             };
-        });
-    }, [recommendations, agentDecisions]);
+
+            primary = valid.slice(0, 6).map((d: any) => {
+                const style = getRecStyle(d.action);
+                const reason = d.reason || '';
+                const draft = d.draft || '';
+                const getStrategicAlignment = (action: string): string => {
+                    const a = (action || '').toUpperCase();
+                    switch (a) {
+                        case 'REPLY': return 'Engaging with relevant conversations builds authority and increases organic reach through mutual visibility.';
+                        case 'TREND_JACK': return 'Jumping on trending topics while they peak maximizes impression potential and positions the brand as culturally aware.';
+                        case 'CAMPAIGN': case 'CAMPAIGN_IDEA': return 'Coordinated campaign pushes create compounding engagement effects across your audience base.';
+                        case 'GAP_FILL': return 'Filling content gaps maintains consistent audience engagement and algorithmic favorability.';
+                        case 'TWEET': return 'Regular posting maintains presence in followers\' feeds and compounds organic reach over time.';
+                        case 'THREAD': return 'Thread-format content drives deeper engagement and higher save/share rates than single posts.';
+                        default: return 'Strategic optimization based on current market signals and brand positioning.';
+                    }
+                };
+                return {
+                    ...style,
+                    title: extractTitle(reason),
+                    reasoning: reason || 'AI agent detected an opportunity.',
+                    contentIdeas: [],
+                    strategicAlignment: getStrategicAlignment(d.action),
+                    dataSignal: getDataSignal(d.action),
+                    impactScore: getScore(d.action, draft),
+                    fullDraft: draft, fullReason: reason,
+                    targetId: d.targetId, topic: '', goal: '',
+                };
+            });
+        }
+
+        // Supplement with data-driven recs if primary count is below 5
+        if (primary.length < 5) {
+            const supplemental = generateSupplementalRecs(brandName, socialSignals, socialMetrics, brandConfig);
+            // Dedupe: skip supplementals whose title topic overlaps with a primary rec
+            const primaryText = primary.map(r => (r.title + ' ' + (r.fullReason || '')).toLowerCase()).join(' ');
+            const filtered = supplemental.filter(s => {
+                const key = (s.dataSignal || s.title || '').toLowerCase().split(/\s+/).slice(0, 4).join(' ');
+                return !primaryText.includes(key.slice(0, 20));
+            });
+            return [...primary, ...filtered].slice(0, 8);
+        }
+
+        return primary;
+    }, [recommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig]);
 
     // Filter by priority
     const filteredRecs = useMemo(() => {

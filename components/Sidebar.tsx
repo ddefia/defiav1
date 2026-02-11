@@ -21,6 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isStudioOpen, setIsStudioOpen] = useState(currentSection === 'studio' || currentSection === 'image-editor');
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const userProfile = loadUserProfile();
 
     // Nav items with nested children support
@@ -47,49 +48,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     return (
-        <div className="w-[280px] h-full bg-[#111113] border-r border-[#1F1F23] flex flex-col shrink-0">
+        <div className={`${isCollapsed ? 'w-[68px]' : 'w-[280px]'} h-full bg-[#111113] border-r border-[#1F1F23] flex flex-col shrink-0 transition-all duration-200`}>
             {/* Header / Logo */}
-            <div className="h-[88px] flex items-center gap-2 px-8 border-b border-[#1F1F23]">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF7A2E] to-[#FF5C00] flex items-center justify-center">
+            <div className={`h-[88px] flex items-center gap-2 ${isCollapsed ? 'px-4 justify-center' : 'px-8'} border-b border-[#1F1F23]`}>
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF7A2E] to-[#FF5C00] flex items-center justify-center flex-shrink-0">
                     <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 400, 'FILL' 1" }}>
                         bolt
                     </span>
                 </div>
-                <span className="text-[#FF5C00] font-bold text-lg tracking-wide">DEFIA</span>
+                {!isCollapsed && <span className="text-[#FF5C00] font-bold text-lg tracking-wide">DEFIA</span>}
             </div>
 
             {/* Brand Display (Single Brand) */}
             {brandName && (
-                <div className="px-6 py-4 border-b border-[#1F1F23]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF5C00]/20 to-[#FF5C00]/10 flex items-center justify-center border border-[#FF5C00]/20">
+                <div className={`${isCollapsed ? 'px-3 py-4' : 'px-6 py-4'} border-b border-[#1F1F23]`}>
+                    <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF5C00]/20 to-[#FF5C00]/10 flex items-center justify-center border border-[#FF5C00]/20 flex-shrink-0">
                             <span className="text-[#FF5C00] font-bold text-sm">
                                 {brandName.charAt(0).toUpperCase()}
                             </span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium text-sm truncate">{brandName}</p>
-                            <p className="text-[#6B6B70] text-xs truncate">Active Brand</p>
-                        </div>
-                        <button
-                            onClick={() => onNavigate('settings')}
-                            className="p-2 hover:bg-[#1F1F23] rounded-lg transition-colors"
-                        >
-                            <span
-                                className="material-symbols-sharp text-lg text-[#6B6B70]"
-                                style={{ fontVariationSettings: "'wght' 100" }}
-                            >
-                                settings
-                            </span>
-                        </button>
+                        {!isCollapsed && (
+                            <>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-white font-medium text-sm truncate">{brandName}</p>
+                                    <p className="text-[#6B6B70] text-xs truncate">Active Brand</p>
+                                </div>
+                                <button
+                                    onClick={() => onNavigate('settings')}
+                                    className="p-2 hover:bg-[#1F1F23] rounded-lg transition-colors"
+                                >
+                                    <span
+                                        className="material-symbols-sharp text-lg text-[#6B6B70]"
+                                        style={{ fontVariationSettings: "'wght' 100" }}
+                                    >
+                                        settings
+                                    </span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
 
             {/* Nav Content */}
-            <div className="flex-1 py-0 px-4 overflow-y-auto">
+            <div className={`flex-1 py-0 ${isCollapsed ? 'px-2' : 'px-4'} overflow-y-auto`}>
                 {/* MAIN Section */}
-                <div className="px-4 py-4 text-[#6B6B70] text-sm font-normal">MAIN</div>
+                {!isCollapsed && <div className="px-4 py-4 text-[#6B6B70] text-sm font-normal">MAIN</div>}
+                {isCollapsed && <div className="py-3" />}
 
                 <div className="space-y-0.5">
                     {mainNavItems.map((item) => {
@@ -102,14 +108,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <div key={item.id}>
                                 <button
                                     onClick={() => {
-                                        if (hasChildren) {
+                                        if (hasChildren && !isCollapsed) {
                                             setIsStudioOpen(!isStudioOpen);
                                             onNavigate(item.id);
                                         } else {
                                             onNavigate(item.id);
                                         }
                                     }}
-                                    className={`w-full flex items-center gap-4 rounded-full transition-colors ${item.isSub ? 'pl-12 pr-4 py-2.5' : 'px-4 py-3'} ${
+                                    title={isCollapsed ? item.label : undefined}
+                                    className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-4'} rounded-full transition-colors ${
+                                        isCollapsed
+                                            ? 'p-3'
+                                            : item.isSub ? 'pl-12 pr-4 py-2.5' : 'px-4 py-3'
+                                    } ${
                                         isActive || childActive
                                             ? 'bg-[#1F1F23] text-white'
                                             : item.isAccent
@@ -118,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     }`}
                                 >
                                     <span
-                                        className={`material-symbols-sharp ${item.isSub ? 'text-xl' : 'text-2xl'}`}
+                                        className={`material-symbols-sharp ${item.isSub && !isCollapsed ? 'text-xl' : 'text-2xl'} flex-shrink-0`}
                                         style={{
                                             color: item.isAccent ? '#FF5C00' : (isActive || childActive) ? '#FFFFFF' : '#6B6B70',
                                             fontVariationSettings: "'wght' 100"
@@ -126,8 +137,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     >
                                         {item.icon}
                                     </span>
-                                    <span className={`${item.isSub ? 'text-sm' : 'text-base'} flex-1 text-left`}>{item.label}</span>
-                                    {hasChildren && (
+                                    {!isCollapsed && (
+                                        <span className={`${item.isSub ? 'text-sm' : 'text-base'} flex-1 text-left`}>{item.label}</span>
+                                    )}
+                                    {!isCollapsed && hasChildren && (
                                         <span
                                             className="material-symbols-sharp text-lg text-[#6B6B70] transition-transform duration-200"
                                             style={{ fontVariationSettings: "'wght' 100", transform: isExpanded ? 'rotate(180deg)' : 'none' }}
@@ -137,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     )}
                                 </button>
                                 {/* Sub-items */}
-                                {hasChildren && isExpanded && item.children!.map(child => {
+                                {!isCollapsed && hasChildren && isExpanded && item.children!.map(child => {
                                     const isChildActive = currentSection === child.id;
                                     return (
                                         <button
@@ -168,7 +181,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* FEEDS Section */}
-                <div className="px-4 py-4 text-[#6B6B70] text-sm font-normal mt-2">FEEDS</div>
+                {!isCollapsed && <div className="px-4 py-4 text-[#6B6B70] text-sm font-normal mt-2">FEEDS</div>}
+                {isCollapsed && <div className="py-2 my-2 border-t border-[#1F1F23]" />}
 
                 <div className="space-y-1">
                     {feedsNavItems.map((item) => {
@@ -177,14 +191,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <button
                                 key={item.id}
                                 onClick={() => onNavigate(item.id)}
-                                className={`w-full flex items-center gap-4 px-4 py-3 rounded-full transition-colors ${
+                                title={isCollapsed ? item.label : undefined}
+                                className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-3'} rounded-full transition-colors ${
                                     isActive
                                         ? 'bg-[#1F1F23] text-white'
                                         : 'text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white'
                                 }`}
                             >
                                 <span
-                                    className="material-symbols-sharp text-2xl"
+                                    className="material-symbols-sharp text-2xl flex-shrink-0"
                                     style={{
                                         color: isActive ? '#FFFFFF' : '#6B6B70',
                                         fontVariationSettings: "'wght' 100"
@@ -192,21 +207,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 >
                                     {item.icon}
                                 </span>
-                                <span className="text-base">{item.label}</span>
+                                {!isCollapsed && <span className="text-base">{item.label}</span>}
                             </button>
                         );
                     })}
                 </div>
             </div>
 
+            {/* Collapse Toggle */}
+            <div className={`${isCollapsed ? 'px-2' : 'px-4'} py-2`}>
+                <button
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-3'} rounded-full text-[#6B6B70] hover:bg-[#1F1F23]/50 hover:text-white transition-colors`}
+                >
+                    <span
+                        className="material-symbols-sharp text-xl flex-shrink-0 transition-transform duration-200"
+                        style={{ fontVariationSettings: "'wght' 100", transform: isCollapsed ? 'rotate(180deg)' : 'none' }}
+                    >
+                        left_panel_close
+                    </span>
+                    {!isCollapsed && <span className="text-sm">Collapse</span>}
+                </button>
+            </div>
+
             {/* Footer / User Profile */}
-            <div className="px-6 py-4 border-t border-[#1F1F23]">
+            <div className={`${isCollapsed ? 'px-2' : 'px-6'} py-4 border-t border-[#1F1F23]`}>
                 <div
-                    className="flex items-center gap-3 cursor-pointer p-2 rounded-xl hover:bg-[#1F1F23]/50 transition-colors"
-                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className={`flex items-center ${isCollapsed ? 'justify-center p-1' : 'gap-3 p-2'} cursor-pointer rounded-xl hover:bg-[#1F1F23]/50 transition-colors`}
+                    onClick={() => isCollapsed ? onNavigate('settings') : setIsUserMenuOpen(!isUserMenuOpen)}
                 >
                     {/* User Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2A2A2D] to-[#1F1F23] flex items-center justify-center border border-[#2A2A2D]">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2A2A2D] to-[#1F1F23] flex items-center justify-center border border-[#2A2A2D] flex-shrink-0">
                         {userProfile?.avatarUrl ? (
                             <img
                                 src={userProfile.avatarUrl}
@@ -219,24 +251,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </span>
                         )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">
-                            {userProfile?.fullName || 'User'}
-                        </p>
-                        <p className="text-[#6B6B70] text-xs truncate">
-                            {userProfile?.email || 'No email'}
-                        </p>
-                    </div>
-                    <span
-                        className="material-symbols-sharp text-xl text-[#6B6B70]"
-                        style={{ fontVariationSettings: "'wght' 100" }}
-                    >
-                        {isUserMenuOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
-                    </span>
+                    {!isCollapsed && (
+                        <>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-white text-sm font-medium truncate">
+                                    {userProfile?.fullName || 'User'}
+                                </p>
+                                <p className="text-[#6B6B70] text-xs truncate">
+                                    {userProfile?.email || 'No email'}
+                                </p>
+                            </div>
+                            <span
+                                className="material-symbols-sharp text-xl text-[#6B6B70]"
+                                style={{ fontVariationSettings: "'wght' 100" }}
+                            >
+                                {isUserMenuOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+                            </span>
+                        </>
+                    )}
                 </div>
 
                 {/* User Menu Dropdown */}
-                {isUserMenuOpen && (
+                {isUserMenuOpen && !isCollapsed && (
                     <>
                         <div className="fixed inset-0 z-10" onClick={() => setIsUserMenuOpen(false)}></div>
                         <div className="absolute bottom-24 left-4 right-4 bg-[#1F1F23] rounded-xl shadow-xl border border-[#2A2A2D] p-2 z-20">
