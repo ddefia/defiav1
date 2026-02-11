@@ -865,6 +865,72 @@ export const saveStudioState = (brandName: string, state: any): void => {
     }
 };
 
+// --- IMAGE GALLERY PERSISTENCE ---
+
+const IMAGE_GALLERY_KEY = 'defia_image_gallery_v1';
+const MAX_GALLERY_IMAGES = 10;
+
+export interface GalleryImage {
+    id: string;
+    data: string; // base64 data URL (thumbnail — resized to ~300px)
+    fullData?: string; // full resolution (only stored if small enough)
+    prompt?: string;
+    timestamp: number;
+    source: 'generated' | 'edited' | 'uploaded';
+}
+
+export const loadImageGallery = (brandName: string): GalleryImage[] => {
+    try {
+        const key = `${IMAGE_GALLERY_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) { return []; }
+};
+
+export const saveImageToGallery = (brandName: string, image: GalleryImage): void => {
+    try {
+        const key = `${IMAGE_GALLERY_KEY}_${brandName.toLowerCase()}`;
+        const gallery = loadImageGallery(brandName);
+        // Prepend and limit to MAX_GALLERY_IMAGES
+        const updated = [image, ...gallery.filter(g => g.id !== image.id)].slice(0, MAX_GALLERY_IMAGES);
+        localStorage.setItem(key, JSON.stringify(updated));
+    } catch (e) {
+        console.error("Failed to save image to gallery", e);
+    }
+};
+
+export const removeFromGallery = (brandName: string, imageId: string): void => {
+    try {
+        const key = `${IMAGE_GALLERY_KEY}_${brandName.toLowerCase()}`;
+        const gallery = loadImageGallery(brandName);
+        localStorage.setItem(key, JSON.stringify(gallery.filter(g => g.id !== imageId)));
+    } catch (e) {
+        console.error("Failed to remove image from gallery", e);
+    }
+};
+
+/** Resize an image to a thumbnail for gallery storage (max 300px) */
+export const createThumbnail = (dataUrl: string, maxSize = 300): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            } else {
+                resolve(dataUrl);
+            }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+    });
+};
+
 // --- GROWTH REPORT PERSISTENCE ---
 
 const GROWTH_STORAGE_KEY = 'defia_growth_report_v1';

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrandConfig } from '../types';
 import { generateTweet, generateWeb3Graphic, generateIdeas } from '../services/gemini';
 import { saveBrainMemory } from '../services/supabase';
-import { saveStudioState, loadStudioState } from '../services/storage';
+import { saveStudioState, loadStudioState, saveImageToGallery, createThumbnail } from '../services/storage';
 
 interface ContentStudioProps {
     brandName: string;
@@ -489,6 +489,20 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             setGraphicVariations(images);
             setSelectedVariation(0);
             setGraphicStep(2);
+            // Save generated images to gallery for Image Studio quick access
+            images.forEach(async (img, idx) => {
+                try {
+                    const thumb = await createThumbnail(img);
+                    saveImageToGallery(brandName, {
+                        id: `gen-${Date.now()}-${idx}`,
+                        data: thumb,
+                        fullData: img.length < 500000 ? img : undefined,
+                        prompt: graphicTweetContent,
+                        timestamp: Date.now(),
+                        source: 'generated',
+                    });
+                } catch { /* gallery save is non-critical */ }
+            });
         } catch (err: any) {
             setError(`Failed to generate: ${err.message || "Unknown error"}`);
         } finally {
