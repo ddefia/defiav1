@@ -1865,12 +1865,20 @@ export const researchBrandIdentity = async (
         if (!getApiKey()) throw new Error("No API Key");
 
         const systemInstruction = `
-        You are an expert Brand Identity Analyst and AI Researcher.
+        You are an expert Brand Identity Analyst and AI Researcher specializing in web3, crypto, and DeFi projects.
 
     TASK:
-        Analyze the company "${brandName}" located at "${url}" using ONLY the provided sources.
-        Do NOT invent facts. If the sources are thin, return minimal, conservative outputs.
-        
+        Analyze the company "${brandName}" located at "${url}" using the provided sources.
+
+        IMPORTANT RULES:
+        - Extract as much information as possible from any provided website content, tweets, or docs.
+        - Do NOT invent specific numbers, stats, or partnerships that aren't in the sources.
+        - ALWAYS provide voiceGuidelines and targetAudience — even if sources are thin, use contextual clues from the brand name, URL, and any available content to provide reasonable, professional defaults for a web3/crypto company.
+        - For voiceGuidelines: If sources are thin, provide sensible web3 brand voice guidance (e.g., "Professional and technically informed, with emphasis on community engagement and transparency. Confident but not hype-driven.")
+        - For targetAudience: If sources are thin, provide reasonable web3 audience segments (e.g., "DeFi users, crypto traders, blockchain developers, and web3 enthusiasts")
+        - For knowledgeBase: Extract every useful fact from the sources. Include what the project does, its key features, technology stack, and value proposition.
+        - For colors: If you can determine brand colors from the content, include them. Otherwise provide clean, professional web3 defaults.
+
         OUTPUT FORMAT(JSON):
 {
     "colors": [
@@ -1887,9 +1895,9 @@ export const researchBrandIdentity = async (
         "Example tweet 1 (reflecting their tone).",
         "Example tweet 2."
     ],
-    "voiceGuidelines": "Short tone and voice guidance.",
-    "visualIdentity": "Short visual identity guidance.",
-    "targetAudience": "Primary audience segment(s).",
+    "voiceGuidelines": "Tone and voice guidance (REQUIRED - always provide this).",
+    "visualIdentity": "Visual identity guidance.",
+    "targetAudience": "Primary audience segment(s) (REQUIRED - always provide this).",
     "bannedPhrases": ["Phrase 1", "Phrase 2"]
 }
 `;

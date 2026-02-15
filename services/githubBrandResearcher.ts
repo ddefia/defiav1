@@ -86,11 +86,13 @@ export const researchGithubBrandSignals = async (
     const items = data.items || [];
     if (items.length === 0) return [];
 
-    // Filter: only include repos where the owner name closely matches the brand
+    // Filter: only include repos where the owner name EXACTLY matches the brand
+    // Strategy 3 is a fallback — must be strict to avoid false positives
+    // (e.g., "defiads" should NOT match "defia")
     const brandLower = brandName.trim().toLowerCase();
     const filtered = items.filter((repo) => {
       const owner = repo.full_name.split('/')[0].toLowerCase();
-      return owner.includes(brandLower) || brandLower.includes(owner);
+      return owner === brandLower;
     });
 
     // If no owner matches, return nothing rather than wrong repos

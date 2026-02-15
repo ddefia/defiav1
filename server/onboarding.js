@@ -158,10 +158,72 @@ const isSameDomain = (url, rootUrl) => {
 
 const isDocumentLink = (url) => DOC_EXTENSIONS.some((ext) => url.toLowerCase().includes(ext));
 
+/**
+ * Categorize content based on URL and text patterns
+ */
+const categorizeContent = (url, text) => {
+  const urlLower = url.toLowerCase();
+  const textLower = text.toLowerCase().slice(0, 2000); // Check first 2000 chars
+
+  for (const [category, keywords] of Object.entries(CONTENT_CATEGORIES)) {
+    for (const keyword of keywords) {
+      if (urlLower.includes(keyword) || textLower.includes(keyword)) {
+        return category;
+      }
+    }
+  }
+  return 'general';
+};
+
+/**
+ * Extract title from URL path
+ */
+const extractTitleFromUrl = (url) => {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname;
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      const last = segments[segments.length - 1];
+      return last
+        .replace(/[-_]/g, ' ')
+        .replace(/\.[^/.]+$/, '') // Remove extension
+        .replace(/\b\w/g, l => l.toUpperCase()); // Title case
+    }
+    return parsed.hostname;
+  } catch {
+    return 'Unknown';
+  }
+};
+
+/**
+ * Extract document links from text (PDFs, etc.)
+ */
+const extractDocumentLinks = (text) => {
+  const links = [];
+  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+\.(pdf|doc|docx|pptx?|md|txt)/gi;
+  let match;
+  while ((match = urlRegex.exec(text)) !== null) {
+    links.push(match[0]);
+  }
+  return links;
+};
+
+/**
+ * Count pages by category
+ */
+const countCategories = (pages) => {
+  const counts = {};
+  for (const page of pages) {
+    counts[page.category] = (counts[page.category] || 0) + 1;
+  }
+  return counts;
+};
+
 export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, maxChars = DEFAULT_MAX_CHARS } = {}) => {
   const normalized = normalizeUrl(startUrl);
   if (!normalized) {
-    return { content: '', pages: [], docs: [] };
+    return { content: '', pages: [], docs: [], knowledgeBase: [] };
   }
 
   const visited = new Set();
@@ -169,6 +231,17 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
   const pages = [];
   const docs = new Set();
   let totalChars = 0;
+
+  // Also try docs subdomain (like the deep crawl does)
+  try {
+    const parsedUrl = new URL(normalized);
+    const baseDomain = parsedUrl.hostname.replace(/^www\./, '');
+    if (!baseDomain.startsWith('docs.')) {
+      const docsUrl = `https://docs.${baseDomain}`;
+      queue.push(docsUrl);
+      console.log(`[SimpleCrawl] Also queuing docs subdomain: ${docsUrl}`);
+    }
+  } catch { /* ignore */ }
 
   while (queue.length > 0 && pages.length < maxPages && totalChars < maxChars) {
     const current = queue.shift();
@@ -186,7 +259,11 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
       const html = await res.text();
       const text = stripHtml(html);
       if (text.length > 200) {
-        pages.push({ url: current, text });
+        // Extract title from <title> tag
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const title = titleMatch ? titleMatch[1].trim() : extractTitleFromUrl(current);
+        const category = categorizeContent(current, text);
+        pages.push({ url: current, text, title, category });
         totalChars += text.length;
       }
 
@@ -196,7 +273,8 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
           docs.add(link);
           continue;
         }
-        if (isSameDomain(link, normalized) && !visited.has(link) && queue.length < maxPages * 3) {
+        // Allow docs subdomain pages too
+        if ((isSameDomain(link, normalized) || isSameDomain(link, current)) && !visited.has(link) && queue.length < maxPages * 3) {
           queue.push(link);
         }
       }
@@ -206,14 +284,40 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
   }
 
   const content = pages
-    .map((page) => `SOURCE: ${page.url}\n${page.text}`)
+    .map((page) => `SOURCE: ${page.url}\nCATEGORY: ${page.category}\nTITLE: ${page.title}\n\n${page.text}`)
     .join('\n\n---\n\n')
     .slice(0, maxChars);
 
+  // Build knowledge base entries (matching deep crawl format)
+  const knowledgeBase = pages.map((page, index) => ({
+    id: `kb-${Date.now()}-${index}`,
+    title: page.title,
+    content: page.text.slice(0, 10000),
+    source: page.url,
+    category: page.category,
+    extractedAt: new Date().toISOString()
+  }));
+
+  // Sort by category priority (same as deep crawl)
+  const categoryPriority = ['whitepaper', 'tokenomics', 'docs', 'defi', 'governance', 'security', 'roadmap', 'general'];
+  knowledgeBase.sort((a, b) => {
+    const aIdx = categoryPriority.indexOf(a.category);
+    const bIdx = categoryPriority.indexOf(b.category);
+    return aIdx - bIdx;
+  });
+
+  console.log(`[SimpleCrawl] Complete: ${pages.length} pages, ${knowledgeBase.length} KB entries, ${docs.size} doc links`);
+
   return {
     content,
-    pages: pages.map((page) => page.url),
-    docs: Array.from(docs)
+    pages: pages.map((page) => ({ url: page.url, title: page.title, category: page.category })),
+    docs: Array.from(docs),
+    knowledgeBase,
+    stats: {
+      totalPages: pages.length,
+      totalChars,
+      categories: countCategories(pages)
+    }
   };
 };
 
@@ -388,68 +492,6 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
 };
 
 /**
- * Categorize content based on URL and text patterns
- */
-const categorizeContent = (url, text) => {
-  const urlLower = url.toLowerCase();
-  const textLower = text.toLowerCase().slice(0, 2000); // Check first 2000 chars
-
-  for (const [category, keywords] of Object.entries(CONTENT_CATEGORIES)) {
-    for (const keyword of keywords) {
-      if (urlLower.includes(keyword) || textLower.includes(keyword)) {
-        return category;
-      }
-    }
-  }
-  return 'general';
-};
-
-/**
- * Extract title from URL path
- */
-const extractTitleFromUrl = (url) => {
-  try {
-    const parsed = new URL(url);
-    const path = parsed.pathname;
-    const segments = path.split('/').filter(Boolean);
-    if (segments.length > 0) {
-      const last = segments[segments.length - 1];
-      return last
-        .replace(/[-_]/g, ' ')
-        .replace(/\.[^/.]+$/, '') // Remove extension
-        .replace(/\b\w/g, l => l.toUpperCase()); // Title case
-    }
-    return parsed.hostname;
-  } catch {
-    return 'Unknown';
-  }
-};
-
-/**
- * Extract document links from text (PDFs, etc.)
- */
-const extractDocumentLinks = (text) => {
-  const links = [];
-  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+\.(pdf|doc|docx|pptx?|md|txt)/gi;
-  let match;
-  while ((match = urlRegex.exec(text)) !== null) {
-    links.push(match[0]);
-  }
-  return links;
-};
-
-/**
- * Count pages by category
- */
-const countCategories = (pages) => {
-  const counts = {};
-  for (const page of pages) {
-    counts[page.category] = (counts[page.category] || 0) + 1;
-  }
-  return counts;
-};
-
-/**
  * Fetch and extract content from a PDF/document URL
  */
 export const fetchDocumentContent = async (docUrl) => {
@@ -563,7 +605,8 @@ export const extractDefiMetrics = (content) => {
 export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } = {}) => {
   const token = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';
   if (!token) {
-    return { tweets: [], tweetExamples: [], referenceImages: [], error: 'Missing APIFY API token.' };
+    console.log('[OnboardingTwitter] No Apify token - returning empty data (not an error)');
+    return { tweets: [], tweetExamples: [], referenceImages: [], noToken: true };
   }
 
   // New unified Twitter actor

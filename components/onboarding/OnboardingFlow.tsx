@@ -500,7 +500,22 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             const data = await simpleCrawlRes.json();
             crawlContent = data.content || '';
             crawlDocs = Array.isArray(data.docs) ? data.docs : [];
-            crawlPages = Array.isArray(data.pages) ? data.pages : [];
+            crawlPages = Array.isArray(data.pages) ? data.pages.map((p: any) => p.url || p) : [];
+
+            // Simple crawl now also returns knowledge base entries
+            if (data.knowledgeBase && Array.isArray(data.knowledgeBase)) {
+              knowledgeBaseFromCrawl = data.knowledgeBase.map((entry: any) => {
+                const prefix = entry.category !== 'general' ? `[${entry.category.toUpperCase()}] ` : '';
+                return `${prefix}${entry.title}: ${entry.content.slice(0, 500)}`;
+              });
+            }
+
+            console.log('[Onboarding] Simple crawl data received:', {
+              pages: crawlPages.length,
+              docs: crawlDocs.length,
+              knowledgeBase: knowledgeBaseFromCrawl.length,
+              contentLength: crawlContent.length
+            });
           }
         } catch {
           // Both failed
@@ -625,9 +640,19 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         collectorVisualIdentity,
       ]).join('\n');
 
-      const baseKnowledge = (researchResult.knowledgeBase && researchResult.knowledgeBase.length > 0)
+      // Always use Gemini's knowledge base as primary, then supplement with crawl content
+      // This ensures we get useful data even when Gemini returns thin results
+      const geminiKB = (researchResult.knowledgeBase && researchResult.knowledgeBase.length > 0)
         ? researchResult.knowledgeBase
-        : buildKnowledgeFallback(crawlContent, crawlDocs);
+        : [];
+      const crawlFallbackKB = buildKnowledgeFallback(crawlContent, crawlDocs);
+      // Merge: Gemini first, then crawl sentences that aren't duplicates
+      const baseKnowledge = [
+        ...geminiKB,
+        ...crawlFallbackKB.filter(item => !geminiKB.some(gk =>
+          typeof gk === 'string' && typeof item === 'string' && gk.toLowerCase().includes(item.slice(9).toLowerCase().slice(0, 40))
+        ))
+      ];
 
       const baseTweetExamples = tweetExamples.length > 0
         ? tweetExamples
@@ -1086,7 +1111,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
 
     return (
       <div
-        className="w-[480px] min-h-full flex flex-col justify-between p-12"
+        className="w-[480px] h-full flex flex-col justify-between p-12 overflow-y-auto shrink-0"
         style={{ background: 'linear-gradient(180deg, #1A0A00 0%, #0A0A0B 100%)' }}
       >
         <div className="space-y-10">
@@ -2458,7 +2483,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   return (
-    <div className="min-h-full bg-[#0A0A0B] flex">
+    <div className="h-screen bg-[#0A0A0B] flex overflow-hidden">
       {renderLeftPanel()}
       {currentStep === 'profile' && renderProfileStep()}
       {currentStep === 'company' && renderCompanyStep()}
