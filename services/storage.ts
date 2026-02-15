@@ -1,16 +1,101 @@
-import { BrandConfig, PulseCache, CalendarEvent, ReferenceImage } from "../types";
+import { BrandConfig, PulseCache, CalendarEvent, ReferenceImage, CampaignLog } from "../types";
 import { DEFAULT_PROFILES } from './brandData';
 import { supabase } from './supabaseClient';
 import { loadUserProfile } from './auth';
+import { createDefaultSubscription } from './subscription';
 
-const STORAGE_KEY = 'ethergraph_brand_profiles_v17';
-const PULSE_STORAGE_PREFIX = 'defia_pulse_cache_v2_';
-const POSTURE_STORAGE_KEY = 'defia_strategic_posture_v1';
-const CALENDAR_STORAGE_KEY = 'defia_calendar_events_v1';
-const KEYS_STORAGE_KEY = 'defia_integrations_v1';
-const META_STORAGE_KEY = 'defia_storage_meta_v1';
-const AUTOMATION_STORAGE_KEY = 'defia_automation_settings_v1';
-const BRAND_REGISTRY_KEY = 'defia_brand_registry_v1';
+// --- USER-SCOPED STORAGE ---
+// Prefix all storage keys with user ID to prevent data leaking between users on the same device.
+let _cachedUserPrefix: string | null = null;
+
+const getUserPrefix = (): string => {
+    if (_cachedUserPrefix) return _cachedUserPrefix;
+    try {
+        // Read directly from Supabase auth token in localStorage
+        const keys = Object.keys(localStorage);
+        const authKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        if (authKey) {
+            const session = JSON.parse(localStorage.getItem(authKey) || '{}');
+            const userId = session?.user?.id;
+            if (userId) {
+                _cachedUserPrefix = userId.slice(0, 8);
+                return _cachedUserPrefix;
+            }
+        }
+    } catch { /* ignore parse errors */ }
+    return 'anon';
+};
+
+// Reset cached prefix on auth change (call after login/logout)
+export const resetUserPrefix = () => { _cachedUserPrefix = null; };
+
+const userKey = (base: string) => `${getUserPrefix()}_${base}`;
+
+const STORAGE_KEY_BASE = 'ethergraph_brand_profiles_v17';
+const PULSE_STORAGE_PREFIX_BASE = 'defia_pulse_cache_v2_';
+const POSTURE_STORAGE_KEY_BASE = 'defia_strategic_posture_v1';
+const CALENDAR_STORAGE_KEY_BASE = 'defia_calendar_events_v1';
+const KEYS_STORAGE_KEY_BASE = 'defia_integrations_v1';
+const META_STORAGE_KEY_BASE = 'defia_storage_meta_v1';
+const AUTOMATION_STORAGE_KEY_BASE = 'defia_automation_settings_v1';
+const BRAND_REGISTRY_KEY_BASE = 'defia_brand_registry_v1';
+
+// Computed user-scoped keys (with migration fallback)
+const getStorageKey = () => userKey(STORAGE_KEY_BASE);
+const getPulsePrefix = () => userKey(PULSE_STORAGE_PREFIX_BASE);
+const getPostureKey = () => userKey(POSTURE_STORAGE_KEY_BASE);
+const getCalendarKey = () => userKey(CALENDAR_STORAGE_KEY_BASE);
+const getKeysKey = () => userKey(KEYS_STORAGE_KEY_BASE);
+const getMetaKey = () => userKey(META_STORAGE_KEY_BASE);
+const getAutomationKey = () => userKey(AUTOMATION_STORAGE_KEY_BASE);
+const getRegistryKey = () => userKey(BRAND_REGISTRY_KEY_BASE);
+
+// Legacy unscoped keys (for migration on first load)
+const LEGACY_STORAGE_KEY = 'ethergraph_brand_profiles_v17';
+const LEGACY_CALENDAR_KEY = 'defia_calendar_events_v1';
+const LEGACY_POSTURE_KEY = 'defia_strategic_posture_v1';
+const LEGACY_KEYS_KEY = 'defia_integrations_v1';
+const LEGACY_REGISTRY_KEY = 'defia_brand_registry_v1';
+
+// One-time migration: move unscoped data to user-scoped keys
+const migrateToUserScoped = () => {
+    const prefix = getUserPrefix();
+    if (prefix === 'anon') return; // Don't migrate if no user
+
+    const migrationFlag = `defia_migrated_${prefix}`;
+    if (localStorage.getItem(migrationFlag)) return; // Already migrated
+
+    const migrations = [
+        [LEGACY_STORAGE_KEY, getStorageKey()],
+        [LEGACY_CALENDAR_KEY, getCalendarKey()],
+        [LEGACY_POSTURE_KEY, getPostureKey()],
+        [LEGACY_KEYS_KEY, getKeysKey()],
+        [LEGACY_REGISTRY_KEY, getRegistryKey()],
+    ];
+
+    for (const [oldKey, newKey] of migrations) {
+        if (oldKey === newKey) continue; // Same key, skip
+        const data = localStorage.getItem(oldKey);
+        if (data && !localStorage.getItem(newKey)) {
+            localStorage.setItem(newKey, data);
+        }
+    }
+
+    localStorage.setItem(migrationFlag, '1');
+};
+
+// Run migration on module load
+try { migrateToUserScoped(); } catch { /* ignore */ }
+
+// Backward-compatible aliases used throughout the file
+const STORAGE_KEY = getStorageKey();
+const PULSE_STORAGE_PREFIX = getPulsePrefix();
+const POSTURE_STORAGE_KEY = getPostureKey();
+const CALENDAR_STORAGE_KEY = getCalendarKey();
+const KEYS_STORAGE_KEY = getKeysKey();
+const META_STORAGE_KEY = getMetaKey();
+const AUTOMATION_STORAGE_KEY = getAutomationKey();
+const BRAND_REGISTRY_KEY = getRegistryKey();
 
 // --- HELPER: Timestamp Management ---
 const getLocalTimestamp = (key: string): number => {
@@ -32,17 +117,25 @@ const setLocalTimestamp = (key: string, ts: number) => {
 
 const fetchFromCloud = async (key: string): Promise<{ value: any, updated_at: string } | null> => {
     try {
+        // User-scope cloud storage keys to prevent cross-user data leakage
+        const scopedKey = `${getUserPrefix()}:${key}`;
         const { data, error } = await supabase
             .from('app_storage')
             .select('value, updated_at')
-            .eq('key', key)
+            .eq('key', scopedKey)
             .maybeSingle();
 
         if (error) {
             if (error.code !== 'PGRST116') { // Ignore "Row not found"
-                console.warn(`Supabase fetch error for ${key}:`, error.message);
+                console.warn(`Supabase fetch error for ${scopedKey}:`, error.message);
             }
-            return null;
+            // Fallback: try legacy unscoped key for migration
+            const { data: legacyData } = await supabase
+                .from('app_storage')
+                .select('value, updated_at')
+                .eq('key', key)
+                .maybeSingle();
+            return legacyData ? { value: legacyData.value, updated_at: legacyData.updated_at } : null;
         }
         return data ? { value: data.value, updated_at: data.updated_at } : null;
     } catch (e) {
@@ -53,13 +146,14 @@ const fetchFromCloud = async (key: string): Promise<{ value: any, updated_at: st
 
 const saveToCloud = async (key: string, value: any) => {
     try {
+        // User-scope cloud storage keys
+        const scopedKey = `${getUserPrefix()}:${key}`;
         const { error } = await supabase
             .from('app_storage')
-            .upsert({ key, value, updated_at: new Date().toISOString() });
+            .upsert({ key: scopedKey, value, updated_at: new Date().toISOString() });
 
         if (error) {
-            console.error(`Supabase save error for ${key}:`, error.message);
-            // Optionally notify user of save failure via a toast (not implemented here yet)
+            console.error(`Supabase save error for ${scopedKey}:`, error.message);
         }
     } catch (e) {
         console.error("Cloud save failed:", e);
@@ -73,6 +167,7 @@ export const STORAGE_EVENTS = {
     POSTURE_UPDATE: 'defia_posture_update',
     AUTOMATION_UPDATE: 'defia_automation_update',
     INTEGRATIONS_UPDATE: 'defia_integrations_update',
+    CAMPAIGN_LOG_UPDATE: 'defia_campaign_log_update',
 };
 
 const dispatchStorageEvent = (eventName: string, detail: any) => {
@@ -175,6 +270,8 @@ const mergeWithDefaults = (storedData: any): Record<string, BrandConfig> => {
                 tweetExamples: preferStoredArray('tweetExamples'),
                 knowledgeBase: preferStoredArray('knowledgeBase'),
                 graphicTemplates: preferStoredArray('graphicTemplates'),
+                // Backfill subscription for brands that predate the plan system
+                subscription: stored.subscription || def.subscription || createDefaultSubscription('growth'),
             };
         }
     });
@@ -302,16 +399,18 @@ export const getCurrentUserBrand = (): { brandName: string; config: BrandConfig 
         }
     }
 
-    // Fallback: Check demo accounts by email pattern
-    const demoMapping: Record<string, string> = {
-        'enki@defia.io': 'ENKI Protocol',
-        'netswap@defia.io': 'Netswap',
-        'metis@defia.io': 'Metis',
-        'lazai@defia.io': 'LazAI',
-    };
+    // Fallback: Check demo accounts by email pattern (dev only)
+    if (import.meta.env.DEV) {
+        const demoMapping: Record<string, string> = {
+            'enki@defia.io': 'ENKI Protocol',
+            'netswap@defia.io': 'Netswap',
+            'metis@defia.io': 'Metis',
+            'lazai@defia.io': 'LazAI',
+        };
 
-    if (user.email && demoMapping[user.email] && allProfiles[demoMapping[user.email]]) {
-        return { brandName: demoMapping[user.email], config: allProfiles[demoMapping[user.email]] };
+        if (user.email && demoMapping[user.email] && allProfiles[demoMapping[user.email]]) {
+            return { brandName: demoMapping[user.email], config: allProfiles[demoMapping[user.email]] };
+        }
     }
 
     return null;
@@ -614,6 +713,7 @@ export interface IntegrationKeys {
         users?: string;
         retention?: string;
     };
+    duneAutoGenerated?: boolean;
     apify?: string;
     lunarCrush?: string;
     supabaseUrl?: string; // New
@@ -844,6 +944,35 @@ export const saveCampaignState = (brandName: string, state: any): void => {
         saveToCloud(key, state);
     } catch (e) {
         console.error("Failed to save campaign state", e);
+    }
+};
+
+// --- CAMPAIGN LOGS (Attribution Metadata) ---
+const CAMPAIGN_LOGS_KEY = 'defia_campaign_logs_v1';
+
+export const loadCampaignLogs = (brandName: string): CampaignLog[] => {
+    try {
+        const key = `${CAMPAIGN_LOGS_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+        fetchFromCloud(key).then(res => {
+            if (res && res.value && JSON.stringify(res.value) !== stored) {
+                console.log("Cloud campaign logs found via fetchFromCloud");
+            }
+        }).catch(() => {});
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error("Failed to load campaign logs", e);
+        return [];
+    }
+};
+
+export const saveCampaignLogs = (brandName: string, logs: CampaignLog[]): void => {
+    try {
+        const key = `${CAMPAIGN_LOGS_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(logs));
+        saveToCloud(key, logs);
+    } catch (e) {
+        console.error("Failed to save campaign logs", e);
     }
 };
 

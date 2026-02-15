@@ -12,6 +12,8 @@ import { startAgent, triggerAgentRun, runBrainCycle } from './server/agent/sched
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
 import { crawlWebsite, deepCrawlWebsite, fetchTwitterContent, uploadCarouselGraphic, fetchDocumentContent, extractDefiMetrics } from './server/onboarding.js';
 import { fetchWeb3News, scheduledNewsFetch } from './server/services/web3News.js';
+import { generateAndCreateQueries, CHAIN_SCHEMAS } from './server/services/dune.js';
+import Stripe from 'stripe';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,21 +22,175 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // CORS: restrict to known frontend origins
-const ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://localhost:3003',
-    'http://localhost:5173',
-    process.env.FRONTEND_URL,
-].filter(Boolean);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const ALLOWED_ORIGINS = IS_PRODUCTION
+    ? [process.env.FRONTEND_URL].filter(Boolean)
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:5173'];
+
+if (IS_PRODUCTION && !process.env.FRONTEND_URL) {
+    console.error('⚠️  WARNING: FRONTEND_URL is not set. CORS will reject all cross-origin requests in production.');
+}
 
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production'
-        ? ALLOWED_ORIGINS
-        : true, // Allow all origins in dev
+    origin: IS_PRODUCTION ? ALLOWED_ORIGINS : true,
     credentials: true,
 }));
+
+// Security headers
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
+
+// --- Stripe Setup ---
+const stripe = process.env.STRIPE_SECRET_KEY
+    ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+
+const STRIPE_PRICE_TO_TIER = {
+    [process.env.STRIPE_STARTER_PRICE_ID]: 'starter',
+    [process.env.STRIPE_GROWTH_PRICE_ID]: 'growth',
+};
+
+// Stripe webhook MUST be registered before express.json() to get raw body
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
+
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) return res.status(500).json({ error: 'Webhook secret not configured' });
+
+    let event;
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err) {
+        console.error('[Stripe] Webhook signature verification failed:', err.message);
+        return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+    }
+
+    const supabase = getSupabaseAdminClient();
+    if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+    try {
+        switch (event.type) {
+            case 'checkout.session.completed': {
+                const session = event.data.object;
+                if (session.mode !== 'subscription') break;
+                const subscriptionId = session.subscription;
+                const sub = await stripe.subscriptions.retrieve(subscriptionId);
+                const priceId = sub.items.data[0]?.price?.id;
+                const tier = STRIPE_PRICE_TO_TIER[priceId] || 'starter';
+
+                await supabase.from('subscriptions').upsert({
+                    id: sub.id,
+                    user_id: session.metadata?.user_id || null,
+                    brand_id: session.metadata?.brand_id || null,
+                    stripe_customer_id: sub.customer,
+                    stripe_price_id: priceId,
+                    plan_tier: tier,
+                    status: sub.status,
+                    current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+                    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+                    cancel_at_period_end: sub.cancel_at_period_end,
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'id' });
+
+                // Also sync the tier to app_storage for in-app subscription state
+                if (session.metadata?.brand_id) {
+                    const storageKey = `subscription_${session.metadata.brand_id}`;
+                    await supabase.from('app_storage').upsert({
+                        key: storageKey,
+                        value: { plan: tier, status: sub.status, stripeSubscriptionId: sub.id },
+                        updated_at: new Date().toISOString(),
+                    }, { onConflict: 'key' });
+                }
+                console.log(`[Stripe] Checkout completed: ${sub.id} → ${tier}`);
+                break;
+            }
+
+            case 'customer.subscription.updated': {
+                const sub = event.data.object;
+                const priceId = sub.items.data[0]?.price?.id;
+                const tier = STRIPE_PRICE_TO_TIER[priceId] || 'starter';
+
+                await supabase.from('subscriptions').upsert({
+                    id: sub.id,
+                    stripe_customer_id: sub.customer,
+                    stripe_price_id: priceId,
+                    plan_tier: tier,
+                    status: sub.status,
+                    current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+                    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+                    cancel_at_period_end: sub.cancel_at_period_end,
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'id' });
+
+                // Sync tier update to app_storage
+                const { data: existingSub } = await supabase
+                    .from('subscriptions')
+                    .select('brand_id')
+                    .eq('id', sub.id)
+                    .maybeSingle();
+                if (existingSub?.brand_id) {
+                    const storageKey = `subscription_${existingSub.brand_id}`;
+                    await supabase.from('app_storage').upsert({
+                        key: storageKey,
+                        value: { plan: tier, status: sub.status, stripeSubscriptionId: sub.id },
+                        updated_at: new Date().toISOString(),
+                    }, { onConflict: 'key' });
+                }
+                console.log(`[Stripe] Subscription updated: ${sub.id} → ${tier} (${sub.status})`);
+                break;
+            }
+
+            case 'customer.subscription.deleted': {
+                const sub = event.data.object;
+                await supabase.from('subscriptions')
+                    .update({ status: 'canceled', updated_at: new Date().toISOString() })
+                    .eq('id', sub.id);
+
+                const { data: existingSub } = await supabase
+                    .from('subscriptions')
+                    .select('brand_id')
+                    .eq('id', sub.id)
+                    .maybeSingle();
+                if (existingSub?.brand_id) {
+                    const storageKey = `subscription_${existingSub.brand_id}`;
+                    await supabase.from('app_storage').upsert({
+                        key: storageKey,
+                        value: { plan: 'starter', status: 'canceled', stripeSubscriptionId: sub.id },
+                        updated_at: new Date().toISOString(),
+                    }, { onConflict: 'key' });
+                }
+                console.log(`[Stripe] Subscription canceled: ${sub.id}`);
+                break;
+            }
+
+            case 'invoice.payment_failed': {
+                const invoice = event.data.object;
+                if (invoice.subscription) {
+                    await supabase.from('subscriptions')
+                        .update({ status: 'past_due', updated_at: new Date().toISOString() })
+                        .eq('id', invoice.subscription);
+                }
+                console.warn(`[Stripe] Payment failed for invoice: ${invoice.id}`);
+                break;
+            }
+
+            default:
+                // Unhandled event type
+                break;
+        }
+    } catch (err) {
+        console.error(`[Stripe] Webhook handler error for ${event.type}:`, err);
+        return res.status(500).json({ error: 'Webhook handler failed' });
+    }
+
+    res.json({ received: true });
+});
+
 app.use(express.json({ limit: '10mb' })); // Increased limit for base64 image uploads
 
 // Basic rate limiting for API endpoints
@@ -145,6 +301,8 @@ const PUBLIC_API_PATHS = new Set([
     '/api/auth/x/authorize-url',
     '/api/auth/x/callback',
     '/api/auth/x/status',
+    // Stripe webhook uses its own signature verification
+    '/api/billing/webhook',
 ]);
 
 // Prefixes for dynamic routes that should be public
@@ -311,6 +469,30 @@ app.use((req, res, next) => {
     req.auth = { apiKey: match.key, ownerId: match.ownerId };
     return next();
 });
+
+// Auth middleware — validates Supabase JWT from Authorization header
+const requireAuth = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication required. Provide a valid Bearer token.' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+            return res.status(500).json({ error: 'Auth service unavailable' });
+        }
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        if (error || !user) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+        req.authUser = { id: user.id, email: user.email };
+        return next();
+    } catch (e) {
+        console.error('Auth middleware error:', e);
+        return res.status(401).json({ error: 'Authentication failed' });
+    }
+};
 
 const ensureBrandOwnership = async (supabase, brandId, ownerId) => {
     const { data: brand, error } = await supabase
@@ -710,7 +892,7 @@ app.get('/api/auth/x/callback', async (req, res) => {
     }
 });
 
-app.get('/api/x/metrics/:brand', async (req, res) => {
+app.get('/api/x/metrics/:brand', requireAuth, async (req, res) => {
     const brandParam = sanitizeText(String(req.params.brand || ''));
     const forceRefresh = String(req.query.refresh || '') === 'true';
     if (!brandParam) return res.status(400).json({ error: 'brandId is required' });
@@ -913,7 +1095,7 @@ app.get('/api/x/metrics/:brand', async (req, res) => {
 });
 
 // --- Onboarding: Website Crawl (Simple) ---
-app.post('/api/onboarding/crawl', async (req, res) => {
+app.post('/api/onboarding/crawl', requireAuth, async (req, res) => {
     try {
         const { url, maxPages } = req.body || {};
         const normalized = normalizeDomain(String(url || ''));
@@ -933,7 +1115,7 @@ app.post('/api/onboarding/crawl', async (req, res) => {
 
 // --- Onboarding: Deep Website Crawl (Apify-powered) ---
 // This crawls extensively including docs subdomain, extracts knowledge base entries
-app.post('/api/onboarding/deep-crawl', async (req, res) => {
+app.post('/api/onboarding/deep-crawl', requireAuth, async (req, res) => {
     try {
         const { url, maxPages, maxDepth, includeDocsSubdomain } = req.body || {};
         const normalized = normalizeDomain(String(url || ''));
@@ -962,7 +1144,7 @@ app.post('/api/onboarding/deep-crawl', async (req, res) => {
 });
 
 // --- Onboarding: Fetch Document Content ---
-app.post('/api/onboarding/fetch-document', async (req, res) => {
+app.post('/api/onboarding/fetch-document', requireAuth, async (req, res) => {
     try {
         const { url } = req.body || {};
         if (!url || typeof url !== 'string') {
@@ -978,7 +1160,7 @@ app.post('/api/onboarding/fetch-document', async (req, res) => {
 });
 
 // --- Onboarding: Twitter Scrape ---
-app.post('/api/onboarding/twitter', async (req, res) => {
+app.post('/api/onboarding/twitter', requireAuth, async (req, res) => {
     try {
         const { handle, maxItems, brandName } = req.body || {};
         const normalizedHandle = normalizeHandle(String(handle || ''));
@@ -1011,7 +1193,7 @@ app.post('/api/onboarding/twitter', async (req, res) => {
 });
 
 // --- Onboarding: Carousel Upload ---
-app.post('/api/onboarding/carousel-upload', async (req, res) => {
+app.post('/api/onboarding/carousel-upload', requireAuth, async (req, res) => {
     try {
         const { brandName, imageData, imageId } = req.body || {};
         if (!brandName || !imageData) {
@@ -1035,7 +1217,7 @@ app.post('/api/onboarding/carousel-upload', async (req, res) => {
     }
 });
 
-app.post('/api/brands/register', async (req, res) => {
+app.post('/api/brands/register', requireAuth, async (req, res) => {
     const supabase = getSupabaseAdminClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
@@ -1177,7 +1359,7 @@ app.post('/api/brands/register', async (req, res) => {
     }
 });
 
-app.post('/api/brands/resolve', async (req, res) => {
+app.post('/api/brands/resolve', requireAuth, async (req, res) => {
     const supabase = getSupabaseAdminClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
@@ -1185,7 +1367,7 @@ app.post('/api/brands/resolve', async (req, res) => {
 
     try {
         const { name, websiteUrl, sources = {} } = req.body || {};
-        const ownerId = req.auth?.ownerId || null;
+        const ownerId = req.authUser?.id || req.auth?.ownerId || null;
         const normalizedName = sanitizeText(name || '');
         if (!normalizedName || normalizedName.length < 2) {
             return res.status(400).json({ error: 'Brand name is required.' });
@@ -1200,6 +1382,12 @@ app.post('/api/brands/resolve', async (req, res) => {
         if (existingBrand) {
             if (existingBrand.owner_id && ownerId && existingBrand.owner_id !== ownerId) {
                 return res.status(403).json({ error: 'Brand already exists for another owner.' });
+            }
+            // Claim unclaimed brand for the authenticated user
+            if (!existingBrand.owner_id && ownerId) {
+                await supabase.from('brands')
+                    .update({ owner_id: ownerId, updated_at: new Date().toISOString() })
+                    .eq('id', existingBrand.id);
             }
             return res.json({ id: existingBrand.id, name: existingBrand.name });
         }
@@ -1239,7 +1427,43 @@ app.post('/api/brands/resolve', async (req, res) => {
     }
 });
 
-app.patch('/api/brands/:id/integrations', async (req, res) => {
+// ── Dune: Auto-generate queries from contract addresses ──────────
+app.post('/api/dune/generate-queries', requireAuth, async (req, res) => {
+    try {
+        const { duneApiKey, contracts, brandName } = req.body || {};
+
+        if (!duneApiKey || typeof duneApiKey !== 'string') {
+            return res.json({ success: false, error: 'Dune API key is required' });
+        }
+        if (!contracts || !Array.isArray(contracts) || contracts.length === 0) {
+            return res.json({ success: false, error: 'At least one contract is required' });
+        }
+        if (!brandName || typeof brandName !== 'string') {
+            return res.json({ success: false, error: 'Brand name is required' });
+        }
+
+        // Validate contracts have supported chains
+        const supported = contracts.filter(c => c.chain && CHAIN_SCHEMAS[c.chain]);
+        if (supported.length === 0) {
+            const chains = [...new Set(contracts.map(c => c.chain).filter(Boolean))];
+            return res.json({
+                success: false,
+                error: `No supported chains found. Supported: ${Object.keys(CHAIN_SCHEMAS).join(', ')}. Got: ${chains.join(', ') || 'none'}`,
+            });
+        }
+
+        console.log(`[Dune] Generating queries for ${brandName} (${supported.length} contracts)`);
+        const queryIds = await generateAndCreateQueries(duneApiKey, supported, brandName);
+        console.log(`[Dune] Generated query IDs:`, queryIds);
+
+        return res.json({ success: true, queryIds });
+    } catch (e) {
+        console.error('[Dune] Generate queries error:', e.message);
+        return res.json({ success: false, error: e.message || 'Failed to generate Dune queries' });
+    }
+});
+
+app.patch('/api/brands/:id/integrations', requireAuth, async (req, res) => {
     const supabase = getSupabaseAdminClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
@@ -1247,9 +1471,9 @@ app.patch('/api/brands/:id/integrations', async (req, res) => {
 
     try {
         const brandId = req.params.id;
-        const ownerId = req.auth?.ownerId;
+        const ownerId = req.authUser?.id || req.auth?.ownerId;
         if (!ownerId) {
-            return res.status(403).json({ error: 'Owner key required' });
+            return res.status(403).json({ error: 'Authentication required' });
         }
 
         const ownership = await ensureBrandOwnership(supabase, brandId, ownerId);
@@ -1369,7 +1593,7 @@ app.get('/api/publish/run', async (req, res) => {
     }
 });
 
-app.patch('/api/brands/:id/automation', async (req, res) => {
+app.patch('/api/brands/:id/automation', requireAuth, async (req, res) => {
     const supabase = getSupabaseAdminClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
@@ -1377,9 +1601,9 @@ app.patch('/api/brands/:id/automation', async (req, res) => {
 
     try {
         const brandId = req.params.id;
-        const ownerId = req.auth?.ownerId;
+        const ownerId = req.authUser?.id || req.auth?.ownerId;
         if (!ownerId) {
-            return res.status(403).json({ error: 'Owner key required' });
+            return res.status(403).json({ error: 'Authentication required' });
         }
 
         const ownership = await ensureBrandOwnership(supabase, brandId, ownerId);
@@ -1416,7 +1640,7 @@ app.patch('/api/brands/:id/automation', async (req, res) => {
     }
 });
 
-app.post('/api/assets/upload', async (req, res) => {
+app.post('/api/assets/upload', requireAuth, async (req, res) => {
     const supabase = getSupabaseServiceClient();
     if (!supabase) {
         return res.status(500).json({ error: 'Supabase not configured' });
@@ -1476,7 +1700,7 @@ app.post('/api/assets/upload', async (req, res) => {
 });
 
 // --- Agent Decisions Bridge ---
-app.get('/api/decisions', (req, res) => {
+app.get('/api/decisions', requireAuth, (req, res) => {
     try {
         const supabase = getSupabaseClient();
         if (supabase) {
@@ -1826,7 +2050,7 @@ app.post('/api/tweet-oembed', async (req, res) => {
 
 // --- Internal Cache Endpoints ---
 
-app.get('/api/social-metrics/:brand', (req, res) => {
+app.get('/api/social-metrics/:brand', requireAuth, (req, res) => {
     const { brand } = req.params;
 
     if (!fs.existsSync(CACHE_FILE)) {
@@ -1851,7 +2075,7 @@ app.get('/api/social-metrics/:brand', (req, res) => {
 
 // --- Action Center (Server Brain Output) ---
 
-app.get('/api/action-center/:brand', async (req, res) => {
+app.get('/api/action-center/:brand', requireAuth, async (req, res) => {
     const brand = req.params.brand || '';
     const brandKey = brand.toLowerCase();
     let decisions = [];
@@ -1941,6 +2165,127 @@ app.get('/api/action-center/:brand', async (req, res) => {
         growthReport,
         generatedAt: new Date().toISOString()
     });
+});
+
+// ============================================================
+// Stripe Billing — Checkout + Customer Portal
+// ============================================================
+
+app.post('/api/billing/create-checkout', requireAuth, async (req, res) => {
+    if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
+
+    const { priceId, brandId } = req.body;
+    if (!priceId) return res.status(400).json({ error: 'priceId is required' });
+
+    const userId = req.authUser.id;
+    const userEmail = req.authUser.email;
+
+    try {
+        const supabase = getSupabaseAdminClient();
+
+        // Check if user already has a Stripe customer record
+        let customerId = null;
+        if (supabase) {
+            const { data: existingSub } = await supabase
+                .from('subscriptions')
+                .select('stripe_customer_id')
+                .eq('user_id', userId)
+                .limit(1)
+                .maybeSingle();
+            if (existingSub?.stripe_customer_id) {
+                customerId = existingSub.stripe_customer_id;
+            }
+        }
+
+        // Create Stripe customer if not found
+        if (!customerId) {
+            const customer = await stripe.customers.create({
+                email: userEmail,
+                metadata: { user_id: userId, brand_id: brandId || '' },
+            });
+            customerId = customer.id;
+        }
+
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const session = await stripe.checkout.sessions.create({
+            customer: customerId,
+            mode: 'subscription',
+            line_items: [{ price: priceId, quantity: 1 }],
+            success_url: `${frontendUrl}?billing=success&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${frontendUrl}?billing=canceled`,
+            metadata: { user_id: userId, brand_id: brandId || '' },
+            subscription_data: {
+                metadata: { user_id: userId, brand_id: brandId || '' },
+            },
+        });
+
+        res.json({ url: session.url });
+    } catch (err) {
+        console.error('[Stripe] Create checkout error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/billing/create-portal', requireAuth, async (req, res) => {
+    if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
+
+    const userId = req.authUser.id;
+
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        // Look up the user's Stripe customer ID
+        const { data: sub } = await supabase
+            .from('subscriptions')
+            .select('stripe_customer_id')
+            .eq('user_id', userId)
+            .limit(1)
+            .maybeSingle();
+
+        if (!sub?.stripe_customer_id) {
+            return res.status(404).json({ error: 'No active subscription found. Please subscribe first.' });
+        }
+
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const session = await stripe.billingPortal.sessions.create({
+            customer: sub.stripe_customer_id,
+            return_url: `${frontendUrl}?section=settings`,
+        });
+
+        res.json({ url: session.url });
+    } catch (err) {
+        console.error('[Stripe] Create portal error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Fetch current subscription status for the authenticated user
+app.get('/api/billing/status', requireAuth, async (req, res) => {
+    const userId = req.authUser.id;
+
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const { data: sub, error } = await supabase
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error('[Billing] Status fetch error:', error);
+            return res.status(500).json({ error: error.message });
+        }
+
+        res.json({ subscription: sub || null });
+    } catch (err) {
+        console.error('[Billing] Status error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Only start server if NOT running in Vercel (Vercel handles the server via 'api' folder)

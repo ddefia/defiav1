@@ -6,9 +6,10 @@ import { generateWeb3Graphic, generateCampaignDrafts, generateCampaignStrategy, 
 import { getBrainContext } from '../services/pulse';
 import { dispatchThinking } from './ThinkingConsole';
 
-import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs, loadStrategyTasks, getBrandRegistryEntry } from '../services/storage';
+import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs, loadStrategyTasks, getBrandRegistryEntry, loadCampaignLogs, saveCampaignLogs } from '../services/storage';
 import { saveBrainMemory } from '../services/supabase';
-import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy, ActionPlan, MarketingAction } from '../types';
+import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy, ActionPlan, MarketingAction, CampaignLog } from '../types';
+import { checkCountLimit } from '../services/subscription';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -66,6 +67,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     // Quick Mode State
     const [campaignCount, setCampaignCount] = useState<string>('3');
     const [campaignStartDate, setCampaignStartDate] = useState<string>('');
+    const [campaignBudget, setCampaignBudget] = useState<number>(0);
     const [isDraftingCampaign, setIsDraftingCampaign] = useState<boolean>(false);
     const [isGeneratingStrategy, setIsGeneratingStrategy] = useState<boolean>(false);
     const [campaignItems, setCampaignItems] = useState<CampaignItem[]>([]);
@@ -199,16 +201,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     }, []);
 
     const getActiveCampaigns = () => {
+        const logs = loadCampaignLogs(brandName);
+        const logMap = Object.fromEntries(logs.map(log => [log.name, log]));
         const campaigns: Record<string, { count: number, nextDate: string, status: string, type: string, budget: string, reach: string, conversion: string, roi: string }> = {};
         events.forEach(e => {
             if (e.campaignName) {
                 if (!campaigns[e.campaignName]) {
+                    const log = logMap[e.campaignName];
                     campaigns[e.campaignName] = {
                         count: 0,
                         nextDate: e.date,
                         status: 'Active',
                         type: 'General',
-                        budget: '$0',
+                        budget: log?.budget ? `$${log.budget.toLocaleString()}` : '$0',
                         reach: '0',
                         conversion: '0%',
                         roi: '+0%'
@@ -218,12 +223,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 if (new Date(e.date) > new Date(campaigns[e.campaignName].nextDate)) {
                     campaigns[e.campaignName].nextDate = e.date;
                 }
-                // Check if completed
                 const allPast = events.filter(ev => ev.campaignName === e.campaignName).every(ev => new Date(ev.date) < new Date());
                 if (allPast) campaigns[e.campaignName].status = 'Completed';
             }
         });
         return Object.entries(campaigns).map(([name, data]) => ({ name, ...data }));
+    };
+
+    const tryStartCampaign = () => {
+        const campCheck = checkCountLimit(brandConfig.subscription, 'maxCampaigns', getActiveCampaigns().length);
+        if (!campCheck.allowed) {
+            alert(`Campaign limit reached (${campCheck.current}/${campCheck.max} campaigns). Upgrade your plan for more.`);
+            return false;
+        }
+        return true;
     };
 
     // --- Actions ---
@@ -640,6 +653,18 @@ export const Campaigns: React.FC<CampaignsProps> = ({
         onUpdateEvents(updatedEvents);
         saveCalendarEvents(brandName, updatedEvents);
 
+        // Persist campaign log for attribution tracking
+        const campaignLog: CampaignLog = {
+            id: `campaign-${Date.now()}`,
+            name: campaignTheme || 'Untitled Campaign',
+            startDate: newEvents[0].date,
+            endDate: newEvents[newEvents.length - 1].date,
+            budget: campaignBudget,
+            channel: 'Twitter',
+        };
+        const existingLogs = loadCampaignLogs(brandName);
+        saveCampaignLogs(brandName, [...existingLogs, campaignLog]);
+
         setCampaignStep(5);
     };
 
@@ -876,7 +901,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         </button>
                         {/* New Campaign */}
                         <button
-                            onClick={() => { setViewMode('wizard'); setCampaignStep(1); }}
+                            onClick={() => { if (tryStartCampaign()) { setViewMode('wizard'); setCampaignStep(1); } }}
                             className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
                         >
                             <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 400" }}>add</span>
@@ -1037,7 +1062,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         Create your first campaign to start tracking performance and ROI.
                                     </p>
                                     <button
-                                        onClick={() => { setViewMode('wizard'); setCampaignStep(1); }}
+                                        onClick={() => { if (tryStartCampaign()) { setViewMode('wizard'); setCampaignStep(1); } }}
                                         className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
                                     >
                                         <span className="material-symbols-sharp text-lg">add</span>
@@ -1155,8 +1180,10 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         key={i}
                                         onClick={() => {
                                             if (action.label === 'Create Campaign') {
-                                                setViewMode('wizard');
-                                                setCampaignStep(1);
+                                                if (tryStartCampaign()) {
+                                                    setViewMode('wizard');
+                                                    setCampaignStep(1);
+                                                }
                                             }
                                         }}
                                         className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[#1A1A1D] transition-colors border-b border-[#1F1F23] last:border-none"
@@ -1272,16 +1299,31 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         </div>
                                     </div>
 
-                                    {/* Campaign Goals */}
-                                    <div className="mb-5">
-                                        <label className="text-xs font-medium text-[#6B6B70] mb-2 block">Campaign Goals</label>
-                                        <input
-                                            type="text"
-                                            value={campaignGoal}
-                                            onChange={(e) => setCampaignGoal(e.target.value)}
-                                            placeholder="10K holders, 50K Twitter followers"
-                                            className="w-full bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-4 py-3 text-white placeholder-[#4A4A4E] text-sm focus:outline-none focus:border-[#FF5C00] transition-colors"
-                                        />
+                                    {/* Budget & Goals Row */}
+                                    <div className="flex gap-4 mb-5">
+                                        <div className="flex-1">
+                                            <label className="text-xs font-medium text-[#6B6B70] mb-2 block">Campaign Goals</label>
+                                            <input
+                                                type="text"
+                                                value={campaignGoal}
+                                                onChange={(e) => setCampaignGoal(e.target.value)}
+                                                placeholder="10K holders, 50K Twitter followers"
+                                                className="w-full bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-4 py-3 text-white placeholder-[#4A4A4E] text-sm focus:outline-none focus:border-[#FF5C00] transition-colors"
+                                            />
+                                        </div>
+                                        <div className="w-36">
+                                            <label className="text-xs font-medium text-[#6B6B70] mb-2 block">Budget (USD)</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B6B70] text-sm">$</span>
+                                                <input
+                                                    type="number"
+                                                    value={campaignBudget || ''}
+                                                    onChange={(e) => setCampaignBudget(parseFloat(e.target.value) || 0)}
+                                                    placeholder="0"
+                                                    className="w-full bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg pl-7 pr-3 py-3 text-white placeholder-[#4A4A4E] text-sm focus:outline-none focus:border-[#FF5C00] transition-colors"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Platforms */}

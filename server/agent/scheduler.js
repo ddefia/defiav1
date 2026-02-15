@@ -213,13 +213,12 @@ export const startAgent = () => {
         if (apifyKey) await updateAllBrands(apifyKey, activeBrands);
     }, 5000);
 
-    setTimeout(async () => {
-        await runBrainCycle({ label: 'Bootup Decision Scan', supabaseOverride: supabase });
-    }, 8000);
+    // Bootup brain cycle removed — the scheduled cron (every 6h) handles this.
+    // Running it on every deploy was burning Apify credits (1 actor run per brand per restart).
 
-    // 1. Core Agent Loop (Decision Making) - Hourly
-    cron.schedule('0 * * * *', async () => {
-        await runBrainCycle({ label: 'Hourly Decision Scan', supabaseOverride: supabase });
+    // 1. Core Agent Loop (Decision Making) - Every 6 hours (was hourly — reduced to save Apify credits)
+    cron.schedule('0 */6 * * *', async () => {
+        await runBrainCycle({ label: 'Scheduled Decision Scan', supabaseOverride: supabase });
     });
 
     // 2. Data Sync Loop (Data Freshness) - Daily at Noon

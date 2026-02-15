@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, DailyBrief } from '../types';
 import { fetchCampaignPerformance } from '../services/analytics';
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
-import { loadCampaignState } from '../services/storage';
+import { loadCampaignState, loadCampaignLogs } from '../services/storage';
 import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton';
 import { generateSupplementalRecs } from './RecommendationsPage';
+import { PLAN_NAMES, getResetUsage } from '../services/subscription';
 
 interface DashboardProps {
     brandName: string;
@@ -36,14 +37,8 @@ const formatEngagements = (metrics: SocialMetrics) => {
 
 const transformMetricsToKPIs = (
     metrics: SocialMetrics | null,
-    chain: ComputedMetrics | null,
-    campaigns: DashboardCampaign[] = []
 ): KPIItem[] => {
     const followersVal = metrics ? metrics.totalFollowers : 0;
-    const newWallets = campaigns.length > 0
-        ? campaigns.reduce((acc, c) => acc + c.attributedWallets, 0)
-        : (chain?.netNewWallets || 0);
-    const netVol = chain ? chain.totalVolume : 0;
     const impressionsVal = metrics ? metrics.weeklyImpressions : 0;
     const engagementRateVal = metrics ? metrics.engagementRate : 0;
 
@@ -70,7 +65,7 @@ const transformMetricsToKPIs = (
         },
         {
             label: 'TOTAL ENGAGEMENTS',
-            value: newWallets > 0 ? `${(newWallets / 1000).toFixed(1)}K` : (metrics ? formatEngagements(metrics) : '--'),
+            value: metrics ? formatEngagements(metrics) : '--',
             delta: 0,
             trend: 'flat' as const,
             confidence: metrics ? 'High' : 'Low',
@@ -185,7 +180,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [newsItems, setNewsItems] = useState<{ icon: string; iconBg: string; title: string; source: string; time: string; url?: string; rawArticle?: any }[]>([]);
     const [newsLoading, setNewsLoading] = useState(true);
 
-    const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics, chainMetrics, campaigns), [socialMetrics, chainMetrics, campaigns]);
+    const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics), [socialMetrics]);
 
     // Derive fallback recommendations from agentDecisions if sharedRecommendations is empty
     // Supplements with data-driven recs when total < 3
@@ -228,12 +223,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         // Supplement with data-driven recs if primary count is below 3
         if (primary.length < 3) {
-            const supplemental = generateSupplementalRecs(brandName, socialSignals, socialMetrics, brandConfig);
+            const supplemental = generateSupplementalRecs(brandName, socialSignals, socialMetrics, brandConfig, chainMetrics, loadCampaignLogs(brandName));
             return [...primary, ...supplemental].slice(0, 6);
         }
 
         return primary;
-    }, [sharedRecommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig]);
+    }, [sharedRecommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig, chainMetrics]);
 
     // Fetch Web3 news for dashboard
     useEffect(() => {
@@ -282,7 +277,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             // Only show loading spinner if there's no cached data to display
             if (!briefData) setBriefLoading(true);
             try {
-                const brief = await generateBriefService(brandName, kpis, campaigns, []);
+                const brief = await generateBriefService(brandName, kpis, campaigns, [], chainMetrics);
                 setBriefData(brief);
                 // Cache to localStorage for instant display on next visit
                 try { localStorage.setItem(`defia_daily_brief_${brandName}`, JSON.stringify(brief)); } catch {}
@@ -299,15 +294,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
         let mounted = true;
         const loadData = async () => {
             try {
-                const [camps] = await Promise.all([fetchCampaignPerformance()]);
-                if (mounted) setCampaigns(camps);
+                // Try Supabase first, fall back to computed chain metrics
+                const camps = await fetchCampaignPerformance();
+                if (mounted && camps.length > 0) {
+                    setCampaigns(camps);
+                } else if (mounted && chainMetrics?.campaignPerformance?.length) {
+                    // Map attribution data to DashboardCampaign format
+                    const logs = loadCampaignLogs(brandName);
+                    const mapped: DashboardCampaign[] = chainMetrics.campaignPerformance.map(perf => {
+                        const log = logs.find(l => l.id === perf.campaignId);
+                        if (!log) return null;
+                        const wallets = perf.cpa > 0 ? Math.round(log.budget / perf.cpa) : 0;
+                        return {
+                            id: log.id, name: log.name,
+                            channel: log.channel as any || 'Twitter',
+                            spend: log.budget, attributedWallets: wallets,
+                            cpa: perf.cpa, retention: perf.retention || 0,
+                            valueCreated: perf.roi * log.budget, roi: perf.roi,
+                            status: (perf.roi > 2 ? 'Scale' : perf.roi > 1 ? 'Test' : 'Pause') as any,
+                            trendSignal: perf.lift > 1.2 ? 'up' : perf.lift < 0.8 ? 'down' : 'flat',
+                            confidence: log.budget > 1000 ? 'High' : 'Med',
+                            aiSummary: [`${perf.lift.toFixed(1)}x lift vs baseline`, `${perf.whalesAcquired} high-activity wallets`],
+                            anomalies: [], priorityScore: Math.min(10, Math.round(perf.roi * 2)),
+                            type: 'Alpha' as const, expectedImpact: perf.roi > 2 ? 'Strong growth signal' : 'Needs optimization',
+                            recommendation: {
+                                action: (perf.roi > 2 ? 'Scale' : perf.roi > 1 ? 'Test' : 'Pause') as any,
+                                reasoning: [`CPA: $${perf.cpa.toFixed(2)}`, `ROI: ${perf.roi.toFixed(1)}x`, `${perf.whalesAcquired} whales acquired`],
+                                confidence: 'Med' as const,
+                            },
+                        };
+                    }).filter(Boolean) as DashboardCampaign[];
+                    setCampaigns(mapped);
+                }
             } catch (e) {
                 console.error("Dashboard Data Load Failed", e);
             }
         };
         loadData();
         return () => { mounted = false; };
-    }, [brandName]);
+    }, [brandName, chainMetrics]);
 
     useEffect(() => {
         const state = loadCampaignState(brandName);
@@ -430,6 +455,108 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         ))}
                     </div>
 
+                    {/* Plan Usage Bar */}
+                    {brandConfig?.subscription && (() => {
+                        const sub = brandConfig.subscription;
+                        const usage = getResetUsage(sub.usage);
+                        const contentMax = sub.limits.contentPerMonth;
+                        const imageMax = sub.limits.imagesPerMonth;
+                        const contentPct = contentMax === -1 ? 0 : Math.min(100, (usage.contentThisMonth / contentMax) * 100);
+                        const imagePct = imageMax === -1 ? 0 : Math.min(100, (usage.imagesThisMonth / imageMax) * 100);
+                        return (
+                            <div
+                                className="rounded-xl p-4 mb-7 flex items-center gap-6 flex-wrap"
+                                style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-sharp text-base" style={{ color: '#FF5C00', fontVariationSettings: "'FILL' 1, 'wght' 300" }}>workspace_premium</span>
+                                    <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                        {PLAN_NAMES[sub.plan]} Plan
+                                    </span>
+                                </div>
+                                <div className="h-4 w-px" style={{ backgroundColor: 'var(--border)' }} />
+                                <div className="flex items-center gap-2 flex-1 min-w-[140px]">
+                                    <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Content</span>
+                                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                                        <div className="h-full rounded-full transition-all" style={{ width: contentMax === -1 ? '5%' : `${contentPct}%`, backgroundColor: contentPct >= 90 ? '#EF4444' : '#FF5C00' }} />
+                                    </div>
+                                    <span className="text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                                        {usage.contentThisMonth}/{contentMax === -1 ? '∞' : contentMax}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 flex-1 min-w-[140px]">
+                                    <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Images</span>
+                                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                                        <div className="h-full rounded-full transition-all" style={{ width: imageMax === -1 ? '5%' : `${imagePct}%`, backgroundColor: imagePct >= 90 ? '#EF4444' : '#FF5C00' }} />
+                                    </div>
+                                    <span className="text-[11px] font-medium tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                                        {usage.imagesThisMonth}/{imageMax === -1 ? '∞' : imageMax}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => onNavigate('settings', { tab: 'billing' })}
+                                    className="text-[11px] font-medium text-[#FF5C00] hover:text-[#FF6B1A] transition-colors whitespace-nowrap"
+                                >
+                                    Manage Plan →
+                                </button>
+                            </div>
+                        );
+                    })()}
+
+                    {/* On-Chain Analytics — only when chain data exists */}
+                    {chainMetrics && (chainMetrics.netNewWallets > 0 || chainMetrics.totalVolume > 0 || chainMetrics.activeWallets > 0) && (
+                        <div className="rounded-xl overflow-hidden mb-7" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
+                            <div className="px-5 py-4 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                                <span className="material-symbols-sharp text-base" style={{ color: '#8B5CF6', fontVariationSettings: "'wght' 300" }}>token</span>
+                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>On-Chain Analytics</span>
+                                {brandConfig?.blockchain?.contracts && (() => {
+                                    const chains = [...new Set(brandConfig.blockchain!.contracts.map(c => c.chain).filter(Boolean))];
+                                    return chains.length > 0 ? (
+                                        <div className="flex items-center gap-1.5 ml-auto">
+                                            {chains.map(chain => (
+                                                <span key={chain} className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#8B5CF615', color: '#8B5CF6' }}>
+                                                    {chain}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : null;
+                                })()}
+                            </div>
+                            <div className="grid grid-cols-4 gap-4 p-5">
+                                <div>
+                                    <div className="text-xs font-medium tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>NEW WALLETS</div>
+                                    <div className="text-2xl font-medium font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                                        {chainMetrics.netNewWallets > 1000 ? `${(chainMetrics.netNewWallets / 1000).toFixed(1)}K` : chainMetrics.netNewWallets.toLocaleString()}
+                                    </div>
+                                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>net new</div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-medium tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>ACTIVE WALLETS</div>
+                                    <div className="text-2xl font-medium font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                                        {chainMetrics.activeWallets > 1000 ? `${(chainMetrics.activeWallets / 1000).toFixed(1)}K` : chainMetrics.activeWallets.toLocaleString()}
+                                    </div>
+                                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>currently active</div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-medium tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>VOLUME</div>
+                                    <div className="text-2xl font-medium font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                                        {chainMetrics.totalVolume > 1_000_000 ? `$${(chainMetrics.totalVolume / 1_000_000).toFixed(1)}M` : chainMetrics.totalVolume > 1000 ? `$${(chainMetrics.totalVolume / 1000).toFixed(0)}K` : `$${chainMetrics.totalVolume.toLocaleString()}`}
+                                    </div>
+                                    <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>total</div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-medium tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>RETENTION</div>
+                                    <div className="text-2xl font-medium font-mono tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                                        {chainMetrics.retentionRate.toFixed(1)}%
+                                    </div>
+                                    <div className="text-xs mt-1" style={{ color: chainMetrics.retentionRate >= 30 ? '#22C55E' : chainMetrics.retentionRate >= 15 ? '#F59E0B' : 'var(--text-muted)' }}>
+                                        {chainMetrics.retentionRate >= 30 ? 'Healthy' : chainMetrics.retentionRate >= 15 ? 'Average' : 'Low'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Daily Brief — inline expandable card */}
                     {briefData && briefData.confidence?.explanation && (
                         <div
@@ -465,7 +592,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         <span className="material-symbols-sharp text-sm transition-transform duration-200" style={{ fontVariationSettings: "'wght' 300", transform: isBriefOpen ? 'rotate(90deg)' : 'none' }}>arrow_forward</span>
                                     </div>
                                 </div>
-                                <p className={`text-[13px] text-[#ADADB0] leading-[1.7] ${isBriefOpen ? '' : 'line-clamp-3'}`}>{renderRichText(briefData.confidence.explanation)}</p>
+                                <p className={`text-[13px] text-[#D1D5DB] leading-[1.7] ${isBriefOpen ? '' : 'line-clamp-3'}`}>{renderRichText(briefData.confidence.explanation)}</p>
                             </div>
 
                             {/* Expanded brief content */}
@@ -855,7 +982,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {/* Campaigns Overview */}
-                    <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }} className=" mb-7">
+                    <div className="rounded-xl overflow-hidden mb-7" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
                             <div className="flex items-center gap-2.5">
                                 <span className="text-white text-sm font-semibold">Campaigns Overview</span>

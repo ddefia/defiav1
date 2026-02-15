@@ -2092,7 +2092,7 @@ TASK:
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: "Analyze the data and generate the report.",
             config: {
                 systemInstruction: systemInstruction,
@@ -2114,7 +2114,7 @@ TASK:
             userPrompt: "Analyze the data and generate the report.",
             rawOutput: text,
             structuredOutput: JSON.parse(text),
-            model: "gemini-2.0-flash"
+            model: "gemini-2.5-flash"
         };
         saveBrainLog(log);
 
@@ -2288,7 +2288,7 @@ export const generateStrategicAnalysis = async (
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: "Perform the audit and generate thoughts + tasks. STRICTLY ADHERE TO THE ANTI-HALLUCINATION RULES.",
             config: {
                 systemInstruction: systemInstruction,
@@ -2326,7 +2326,7 @@ ${recentLogs.length > 0 ? "Retrieved previous " + recentLogs.length + " logs." :
             rawOutput: safeResponseText(response) || "",
             structuredOutput: tasks,
             thoughts: thoughts,
-            model: "gemini-2.0-flash"
+            model: "gemini-2.5-flash"
         };
         saveBrainLog(log);
 
@@ -2502,39 +2502,59 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
+    const cm = context.marketState.chainMetrics;
+    const chainBlock = cm ? `
+    ON-CHAIN DATA:
+    - New Wallets: ${cm.netNewWallets} | Active Wallets: ${cm.activeWallets} | Volume: $${cm.totalVolume.toLocaleString()} | Retention: ${(cm.retentionRate * 100).toFixed(1)}%
+    ${cm.campaignPerformance.length > 0 ? `- Campaign Performance: ${cm.campaignPerformance.map(c => `${c.campaignId}: ${c.roi.toFixed(1)}x ROI, ${(c.retention * 100).toFixed(0)}% retention, $${c.cpa.toFixed(2)} CPA`).join('; ')}` : ''}` : '';
+
+    const performanceBlock = buildPerformanceAnalysis(context.memory.recentPosts);
+    const competitorBlock = buildCompetitorBlock((context.brand as any).competitors);
+    const brandName = context.brand.name || 'Brand';
+
     const prompt = `
-    ROLE: Chief Marketing Analyst.
-    
+    ROLE: Chief Marketing Analyst for ${brandName}.
+
     INPUT DATA:
     - OBJECTIVE: "${context.userObjective}"
-    - TRENDS: ${context.marketState.trends.slice(0, 5).map(t => t.headline).join(', ')}
-    - PERFORMANCE: ${context.marketState.analytics ? `Top Post: ${context.marketState.analytics.topPost}` : 'No Data'}
-    - KNOWLEDGE: ${context.memory.ragDocs.join('\n')}
+    - TRENDS: ${context.marketState.trends.slice(0, 8).map(t => t.headline).join(', ')}
+    - SOCIAL PERFORMANCE: ${context.marketState.analytics ? `Top Post: ${context.marketState.analytics.topPost} | Engagement: ${context.marketState.analytics.engagementRate}%` : 'No social data.'}
+    ${chainBlock}
 
-    TASK: Analyze the situation.
-    1. Identify the core "Market Vibe" (Bearish/Bullish/Hype/Quiet).
-    2. Spot opportunities to insert the brand narrative.
-    3. Define a "Strategic Angle" (e.g. "Contrarian take on the current hype").
+    ${performanceBlock}
+
+    ${competitorBlock}
+
+    BRAND INTELLIGENCE:
+    ${context.memory.ragDocs.join('\n')}
+
+    TASK: Perform a comprehensive market analysis.
+    1. Identify the core "Market Vibe" (Bearish/Bullish/Hype/Quiet) based on trends and data.
+    2. Spot opportunities to insert ${brandName}'s narrative — where is the brand's expertise most relevant RIGHT NOW?
+    3. Analyze competitive positioning — where can ${brandName} differentiate vs competitors?
+    4. Identify which past content patterns the brand should double down on or pivot away from.
+    ${chainBlock ? '5. Factor in on-chain momentum — wallet growth, volume trends, campaign ROI — to identify product-market signals.' : ''}
+    6. Define a "Strategic Angle" — a specific, actionable narrative angle (not generic like "General Update").
 
     OUTPUT JSON:
     {
-        "summary": "Brief 1-line market summary.",
-        "keyThemes": ["Theme A", "Theme B"],
-        "opportunities": ["Opp 1", "Opp 2"],
-        "risks": ["Risk 1"],
-        "strategicAngle": "The specific narrative angle we should take."
+        "summary": "Detailed 2-3 sentence market summary referencing specific data points.",
+        "keyThemes": ["Theme A", "Theme B", "Theme C"],
+        "opportunities": ["Specific opportunity 1 citing data", "Opportunity 2 citing competitor gap or trend"],
+        "risks": ["Risk 1 with data backing", "Risk 2"],
+        "strategicAngle": "A specific, bold narrative angle grounded in data (e.g. 'Counter-narrative: while competitors focus on X, we own Y because of our unique Z')"
     }
     `;
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: prompt,
             config: { responseMimeType: "application/json" }
         });
         return JSON.parse(safeResponseText(response) || "{}");
     } catch (e) {
-        console.error("Brain Phase 1 Failed", e);
+        console.error("Brain Phase 1 (gemini-2.5-flash) Failed", e);
         return {
             summary: "Analysis failed",
             keyThemes: [],
@@ -2554,35 +2574,64 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
+    const brandName = context.brand.name || 'Brand';
+    const performanceBlock = buildPerformanceAnalysis(context.memory.recentPosts);
+    const competitorBlock = buildCompetitorBlock((context.brand as any).competitors);
+    const cm = context.marketState.chainMetrics;
+    const chainBlock = cm
+        ? `ON-CHAIN SIGNALS:\nNew Wallets: ${cm.netNewWallets} | Active: ${cm.activeWallets} | Volume: $${cm.totalVolume.toLocaleString()} | Retention: ${(cm.retentionRate * 100).toFixed(1)}%${cm.campaignPerformance.length > 0 ? `\nCampaign Performance: ${cm.campaignPerformance.map(c => `${c.campaignId}: ${c.roi.toFixed(1)}x ROI, ${(c.retention * 100).toFixed(0)}% retention, ${c.whalesAcquired} whales, $${c.cpa.toFixed(2)} CPA`).join('; ')}` : ''}`
+        : '';
+
     const prompt = `
-    ROLE: Chief Marketing Strategist.
-    CONTEXT: ${analysis.summary}
+    ROLE: Chief Marketing Strategist for ${brandName}.
+
+    MARKET ANALYSIS:
+    ${analysis.summary}
+    Key Themes: ${(analysis.keyThemes || []).join(', ')}
+    Opportunities: ${(analysis.opportunities || []).join(' | ')}
+    Risks: ${(analysis.risks || []).join(' | ')}
+
     STRATEGIC ANGLE: ${analysis.strategicAngle}
     OBJECTIVE: ${context.userObjective}
 
-    TASK: Create a concrete Action Plan to execute this strategy.
+    BRAND INTELLIGENCE (use this to ground every recommendation):
+    ${context.memory.ragDocs.join('\n')}
 
-    GUIDELINES:
-    - If the objective is specific (e.g. "Write a thread"), plan just that.
-    - If broad (e.g. "Grow awareness"), plan a DIVERSE mix of actions.
-    - **DIVERSITY (CRITICAL):** You MUST provide a variety of action types. Include at least one CAMPAIGN or THREAD alongside any TWEET or REPLY. NEVER return all the same type. Aim for 3-4 actions with at least 2 different types.
-    - **CRITICAL:** Providing a "Reasoning" is mandatory. Explain WHY this specific action works given the market context.
-    - **HOOK:** Give it a cool internal code name (e.g. "Operation Alpha", "Liquidity Vampire").
-    - **ALIGNMENT:** Explicitly cite which part of the Brand Knowledge Base or Values this aligns with.
-    - **CONCEPTS:** Propose 3 distinct content angles/headlines for this task.
+    ${performanceBlock}
+
+    ${competitorBlock}
+
+    ${chainBlock}
+
+    PAST STRATEGIES (what we've already executed — avoid repeating):
+    ${context.memory.pastStrategies?.slice(0, 5).map(s => `- ${s.title || s.type}: ${s.description || s.reasoning || ''}`).join('\n') || 'No past strategies recorded.'}
+
+    TASK: Create a concrete Action Plan of EXACTLY 5-6 marketing actions.
+
+    MANDATORY RULES:
+    1. Generate EXACTLY 5-6 actions. Never fewer than 5. This is non-negotiable.
+    2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET, and 1 REPLY. The remaining 1-2 actions can be any type (CAMPAIGN, THREAD, TWEET, REPLY, or GAP_FILL).
+    3. DATA-BACKED: Each action MUST cite specific data — a trend headline, a past post performance stat, a competitor gap, or an on-chain metric. No vague justifications.
+    4. KNOWLEDGE: At least 2 actions MUST reference specific brand knowledge base entries.
+    5. COMPETITORS: At least 1 action MUST reference competitive positioning or a gap vs competitors.
+    6. PERFORMANCE: At least 1 action MUST reference past content performance patterns (what worked vs what didn't).
+    7. FRESHNESS: Do NOT repeat past strategies. Reference them as "already executed" and propose new angles.
+    8. Each reasoning MUST explain WHY NOW — what market signal makes this timely.
+    9. Each hook should be a memorable, bold internal code name.
+    10. Each action MUST have strategicAlignment citing which brand value or knowledge entry it serves.
 
     OUTPUT JSON:
     {
         "actions": [
             {
                 "type": "TWEET" | "THREAD" | "CAMPAIGN" | "REPLY" | "GAP_FILL",
-                "topic": "Specific topic",
-                "goal": "What does this specific piece achieve?",
-                "instructions": "Specific constraints for the writer (e.g. 'Use the 3-part structure')",
-                "reasoning": "Data-backed rationale (e.g. 'Competitors are weak here, we strike now')",
-                "hook": "Punchy Title",
-                "strategicAlignment": "Aligns with our core value of [Value] because...",
-                "contentIdeas": ["Headline 1", "Angle 2", "Meme Idea 3"]
+                "topic": "Specific topic grounded in data",
+                "goal": "Measurable outcome this action achieves",
+                "instructions": "Specific constraints for execution (format, tone, length, CTA)",
+                "reasoning": "Data-backed rationale citing specific metrics/trends/competitor gaps (2-3 sentences)",
+                "hook": "Bold internal code name (e.g. 'Operation Phantom Growth', 'The Liquidity Vampire')",
+                "strategicAlignment": "Aligns with [specific brand value/knowledge entry] because...",
+                "contentIdeas": ["Specific headline 1", "Specific angle 2", "Specific creative idea 3"]
             }
         ]
     }
@@ -2590,7 +2639,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: prompt,
             config: { responseMimeType: "application/json" }
         });
@@ -2598,7 +2647,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
         return { analysis, actions: result.actions || [] };
 
     } catch (e) {
-        console.error("Brain Phase 2 Failed", e);
+        console.error("Brain Phase 2 (gemini-2.5-flash) Failed", e);
         return { analysis, actions: [] };
     }
 };
@@ -2608,12 +2657,34 @@ interface OrchestrationInputs {
     mentions: Mention[];
 }
 
+/** Build a structured analysis of past content performance for AI context */
+const buildPerformanceAnalysis = (recentPosts: SocialPost[]): string => {
+    if (!recentPosts?.length) return 'No post performance data available.';
+    const sorted = [...recentPosts].sort((a, b) => (b.engagementRate || 0) - (a.engagementRate || 0));
+    const top3 = sorted.slice(0, 3);
+    const bottom3 = sorted.length > 3 ? sorted.slice(-3) : [];
+    const avgEngagement = recentPosts.reduce((s, p) => s + (p.engagementRate || 0), 0) / recentPosts.length;
+    const topBlock = top3.map((p, i) => `${i + 1}. "${(p.text || '').slice(0, 100)}${(p.text || '').length > 100 ? '...' : ''}" — ${(p.engagementRate || 0).toFixed(2)}% engagement, ${p.likes || 0} likes, ${p.retweets || 0} RTs`).join('\n');
+    const bottomBlock = bottom3.length > 0 ? bottom3.map((p, i) => `${i + 1}. "${(p.text || '').slice(0, 100)}${(p.text || '').length > 100 ? '...' : ''}" — ${(p.engagementRate || 0).toFixed(2)}% engagement, ${p.likes || 0} likes`).join('\n') : 'N/A';
+    const avgLen = recentPosts.reduce((s, p) => s + (p.text?.length || 0), 0) / recentPosts.length;
+    const formatSignal = avgLen > 200 ? 'Long-form content dominates this brand' : 'Short punchy posts perform best';
+    return `PAST CONTENT PERFORMANCE (${recentPosts.length} recent posts):\nAverage Engagement: ${avgEngagement.toFixed(2)}%\n\nTOP PERFORMERS:\n${topBlock}\n\nUNDERPERFORMERS:\n${bottomBlock}\n\nPattern: ${formatSignal}`;
+};
+
+/** Build competitor context block from BrandConfig.competitors */
+const buildCompetitorBlock = (competitors?: { name: string; handle?: string; strengths?: string; weaknesses?: string }[]): string => {
+    if (!competitors?.length) return 'No competitor data provided.';
+    return `COMPETITIVE LANDSCAPE (${competitors.length} competitors):\n` + competitors.map((c, i) =>
+        `${i + 1}. ${c.name}${c.handle ? ` (@${c.handle})` : ''}${c.strengths ? ` — Strengths: ${c.strengths}` : ''}${c.weaknesses ? ` — Weaknesses: ${c.weaknesses}` : ''}`
+    ).join('\n');
+};
+
 const runAgentInsight = async (prompt: string, fallback: AgentInsight): Promise<AgentInsight> => {
     try {
         const apiKey = getApiKey();
         const ai = new GoogleGenAI({ apiKey });
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: prompt,
             config: { responseMimeType: "application/json" }
         });
@@ -2628,77 +2699,131 @@ export const orchestrateMarketingDecision = async (
     context: BrainContext,
     inputs: OrchestrationInputs
 ): Promise<{ analysis: AnalysisReport; actions: ActionPlan['actions']; agentInsights: AgentInsight[] }> => {
+    // Build comprehensive context blocks that ALL agents share
     const calendarPreview = inputs.calendarEvents
-        .slice(0, 5)
+        .slice(0, 8)
         .map(e => `${e.date}: ${e.platform} - ${e.content}`)
         .join('\n');
     const mentionPreview = inputs.mentions
-        .slice(0, 5)
+        .slice(0, 8)
         .map(m => `@${m.author}: ${m.text}`)
         .join('\n');
-    const trendPreview = context.marketState.trends.slice(0, 5).map(t => t.headline).join(', ');
+    const trendPreview = context.marketState.trends.slice(0, 8).map(t => t.headline).join(', ');
     const analyticsPreview = context.marketState.analytics
         ? `Top Post: ${context.marketState.analytics.topPost} | Engagement: ${context.marketState.analytics.engagementRate}%`
         : 'No analytics available.';
+    const cm = context.marketState.chainMetrics;
+    const chainPreview = cm
+        ? `New Wallets: ${cm.netNewWallets} | Active Wallets: ${cm.activeWallets} | Volume: $${cm.totalVolume.toLocaleString()} | Retention: ${(cm.retentionRate * 100).toFixed(1)}%${cm.campaignPerformance.length > 0 ? ` | Campaign ROI: ${cm.campaignPerformance.map(c => `${c.campaignId}: ${c.roi.toFixed(1)}x ROI, ${(c.retention * 100).toFixed(0)}% retention, ${c.whalesAcquired} whales`).join('; ')}` : ''}`
+        : '';
+    const performanceBlock = buildPerformanceAnalysis(context.memory.recentPosts);
+    const competitorBlock = buildCompetitorBlock((context.brand as any).competitors);
+    const brandName = context.brand.name || 'Brand';
+    const positioning = (context.brand as any).brandCollectorProfile?.positioning?.oneLiner || context.brand.voiceGuidelines || '';
+    const knowledgeSummary = context.brand.knowledgeBase?.slice(0, 5).map(k => `- ${k.slice(0, 100)}`).join('\n') || 'No knowledge base.';
+
+    // Shared context header for all agents — gives them the full picture
+    const sharedContext = `
+BRAND: ${brandName}${positioning ? ` — ${positioning}` : ''}
+KNOWLEDGE BASE (key entries):\n${knowledgeSummary}
+COMPETITORS:\n${competitorBlock}
+MARKET TRENDS: ${trendPreview || 'None detected.'}
+${chainPreview ? `ON-CHAIN: ${chainPreview}` : ''}
+${performanceBlock}`.trim();
 
     const agentPrompts = [
         {
             prompt: `
-ROLE: Social Listener Agent.
-INPUTS:
-- Trends: ${trendPreview}
-- Mentions: ${mentionPreview || 'No recent mentions.'}
-TASK: Summarize the top narrative shifts and high-signal conversations.
+${sharedContext}
+
+YOUR ROLE: Social Listener Agent — the brand's ears in the market.
+YOUR FOCUS DATA:
+- Trending Topics: ${trendPreview || 'None.'}
+- Brand Mentions: ${mentionPreview || 'No recent mentions.'}
+
+YOUR TASK:
+1. Summarize the top 2-3 narrative shifts happening in the market right now.
+2. Identify high-signal conversations the brand should enter or respond to.
+3. Compare the brand's narrative positioning vs competitors — where are competitors dominating the conversation? Where are we winning?
+4. Flag any emerging narratives that align with the brand's knowledge base.
+
 OUTPUT JSON:
-{"agent":"Social Listener","focus":"Narratives + Mentions","summary":"...","keySignals":["...","..."]}`,
+{"agent":"Social Listener","focus":"Narratives + Mentions + Competitive Gaps","summary":"2-3 sentence analysis","keySignals":["signal1","signal2","signal3"]}`,
             fallback: {
                 agent: 'Social Listener',
-                focus: 'Narratives + Mentions',
-                summary: 'No fresh mentions detected. Lean on current trend headlines.',
+                focus: 'Narratives + Mentions + Competitive Gaps',
+                summary: 'No fresh mentions detected. Lean on current trend headlines and competitive positioning.',
                 keySignals: trendPreview ? [trendPreview] : []
             }
         },
         {
             prompt: `
-ROLE: Performance Analyst Agent.
-INPUTS:
-- Analytics: ${analyticsPreview}
-TASK: Identify the best-performing pattern and where momentum is decaying.
+${sharedContext}
+
+YOUR ROLE: Performance Analyst Agent — data-driven performance optimizer.
+YOUR FOCUS DATA:
+- Social Analytics: ${analyticsPreview}
+${chainPreview ? `- On-Chain Metrics: ${chainPreview}` : ''}
+- ${performanceBlock}
+
+YOUR TASK:
+1. Analyze which recent posts performed BEST and identify WHY (topic, format, timing, hook style).
+2. Analyze which posts UNDERPERFORMED and identify patterns to avoid.
+3. ${chainPreview ? 'Cross-reference social performance with on-chain signals — are high-engagement posts driving wallet growth? Which campaigns have the best ROI and retention?' : 'Identify what content types consistently drive engagement.'}
+4. Provide a clear recommendation on what content FORMAT works best for this brand (short tweets vs threads vs campaigns).
+
 OUTPUT JSON:
-{"agent":"Performance Analyst","focus":"Engagement + Performance","summary":"...","keySignals":["...","..."]}`,
+{"agent":"Performance Analyst","focus":"Engagement Patterns + Content Performance","summary":"2-3 sentence data-driven analysis","keySignals":["signal1","signal2","signal3"]}`,
             fallback: {
                 agent: 'Performance Analyst',
-                focus: 'Engagement + Performance',
-                summary: 'Analytics missing. Recommend validating performance before scaling.',
+                focus: 'Engagement Patterns + Content Performance',
+                summary: 'Insufficient analytics data. Recommend publishing diverse content types to establish performance baseline.',
                 keySignals: []
             }
         },
         {
             prompt: `
-ROLE: Content Planner Agent.
-INPUTS:
-- Calendar: ${calendarPreview || 'No upcoming content scheduled.'}
-TASK: Identify gaps or launch opportunities in the content plan.
+${sharedContext}
+
+YOUR ROLE: Content Planner Agent — strategic content calendar architect.
+YOUR FOCUS DATA:
+- Upcoming Calendar: ${calendarPreview || 'No upcoming content scheduled.'}
+- Recent Post Cadence: ${context.memory.recentPosts?.length || 0} posts in recent history.
+
+YOUR TASK:
+1. Identify gaps in the content calendar that leave the brand invisible during key market moments.
+2. Recommend content types based on past performance data (which formats got highest engagement).
+3. Propose content themes that leverage the brand's knowledge base topics — what expertise can we showcase?
+4. Factor in competitor content gaps — where are competitors NOT publishing that we can own?
+
 OUTPUT JSON:
-{"agent":"Content Planner","focus":"Calendar + Cadence","summary":"...","keySignals":["...","..."]}`,
+{"agent":"Content Planner","focus":"Calendar Gaps + Content Strategy","summary":"2-3 sentence strategic plan","keySignals":["signal1","signal2","signal3"]}`,
             fallback: {
                 agent: 'Content Planner',
-                focus: 'Calendar + Cadence',
+                focus: 'Calendar Gaps + Content Strategy',
                 summary: 'No upcoming calendar items. Prioritize scheduling the next high-impact thread.',
                 keySignals: []
             }
         },
         {
             prompt: `
-ROLE: Knowledge Curator Agent.
-INPUTS:
-- Brand Memory: ${context.memory.ragDocs.join('\n') || 'No recent knowledge base context.'}
-TASK: Surface brand principles or strategic constraints to honor.
+${sharedContext}
+
+YOUR ROLE: Knowledge Curator Agent — brand guardian and differentiation strategist.
+YOUR FOCUS DATA:
+- Brand Memory & Knowledge Base: ${context.memory.ragDocs.join('\n') || 'No knowledge base context.'}
+
+YOUR TASK:
+1. Surface the top 2-3 brand principles, technical advantages, or strategic positions that MUST be reflected in upcoming content.
+2. Cross-reference brand expertise against current market trends — which trends align with our knowledge base?
+3. Identify where our unique expertise creates differentiation that competitors CANNOT match.
+4. Flag any brand constraints (banned phrases, tone guidelines) that should guide content creation.
+
 OUTPUT JSON:
-{"agent":"Knowledge Curator","focus":"Brand Memory","summary":"...","keySignals":["...","..."]}`,
+{"agent":"Knowledge Curator","focus":"Brand Differentiation + Knowledge Leverage","summary":"2-3 sentence strategic guidance","keySignals":["signal1","signal2","signal3"]}`,
             fallback: {
                 agent: 'Knowledge Curator',
-                focus: 'Brand Memory',
+                focus: 'Brand Differentiation + Knowledge Leverage',
                 summary: 'No knowledge base context available. Use brand values and positioning defaults.',
                 keySignals: []
             }
@@ -3037,7 +3162,8 @@ export const generateDailyBrief = async (
     brandName: string,
     kpis: KPIItem[],
     campaigns: DashboardCampaign[],
-    signals: CommunitySignal[]
+    signals: CommunitySignal[],
+    chainMetrics?: ComputedMetrics | null
 ): Promise<DailyBrief> => {
     dispatchThinking("📊 Generating Daily AI Brief (Analyst Mode)");
     const apiKey = getApiKey();
@@ -3050,13 +3176,31 @@ export const generateDailyBrief = async (
     ).join('\n');
     const signalSummary = signals.map(s => `${s.platform}: ${s.signal} (${s.trend})`).join('\n');
 
+    // Build on-chain summary (only if chain data exists)
+    let chainSummary = '';
+    if (chainMetrics && (chainMetrics.totalVolume > 0 || chainMetrics.netNewWallets > 0 || chainMetrics.activeWallets > 0)) {
+        const parts = [
+            `Total Volume: $${chainMetrics.totalVolume.toLocaleString()}`,
+            `New Wallets (30d): ${chainMetrics.netNewWallets.toLocaleString()}`,
+            `Active Wallets: ${chainMetrics.activeWallets.toLocaleString()}`,
+            `Retention Rate: ${(chainMetrics.retentionRate * 100).toFixed(1)}%`,
+        ];
+        let campPerf = '';
+        if (chainMetrics.campaignPerformance?.length) {
+            campPerf = '\nCampaign On-Chain Performance:\n' + chainMetrics.campaignPerformance.map(p =>
+                `  Campaign ${p.campaignId}: ROI ${p.roi.toFixed(1)}x | CPA $${p.cpa.toFixed(2)} | Retention ${(p.retention * 100).toFixed(0)}% | ${p.whalesAcquired} whales | ${p.lift.toFixed(1)}x lift`
+            ).join('\n');
+        }
+        chainSummary = `\n\n    On-Chain Analytics:\n${parts.join(' | ')}${campPerf}`;
+    }
+
     const systemInstruction = `
     You are Defia's AI Marketing Analyst for the brand "${brandName}".
     Generate a detailed, premium-quality daily marketing brief based on the data provided.
     This brief is the centerpiece of the user's dashboard — make it feel like a professional morning intelligence report.
 
     Input Data:
-    KPIs:\n${kpiSummary || 'No KPI data available yet.'}
+    KPIs:\n${kpiSummary || 'No KPI data available yet.'}${chainSummary}
 
     Campaigns:\n${campaignSummary || 'No active campaigns yet.'}
 
@@ -3090,13 +3234,14 @@ export const generateDailyBrief = async (
     - topActions: Write 2-3 specific, actionable next steps the marketing team should take TODAY (e.g., "Post a Twitter thread on the trending DeFi narrative", "Schedule community AMA for this week", "Analyze competitor campaigns for inspiration").
     - metricsSnapshot: Extract 3-4 key metrics from the KPI data. Use the actual values. For trend, use "up", "down", or "flat". If no data, still provide placeholder metrics like {"label": "Content Published", "value": "0", "trend": "flat"}.
     - Use precise, professional language. Be specific with numbers when available.
+    - If on-chain analytics data is provided, reference wallet growth, volume trends, retention rates, and campaign ROI in your analysis. Include on-chain metrics in the metricsSnapshot (e.g., "New Wallets", "On-Chain Volume", "Wallet Retention").
     - If input data is sparse, still generate a thorough brief with strategic recommendations, market context, and actionable steps. The brief should NEVER feel empty.
     - Never say "AI summary failure" or "Generation Error".
     `;
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: "Generate Daily Brief",
             config: {
                 systemInstruction: systemInstruction,

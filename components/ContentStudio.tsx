@@ -4,6 +4,7 @@ import { BrandConfig } from '../types';
 import { generateTweet, generateWeb3Graphic, generateIdeas } from '../services/gemini';
 import { saveBrainMemory } from '../services/supabase';
 import { saveStudioState, loadStudioState, saveImageToGallery, createThumbnail } from '../services/storage';
+import { checkUsageLimit, incrementUsage } from '../services/subscription';
 
 interface ContentStudioProps {
     brandName: string;
@@ -205,6 +206,12 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
     const handleGenerateTweet = async () => {
         if (!tweetTopic.trim()) return;
+        // Enforce content usage limit
+        const contentCheck = checkUsageLimit(brandConfig.subscription, 'contentPerMonth');
+        if (!contentCheck.allowed) {
+            setError(`Monthly limit reached (${contentCheck.current}/${contentCheck.max} ${contentCheck.label}). Upgrade your plan for more.`);
+            return;
+        }
         setIsGeneratingTweet(true);
         setError(null);
         setGeneratedThreadPreview([]);
@@ -270,6 +277,11 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
                 setGeneratedTweetPreview(draft.trim());
             }
+            // Increment content usage after successful generation
+            if (brandConfig.subscription) {
+                const updated = incrementUsage(brandConfig.subscription, 'content');
+                onUpdateBrandConfig({ ...brandConfig, subscription: updated });
+            }
         } catch (e: any) {
             const msg = e?.message || '';
             if (msg.includes('quota')) {
@@ -284,6 +296,12 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     };
 
     const handleAIWrite = async () => {
+        // Enforce content usage limit
+        const contentCheck = checkUsageLimit(brandConfig.subscription, 'contentPerMonth');
+        if (!contentCheck.allowed) {
+            setError(`Monthly limit reached (${contentCheck.current}/${contentCheck.max} ${contentCheck.label}). Upgrade your plan for more.`);
+            return;
+        }
         setIsWritingTweet(true);
         setGeneratedDrafts([]);
         try {
@@ -309,11 +327,22 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             }
 
             setGeneratedDrafts(drafts.filter(d => d && d.trim().length > 0));
+            // Increment content usage
+            if (brandConfig.subscription) {
+                const updated = incrementUsage(brandConfig.subscription, 'content');
+                onUpdateBrandConfig({ ...brandConfig, subscription: updated });
+            }
         } catch (e) { setError('Failed to generate draft.'); } finally { setIsWritingTweet(false); }
     };
 
     const handleGenerateSingle = async () => {
         if (!tweetText && !visualPrompt && !selectedTemplate) return;
+        // Enforce image usage limit
+        const imageCheck = checkUsageLimit(brandConfig.subscription, 'imagesPerMonth');
+        if (!imageCheck.allowed) {
+            setError(`Monthly limit reached (${imageCheck.current}/${imageCheck.max} ${imageCheck.label}). Upgrade your plan for more.`);
+            return;
+        }
         setIsGenerating(true);
         setError(null);
         setGeneratedImages([]);
@@ -349,6 +378,11 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                     }
                 );
             });
+            // Increment image usage (count each image)
+            if (brandConfig.subscription) {
+                const updated = incrementUsage(brandConfig.subscription, 'image', images.length);
+                onUpdateBrandConfig({ ...brandConfig, subscription: updated });
+            }
         } catch (err: any) {
             setError(`Failed to generate: ${err.message || "Unknown error"}`);
         } finally {
@@ -358,6 +392,12 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
     const handleGeneratePreviewImage = async () => {
         if (!generatedTweetPreview) return;
+        // Enforce image usage limit
+        const imageCheck = checkUsageLimit(brandConfig.subscription, 'imagesPerMonth');
+        if (!imageCheck.allowed) {
+            setError(`Monthly limit reached (${imageCheck.current}/${imageCheck.max} ${imageCheck.label}). Upgrade your plan for more.`);
+            return;
+        }
         setIsGenerating(true);
         try {
             const img = await generateWeb3Graphic({
@@ -371,6 +411,11 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                 templateType: '',
             });
             setPreviewImage(img);
+            // Increment image usage
+            if (brandConfig.subscription) {
+                const updated = incrementUsage(brandConfig.subscription, 'image');
+                onUpdateBrandConfig({ ...brandConfig, subscription: updated });
+            }
         } catch (err: any) {
             const msg = err?.message || '';
             if (msg.includes('quota')) {

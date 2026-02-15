@@ -3,7 +3,7 @@ import { fetchMarketPulse } from './pulse';
 import { computeGrowthMetrics } from './analytics';
 import { ingestContext } from './rag';
 import { TrendItem, CampaignLog } from '../types';
-import { loadIntegrationKeys } from './storage';
+import { loadIntegrationKeys, loadBrandProfiles } from './storage';
 
 /**
  * INGESTION ORCHESTRATOR
@@ -29,11 +29,13 @@ export const runMarketScan = async (brandName: string, campaigns: CampaignLog[] 
     // 2. PROCESS ON-CHAIN METRICS (Analytics/Dune)
     try {
         const integrationKeys = loadIntegrationKeys(brandName);
+        const brandProfiles = loadBrandProfiles();
+        const brand = brandProfiles[brandName];
         const metrics = await computeGrowthMetrics({
             campaigns,
-            duneApiKey: process.env.DUNE_API_KEY,
+            duneApiKey: process.env.DUNE_API_KEY || integrationKeys.dune,
             duneQueryIds: integrationKeys.duneQueryIds,
-            contracts: [],
+            contracts: brand?.blockchain?.contracts || [],
             excludedWallets: []
         });
 
@@ -181,7 +183,8 @@ export const syncHistoryToReferenceImages = async (brandName: string) => {
 export const fetchAgentDecisions = async (brandName: string): Promise<any[]> => {
     try {
         // We use the proxy endpoint in server.js
-        const response = await fetch('http://localhost:3001/api/decisions');
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+        const response = await fetch(`${baseUrl}/api/decisions`);
         if (!response.ok) return [];
 
         const allDecisions = await response.json();

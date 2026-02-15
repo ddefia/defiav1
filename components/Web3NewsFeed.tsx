@@ -376,22 +376,20 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
                                         className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 hover:border-[#2E2E2E] transition-colors cursor-pointer group"
                                     >
                                         <div className="flex gap-5">
-                                            {/* Thumbnail — show real article image if available, gradient fallback */}
-                                            {(item.imageUrl || index % 3 === 0) && (
+                                            {/* Thumbnail — only show when there's a real image */}
+                                            {item.imageUrl && (
                                                 <div className="w-[120px] h-[80px] rounded-lg bg-gradient-to-br from-[#1A1A2E] via-[#16213E] to-[#0F3460] flex-shrink-0 overflow-hidden">
-                                                    {item.imageUrl ? (
-                                                        <img
-                                                            src={item.imageUrl}
-                                                            alt=""
-                                                            className="w-full h-full object-cover"
-                                                            loading="lazy"
-                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center">
-                                                            <span className="material-symbols-sharp text-[#2A2A3E] text-2xl" style={{ fontVariationSettings: "'wght' 300" }}>article</span>
-                                                        </div>
-                                                    )}
+                                                    <img
+                                                        src={item.imageUrl}
+                                                        alt=""
+                                                        className="w-full h-full object-cover"
+                                                        loading="lazy"
+                                                        onError={(e) => {
+                                                            // Hide the entire thumbnail container on error
+                                                            const container = (e.target as HTMLImageElement).parentElement;
+                                                            if (container) container.style.display = 'none';
+                                                        }}
+                                                    />
                                                 </div>
                                             )}
 

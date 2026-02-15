@@ -239,8 +239,9 @@ export const signOut = async (): Promise<void> => {
         await supabaseAuth.auth.signOut();
     }
 
+    // Dispatch event to clear user-scoped storage prefix (listened by storage.ts)
     window.dispatchEvent(new CustomEvent('defia:user-signed-out'));
-    window.location.href = '/';
+    window.location.href = '/'; // Full page reload clears cached prefix
 };
 
 // ============================================
@@ -457,6 +458,20 @@ export const onAuthStateChange = (callback: (user: UserProfile | null) => void) 
         window.removeEventListener('defia:user-signed-out', handleSignOut);
         if (unsubscribe) unsubscribe();
     };
+};
+
+// ============================================
+// GET AUTH TOKEN (for authenticated API calls)
+// ============================================
+
+export const getAuthToken = async (): Promise<string | null> => {
+    if (!supabaseAuth) return null;
+    try {
+        const { data: { session } } = await supabaseAuth.auth.getSession();
+        return session?.access_token || null;
+    } catch {
+        return null;
+    }
 };
 
 // ============================================

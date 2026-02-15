@@ -425,31 +425,32 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         </p>
                     )}
 
-                    {/* Demo Accounts Info */}
-                    <div className="mt-8 pt-6 border-t border-[#1F1F23]">
-                        <p className="text-[#6B6B70] text-xs text-center mb-3">Demo Accounts (password: defia2024!)</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                            {[
-                                { email: 'enki@defia.io', brand: 'ENKI' },
-                                { email: 'netswap@defia.io', brand: 'Netswap' },
-                                { email: 'metis@defia.io', brand: 'Metis' },
-                                { email: 'lazai@defia.io', brand: 'LazAI' },
-                            ].map((demo) => (
-                                <button
-                                    key={demo.email}
-                                    type="button"
-                                    onClick={() => {
-                                        setEmail(demo.email);
-                                        setPassword('defia2024!');
-                                        setMode('login');
-                                    }}
-                                    className="px-3 py-2 rounded-lg bg-[#1F1F23] hover:bg-[#2A2A2D] text-[#8E8E93] hover:text-white transition-colors text-left"
-                                >
-                                    <span className="font-medium">{demo.brand}</span>
-                                </button>
-                            ))}
+                    {/* Demo Accounts Info — only in dev mode */}
+                    {import.meta.env.DEV && (
+                        <div className="mt-8 pt-6 border-t border-[#1F1F23]">
+                            <p className="text-[#6B6B70] text-xs text-center mb-3">Demo Accounts (dev only)</p>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                {[
+                                    { email: 'enki@defia.io', brand: 'ENKI' },
+                                    { email: 'netswap@defia.io', brand: 'Netswap' },
+                                    { email: 'metis@defia.io', brand: 'Metis' },
+                                    { email: 'lazai@defia.io', brand: 'LazAI' },
+                                ].map((demo) => (
+                                    <button
+                                        key={demo.email}
+                                        type="button"
+                                        onClick={() => {
+                                            setEmail(demo.email);
+                                            setMode('login');
+                                        }}
+                                        className="px-3 py-2 rounded-lg bg-[#1F1F23] hover:bg-[#2A2A2D] text-[#8E8E93] hover:text-white transition-colors text-left"
+                                    >
+                                        <span className="font-medium">{demo.brand}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -5,6 +5,7 @@ import { parseDocumentFile } from '../services/documentParser';
 // @ts-ignore
 import { analyzeBrandKit } from '../services/gemini';
 import { ingestContext } from '../services/rag';
+import { checkCountLimit } from '../services/subscription';
 
 interface BrandKitPageProps {
     brandName: string;
@@ -88,6 +89,14 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
     const handleKBUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
+
+        // Enforce knowledge base document limit
+        const kbCheck = checkCountLimit(config.subscription, 'maxKnowledgeDocs', (config.knowledgeBase || []).length);
+        if (!kbCheck.allowed) {
+            alert(`Knowledge base limit reached (${kbCheck.current}/${kbCheck.max} docs). Upgrade your plan for more.`);
+            if (kbFileInputRef.current) kbFileInputRef.current.value = '';
+            return;
+        }
 
         setIsUploadingKB(true);
         const file = files[0];

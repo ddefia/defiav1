@@ -5,7 +5,9 @@ import { researchGithubBrandSignals } from '../../services/githubBrandResearcher
 import { runBrandCollector } from '../../services/brandCollector';
 import { retryWithBackoff } from '../../vendor/brand-collector/src/lib/retry';
 import { rateLimit } from '../../vendor/brand-collector/src/lib/rate-limit';
-import { createUserProfile, connectWallet, loadUserProfile, signUp, updateUserProfile, UserProfile } from '../../services/auth';
+import { createUserProfile, connectWallet, loadUserProfile, signUp, updateUserProfile, UserProfile, getAuthToken } from '../../services/auth';
+import { loadIntegrationKeys, saveIntegrationKeys } from '../../services/storage';
+import { createDefaultSubscription } from '../../services/subscription';
 
 const normalizeHandle = (value: string) => value.replace(/^@/, '').trim();
 
@@ -173,6 +175,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   const [xConnectLoading, setXConnectLoading] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState('');
+
+  // Competitor state
+  const [competitors, setCompetitors] = useState<Array<{ name: string; handle: string }>>([]);
+
+  // Blockchain config state
+  const [contracts, setContracts] = useState<Array<{ address: string; type: string; label: string; chain: string }>>([]);
+  const [duneApiKey, setDuneApiKey] = useState('');
 
   const [analysisProgress, setAnalysisProgress] = useState({
     website: { status: 'pending' as 'pending' | 'loading' | 'complete', message: '' },
@@ -399,6 +408,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       const xHandles = [normalizedHandle];
 
       const baseUrl = getApiBaseUrl();
+      const authToken = await getAuthToken();
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+      };
       let crawlContent = '';
       let crawlDocs: string[] = [];
       let crawlPages: string[] = [];
@@ -418,7 +432,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         // Try deep crawl first (comprehensive)
         const crawlRes = await fetch(`${baseUrl}/api/onboarding/deep-crawl`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({
             url: normalizedDomain,
             maxPages: 50,
@@ -478,7 +492,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         try {
           const simpleCrawlRes = await fetch(`${baseUrl}/api/onboarding/crawl`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders,
             body: JSON.stringify({ url: normalizedDomain })
           });
 
@@ -525,7 +539,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       try {
         const twitterRes = await fetch(`${baseUrl}/api/onboarding/twitter`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({ handle: normalizedHandle, brandName: brandName.trim() })
         });
 
@@ -583,7 +597,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         };
       }
 
-      const githubSignals = await researchGithubBrandSignals(brandName.trim());
+      const githubSignals = await researchGithubBrandSignals(brandName.trim(), normalizedDomain);
 
       setAnalysisProgress(prev => ({
         ...prev,
@@ -698,9 +712,25 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       // Use ONLY AI-generated examples for the carousel
       const combinedExamples = dedupeStrings([...generatedExamples]).slice(0, 3);
 
+      // Merge blockchain config if provided
+      const validContracts = contracts.filter(c => c.address.trim().length > 0 && c.chain.trim().length > 0);
+      const enrichedWithBlockchain = {
+        ...enriched,
+        ...(validContracts.length > 0 ? {
+          blockchain: {
+            contracts: validContracts.map(c => ({
+              address: c.address.trim(),
+              type: c.type as 'token' | 'staking' | 'pool' | 'nft',
+              label: c.label.trim() || c.type,
+              chain: c.chain,
+            })),
+          },
+        } : {}),
+      };
+
       const data: EnrichedData = {
         brandName: brandName.trim(),
-        config: enriched,
+        config: enrichedWithBlockchain,
         sources: {
           domains,
           xHandles,
@@ -778,13 +808,26 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         ...(enrichedData.config.referenceImages || []),
         ...approvedGraphics
       ]);
+      const validCompetitors = competitors.filter(c => c.name.trim());
       const finalConfig = {
         ...enrichedData.config,
         tweetExamples: approvedStyles.length > 0 ? approvedStyles : enrichedData.config.tweetExamples,
         approvedStyleExamples: approvedStyles,
         rejectedStyleExamples: rejectedStyles,
         referenceImages: mergedReferenceImages,
+        ...(validCompetitors.length > 0 ? { competitors: validCompetitors } : {}),
+        subscription: createDefaultSubscription('starter'), // New brands start on Starter plan
       };
+      // Save Dune API key to integration keys if provided
+      if (duneApiKey.trim()) {
+        try {
+          const existingKeys = loadIntegrationKeys(brandName.trim());
+          saveIntegrationKeys({ ...existingKeys, dune: duneApiKey.trim() }, brandName.trim());
+        } catch (e) {
+          console.warn('[Onboarding] Failed to save Dune API key:', e);
+        }
+      }
+
       onComplete({
         ...enrichedData,
         config: finalConfig,
@@ -797,9 +840,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     if (!imageData) return;
 
     try {
+      const token = await getAuthToken();
       const response = await fetch(`${baseUrl}/api/onboarding/carousel-upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           brandName: brandName.trim(),
           imageData,
@@ -1392,6 +1439,162 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </div>
           </div>
 
+          {/* On-Chain Configuration (Optional) */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-sharp text-lg text-[#6B6B70]" style={{ fontVariationSettings: "'wght' 300" }}>token</span>
+                <label className="text-[#8E8E93] text-sm font-medium">On-Chain Data <span className="text-[#6B6B70] font-normal">(optional)</span></label>
+              </div>
+              <button
+                onClick={() => setContracts([...contracts, { address: '', type: 'token', label: '', chain: 'Ethereum' }])}
+                className="text-xs text-[#FF5C00] hover:text-[#FF6B1A] font-medium transition-colors"
+              >
+                + Add Contract
+              </button>
+            </div>
+
+            {contracts.length > 0 && (
+              <div className="space-y-3">
+                {contracts.map((contract, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <select
+                      value={contract.chain}
+                      onChange={(e) => {
+                        const updated = [...contracts];
+                        updated[idx] = { ...updated[idx], chain: e.target.value };
+                        setContracts(updated);
+                      }}
+                      className="w-[110px] h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] px-2 text-white text-sm focus:border-[#FF5C00] focus:outline-none transition-colors appearance-none cursor-pointer"
+                    >
+                      <option value="Ethereum">Ethereum</option>
+                      <option value="Metis">Metis</option>
+                      <option value="Polygon">Polygon</option>
+                      <option value="Arbitrum">Arbitrum</option>
+                      <option value="Base">Base</option>
+                      <option value="BSC">BSC</option>
+                      <option value="Solana">Solana</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="0x..."
+                      value={contract.address}
+                      onChange={(e) => {
+                        const updated = [...contracts];
+                        updated[idx] = { ...updated[idx], address: e.target.value };
+                        setContracts(updated);
+                      }}
+                      className="flex-1 h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] px-3 text-white text-sm placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors font-mono"
+                    />
+                    <select
+                      value={contract.type}
+                      onChange={(e) => {
+                        const updated = [...contracts];
+                        updated[idx] = { ...updated[idx], type: e.target.value };
+                        setContracts(updated);
+                      }}
+                      className="w-[100px] h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] px-2 text-white text-sm focus:border-[#FF5C00] focus:outline-none transition-colors appearance-none cursor-pointer"
+                    >
+                      <option value="token">Token</option>
+                      <option value="staking">Staking</option>
+                      <option value="pool">Pool</option>
+                      <option value="nft">NFT</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Label"
+                      value={contract.label}
+                      onChange={(e) => {
+                        const updated = [...contracts];
+                        updated[idx] = { ...updated[idx], label: e.target.value };
+                        setContracts(updated);
+                      }}
+                      className="w-[100px] h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] px-3 text-white text-sm placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                    />
+                    <button
+                      onClick={() => setContracts(contracts.filter((_, i) => i !== idx))}
+                      className="w-[44px] h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] flex items-center justify-center text-[#6B6B70] hover:text-red-400 hover:border-red-400/30 transition-colors"
+                    >
+                      <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Dune API Key — only show if user has added contracts */}
+            {contracts.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-[#2A2A2E]">
+                <label className="text-[#9CA3AF] text-xs font-medium block mb-1.5">Dune Analytics API Key (optional)</label>
+                <input
+                  type="password"
+                  value={duneApiKey}
+                  onChange={(e) => setDuneApiKey(e.target.value)}
+                  placeholder="Paste your Dune API key"
+                  className="w-full h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] px-3 text-white text-sm placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                />
+                <p className="text-[#6B6B70] text-[11px] mt-1.5">
+                  Enables automatic on-chain analytics. Get a free key at <span className="text-[#FF5C00]">dune.com</span> → Settings → API. You can also add this later in Settings.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Competitors (optional) */}
+          <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-sharp text-lg text-[#6B6B70]" style={{ fontVariationSettings: "'wght' 300" }}>swords</span>
+                <label className="text-[#8E8E93] text-sm font-medium">Competitors <span className="text-[#6B6B70] font-normal">(optional — helps AI differentiate you)</span></label>
+              </div>
+              {competitors.length < 3 && (
+                <button
+                  onClick={() => setCompetitors([...competitors, { name: '', handle: '' }])}
+                  className="text-xs text-[#FF5C00] hover:text-[#FF6B1A] font-medium transition-colors"
+                >
+                  + Add Competitor
+                </button>
+              )}
+            </div>
+            {competitors.length > 0 && (
+              <div className="space-y-3">
+                {competitors.map((comp, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Competitor name"
+                      value={comp.name}
+                      onChange={(e) => {
+                        const updated = [...competitors];
+                        updated[idx] = { ...updated[idx], name: e.target.value };
+                        setCompetitors(updated);
+                      }}
+                      className="flex-1 h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] px-3 text-white text-sm placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                    />
+                    <input
+                      type="text"
+                      placeholder="@handle"
+                      value={comp.handle}
+                      onChange={(e) => {
+                        const updated = [...competitors];
+                        updated[idx] = { ...updated[idx], handle: e.target.value.replace(/^@/, '') };
+                        setCompetitors(updated);
+                      }}
+                      className="w-[140px] h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] px-3 text-white text-sm placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                    />
+                    <button
+                      onClick={() => setCompetitors(competitors.filter((_, i) => i !== idx))}
+                      className="w-[44px] h-[44px] rounded-xl bg-[#111113] border border-[#2A2A2E] flex items-center justify-center text-[#6B6B70] hover:text-red-400 hover:border-red-400/30 transition-colors"
+                    >
+                      <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="rounded-xl border border-[#2A2A2E] bg-[#111113] px-4 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -1796,6 +1999,62 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           )}
         </div>
 
+        {/* Knowledge Base Modal */}
+        {showKnowledgeModal && (
+          <div
+            className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-8"
+            onClick={() => setShowKnowledgeModal(false)}
+          >
+            <div
+              className="w-full max-w-2xl max-h-[80vh] rounded-2xl bg-[#111113] border border-[#2A2A2E] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b border-[#2A2A2E]">
+                <h3 className="text-white text-lg font-semibold flex items-center gap-2">
+                  Knowledge Base
+                  <span className="px-2 py-0.5 rounded-full bg-[#1F1F23] text-[#8E8E93] text-xs">
+                    {enrichedData?.config.knowledgeBase?.length || 0} items
+                  </span>
+                </h3>
+                <button
+                  onClick={() => setShowKnowledgeModal(false)}
+                  className="w-8 h-8 rounded-full bg-[#1F1F23] hover:bg-[#2A2A2E] flex items-center justify-center text-white transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 space-y-2">
+                {enrichedData?.config.knowledgeBase?.map((item, index) => (
+                  <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
+                    <div className="w-6 h-6 rounded-md bg-[#1F1F23] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {item.startsWith('[DOCUMENT]') ? (
+                        <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      ) : item.startsWith('[DEFI]') ? (
+                        <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                      ) : item.startsWith('GitHub:') ? (
+                        <svg className="w-3.5 h-3.5 text-purple-400" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-[#C5C5C7] text-sm leading-relaxed">{item.replace(/^\[(.*?)\]\s*/, '')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Reference Images - Larger & Clickable */}
         <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
           <div className="flex items-center justify-between mb-4">
@@ -1850,27 +2109,44 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-[#6B6B70] text-sm">No reference images found. Add some to guide your brand's visual style.</p>
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-[#1F1F23] flex items-center justify-center">
+                <svg className="w-6 h-6 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-[#8E8E93] text-sm font-medium mb-1">No reference images found</p>
+              <p className="text-[#6B6B70] text-xs mb-3">Upload logos, graphics, or brand visuals to guide your AI's style.</p>
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FF5C00]/10 text-[#FF5C00] text-sm font-medium hover:bg-[#FF5C00]/20 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Upload Images
+              </button>
             </div>
           )}
         </div>
 
         {/* Tweet Examples from Twitter */}
-        {enrichedData?.config.tweetExamples && enrichedData.config.tweetExamples.length > 0 && (
-          <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-semibold flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-sky-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                  </svg>
-                </div>
-                Content Style Examples
+        <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center">
+                <svg className="w-4 h-4 text-sky-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+              </div>
+              Content Style Examples
+              {enrichedData?.config.tweetExamples && enrichedData.config.tweetExamples.length > 0 && (
                 <span className="ml-2 px-2 py-0.5 rounded-full bg-[#1F1F23] text-[#8E8E93] text-xs">
                   from @{enrichedData?.sources.xHandles[0]}
                 </span>
-              </h3>
-            </div>
+              )}
+            </h3>
+          </div>
+          {enrichedData?.config.tweetExamples && enrichedData.config.tweetExamples.length > 0 ? (
             <div className="space-y-3">
               {enrichedData.config.tweetExamples.slice(0, 3).map((tweet, index) => (
                 <div key={index} className="p-4 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
@@ -1878,8 +2154,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-center py-6">
+              <p className="text-[#6B6B70] text-sm">No tweets found yet. Connect your X/Twitter account or add the Apify API token to import your content history.</p>
+              <p className="text-[#4B4B50] text-xs mt-1">Your AI CMO will use your knowledge base and brand voice to generate content.</p>
+            </div>
+          )}
+        </div>
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-4 pt-4 pb-8">
@@ -1892,15 +2173,27 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </svg>
             Back
           </button>
-          <button
-            onClick={() => setCurrentStep('styles')}
-            className="px-8 py-3.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-[#FF5C00]/20"
-          >
-            <span>Continue to Content Preview</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </button>
+          {styleExamples.length > 0 ? (
+            <button
+              onClick={() => setCurrentStep('styles')}
+              className="px-8 py-3.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-[#FF5C00]/20"
+            >
+              <span>Continue to Content Preview</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              onClick={handleLaunch}
+              className="px-8 py-3.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-[#FF5C00]/20"
+            >
+              <span>Launch AI CMO</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1922,6 +2215,49 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       ? graphicEntry.variants
       : fallbackVariants;
 
+    // Empty state: no style examples found (e.g. Apify not configured)
+    if (totalExamples === 0) {
+      return (
+        <div className="flex-1 flex flex-col px-16 py-12">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-white text-2xl font-semibold">Content Style Examples</h2>
+              <p className="text-[#8E8E93] text-sm mt-1">Train your AI by reviewing examples from your social accounts.</p>
+            </div>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-[540px] text-center space-y-6">
+              <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-10">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#1F1F23] flex items-center justify-center">
+                  <svg className="w-8 h-8 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <h3 className="text-white text-lg font-semibold mb-2">No Style Examples Found</h3>
+                <p className="text-[#8E8E93] text-sm leading-relaxed mb-2">
+                  We couldn't find tweet examples to train your AI style. This usually means the X/Twitter integration isn't connected yet.
+                </p>
+                <p className="text-[#6B6B70] text-xs">
+                  Don't worry — your AI CMO will still work! You can always refine its voice later from the Content Studio.
+                </p>
+              </div>
+
+              <button
+                onClick={handleLaunch}
+                className="w-full px-8 py-4 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold text-lg flex items-center justify-center gap-3 transition-colors shadow-lg shadow-[#FF5C00]/20"
+              >
+                <span>Launch AI CMO</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 flex flex-col px-16 py-12">
         <div className="flex items-center justify-between mb-8">
@@ -1930,7 +2266,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             <p className="text-[#8E8E93] text-sm mt-1">Swipe through examples from your content. Approve or reject to train your AI.</p>
           </div>
           <div className="px-4 py-2 rounded-full bg-[#1F1F23] text-white text-sm font-medium">
-            {currentStyleIndex + 1} of {totalExamples || '...'}
+            {currentStyleIndex + 1} of {totalExamples}
           </div>
         </div>
 
@@ -1960,7 +2296,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
               </div>
               <div className="p-5">
                 <p className="text-white text-base leading-relaxed whitespace-pre-wrap">
-                  {currentExample || 'No style examples available. You can skip this step.'}
+                  {currentExample}
                 </p>
               </div>
               <div className="px-5 py-3 border-t border-[#2A2A2E] flex items-center gap-6 text-[#6B6B70] text-sm">
@@ -2105,11 +2441,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </div>
           <button
             onClick={handleLaunch}
-            className="px-5 py-3 rounded-lg bg-[#1F1F23] text-[#8E8E93] font-medium flex items-center gap-2 hover:bg-[#2A2A2E] hover:text-white transition-colors"
+            className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-colors ${
+              currentStyleIndex >= styleExamples.length - 1
+                ? 'bg-[#FF5C00] hover:bg-[#FF6B1A] text-white shadow-lg shadow-[#FF5C00]/20'
+                : 'bg-[#1F1F23] text-[#8E8E93] hover:bg-[#2A2A2E] hover:text-white'
+            }`}
           >
-            {styleExamples.length === 0 || currentStyleIndex >= styleExamples.length - 1 ? 'Launch AI CMO' : 'Skip for Now'}
+            {currentStyleIndex >= styleExamples.length - 1 ? 'Launch AI CMO' : 'Skip for Now'}
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </button>
         </div>

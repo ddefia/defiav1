@@ -8,12 +8,9 @@ let clientInstance: any = null;
 export const getSupabase = () => {
     if (clientInstance) return clientInstance;
 
-    // 1. Try Environment Variables
-    const HARDCODED_URL = 'https://fwvqrdxgcugullcwkfiq.supabase.co';
-    const HARDCODED_KEY = 'sb_publishable_dn_SxJbbX9sIYjCiR9paTw_MRMnokPf';
-
-    let url = envUrl || HARDCODED_URL;
-    let key = envKey || HARDCODED_KEY;
+    // 1. Try Environment Variables (no hardcoded fallbacks in production)
+    let url = envUrl;
+    let key = envKey;
 
     // 2. Try LocalStorage (UI Overrides) if client-side
     if ((!url || !key) && typeof window !== 'undefined') {

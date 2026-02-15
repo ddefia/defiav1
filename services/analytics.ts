@@ -1,6 +1,7 @@
 import { CampaignLog, ComputedMetrics, GrowthInput, SocialMetrics, SocialPost, SocialSignals, TrendItem, Mention, DashboardCampaign } from "../types";
 import { getIntegrationConfig } from "../config/integrations";
 import { getBrandRegistryEntry, loadIntegrationKeys } from "./storage";
+import { getAuthToken } from "./auth";
 
 
 /**
@@ -78,7 +79,9 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
         const registryEntry = getBrandRegistryEntry(brandName);
         const brandKey = registryEntry?.brandId || brandName;
         const handleParam = handle ? `?handle=${encodeURIComponent(handle)}` : '';
-        const xRes = await fetch(`${baseUrl}/api/x/metrics/${encodeURIComponent(brandKey)}${handleParam}`);
+        const authToken = await getAuthToken();
+        const authHeaders = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+        const xRes = await fetch(`${baseUrl}/api/x/metrics/${encodeURIComponent(brandKey)}${handleParam}`, { headers: authHeaders });
         if (xRes.ok) {
             const xJson = await xRes.json();
             if (xJson?.metrics) {
@@ -93,7 +96,10 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
     let cachedStats: any = null;
     try {
         const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-        const cacheRes = await fetch(`${baseUrl}/api/social-metrics/${brandName}`);
+        const authToken = await getAuthToken();
+        const cacheRes = await fetch(`${baseUrl}/api/social-metrics/${brandName}`, {
+            headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+        });
         if (cacheRes.ok) {
             cachedStats = await cacheRes.json();
             if (cachedStats.totalFollowers) {
@@ -412,6 +418,7 @@ interface DuneVolumeRow {
     block_time: string;
     amount_usd: number;
     tx_hash: string;
+    wallet_address?: string; // Added for per-wallet ROI — optional for backward compat with old queries
 }
 
 interface DuneUserRow {
@@ -457,33 +464,42 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
     let tvlChange = 0;
 
     // --- 1. FETCH REAL DATA IF CONFIGURED ---
+    let allUserRows: DuneUserRow[] = [];
+    const walletVolumeMap = new Map<string, number>(); // wallet → total USD volume (for real ROI)
+
     if (duneKey) {
         try {
             console.log("Fetching On-Chain Data from Dune...");
 
-            // A. VOLUME & TVL (Parallel Promise if IDs exist)
             const promises = [];
 
             if (queryIds.volume) {
                 promises.push(fetchDuneQuery<DuneVolumeRow>(queryIds.volume, duneKey).then(rows => {
                     totalVolume = rows.reduce((sum, r) => sum + (r.amount_usd || 0), 0);
-                    tvlChange = totalVolume * 0.85; // Simple heuristic for now
+                    tvlChange = totalVolume * 0.85;
+                    // Build per-wallet volume map for real ROI calculation
+                    for (const r of rows) {
+                        if (r.wallet_address) {
+                            const addr = r.wallet_address.toLowerCase();
+                            walletVolumeMap.set(addr, (walletVolumeMap.get(addr) || 0) + (r.amount_usd || 0));
+                        }
+                    }
                 }).catch(e => console.warn("Failed to fetch Volume:", e)));
             }
 
             if (queryIds.users) {
                 promises.push(fetchDuneQuery<DuneUserRow>(queryIds.users, duneKey).then(rows => {
+                    allUserRows = rows;
                     netNewWallets = rows.filter(r => {
                         const firstSeen = new Date(r.first_seen).getTime();
-                        return (Date.now() - firstSeen) < (30 * 24 * 60 * 60 * 1000); // New in last 30d
+                        return (Date.now() - firstSeen) < (30 * 24 * 60 * 60 * 1000);
                     }).length;
-                    activeWallets = rows.length; // Assuming query returns all active
+                    activeWallets = rows.length;
                 }).catch(e => console.warn("Failed to fetch Users:", e)));
             }
 
             if (queryIds.retention) {
                 promises.push(fetchDuneQuery<DuneRetentionRow>(queryIds.retention, duneKey).then(rows => {
-                    // Average the last 4 weeks
                     if (rows.length > 0) {
                         const recent = rows.slice(0, 4);
                         retentionRate = recent.reduce((sum, r) => sum + (r.retention_rate || 0), 0) / recent.length;
@@ -499,7 +515,6 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
 
         } catch (e) {
             console.warn("Dune data fetch failed. Returning zero metrics (Live Mode).", e);
-            // No simulation fallback
             totalVolume = 0;
             netNewWallets = 0;
             activeWallets = 0;
@@ -507,7 +522,6 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
             tvlChange = 0;
         }
     } else {
-        // No Key = Return Zeros
         console.warn("No Dune API Key provided. Returning zero metrics.");
         totalVolume = 0;
         netNewWallets = 0;
@@ -517,8 +531,56 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
     }
 
     // --- 2. CAMPAIGN ATTRIBUTION ---
-    // Return empty attribution until granular wallet data is fully implemented.
-    const campaignPerformance: any[] = [];
+    const campaignPerformance: ComputedMetrics['campaignPerformance'] = [];
+
+    if (input.campaigns && input.campaigns.length > 0 && allUserRows.length > 0) {
+        const excludeSet = new Set(input.excludedWallets.map(w => w.toLowerCase()));
+        const validRows = allUserRows.filter(r => !excludeSet.has(r.wallet_address.toLowerCase()));
+
+        // Baseline: 30 days before the earliest campaign
+        const earliestStart = Math.min(...input.campaigns.map(c => new Date(c.startDate).getTime()));
+        const baselineStart = earliestStart - (30 * 24 * 60 * 60 * 1000);
+        const baselineWallets = validRows.filter(r => {
+            const fs = new Date(r.first_seen).getTime();
+            return fs >= baselineStart && fs < earliestStart;
+        }).length;
+        const baselineRate = baselineWallets / 30; // wallets per day
+
+        const WHALE_THRESHOLD = 50; // tx_count proxy for high-value wallets
+
+        for (const campaign of input.campaigns) {
+            const startTime = new Date(campaign.startDate).getTime();
+            const endTime = new Date(campaign.endDate).getTime();
+            const durationDays = Math.max((endTime - startTime) / (24 * 60 * 60 * 1000), 1);
+
+            const attributed = validRows.filter(r => {
+                const fs = new Date(r.first_seen).getTime();
+                return fs >= startTime && fs <= endTime;
+            });
+
+            const count = attributed.length;
+            const whalesAcquired = attributed.filter(r => r.tx_count > WHALE_THRESHOLD).length;
+            const cpa = campaign.budget > 0 && count > 0 ? campaign.budget / count : 0;
+            const campaignRate = count / durationDays;
+            const lift = baselineRate > 0 ? campaignRate / baselineRate : count > 0 ? 1 : 0;
+            // Real ROI: use actual USD volume per wallet when available, fallback to tx_count * 10
+            const estimatedValue = attributed.reduce((sum, r) => {
+                const walletVol = walletVolumeMap.get(r.wallet_address.toLowerCase());
+                return sum + (walletVol !== undefined ? walletVol : r.tx_count * 10);
+            }, 0);
+            const roi = campaign.budget > 0 ? estimatedValue / campaign.budget : 0;
+
+            // Per-campaign retention: % of wallets that returned 7+ days after first_seen
+            const retainedWallets = attributed.filter(r => {
+                const firstSeen = new Date(r.first_seen).getTime();
+                const lastSeen = new Date(r.last_seen).getTime();
+                return (lastSeen - firstSeen) > (7 * 24 * 60 * 60 * 1000);
+            });
+            const retention = count > 0 ? retainedWallets.length / count : 0;
+
+            campaignPerformance.push({ campaignId: campaign.id, lift, cpa, whalesAcquired, roi, retention });
+        }
+    }
 
 
     return {
@@ -532,6 +594,40 @@ export const computeGrowthMetrics = async (input: GrowthInput): Promise<Computed
 };
 
 
+
+/**
+ * Auto-generate Dune queries by calling the server endpoint.
+ * Returns query IDs on success, null on any failure.
+ * This is fire-and-forget safe — never throws.
+ */
+export const autoGenerateDuneQueries = async (
+    duneApiKey: string,
+    contracts: { address: string; chain: string; type: string; label: string }[],
+    brandName: string
+): Promise<{ volume?: string; users?: string; retention?: string } | null> => {
+    try {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+        const authToken = await getAuthToken();
+        const response = await fetch(`${baseUrl}/api/dune/generate-queries`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+            },
+            body: JSON.stringify({ duneApiKey, contracts, brandName }),
+        });
+        if (!response.ok) return null;
+        const data = await response.json();
+        if (!data.success) {
+            console.warn('[Dune] Auto-generate failed:', data.error);
+            return null;
+        }
+        return data.queryIds;
+    } catch (e) {
+        console.warn('[Dune] Auto-generate request failed:', e);
+        return null;
+    }
+};
 
 export const fetchMentions = async (brandName: string, apiKey?: string): Promise<Mention[]> => {
     // Real Implementation using new unified actor

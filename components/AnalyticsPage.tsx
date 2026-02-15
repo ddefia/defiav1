@@ -216,6 +216,94 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     </div>
                 </div>
 
+                {/* On-Chain Metrics — only when chain data exists */}
+                {chainMetrics && (chainMetrics.netNewWallets > 0 || chainMetrics.totalVolume > 0 || chainMetrics.activeWallets > 0) && (
+                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] overflow-hidden">
+                        <div className="px-6 py-4 border-b border-[#1F1F23] flex items-center gap-2.5">
+                            <span className="material-symbols-sharp text-base text-[#8B5CF6]" style={{ fontVariationSettings: "'wght' 300" }}>token</span>
+                            <span className="text-white text-sm font-semibold">On-Chain Analytics</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-4 p-6">
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[#9CA3AF] text-[13px]">New Wallets</span>
+                                    <div className="w-8 h-8 rounded-lg bg-[#8B5CF622] flex items-center justify-center">
+                                        <span className="material-symbols-sharp text-[#8B5CF6] text-base" style={{ fontVariationSettings: "'wght' 300" }}>person_add</span>
+                                    </div>
+                                </div>
+                                <span className="text-white text-[32px] font-bold">{formatNumber(chainMetrics.netNewWallets)}</span>
+                                <span className="text-[#6B6B70] text-xs">net new (30d)</span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[#9CA3AF] text-[13px]">Active Wallets</span>
+                                    <div className="w-8 h-8 rounded-lg bg-[#06B6D422] flex items-center justify-center">
+                                        <span className="material-symbols-sharp text-[#06B6D4] text-base" style={{ fontVariationSettings: "'wght' 300" }}>account_balance_wallet</span>
+                                    </div>
+                                </div>
+                                <span className="text-white text-[32px] font-bold">{formatNumber(chainMetrics.activeWallets)}</span>
+                                <span className="text-[#6B6B70] text-xs">currently active</span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[#9CA3AF] text-[13px]">Volume</span>
+                                    <div className="w-8 h-8 rounded-lg bg-[#22C55E22] flex items-center justify-center">
+                                        <span className="material-symbols-sharp text-[#22C55E] text-base" style={{ fontVariationSettings: "'wght' 300" }}>bar_chart</span>
+                                    </div>
+                                </div>
+                                <span className="text-white text-[32px] font-bold">
+                                    {chainMetrics.totalVolume > 1_000_000 ? `$${(chainMetrics.totalVolume / 1_000_000).toFixed(1)}M` : chainMetrics.totalVolume > 1000 ? `$${(chainMetrics.totalVolume / 1000).toFixed(0)}K` : `$${chainMetrics.totalVolume.toLocaleString()}`}
+                                </span>
+                                <span className="text-[#6B6B70] text-xs">total</span>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[#9CA3AF] text-[13px]">Retention Rate</span>
+                                    <div className="w-8 h-8 rounded-lg bg-[#F59E0B22] flex items-center justify-center">
+                                        <span className="material-symbols-sharp text-[#F59E0B] text-base" style={{ fontVariationSettings: "'wght' 300" }}>sync</span>
+                                    </div>
+                                </div>
+                                <span className="text-white text-[32px] font-bold">{chainMetrics.retentionRate.toFixed(1)}%</span>
+                                <span className={`text-xs ${chainMetrics.retentionRate >= 30 ? 'text-[#22C55E]' : chainMetrics.retentionRate >= 15 ? 'text-[#F59E0B]' : 'text-[#6B6B70]'}`}>
+                                    {chainMetrics.retentionRate >= 30 ? 'Healthy' : chainMetrics.retentionRate >= 15 ? 'Average' : 'Needs improvement'}
+                                </span>
+                            </div>
+                        </div>
+                        {/* Campaign Attribution */}
+                        {chainMetrics.campaignPerformance.length > 0 && (
+                            <div className="px-6 pb-6">
+                                <div className="border-t border-[#1F1F23] pt-4">
+                                    <span className="text-[#9CA3AF] text-xs font-medium mb-3 block">CAMPAIGN ATTRIBUTION</span>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {chainMetrics.campaignPerformance.map((perf, i) => (
+                                            <div key={perf.campaignId || i} className="bg-[#0A0A0B] rounded-lg p-4 flex items-center justify-between">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-white text-sm font-medium">Campaign #{i + 1}</span>
+                                                    <span className="text-[#6B6B70] text-xs">{perf.whalesAcquired} high-activity wallets</span>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-center">
+                                                        <div className="text-white text-sm font-mono font-bold">{perf.lift.toFixed(1)}x</div>
+                                                        <div className="text-[#6B6B70] text-[10px]">Lift</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className="text-white text-sm font-mono font-bold">${perf.cpa.toFixed(0)}</div>
+                                                        <div className="text-[#6B6B70] text-[10px]">CPA</div>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <div className={`text-sm font-mono font-bold ${perf.roi > 1 ? 'text-[#22C55E]' : 'text-red-400'}`}>{perf.roi.toFixed(1)}x</div>
+                                                        <div className="text-[#6B6B70] text-[10px]">ROI</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Performance Chart Section */}
                 <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
                     <div className="flex gap-6">

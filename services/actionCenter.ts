@@ -1,4 +1,5 @@
 import { GrowthReport, SocialMetrics } from "../types";
+import { getAuthToken } from './auth';
 
 export interface ActionCenterDecision {
     id: string;
@@ -22,7 +23,10 @@ export interface ActionCenterPayload {
 export const fetchActionCenter = async (brandName: string): Promise<ActionCenterPayload | null> => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
     try {
-        const response = await fetch(`${baseUrl}/api/action-center/${encodeURIComponent(brandName)}`);
+        const token = await getAuthToken();
+        const response = await fetch(`${baseUrl}/api/action-center/${encodeURIComponent(brandName)}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        });
         if (!response.ok) return null;
         return await response.json();
     } catch (e) {

@@ -2,6 +2,21 @@
 import fetch from 'node-fetch'; // Use built-in fetch in Node 18+, but for safety in older envs/types
 // Note: Node 18+ has global fetch.
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Cache is in ../cache relative to this file (server/agent -> server/cache)
+const CACHE_DIR = path.join(__dirname, '../cache');
+const CACHE_FILE = path.join(CACHE_DIR, 'social_metrics.json');
+
+// Ensure cache directory exists
+if (!fs.existsSync(CACHE_DIR)) {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
+
 /**
  * INGESTION SERVICE (Server-Side)
  * "The Eyes"
@@ -23,14 +38,52 @@ export const fetchLunarCrushTrends = async (_apiKey, _symbol = 'ETH') => {
     return [];
 };
 
+// TTL cache for mentions — avoids redundant Apify calls from overlapping cron/client/bootup triggers
+const MENTIONS_CACHE_FILE = path.join(CACHE_DIR, 'mentions_cache.json');
+const MENTIONS_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+const getMentionsCache = (brandName) => {
+    try {
+        if (!fs.existsSync(MENTIONS_CACHE_FILE)) return null;
+        const cache = JSON.parse(fs.readFileSync(MENTIONS_CACHE_FILE, 'utf8'));
+        const entry = cache[brandName.toLowerCase()];
+        if (!entry) return null;
+        const age = Date.now() - new Date(entry.fetchedAt).getTime();
+        if (age > MENTIONS_TTL_MS) return null; // Expired
+        return entry.data;
+    } catch {
+        return null;
+    }
+};
+
+const setMentionsCache = (brandName, data) => {
+    try {
+        let cache = {};
+        if (fs.existsSync(MENTIONS_CACHE_FILE)) {
+            cache = JSON.parse(fs.readFileSync(MENTIONS_CACHE_FILE, 'utf8'));
+        }
+        cache[brandName.toLowerCase()] = { fetchedAt: new Date().toISOString(), data };
+        fs.writeFileSync(MENTIONS_CACHE_FILE, JSON.stringify(cache, null, 2));
+    } catch (e) {
+        console.warn("[Agent/Ingest] Failed to write mentions cache:", e.message);
+    }
+};
+
 export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
     if (!apiKey) return [];
+
+    // Check TTL cache first — skip Apify if we have fresh data
+    const cached = getMentionsCache(brandName);
+    if (cached) {
+        console.log(`[Agent/Ingest] Using cached mentions for ${brandName} (< 6h old)`);
+        return cached;
+    }
 
     try {
         // Direct Apify Call - Using new unified Twitter actor
         const ACTOR_ID = 'VsTreSuczsXhhRIqa';
 
-        console.log(`[Agent/Ingest] Fetching mentions for ${brandName}...`);
+        console.log(`[Agent/Ingest] Fetching fresh mentions for ${brandName} via Apify...`);
 
         // 1. Run with new actor input format
         const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${apiKey}&waitForFinish=90`, {
@@ -57,7 +110,7 @@ export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
         const items = await itemsRes.json();
 
         // Map new actor output format
-        return items.map(item => {
+        const result = items.map(item => {
             // Extract author from URL (format: https://x.com/USERNAME/status/...)
             const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
             const author = urlMatch?.[1] || "Unknown";
@@ -70,26 +123,15 @@ export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
             };
         });
 
+        // Save to cache
+        setMentionsCache(brandName, result);
+        return result;
+
     } catch (e) {
         console.error("[Agent/Ingest] Mentions Fetch Error:", e.message);
         return [];
     }
 };
-
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Fix: Cache is in ../cache relative to this file (server/agent -> server/cache)
-const CACHE_DIR = path.join(__dirname, '../cache');
-const CACHE_FILE = path.join(CACHE_DIR, 'social_metrics.json');
-
-// Ensure cache directory exists
-if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-}
 
 export const TRACKED_BRANDS = {
     'enki': 'ENKIProtocol',
@@ -134,9 +176,16 @@ export const updateAllBrands = async (apiKey, brands = []) => {
 
     const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa'; // New unified Twitter actor
 
+    // Only sync brands that are actually registered in the DB.
+    // The hardcoded TRACKED_BRANDS fallback was syncing 5 demo brands even when the user only has 1 real brand.
     const registry = brands.length > 0
         ? brands.map((brand) => ({ key: brand.id.toLowerCase(), handle: brand.xHandle || brand.name, originalId: brand.id }))
-        : Object.entries(TRACKED_BRANDS).map(([key, handle]) => ({ key: key.toLowerCase(), handle, originalId: key }));
+        : [];
+
+    if (registry.length === 0) {
+        console.log("[Agent/Ingest] No active brands found in DB. Skipping social sync (add a brand via onboarding first).");
+        return;
+    }
 
     for (const { key, handle } of registry) {
         try {

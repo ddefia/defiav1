@@ -39,6 +39,7 @@ create table if not exists brand_sources (
 
 create index if not exists brand_sources_brand_idx on brand_sources (brand_id);
 create index if not exists brand_sources_type_idx on brand_sources (source_type);
+create unique index if not exists brand_sources_unique on brand_sources (brand_id, source_type, normalized_value);
 
 -- Enrichment artifacts + versioning
 create table if not exists brand_enrichments (
@@ -196,3 +197,78 @@ begin
   limit match_count;
 end;
 $$;
+
+-- Key-value store for app state (cloud sync)
+create table if not exists app_storage (
+  id bigserial primary key,
+  key text not null,
+  value jsonb,
+  updated_at timestamptz default now()
+);
+
+create unique index if not exists app_storage_key_unique on app_storage (key);
+
+-- Content publication logs
+create table if not exists content_logs (
+  id bigserial primary key,
+  brand_id text,
+  platform text,       -- twitter | telegram
+  content text,
+  metrics jsonb,
+  url text,
+  media_url text,
+  posted_at timestamptz default now()
+);
+
+create index if not exists content_logs_brand_idx on content_logs (brand_id);
+
+-- Campaign performance analytics
+create table if not exists campaign_performance (
+  id bigserial primary key,
+  name text,
+  channel text,
+  spend numeric,
+  attributed_wallets integer,
+  cpa numeric,
+  retention numeric,
+  value_created numeric,
+  roi numeric,
+  status_label text,
+  trend_signal text,
+  confidence text,
+  ai_summary jsonb,
+  anomalies jsonb,
+  priority_score numeric,
+  campaign_type text,
+  expected_impact text,
+  recommendation jsonb,
+  media_url text
+);
+
+-- Strategy documents for pulse analysis
+create table if not exists strategy_docs (
+  id bigserial primary key,
+  content text,
+  metadata jsonb,
+  created_at timestamptz default now()
+);
+
+-- Stripe subscription records
+create table if not exists subscriptions (
+  id text primary key,                        -- Stripe subscription ID
+  user_id uuid references auth.users(id),
+  brand_id uuid references brands(id),
+  stripe_customer_id text not null,
+  stripe_price_id text not null,
+  plan_tier text not null,                    -- starter | growth | enterprise
+  status text not null default 'active',      -- active | canceled | past_due | trialing
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  cancel_at_period_end boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists subscriptions_user_idx on subscriptions (user_id);
+create index if not exists subscriptions_brand_idx on subscriptions (brand_id);
+create index if not exists subscriptions_stripe_customer_idx on subscriptions (stripe_customer_id);

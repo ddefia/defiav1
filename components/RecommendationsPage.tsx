@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { SocialMetrics, BrandConfig, SocialSignals } from '../types';
+import { SocialMetrics, BrandConfig, SocialSignals, ComputedMetrics, CampaignLog } from '../types';
 
 interface RecommendationsPageProps {
     brandName: string;
@@ -16,6 +16,8 @@ interface RecommendationsPageProps {
     onDismiss: (idx: number) => void;
     onNavigate: (section: string, params?: any) => void;
     onSchedule: (content: string, image?: string) => void;
+    chainMetrics?: ComputedMetrics | null;
+    campaignLogs?: CampaignLog[];
 }
 
 // --- Helpers ---
@@ -56,6 +58,8 @@ export const generateSupplementalRecs = (
     socialSignals: SocialSignals,
     socialMetrics: SocialMetrics | null,
     brandConfig: BrandConfig,
+    chainMetrics?: ComputedMetrics | null,
+    campaignLogs?: CampaignLog[],
 ): any[] => {
     const recs: any[] = [];
     const topics = socialSignals.trendingTopics || [];
@@ -147,6 +151,67 @@ export const generateSupplementalRecs = (
         }
     }
 
+    // 5. On-chain campaign performance recs (scale / pause / whale)
+    if (chainMetrics?.campaignPerformance?.length && campaignLogs?.length) {
+        for (const perf of chainMetrics.campaignPerformance) {
+            const log = campaignLogs.find(l => l.id === perf.campaignId);
+            if (!log) continue;
+            const retPct = Math.round((perf.retention || 0) * 100);
+            const wallets = perf.cpa > 0 ? Math.round(log.budget / perf.cpa) : 0;
+
+            // Scale recommendation — high ROI + strong retention
+            if (perf.roi > 2 && (perf.retention || 0) > 0.3) {
+                recs.push({
+                    ...getRecStyle('CAMPAIGN'),
+                    title: `Scale "${log.name}" — ${perf.roi.toFixed(1)}x ROI with ${retPct}% wallet retention`,
+                    reasoning: `Campaign "${log.name}" is outperforming with ${perf.roi.toFixed(1)}x ROI and ${retPct}% retention. ${wallets} wallets acquired at $${perf.cpa.toFixed(2)} CPA — strong signal to increase budget.`,
+                    fullReason: `Campaign "${log.name}" is delivering exceptional results: ${perf.roi.toFixed(1)}x ROI, ${retPct}% wallet retention after 7 days, and ${perf.whalesAcquired} high-value wallets acquired. With a CPA of $${perf.cpa.toFixed(2)} and ${perf.lift.toFixed(1)}x lift vs baseline acquisition rate, this campaign is a strong candidate for budget increase. Scaling now while the momentum holds could compound wallet growth and deepen community engagement.`,
+                    fullDraft: `Our "${log.name}" campaign is crushing it:\n\n📈 ${perf.roi.toFixed(1)}x ROI\n🔁 ${retPct}% wallet retention\n🐋 ${perf.whalesAcquired} high-value wallets\n\nRecommendation: Increase budget by 50-100% while these economics hold.`,
+                    contentIdeas: [`Increase "${log.name}" budget by 50-100%`, `Clone this campaign for a new audience segment`, `Create a follow-up retention campaign for the ${wallets} acquired wallets`],
+                    strategicAlignment: 'Scaling high-ROI campaigns while economics hold maximizes wallet growth and minimizes wasted spend.',
+                    dataSignal: `ROI: ${perf.roi.toFixed(1)}x · Retention: ${retPct}% · CPA: $${perf.cpa.toFixed(2)}`,
+                    impactScore: Math.min(96, 85 + Math.round(perf.roi)),
+                    source: 'supplemental',
+                });
+            }
+
+            // Pause recommendation — poor ROI or very low retention
+            else if (perf.roi < 0.5 || ((perf.retention || 0) < 0.1 && wallets > 5)) {
+                recs.push({
+                    ...getRecStyle('CAMPAIGN'),
+                    title: `Pause "${log.name}" — ${perf.roi.toFixed(1)}x ROI, only ${retPct}% retention`,
+                    reasoning: `Campaign "${log.name}" is underperforming with ${perf.roi.toFixed(1)}x ROI and ${retPct}% retention. Consider reallocating budget to higher-performing campaigns.`,
+                    fullReason: `Campaign "${log.name}" is showing poor unit economics: ${perf.roi.toFixed(1)}x ROI (below breakeven), ${retPct}% wallet retention, and $${perf.cpa.toFixed(2)} CPA. While it acquired ${wallets} wallets, the low retention suggests these users aren't sticky. Budget would deliver better returns if reallocated to campaigns with stronger fundamentals.`,
+                    fullDraft: `Campaign "${log.name}" needs a rethink:\n\n⚠️ ${perf.roi.toFixed(1)}x ROI (below 1x)\n📉 ${retPct}% retention\n💸 $${perf.cpa.toFixed(2)} CPA\n\nRecommendation: Pause and reallocate budget. Test a new creative or targeting approach before relaunching.`,
+                    contentIdeas: [`Pause "${log.name}" and reallocate budget`, `A/B test new creatives for this audience`, `Analyze churned wallets for insights`],
+                    strategicAlignment: 'Cutting underperformers frees budget for campaigns with proven ROI and retention.',
+                    dataSignal: `ROI: ${perf.roi.toFixed(1)}x · Retention: ${retPct}% · CPA: $${perf.cpa.toFixed(2)}`,
+                    impactScore: 82,
+                    source: 'supplemental',
+                });
+            }
+
+            // Whale acquisition highlight
+            if (perf.whalesAcquired >= 5) {
+                const alreadyHasRec = recs.some(r => r.title.includes(log.name));
+                if (!alreadyHasRec) {
+                    recs.push({
+                        ...getRecStyle('CAMPAIGN'),
+                        title: `"${log.name}" attracted ${perf.whalesAcquired} high-value wallets — build a retention play`,
+                        reasoning: `Campaign "${log.name}" brought in ${perf.whalesAcquired} wallets with 50+ transactions. These power users are high-value — create a targeted retention campaign to keep them active.`,
+                        fullReason: `Campaign "${log.name}" acquired ${perf.whalesAcquired} high-activity wallets (50+ transactions each). These power users represent outsized protocol value. A dedicated retention campaign — exclusive content, early access, or direct engagement — could lock in their activity and create brand advocates. The ${perf.lift.toFixed(1)}x lift vs baseline confirms this campaign is reaching quality users.`,
+                        fullDraft: `🐋 ${perf.whalesAcquired} power users just landed via "${log.name}".\n\nThese wallets have 50+ transactions each — they're not tourists.\n\nNext steps:\n1. Segment these wallets for targeted outreach\n2. Create exclusive content or early access perks\n3. Monitor retention weekly`,
+                        contentIdeas: [`Launch a whale retention program`, `Create exclusive content for high-value users`, `Direct engagement campaign for power users`],
+                        strategicAlignment: 'Retaining high-value wallets creates outsized protocol value and potential brand advocates.',
+                        dataSignal: `${perf.whalesAcquired} whales · ${perf.lift.toFixed(1)}x lift · Campaign: ${log.name}`,
+                        impactScore: 88,
+                        source: 'supplemental',
+                    });
+                }
+            }
+        }
+    }
+
     return recs;
 };
 
@@ -154,6 +219,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     brandName, brandConfig, socialMetrics, socialSignals,
     agentDecisions, recommendations, regenLoading, regenLastRun, decisionSummary,
     onRegenerate, onDismiss, onNavigate, onSchedule,
+    chainMetrics, campaignLogs,
 }) => {
     const [selectedIdx, setSelectedIdx] = useState<number>(0);
     const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -238,7 +304,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
         // Supplement with data-driven recs if primary count is below 5
         if (primary.length < 5) {
-            const supplemental = generateSupplementalRecs(brandName, socialSignals, socialMetrics, brandConfig);
+            const supplemental = generateSupplementalRecs(brandName, socialSignals, socialMetrics, brandConfig, chainMetrics, campaignLogs);
             // Dedupe: skip supplementals whose title topic overlaps with a primary rec
             const primaryText = primary.map(r => (r.title + ' ' + (r.fullReason || '')).toLowerCase()).join(' ');
             const filtered = supplemental.filter(s => {
@@ -249,7 +315,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
         }
 
         return primary;
-    }, [recommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig]);
+    }, [recommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig, chainMetrics, campaignLogs]);
 
     // Filter by priority
     const filteredRecs = useMemo(() => {
@@ -295,11 +361,11 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                     <h1 className="text-white text-[22px] font-bold" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
                         AI CMO Recommendations
                     </h1>
-                    <p className="text-[#6B7280] text-sm mt-0.5">Strategic insights and action recommendations from your AI marketing assistant</p>
+                    <p className="text-[#9CA3AF] text-sm mt-0.5">Strategic insights and action recommendations from your AI marketing assistant</p>
                 </div>
                 <div className="flex items-center gap-3">
                     {regenLastRun > 0 && (
-                        <span className="text-[#6B7280] text-xs flex items-center gap-1.5">
+                        <span className="text-[#9CA3AF] text-xs flex items-center gap-1.5">
                             <span className="material-symbols-sharp text-[14px]">schedule</span>
                             Last sync: {timeAgo(regenLastRun)}
                         </span>
@@ -359,7 +425,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                     <div className="px-5 pt-5 pb-3">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-[#9CA3AF] text-xs font-semibold tracking-wider uppercase">Priority Queue</span>
-                            <span className="text-[#6B7280] text-xs">{filteredRecs.length} items</span>
+                            <span className="text-[#9CA3AF] text-xs">{filteredRecs.length} items</span>
                         </div>
                         <div className="flex bg-[#111113] rounded-lg p-1 gap-1">
                             {(['high', 'medium', 'low', 'all'] as const).map(f => (
@@ -367,7 +433,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     onClick={() => { setPriorityFilter(f); setSelectedIdx(0); }}
                                     className={`flex-1 py-1.5 rounded-md text-xs font-medium capitalize transition-all ${priorityFilter === f
                                         ? f === 'high' ? 'bg-[#FF5C00] text-white' : 'bg-[#1F1F23] text-white'
-                                        : 'text-[#6B7280] hover:text-[#9CA3AF]'
+                                        : 'text-[#9CA3AF] hover:text-[#9CA3AF]'
                                     }`}
                                 >{f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</button>
                             ))}
@@ -408,19 +474,19 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 <span className="text-[10px] font-bold tracking-wider uppercase" style={{ color: rec.typeBg }}>{rec.type}</span>
                                             </div>
                                             <span className="text-xs font-medium" style={{ color: getPriorityColor(rec.impactScore) }}>
-                                                {rec.impactScore}% <span className="text-[#6B7280] font-normal">conf</span>
+                                                {rec.impactScore}% <span className="text-[#9CA3AF] font-normal">conf</span>
                                             </span>
                                         </div>
                                         <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug line-clamp-3">{cleanTitle(rec.title)}</h4>
                                         {rec.dataSignal && (
-                                            <div className="flex items-center gap-1 mb-1.5 text-[#6B7280] text-[11px]">
+                                            <div className="flex items-center gap-1 mb-1.5 text-[#9CA3AF] text-[11px]">
                                                 <span className="material-symbols-sharp text-[12px]">bolt</span>
                                                 {rec.dataSignal.length > 45 ? rec.dataSignal.slice(0, 45) + '…' : rec.dataSignal}
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[#6B7280] text-[11px]">{dataSourceCount} data sources</span>
-                                            <span className="material-symbols-sharp text-[14px] text-[#6B7280]">chevron_right</span>
+                                            <span className="text-[#9CA3AF] text-[11px]">{dataSourceCount} data sources</span>
+                                            <span className="material-symbols-sharp text-[14px] text-[#9CA3AF]">chevron_right</span>
                                         </div>
                                     </button>
                                 );
@@ -430,8 +496,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 <div className="w-12 h-12 rounded-full bg-[#FF5C0015] flex items-center justify-center mb-3">
                                     <span className="material-symbols-sharp text-[24px] text-[#FF5C00]">lightbulb</span>
                                 </div>
-                                <p className="text-[#6B7280] text-sm mb-2">No recommendations yet</p>
-                                <p className="text-[#6B7280] text-xs mb-4">Run analysis to generate strategic recommendations from the AI council.</p>
+                                <p className="text-[#9CA3AF] text-sm mb-2">No recommendations yet</p>
+                                <p className="text-[#9CA3AF] text-xs mb-4">Run analysis to generate strategic recommendations from the AI council.</p>
                                 <button onClick={onRegenerate}
                                     className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors">
                                     Generate Recommendations
@@ -492,7 +558,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 </span>
                                 <div>
                                     <span className="text-white text-sm font-semibold">{selectedRec.type} Opportunity</span>
-                                    <p className="text-[#6B7280] text-xs mt-0.5">
+                                    <p className="text-[#9CA3AF] text-xs mt-0.5">
                                         {selectedRec.type === 'Engagement' ? 'Engage with an active conversation to build community presence and visibility.'
                                             : selectedRec.type === 'Trend' ? 'Capitalize on a trending topic while it has peak attention.'
                                             : selectedRec.type === 'Campaign' ? 'Launch a coordinated content push around a strategic theme.'
@@ -518,16 +584,16 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         </div>
 
                                         <div className="mb-5">
-                                            <span className="text-[#6B7280] text-xs font-medium">Why this recommendation</span>
-                                            <p className="text-[#D1D5DB] text-sm leading-relaxed mt-2">
+                                            <span className="text-[#9CA3AF] text-xs font-medium">Why this recommendation</span>
+                                            <p className="text-[#E5E7EB] text-sm leading-relaxed mt-2">
                                                 {selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.'}
                                             </p>
                                         </div>
 
                                         {selectedRec.strategicAlignment && (
                                             <div className="pt-4 border-t border-[#1F1F23]">
-                                                <span className="text-[#6B7280] text-xs font-medium">Strategic alignment</span>
-                                                <p className="text-[#D1D5DB] text-sm leading-relaxed mt-2">
+                                                <span className="text-[#9CA3AF] text-xs font-medium">Strategic alignment</span>
+                                                <p className="text-[#E5E7EB] text-sm leading-relaxed mt-2">
                                                     {selectedRec.strategicAlignment}
                                                 </p>
                                             </div>
@@ -536,7 +602,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         {/* Agent Council Insights */}
                                         {decisionSummary?.agentInsights && decisionSummary.agentInsights.length > 0 && (
                                             <div className="pt-4 mt-4 border-t border-[#1F1F23]">
-                                                <span className="text-[#6B7280] text-xs font-medium mb-3 block">Agent Council Breakdown</span>
+                                                <span className="text-[#9CA3AF] text-xs font-medium mb-3 block">Agent Council Breakdown</span>
                                                 <div className="grid grid-cols-2 gap-3">
                                                     {decisionSummary.agentInsights.map((insight: any, idx: number) => {
                                                         const colors: Record<string, string> = {
@@ -554,13 +620,13 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                                     <span className="material-symbols-sharp text-[14px]" style={{ color }}>{icons[insight.agent] || 'smart_toy'}</span>
                                                                     <span className="text-[10px] font-semibold" style={{ color }}>{insight.agent}</span>
                                                                 </div>
-                                                                <p className="text-[#ADADB0] text-[11px] leading-relaxed mb-1.5">
+                                                                <p className="text-[#D1D5DB] text-[11px] leading-relaxed mb-1.5">
                                                                     {insight.summary ? (insight.summary.length > 120 ? insight.summary.slice(0, 120) + '...' : insight.summary) : insight.focus}
                                                                 </p>
                                                                 {insight.keySignals?.length > 0 && (
                                                                     <div className="flex flex-wrap gap-1">
                                                                         {insight.keySignals.slice(0, 2).map((signal: string, sIdx: number) => (
-                                                                            <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#8B8B8F]">
+                                                                            <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#ADADB0]">
                                                                                 {signal.length > 35 ? signal.slice(0, 35) + '…' : signal}
                                                                             </span>
                                                                         ))}
@@ -584,7 +650,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 <span className="material-symbols-sharp text-[16px] text-[#FF5C00]">edit_note</span>
                                                 <span className="text-[#FF5C00] text-sm font-semibold">Draft Content</span>
                                             </div>
-                                            <p className="text-[#D1D5DB] text-sm leading-relaxed mb-4">
+                                            <p className="text-[#E5E7EB] text-sm leading-relaxed mb-4">
                                                 {selectedRec.fullDraft}
                                             </p>
                                             <button onClick={() => onNavigate('studio', { draft: selectedRec.fullDraft })}
@@ -605,35 +671,35 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             {socialMetrics?.recentPosts?.length ? (
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-2 h-2 rounded-full bg-[#3B82F6]"></span>
-                                                    <span className="text-[#D1D5DB] text-sm">X/Twitter (Apify)</span>
+                                                    <span className="text-[#E5E7EB] text-sm">X/Twitter (Apify)</span>
                                                     {decisionSummary?.inputCoverage?.recentPosts > 0 && (
-                                                        <span className="text-[#6B7280] text-[10px] ml-auto">{decisionSummary.inputCoverage.recentPosts} posts</span>
+                                                        <span className="text-[#9CA3AF] text-[10px] ml-auto">{decisionSummary.inputCoverage.recentPosts} posts</span>
                                                     )}
                                                 </div>
                                             ) : null}
                                             {socialSignals.trendingTopics?.length ? (
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-2 h-2 rounded-full bg-[#8B5CF6]"></span>
-                                                    <span className="text-[#D1D5DB] text-sm">Web3 News Feed</span>
-                                                    <span className="text-[#6B7280] text-[10px] ml-auto">{socialSignals.trendingTopics.length} trends</span>
+                                                    <span className="text-[#E5E7EB] text-sm">Web3 News Feed</span>
+                                                    <span className="text-[#9CA3AF] text-[10px] ml-auto">{socialSignals.trendingTopics.length} trends</span>
                                                 </div>
                                             ) : null}
                                             {brandConfig?.knowledgeBase?.length ? (
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-2 h-2 rounded-full bg-[#22C55E]"></span>
-                                                    <span className="text-[#D1D5DB] text-sm">Brand Knowledge Base</span>
-                                                    <span className="text-[#6B7280] text-[10px] ml-auto">{brandConfig.knowledgeBase.length} docs</span>
+                                                    <span className="text-[#E5E7EB] text-sm">Brand Knowledge Base</span>
+                                                    <span className="text-[#9CA3AF] text-[10px] ml-auto">{brandConfig.knowledgeBase.length} docs</span>
                                                 </div>
                                             ) : null}
                                             <div className="flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-[#F59E0B]"></span>
-                                                <span className="text-[#D1D5DB] text-sm">AI Sentiment Analysis</span>
+                                                <span className="text-[#E5E7EB] text-sm">AI Sentiment Analysis</span>
                                             </div>
                                             {decisionSummary?.inputCoverage?.mentions > 0 && (
                                                 <div className="flex items-center gap-2">
                                                     <span className="w-2 h-2 rounded-full bg-[#EC4899]"></span>
-                                                    <span className="text-[#D1D5DB] text-sm">Mentions Scanned</span>
-                                                    <span className="text-[#6B7280] text-[10px] ml-auto">{decisionSummary.inputCoverage.mentions}</span>
+                                                    <span className="text-[#E5E7EB] text-sm">Mentions Scanned</span>
+                                                    <span className="text-[#9CA3AF] text-[10px] ml-auto">{decisionSummary.inputCoverage.mentions}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -650,7 +716,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 {selectedRec.contentIdeas.map((idea: string, j: number) => (
                                                     <div key={j} className="flex items-start gap-2">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-[#FF5C00] mt-1.5 flex-shrink-0"></span>
-                                                        <span className="text-[#D1D5DB] text-sm leading-relaxed">{idea}</span>
+                                                        <span className="text-[#E5E7EB] text-sm leading-relaxed">{idea}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -665,7 +731,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 <span className="material-symbols-sharp text-[32px] text-[#FF5C00]">auto_awesome</span>
                             </div>
                             <h3 className="text-white text-lg font-semibold mb-2">No Recommendation Selected</h3>
-                            <p className="text-[#6B7280] text-sm max-w-sm">
+                            <p className="text-[#9CA3AF] text-sm max-w-sm">
                                 Select a recommendation from the queue or run analysis to generate new strategic insights.
                             </p>
                         </div>

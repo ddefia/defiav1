@@ -136,7 +136,20 @@ const transformNewsToTrends = (items: CryptoNewsItem[], brandName?: string): Tre
             timestamp,
             createdAt,
             url: item.url,
-            imageUrl: item.image || (item as any).imageUrl || (item as any).thumbnail || (item as any).media || (item as any).og_image || undefined,
+            imageUrl: item.image
+                || (item as any).imageUrl
+                || (item as any).image_url
+                || (item as any).thumbnail
+                || (item as any).thumbnailUrl
+                || (item as any).media
+                || (item as any).og_image
+                || (item as any).ogImage
+                || (item as any).img
+                || (item as any).picture
+                || (item as any).photo
+                || (item as any).heroImage
+                || (item as any).featuredImage
+                || undefined,
             rawData: item
         };
     });

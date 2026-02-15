@@ -49,6 +49,54 @@ export interface BrandConfig {
     referenceImageIds?: string[]; // New: Link multiple reference images
     purpose?: string; // New: "High IQ" logic - Description of WHEN to use this template (e.g. "Use for technical deep dives")
   }[];
+  blockchain?: {
+    chain?: string; // deprecated — use per-contract chain field
+    contracts: Array<{
+      address: string;
+      type: 'token' | 'staking' | 'pool' | 'nft';
+      label: string;
+      chain: string;
+    }>;
+  };
+  competitors?: {
+    name: string;
+    handle?: string;       // Twitter handle for monitoring
+    strengths?: string;    // What they do well
+    weaknesses?: string;   // Where we can beat them
+  }[];
+  subscription?: BrandSubscription;
+}
+
+// ─── Subscription & Plan Types ───────────────────────────────────────────────
+
+export type PlanTier = 'starter' | 'growth' | 'enterprise';
+
+export interface PlanLimits {
+  maxBrands: number;            // -1 = unlimited
+  brainFrequencyHours: number;  // 24, 6, or 1
+  contentPerMonth: number;      // -1 = unlimited
+  imagesPerMonth: number;       // -1 = unlimited
+  maxCampaigns: number;         // -1 = unlimited
+  maxCompetitors: number;       // -1 = unlimited
+  maxKnowledgeDocs: number;     // -1 = unlimited
+  onChainAnalytics: boolean;
+  autoPublish: boolean;
+  aiCopilot: boolean;
+  maxTeamMembers: number;       // -1 = unlimited
+}
+
+export interface BrandSubscription {
+  plan: PlanTier;
+  limits: PlanLimits;
+  usage: PlanUsage;
+  trialEndsAt?: number;         // timestamp
+  billingPeriod: 'monthly' | 'annual';
+}
+
+export interface PlanUsage {
+  contentThisMonth: number;
+  imagesThisMonth: number;
+  lastResetAt: number;          // timestamp of last monthly reset
 }
 
 export interface GenerateImageParams {
@@ -189,7 +237,7 @@ export interface ActionPlan {
 
 export interface TrendItem {
   id: string;
-  source: 'Twitter' | 'News' | 'OnChain' | 'LunarCrush';
+  source: 'Twitter' | 'News' | 'OnChain' | 'LunarCrush' | 'Web3 News' | string;
   headline: string;
   summary: string;
   relevanceScore: number; // 1-100
@@ -285,6 +333,7 @@ export interface GrowthInput {
     label: string;
     address: string;
     type: 'token' | 'staking' | 'pool' | 'nft';
+    chain?: string;
   }[];
   duneApiKey?: string; // Integration point
   duneQueryIds?: {
@@ -325,6 +374,7 @@ export interface ComputedMetrics {
     cpa: number; // Cost Per Acquisition
     whalesAcquired: number;
     roi: number;
+    retention: number; // 0-1 ratio of wallets that returned 7+ days after first_seen
   }[];
 }
 
@@ -411,6 +461,7 @@ export interface BrainContext {
   marketState: {
     trends: TrendItem[];
     analytics?: SocialMetrics;
+    chainMetrics?: ComputedMetrics;
     mentions?: Mention[];
   };
   memory: {
