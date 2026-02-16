@@ -1777,6 +1777,10 @@ export const generateStyleExamples = async (
         ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')}`
         : 'Avoid lazy AI words (e.g. "delve", "tapestry", "game changer").';
 
+    const tweetRef = brandConfig.tweetExamples && brandConfig.tweetExamples.length > 0
+        ? `\nEXISTING TWEET STYLE REFERENCE (match this tone & voice closely):\n${brandConfig.tweetExamples.slice(0, 10).map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+        : '';
+
     const systemInstruction = `
 You are an expert crypto content strategist for ${brandName}.
 
@@ -1784,6 +1788,7 @@ TASK:
 - Generate ${count} DISTINCT social post examples for X/Twitter.
 - Mix formats: announcement, product update, insight, educational tip, community CTA, partnership.
 - Keep them grounded in the knowledge base. If KB is sparse, keep claims generic.
+- If tweet style references are provided, closely match their tone, length, and writing style.
 
 CRITICAL RULES - FOLLOW EXACTLY:
 - ABSOLUTELY NO HASHTAGS. Never use # symbols or hashtags under any circumstances.
@@ -1800,6 +1805,7 @@ VOICE:
 - ${banned}
 
 ${kb}
+${tweetRef}
     `.trim();
 
     try {
@@ -1853,7 +1859,7 @@ export const researchBrandIdentity = async (
 
     // Feed Gemini as much content as possible — it can handle 1M tokens
     const siteContent = (options.siteContent || '').slice(0, 100000);
-    const tweetSamples = (options.tweetExamples || []).slice(0, 15);
+    const tweetSamples = (options.tweetExamples || []).slice(0, 20);
     const docUrls = (options.docUrls || []).slice(0, 20);
 
     const sourceBlock = [

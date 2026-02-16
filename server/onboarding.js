@@ -784,7 +784,7 @@ export const extractDefiMetrics = (content) => {
   return metrics;
 };
 
-export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } = {}) => {
+export const fetchTwitterContent = async (handle, { maxItems = 50, brandName } = {}) => {
   const token = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';
   if (!token) {
     console.log('[OnboardingTwitter] No Apify token - returning empty data (not an error)');
@@ -955,7 +955,7 @@ export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } =
 
   console.log('[OnboardingTwitter] Filtered tweets (original content only):', tweets.length);
 
-  const topTweets = [...tweets].sort((a, b) => b.score - a.score).slice(0, 8);
+  const topTweets = [...tweets].sort((a, b) => b.score - a.score).slice(0, 20);
   const tweetExamples = topTweets.map((tweet) => tweet.text);
 
   const referenceImages = [];
@@ -996,7 +996,7 @@ export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } =
       name: `Tweet ${tweet.createdAt || ''}`.trim() || `Tweet ${tweet.id}`,
       category: 'Tweet'
     });
-    if (referenceImages.length >= 10) break;
+    if (referenceImages.length >= 20) break;
   }
 
   return { tweets, tweetExamples, referenceImages };

@@ -837,16 +837,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       }
 
       // Generate carousel content examples (AI) after enrichment
-      // Only generate 3 NEW tweets for the carousel (not using scraped content)
+      // Generate AI tweet examples for the carousel
       let generatedExamples: string[] = [];
       try {
-        generatedExamples = await generateStyleExamples(brandName.trim(), enriched, 5);
+        generatedExamples = await generateStyleExamples(brandName.trim(), enriched, 8);
       } catch (e) {
         generatedExamples = [];
       }
 
-      // Use ONLY AI-generated examples for the carousel
-      const combinedExamples = dedupeStrings([...generatedExamples]).slice(0, 5);
+      // Use AI-generated examples for the carousel
+      const combinedExamples = dedupeStrings([...generatedExamples]).slice(0, 8);
 
       // Merge blockchain config if provided
       const validContracts = contracts.filter(c => c.address.trim().length > 0 && c.chain.trim().length > 0);
@@ -2333,7 +2333,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </div>
           {enrichedData?.config.referenceImages && enrichedData.config.referenceImages.length > 0 ? (
             <div className="grid grid-cols-3 gap-4">
-              {enrichedData.config.referenceImages.slice(0, 6).map((img, index) => (
+              {enrichedData.config.referenceImages.map((img, index) => (
                 <div
                   key={img.id || index}
                   className="aspect-[4/3] rounded-xl bg-[#0A0A0B] border border-[#1F1F23] overflow-hidden cursor-pointer hover:border-[#FF5C00] hover:shadow-lg hover:shadow-[#FF5C00]/10 transition-all group relative"
@@ -2399,7 +2399,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </div>
           {enrichedData?.config.tweetExamples && enrichedData.config.tweetExamples.length > 0 ? (
             <div className="space-y-3">
-              {enrichedData.config.tweetExamples.slice(0, 8).map((tweet, index) => (
+              {enrichedData.config.tweetExamples.map((tweet, index) => (
                 <div key={index} className="p-4 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
                   <p className="text-[#C5C5C7] text-sm leading-relaxed whitespace-pre-wrap">{tweet}</p>
                 </div>
