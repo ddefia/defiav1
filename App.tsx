@@ -363,11 +363,15 @@ const App: React.FC = () => {
         }
     }, [profiles]);
 
-    // Apply theme to document
+    // Apply theme to document — force dark on auth/onboarding (hardcoded dark UI)
+    const forceDarkRoute = route === '/' || route === '/login' || route === '/signup' || route.startsWith('/onboarding');
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('defia_theme', theme);
-    }, [theme]);
+        const effectiveTheme = forceDarkRoute ? 'dark' : theme;
+        document.documentElement.setAttribute('data-theme', effectiveTheme);
+        if (!forceDarkRoute) {
+            localStorage.setItem('defia_theme', theme);
+        }
+    }, [theme, forceDarkRoute]);
 
     useEffect(() => {
         if (!selectedBrand) return;

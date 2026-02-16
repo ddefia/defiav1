@@ -148,15 +148,6 @@ const STEPS: { id: OnboardingStep; label: string; description: string }[] = [
 ];
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComplete }) => {
-  // Force dark theme during onboarding — restore on unmount
-  useEffect(() => {
-    const prev = document.documentElement.getAttribute('data-theme');
-    document.documentElement.setAttribute('data-theme', 'dark');
-    return () => {
-      if (prev) document.documentElement.setAttribute('data-theme', prev);
-    };
-  }, []);
-
   // Check if user already has a profile (skip profile step) - only on initial mount
   const existingProfileRef = useRef(loadUserProfile());
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(() =>
@@ -1251,7 +1242,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     ];
 
     return (
-      <div className="flex-1 flex flex-col justify-start px-8 lg:px-16 xl:px-24 py-12 overflow-y-auto">
+      <div className="flex-1 flex flex-col justify-start px-8 lg:px-16 xl:px-24 pt-12 pb-24 overflow-y-auto">
         <div className="max-w-[500px] space-y-10">
           <div className="space-y-2">
             <h2 className="text-white text-[32px] font-semibold">Your Profile</h2>
@@ -1475,8 +1466,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   const renderCompanyStep = () => (
-    <div className="flex-1 flex flex-col justify-start px-8 lg:px-16 xl:px-24 py-12 overflow-y-auto">
-      <div className="max-w-[500px] space-y-10">
+    <div className="flex-1 flex flex-col justify-start px-8 lg:px-16 xl:px-24 pt-12 pb-24 overflow-y-auto">
+      <div className="max-w-[500px] space-y-8">
         <div className="space-y-2">
           <h2 className="text-white text-3xl font-semibold">Company Details</h2>
           <p className="text-[#8E8E93] text-base">Tell us about your company so we can personalize your AI CMO</p>
