@@ -334,7 +334,7 @@ async function generateAndCreateQueries(apiKey, contracts, brandName) {
     return result;
 }
 
-module.exports = {
+export {
     CHAIN_SCHEMAS,
     generateVolumeSQL,
     generateUsersSQL,
