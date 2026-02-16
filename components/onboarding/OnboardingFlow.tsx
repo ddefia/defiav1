@@ -612,11 +612,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         };
       }
 
-      const githubSignals = await researchGithubBrandSignals(brandName.trim(), normalizedDomain);
+      // GitHub signals removed — not a priority for onboarding
+      const githubSignals: string[] = [];
 
       setAnalysisProgress(prev => ({
         ...prev,
-        assets: { status: 'complete', message: 'Collected brand assets and visual identity' },
+        assets: { status: 'complete', message: 'Brand intelligence research complete' },
       }));
 
       const sourcesSummary = [
@@ -640,19 +641,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         collectorVisualIdentity,
       ]).join('\n');
 
-      // Always use Gemini's knowledge base as primary, then supplement with crawl content
-      // This ensures we get useful data even when Gemini returns thin results
-      const geminiKB = (researchResult.knowledgeBase && researchResult.knowledgeBase.length > 0)
+      // Gemini deep research is the primary knowledge source (long-form paragraphs)
+      // Only fall back to crawl sentences if Gemini returned nothing
+      const baseKnowledge = (researchResult.knowledgeBase && researchResult.knowledgeBase.length > 0)
         ? researchResult.knowledgeBase
-        : [];
-      const crawlFallbackKB = buildKnowledgeFallback(crawlContent, crawlDocs);
-      // Merge: Gemini first, then crawl sentences that aren't duplicates
-      const baseKnowledge = [
-        ...geminiKB,
-        ...crawlFallbackKB.filter(item => !geminiKB.some(gk =>
-          typeof gk === 'string' && typeof item === 'string' && gk.toLowerCase().includes(item.slice(9).toLowerCase().slice(0, 40))
-        ))
-      ];
+        : buildKnowledgeFallback(crawlContent, crawlDocs);
 
       const baseTweetExamples = tweetExamples.length > 0
         ? tweetExamples
@@ -1993,28 +1986,32 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </button>
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-            {enrichedData?.config.knowledgeBase?.slice(0, 8).map((item, index) => (
-              <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
-                <div className="w-6 h-6 rounded-md bg-[#1F1F23] flex items-center justify-center flex-shrink-0 mt-0.5">
-                  {item.startsWith('[DOCUMENT]') ? (
-                    <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  ) : item.startsWith('[DEFI]') ? (
-                    <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                  ) : (
-                    <svg className="w-3.5 h-3.5 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  )}
+            {enrichedData?.config.knowledgeBase?.slice(0, 5).map((item, index) => {
+              const cleanItem = item.replace(/^\[(.*?)\]\s*/, '');
+              const truncated = cleanItem.length > 180 ? cleanItem.slice(0, 180) + '...' : cleanItem;
+              return (
+                <div key={index} className="flex items-start gap-3 p-3 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
+                  <div className="w-6 h-6 rounded-md bg-[#1F1F23] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    {item.startsWith('[DOCUMENT]') ? (
+                      <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    ) : item.startsWith('[DEFI]') ? (
+                      <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="text-[#C5C5C7] text-sm leading-relaxed">{truncated}</span>
                 </div>
-                <span className="text-[#C5C5C7] text-sm leading-relaxed">{item.replace(/^\[(.*?)\]\s*/, '')}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          {(enrichedData?.config.knowledgeBase?.length || 0) > 8 && (
+          {(enrichedData?.config.knowledgeBase?.length || 0) > 5 && (
             <button
               onClick={() => setShowKnowledgeModal(true)}
               className="mt-3 text-[#FF5C00] text-sm font-medium hover:underline"

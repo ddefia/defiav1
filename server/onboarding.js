@@ -1,8 +1,8 @@
 import { URL } from 'url';
 import { createClient } from '@supabase/supabase-js';
 
-const DEFAULT_MAX_PAGES = 8;
-const DEFAULT_MAX_CHARS = 24000;
+const DEFAULT_MAX_PAGES = 15;
+const DEFAULT_MAX_CHARS = 100000;
 const DOC_EXTENSIONS = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.md', '.txt'];
 
 // Apify Website Content Crawler Actor ID

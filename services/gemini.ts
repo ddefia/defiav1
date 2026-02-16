@@ -1850,36 +1850,57 @@ export const researchBrandIdentity = async (
     const apiKey = getApiKey();
     const ai = new GoogleGenAI({ apiKey });
 
-    const siteContent = (options.siteContent || '').slice(0, 12000);
-    const tweetSamples = (options.tweetExamples || []).slice(0, 8);
-    const docUrls = (options.docUrls || []).slice(0, 10);
+    // Feed Gemini as much content as possible — it can handle 1M tokens
+    const siteContent = (options.siteContent || '').slice(0, 100000);
+    const tweetSamples = (options.tweetExamples || []).slice(0, 15);
+    const docUrls = (options.docUrls || []).slice(0, 20);
 
     const sourceBlock = [
-        siteContent ? `WEBSITE CONTENT:\n${siteContent}` : '',
-        tweetSamples.length ? `RECENT TWEETS:\n${tweetSamples.map(t => `- ${t}`).join('\n')}` : '',
-        docUrls.length ? `DOC LINKS:\n${docUrls.map(d => `- ${d}`).join('\n')}` : ''
-    ].filter(Boolean).join('\n\n');
+        siteContent ? `WEBSITE CONTENT (CRAWLED FROM ${url}):\n${siteContent}` : '',
+        tweetSamples.length ? `RECENT TWEETS FROM @${brandName}:\n${tweetSamples.map(t => `- ${t}`).join('\n')}` : '',
+        docUrls.length ? `DOCUMENTATION & RESOURCES:\n${docUrls.map(d => `- ${d}`).join('\n')}` : ''
+    ].filter(Boolean).join('\n\n---\n\n');
 
-    // Use Gemini if available for high-quality synthesis
     try {
         if (!getApiKey()) throw new Error("No API Key");
 
         const systemInstruction = `
-        You are an expert Brand Identity Analyst and AI Researcher specializing in web3, crypto, and DeFi projects.
+You are an elite Web3 Brand Intelligence Analyst. Your job is to produce a COMPREHENSIVE brand dossier that will be used as the core knowledge base for an AI-powered social media manager.
 
-    TASK:
-        Analyze the company "${brandName}" located at "${url}" using the provided sources.
+TASK:
+Analyze "${brandName}" (${url}) using ALL provided source material, plus your own knowledge of this project and its ecosystem.
 
-        IMPORTANT RULES:
-        - Extract as much information as possible from any provided website content, tweets, or docs.
-        - Do NOT invent specific numbers, stats, or partnerships that aren't in the sources.
-        - ALWAYS provide voiceGuidelines and targetAudience — even if sources are thin, use contextual clues from the brand name, URL, and any available content to provide reasonable, professional defaults for a web3/crypto company.
-        - For voiceGuidelines: If sources are thin, provide sensible web3 brand voice guidance (e.g., "Professional and technically informed, with emphasis on community engagement and transparency. Confident but not hype-driven.")
-        - For targetAudience: If sources are thin, provide reasonable web3 audience segments (e.g., "DeFi users, crypto traders, blockchain developers, and web3 enthusiasts")
-        - For knowledgeBase: Extract every useful fact from the sources. Include what the project does, its key features, technology stack, and value proposition.
-        - For colors: If you can determine brand colors from the content, include them. Otherwise provide clean, professional web3 defaults.
+CRITICAL REQUIREMENTS:
 
-        OUTPUT FORMAT(JSON):
+1. **knowledgeBase** — This is the MOST IMPORTANT field. Write 10-25 DETAILED entries. Each entry should be a full paragraph (3-6 sentences), NOT a single sentence. Cover:
+   - What the project is and what problem it solves (detailed explanation)
+   - Core products, features, and how they work
+   - Technology stack, blockchain(s), smart contracts, architecture
+   - Tokenomics: token name, supply, utility, staking, governance
+   - Ecosystem: partnerships, integrations, supported chains
+   - Team background and credibility (if known)
+   - Community: size, engagement, governance model
+   - Competitive landscape: how it compares to similar projects
+   - Recent developments, milestones, roadmap items
+   - Unique value propositions and differentiators
+   - Security: audits, bug bounties, track record
+   - Use cases and target user workflows
+
+2. **voiceGuidelines** — Write 3-5 paragraphs covering: overall tone, technical depth level, community engagement style, how to handle FUD/criticism, hashtag usage, emoji usage, call-to-action style. Be specific to THIS brand.
+
+3. **targetAudience** — Write a detailed paragraph listing primary and secondary audience segments with specifics: "DeFi power users who manage $10k+ portfolios across multiple chains" not just "DeFi users".
+
+4. **tweetExamples** — Write 5 example tweets that capture the brand's exact voice and style. Include a mix: announcement-style, educational, community engagement, and trend commentary.
+
+5. **bannedPhrases** — List phrases this brand should NEVER use (scammy language, competitor names used negatively, regulatory red flags).
+
+6. **colors** — Extract brand colors from the website content if possible.
+
+7. **visualIdentity** — Describe the visual style: dark/light theme, typography feel, imagery style, graphic design patterns.
+
+USE YOUR KNOWLEDGE: If you know this project from your training data, USE that knowledge to fill gaps. The crawled content may be incomplete — supplement with what you know about ${brandName}, its ecosystem, and its competitive landscape.
+
+OUTPUT FORMAT (JSON):
 {
     "colors": [
         { "id": "c1", "name": "Primary", "hex": "#HEX" },
@@ -1887,31 +1908,40 @@ export const researchBrandIdentity = async (
         { "id": "c3", "name": "Accent", "hex": "#HEX" }
     ],
     "knowledgeBase": [
-        "Fact 1 about what they do.",
-        "Fact 2 about their products.",
-        "Fact 3 about their target audience."
+        "Detailed paragraph about what the project does and why it exists...",
+        "Detailed paragraph about the core product and how it works...",
+        "Detailed paragraph about tokenomics and governance...",
+        "... (10-25 entries, each 3-6 sentences)"
     ],
     "tweetExamples": [
-        "Example tweet 1 (reflecting their tone).",
-        "Example tweet 2."
+        "Example tweet 1...",
+        "Example tweet 2...",
+        "Example tweet 3...",
+        "Example tweet 4...",
+        "Example tweet 5..."
     ],
-    "voiceGuidelines": "Tone and voice guidance (REQUIRED - always provide this).",
-    "visualIdentity": "Visual identity guidance.",
-    "targetAudience": "Primary audience segment(s) (REQUIRED - always provide this).",
-    "bannedPhrases": ["Phrase 1", "Phrase 2"]
+    "voiceGuidelines": "Multiple paragraphs of detailed voice guidance...",
+    "visualIdentity": "Detailed visual identity description...",
+    "targetAudience": "Detailed audience segments with specifics...",
+    "bannedPhrases": ["phrase1", "phrase2", "..."]
 }
 `;
 
+        console.log(`[Gemini] Deep brand research for ${brandName} — sending ${siteContent.length} chars of content`);
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: `Research this brand: ${brandName} (${url})\n\n${sourceBlock || 'NO SOURCE CONTENT PROVIDED.'}`,
+            contents: `DEEP RESEARCH REQUEST: Build a comprehensive brand intelligence dossier for "${brandName}" (${url}).\n\nBelow is all available source material. Analyze it thoroughly, then supplement with your own knowledge of this project and its web3 ecosystem.\n\n${sourceBlock || `No crawled content available. Use your knowledge of "${brandName}" at ${url} to build the dossier.`}`,
             config: {
                 systemInstruction: systemInstruction,
-                responseMimeType: "application/json"
+                responseMimeType: "application/json",
+                temperature: 0.3
             }
         });
 
         const data = JSON.parse(safeResponseText(response) || "{}");
+
+        console.log(`[Gemini] Research complete: ${(data.knowledgeBase || []).length} KB entries, voice: ${(data.voiceGuidelines || '').length} chars`);
 
         return {
             colors: data.colors || [],
@@ -1926,7 +1956,6 @@ export const researchBrandIdentity = async (
 
     } catch (e) {
         console.warn("Research API failed or offline.", e);
-        // Fail gracefully without fallback
         throw new Error("Brand research failed. Please check API Key.");
     }
 }
