@@ -137,7 +137,7 @@ interface EnrichedData {
 
 interface OnboardingFlowProps {
   onExit: () => void;
-  onComplete: (payload: EnrichedData) => void;
+  onComplete: (payload: EnrichedData) => void | Promise<void>;
 }
 
 const STEPS: { id: OnboardingStep; label: string; description: string }[] = [
@@ -217,6 +217,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     }>;
   }>>({});
   const [approvedGraphics, setApprovedGraphics] = useState<ReferenceImage[]>([]);
+  const [isLaunching, setIsLaunching] = useState(false);
+  const [stableReferenceImageIds, setStableReferenceImageIds] = useState<string[]>([]);
 
   const normalizedDomain = useMemo(() => normalizeDomain(websiteUrl), [websiteUrl]);
   const normalizedHandle = useMemo(() => normalizeHandle(twitterHandle), [twitterHandle]);
@@ -838,13 +840,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       // Only generate 3 NEW tweets for the carousel (not using scraped content)
       let generatedExamples: string[] = [];
       try {
-        generatedExamples = await generateStyleExamples(brandName.trim(), enriched, 3);
+        generatedExamples = await generateStyleExamples(brandName.trim(), enriched, 5);
       } catch (e) {
         generatedExamples = [];
       }
 
       // Use ONLY AI-generated examples for the carousel
-      const combinedExamples = dedupeStrings([...generatedExamples]).slice(0, 3);
+      const combinedExamples = dedupeStrings([...generatedExamples]).slice(0, 5);
 
       // Merge blockchain config if provided
       const validContracts = contracts.filter(c => c.address.trim().length > 0 && c.chain.trim().length > 0);
@@ -887,6 +889,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       });
       setEnrichedData(data);
       setStyleExamples(combinedExamples);
+
+      // Preload all reference images so they display instantly in the review step
+      (data.config.referenceImages || []).forEach((img) => {
+        const src = img.url || img.data;
+        if (src && src.startsWith('http')) {
+          const preload = new Image();
+          preload.src = src;
+        }
+      });
 
       await new Promise(resolve => setTimeout(resolve, 800));
       setCurrentStep('review');
@@ -936,8 +947,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     }
   };
 
-  const handleLaunch = () => {
-    if (enrichedData) {
+  const handleLaunch = async () => {
+    if (!enrichedData) {
+      setError('Brand data not found. Please go back and re-run the research step.');
+      return;
+    }
+
+    setIsLaunching(true);
+    setError('');
+
+    try {
       const mergedReferenceImages = dedupeReferenceImages([
         ...(enrichedData.config.referenceImages || []),
         ...approvedGraphics
@@ -962,10 +981,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         }
       }
 
-      onComplete({
+      await onComplete({
         ...enrichedData,
         config: finalConfig,
       });
+    } catch (err: any) {
+      setError(err?.message || 'Failed to launch AI CMO. Please try again.');
+      setIsLaunching(false);
     }
   };
 
@@ -1103,14 +1125,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       });
 
       // ALWAYS use reference images for style consistency across all modes
-      // Pick up to 3 random reference images to guide the style
-      const allReferenceIds = (enrichedData.config.referenceImages || [])
-        .filter(img => img.id && (img.url || img.data))
-        .map(img => img.id);
-
-      // Shuffle and pick up to 3 for style reference
-      const shuffled = [...allReferenceIds].sort(() => Math.random() - 0.5);
-      const selectedReferenceImages = shuffled.slice(0, 3);
+      // Use the stable reference image set for visual consistency across all carousel graphics
+      const selectedReferenceImages = stableReferenceImageIds.length > 0
+        ? stableReferenceImageIds
+        : (enrichedData.config.referenceImages || [])
+            .filter(img => img.id && (img.url || img.data))
+            .slice(0, 3)
+            .map(img => img.id);
 
       console.log('[Onboarding] Generating graphic with reference images:', selectedReferenceImages);
 
@@ -1157,6 +1178,50 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       referenceImagesCount: enrichedData?.config?.referenceImages?.length || 0
     });
   }, [enrichedData]);
+
+  // Compute stable reference image set for consistent carousel graphics
+  useEffect(() => {
+    if (!enrichedData?.config?.referenceImages) return;
+    if (stableReferenceImageIds.length > 0) return; // already set
+
+    const allImages = enrichedData.config.referenceImages.filter(
+      img => img.id && (img.url || img.data)
+    );
+
+    // Prioritize Twitter/social images first, then website images
+    const twitterImages = allImages.filter(img =>
+      img.category?.toLowerCase().includes('twitter') ||
+      img.category?.toLowerCase().includes('social')
+    );
+    const websiteImages = allImages.filter(img =>
+      !img.category?.toLowerCase().includes('twitter') &&
+      !img.category?.toLowerCase().includes('social')
+    );
+
+    const selected = [...twitterImages, ...websiteImages]
+      .slice(0, 3)
+      .map(img => img.id);
+
+    console.log('[Onboarding] Stable reference images selected:', selected);
+    setStableReferenceImageIds(selected);
+  }, [enrichedData]);
+
+  // Pre-generate carousel graphics as soon as user lands on review step
+  // so they're ready by the time user reaches the styles step
+  useEffect(() => {
+    if (currentStep !== 'review') return;
+    if (!enrichedData || styleExamples.length === 0) return;
+    if (stableReferenceImageIds.length === 0) return; // wait for stable refs
+
+    console.log('[Onboarding] Review step: pre-generating carousel graphics in background');
+    styleExamples.forEach((_, i) => {
+      if (!generatingRef.current.has(i)) {
+        generatingRef.current.add(i);
+        // Stagger by 3s to avoid Gemini rate limits
+        setTimeout(() => ensureVariant(i, 0), i * 3000);
+      }
+    });
+  }, [currentStep, enrichedData, styleExamples.length, stableReferenceImageIds.length]);
 
   // Elapsed time counter for analyzing step
   useEffect(() => {
@@ -1947,7 +2012,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   ) || enrichedData?.config.referenceImages?.[0];
 
   const renderReviewStep = () => (
-    <div className="flex-1 overflow-y-auto px-6 lg:px-12 py-10 pb-0 bg-[#0A0A0B]">
+    <div className="flex-1 overflow-y-auto px-6 lg:px-12 py-10 pb-24 bg-[#0A0A0B]">
       {/* Image Viewer Modal */}
       {viewingImage && (
         <div
@@ -2334,7 +2399,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </div>
           {enrichedData?.config.tweetExamples && enrichedData.config.tweetExamples.length > 0 ? (
             <div className="space-y-3">
-              {enrichedData.config.tweetExamples.slice(0, 5).map((tweet, index) => (
+              {enrichedData.config.tweetExamples.slice(0, 8).map((tweet, index) => (
                 <div key={index} className="p-4 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
                   <p className="text-[#C5C5C7] text-sm leading-relaxed whitespace-pre-wrap">{tweet}</p>
                 </div>
@@ -2347,6 +2412,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </div>
           )}
         </div>
+
+        {/* Error display */}
+        {error && (
+          <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-2">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {error}
+          </div>
+        )}
 
         {/* Action Buttons — sticky bottom */}
         <div className="sticky bottom-0 flex justify-between items-center pt-6 pb-6 bg-gradient-to-t from-[#0A0A0B] via-[#0A0A0B] to-transparent">
@@ -2372,12 +2447,22 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           ) : (
             <button
               onClick={handleLaunch}
-              className="px-10 py-4 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] hover:scale-[1.02] text-white font-semibold flex items-center gap-2 transition-all shadow-lg shadow-[#FF5C00]/25"
+              disabled={isLaunching}
+              className={`px-10 py-4 rounded-xl ${isLaunching ? 'bg-[#FF5C00]/60 cursor-wait' : 'bg-[#FF5C00] hover:bg-[#FF6B1A] hover:scale-[1.02]'} text-white font-semibold flex items-center gap-2 transition-all shadow-lg shadow-[#FF5C00]/25`}
             >
-              <span>Launch AI CMO</span>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+              {isLaunching ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  <span>Launching...</span>
+                </>
+              ) : (
+                <>
+                  <span>Launch AI CMO</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </>
+              )}
             </button>
           )}
         </div>
@@ -2429,14 +2514,31 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
                 </p>
               </div>
 
+              {error && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm text-left flex items-center gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  {error}
+                </div>
+              )}
+
               <button
                 onClick={handleLaunch}
-                className="w-full px-8 py-4 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold text-lg flex items-center justify-center gap-3 transition-colors shadow-lg shadow-[#FF5C00]/20"
+                disabled={isLaunching}
+                className={`w-full px-8 py-4 rounded-xl ${isLaunching ? 'bg-[#FF5C00]/60 cursor-wait' : 'bg-[#FF5C00] hover:bg-[#FF6B1A]'} text-white font-semibold text-lg flex items-center justify-center gap-3 transition-colors shadow-lg shadow-[#FF5C00]/20`}
               >
-                <span>Launch AI CMO</span>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+                {isLaunching ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    <span>Launching...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Launch AI CMO</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -2640,16 +2742,28 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </div>
           <button
             onClick={handleLaunch}
+            disabled={isLaunching}
             className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${
-              currentStyleIndex >= styleExamples.length - 1
-                ? 'bg-[#FF5C00] hover:bg-[#FF6B1A] hover:scale-[1.02] text-white shadow-lg shadow-[#FF5C00]/20'
-                : 'bg-[#1F1F23] text-[#8E8E93] hover:bg-[#2A2A2E] hover:text-white'
+              isLaunching
+                ? 'bg-[#FF5C00]/60 cursor-wait text-white'
+                : currentStyleIndex >= styleExamples.length - 1
+                  ? 'bg-[#FF5C00] hover:bg-[#FF6B1A] hover:scale-[1.02] text-white shadow-lg shadow-[#FF5C00]/20'
+                  : 'bg-[#1F1F23] text-[#8E8E93] hover:bg-[#2A2A2E] hover:text-white'
             }`}
           >
-            {currentStyleIndex >= styleExamples.length - 1 ? 'Launch AI CMO' : 'Skip for Now'}
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+            {isLaunching ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                Launching...
+              </>
+            ) : (
+              <>
+                {currentStyleIndex >= styleExamples.length - 1 ? 'Launch AI CMO' : 'Skip for Now'}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </>
+            )}
           </button>
         </div>
       </div>

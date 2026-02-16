@@ -181,6 +181,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [newsLoading, setNewsLoading] = useState(true);
     const [setupBannerDismissed, setSetupBannerDismissed] = useState(false);
     const [xConnected, setXConnected] = useState<boolean | null>(null);
+    const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
+    const [trialTimeLeft, setTrialTimeLeft] = useState('');
+
+    // Trial countdown timer
+    const trialEndsAt = brandConfig?.subscription?.trialEndsAt;
+    useEffect(() => {
+        if (!trialEndsAt) return;
+        const update = () => {
+            const remaining = trialEndsAt - Date.now();
+            if (remaining <= 0) {
+                setTrialTimeLeft('expired');
+                return;
+            }
+            const hours = Math.floor(remaining / (1000 * 60 * 60));
+            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+            setTrialTimeLeft(`${hours}h ${minutes}m`);
+        };
+        update();
+        const interval = setInterval(update, 60_000);
+        return () => clearInterval(interval);
+    }, [trialEndsAt]);
 
     // Check for missing setup items
     const integrationKeys = useMemo(() => loadIntegrationKeys(brandName), [brandName]);
@@ -472,6 +493,58 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         >
                             <span className="material-symbols-sharp text-lg">close</span>
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Trial Countdown Banner */}
+            {trialEndsAt && !trialBannerDismissed && trialTimeLeft && (
+                <div
+                    className="rounded-xl p-4 flex items-center justify-between"
+                    style={{
+                        backgroundColor: trialTimeLeft === 'expired' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(34, 197, 94, 0.08)',
+                        border: `1px solid ${trialTimeLeft === 'expired' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'}`,
+                    }}
+                >
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: trialTimeLeft === 'expired' ? '#EF4444' : '#22C55E' }}
+                        >
+                            <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 400" }}>
+                                {trialTimeLeft === 'expired' ? 'timer_off' : 'hourglass_top'}
+                            </span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {trialTimeLeft === 'expired'
+                                    ? 'Your free trial has ended'
+                                    : `Free trial: ${trialTimeLeft} remaining`}
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                {trialTimeLeft === 'expired'
+                                    ? 'Upgrade to continue creating content and using your AI CMO.'
+                                    : 'Starter plan limits apply. Upgrade anytime for more capacity.'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => onNavigate('settings', { tab: 'billing' })}
+                            className="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
+                            style={{ backgroundColor: trialTimeLeft === 'expired' ? '#EF4444' : '#FF5C00' }}
+                        >
+                            {trialTimeLeft === 'expired' ? 'Upgrade Now' : 'View Plans'}
+                        </button>
+                        {trialTimeLeft !== 'expired' && (
+                            <button
+                                onClick={() => setTrialBannerDismissed(true)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/10 transition-colors"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
+                                <span className="material-symbols-sharp text-lg">close</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

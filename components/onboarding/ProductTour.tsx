@@ -11,7 +11,7 @@ interface ProductTourProps {
     onSkip: () => void;
 }
 
-type SlideVisualType = 'welcome' | 'ai' | 'dashboard' | 'studio' | 'theme' | 'pricing' | 'complete';
+type SlideVisualType = 'welcome' | 'ai' | 'dashboard' | 'studio' | 'theme' | 'pricing' | 'trial' | 'complete';
 
 interface Slide {
     icon: string;
@@ -69,6 +69,13 @@ const SLIDES: Slide[] = [
         description: 'Start with a 24-hour free trial. No credit card required.',
         accent: '#FF5C00',
         visual: 'pricing',
+    },
+    {
+        icon: 'hourglass_top',
+        title: 'Your Free Trial',
+        description: 'Here\'s what you get for the next 24 hours \u2014 no credit card needed.',
+        accent: '#22C55E',
+        visual: 'trial',
     },
     {
         icon: 'celebration',
@@ -346,6 +353,38 @@ const PricingVisual: React.FC<{ onSelectPlan?: (tier: 'starter' | 'growth') => v
     );
 };
 
+const TrialVisual: React.FC = () => (
+    <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+            {[
+                { icon: 'edit_square', label: '50 posts/month', sub: 'AI-generated content' },
+                { icon: 'image', label: '25 AI images', sub: 'On-brand graphics' },
+                { icon: 'campaign', label: '3 campaigns', sub: 'Strategic campaigns' },
+                { icon: 'auto_awesome', label: 'AI CMO brain', sub: 'Daily analysis' },
+            ].map((item) => (
+                <div
+                    key={item.label}
+                    className="rounded-xl p-3 flex items-center gap-3"
+                    style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}
+                >
+                    <span className="material-symbols-sharp text-lg" style={{ color: '#22C55E', fontVariationSettings: "'wght' 300" }}>
+                        {item.icon}
+                    </span>
+                    <div>
+                        <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{item.label}</div>
+                        <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{item.sub}</div>
+                    </div>
+                </div>
+            ))}
+        </div>
+        <div className="rounded-xl p-3 text-center" style={{ backgroundColor: 'rgba(255, 92, 0, 0.06)', border: '1px solid rgba(255, 92, 0, 0.15)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                After 24 hours, upgrade to keep creating. Your data and brand setup are always saved.
+            </p>
+        </div>
+    </div>
+);
+
 const CompleteVisual: React.FC = () => (
     <div className="flex items-center justify-center">
         <div
@@ -439,6 +478,8 @@ export const ProductTour: React.FC<ProductTourProps> = ({
                 return <ThemeVisual currentTheme={currentTheme} onThemeChange={onThemeChange} />;
             case 'pricing':
                 return <PricingVisual onSelectPlan={handleSelectPlan} />;
+            case 'trial':
+                return <TrialVisual />;
             case 'complete':
                 return <CompleteVisual />;
             default:
