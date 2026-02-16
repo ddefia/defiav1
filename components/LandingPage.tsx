@@ -929,7 +929,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         </div>
         <div style={{ height: '1px', backgroundColor: '#141416', marginBottom: '32px' }} />
         <div className="flex items-center justify-between">
-          <span style={{ fontSize: '13px', color: '#3A3A3E' }}>© 2025 Defia. All rights reserved.</span>
+          <span style={{ fontSize: '13px', color: '#3A3A3E' }}>© {new Date().getFullYear()} Defia. All rights reserved.</span>
           <div className="flex items-center" style={{ gap: '24px' }}>
             {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((link) => (
               <a
