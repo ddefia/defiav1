@@ -706,7 +706,7 @@ export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } =
         includeUserInfo: true,
         proxyConfig: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] }
       },
-      timeout: 60000 // 60s — this actor tends to hang, so shorter timeout
+      timeout: 240000 // 4 min — runs typically take 2-3 min per Apify dashboard
     },
     {
       label: 'fallback (tweet-scraper)',
