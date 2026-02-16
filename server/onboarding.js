@@ -106,6 +106,87 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 12000) => {
   }
 };
 
+// ── Comprehensive image extraction from HTML ──────────────────────────
+const isHighQualityImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  if (url.startsWith('data:')) return false;
+  if (/\.(svg|ico)(\?|$)/i.test(url)) return false;
+  if (/\b(1x1|pixel|tracker|analytics|beacon|spacer)\b/i.test(url)) return false;
+  if (/\b(favicon|icon-\d|sprite|placeholder|loading|spinner)\b/i.test(url)) return false;
+  if (/\b(16x16|32x32|48x48|64x64)\b/.test(url)) return false;
+  if (/\/(avatars|emoji|badges|flags|icons)\//i.test(url)) return false;
+  if (/\.(js|css|json|xml|woff|ttf|eot)(\?|$)/i.test(url)) return false;
+  return true;
+};
+
+const extractImagesFromHtml = (html, pageUrl) => {
+  const images = [];
+  const seen = new Set();
+  const baseDomain = (() => { try { return new URL(pageUrl).hostname; } catch { return ''; } })();
+
+  const addImage = (rawUrl, isMeta = false) => {
+    if (!rawUrl || typeof rawUrl !== 'string') return;
+    try {
+      const absoluteUrl = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, pageUrl).href;
+      if (!isHighQualityImageUrl(absoluteUrl)) return;
+      if (seen.has(absoluteUrl)) return;
+      seen.add(absoluteUrl);
+      images.push({
+        url: absoluteUrl,
+        sourcePage: pageUrl,
+        isOwnDomain: absoluteUrl.includes(baseDomain),
+        isMeta
+      });
+    } catch {}
+  };
+
+  // 1. Standard <img src="...">
+  const imgSrcRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let m;
+  while ((m = imgSrcRegex.exec(html)) !== null) addImage(m[1]);
+
+  // 2. Lazy-loaded: data-src, data-lazy-src, data-original
+  const lazyRegex = /<img[^>]+data-(?:src|lazy-src|original)=["']([^"']+)["'][^>]*>/gi;
+  while ((m = lazyRegex.exec(html)) !== null) addImage(m[1]);
+
+  // 3. srcset — pick the largest image
+  const srcsetRegex = /srcset=["']([^"']+)["']/gi;
+  while ((m = srcsetRegex.exec(html)) !== null) {
+    const candidates = m[1].split(',').map(s => s.trim()).filter(Boolean);
+    let best = '';
+    let bestWidth = 0;
+    for (const candidate of candidates) {
+      const parts = candidate.split(/\s+/);
+      const url = parts[0];
+      const width = parseInt(parts[1]) || 0;
+      if (width > bestWidth || !best) { best = url; bestWidth = width; }
+    }
+    if (best) addImage(best);
+  }
+
+  // 4. <source srcset="..."> from <picture> elements
+  const sourceRegex = /<source[^>]+srcset=["']([^"']+)["'][^>]*>/gi;
+  while ((m = sourceRegex.exec(html)) !== null) {
+    const first = m[1].split(',')[0]?.trim()?.split(/\s+/)[0];
+    if (first) addImage(first);
+  }
+
+  // 5. <meta property="og:image"> and <meta name="twitter:image">
+  const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  if (ogMatch) addImage(ogMatch[1], true);
+
+  const twMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+  if (twMatch) addImage(twMatch[1], true);
+
+  // 6. CSS background-image: url(...) in inline styles
+  const bgRegex = /background-image\s*:\s*url\(["']?([^"')]+)["']?\)/gi;
+  while ((m = bgRegex.exec(html)) !== null) addImage(m[1]);
+
+  return images;
+};
+
 const extractLinks = (html, baseUrl) => {
   const links = new Set();
   const hrefRegex = /href\s*=\s*["']([^"'#]+)["']/gi;
@@ -264,17 +345,9 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
         const title = titleMatch ? titleMatch[1].trim() : extractTitleFromUrl(current);
         const category = categorizeContent(current, text);
 
-        // Extract image URLs from <img> tags and og:image
-        const imageUrls = [];
-        const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-        let imgMatch;
-        while ((imgMatch = imgRegex.exec(html)) !== null) {
-          imageUrls.push(imgMatch[1]);
-        }
-        // Also extract Open Graph image
-        const ogImgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-                        || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-        if (ogImgMatch) imageUrls.push(ogImgMatch[1]);
+        // Extract images using comprehensive extraction
+        const pageImages = extractImagesFromHtml(html, current);
+        const imageUrls = pageImages.map(img => img.url);
 
         pages.push({ url: current, text, title, category, imageUrls });
         totalChars += text.length;
@@ -319,38 +392,25 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
     return aIdx - bIdx;
   });
 
-  // Extract unique, high-quality image URLs from all crawled pages
-  const seenImages = new Set();
+  // Collect all unique images from all crawled pages (already filtered by extractImagesFromHtml)
+  const seenImageUrls = new Set();
   const crawledImages = [];
-  const baseDomainForImages = (() => {
-    try { return new URL(normalized).hostname.replace(/^www\./, ''); } catch { return ''; }
-  })();
-
   for (const page of pages) {
     for (const imgUrl of (page.imageUrls || [])) {
-      try {
-        // Resolve relative URLs
-        const absoluteUrl = imgUrl.startsWith('http') ? imgUrl : new URL(imgUrl, page.url).href;
-
-        // Skip tiny images, tracking pixels, data URIs, SVGs, and icons
-        if (absoluteUrl.startsWith('data:')) continue;
-        if (/\.(svg|ico)(\?|$)/i.test(absoluteUrl)) continue;
-        if (/\b(1x1|pixel|tracker|analytics|beacon)\b/i.test(absoluteUrl)) continue;
-        if (seenImages.has(absoluteUrl)) continue;
-
-        seenImages.add(absoluteUrl);
-        crawledImages.push({
-          url: absoluteUrl,
-          sourcePage: page.url,
-          isOwnDomain: absoluteUrl.includes(baseDomainForImages)
-        });
-      } catch { /* skip malformed URLs */ }
+      if (seenImageUrls.has(imgUrl)) continue;
+      seenImageUrls.add(imgUrl);
+      const baseDom = (() => { try { return new URL(normalized).hostname; } catch { return ''; } })();
+      crawledImages.push({
+        url: imgUrl,
+        sourcePage: page.url,
+        isOwnDomain: imgUrl.includes(baseDom)
+      });
     }
   }
 
-  // Prioritize own-domain images, limit to 15
+  // Prioritize: meta/og images first, then own-domain, limit to 25
   crawledImages.sort((a, b) => (b.isOwnDomain ? 1 : 0) - (a.isOwnDomain ? 1 : 0));
-  const topImages = crawledImages.slice(0, 15);
+  const topImages = crawledImages.slice(0, 25);
 
   console.log(`[SimpleCrawl] Complete: ${pages.length} pages, ${knowledgeBase.length} KB entries, ${docs.size} doc links, ${topImages.length} images`);
 
@@ -555,34 +615,38 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
       .map((page) => `SOURCE: ${page.url}\nCATEGORY: ${page.category}\nTITLE: ${page.title}\n\n${page.text}`)
       .join('\n\n---\n\n');
 
-    // Deep crawl uses blockMedia, so extract images from homepage separately
+    // Deep crawl uses blockMedia, so extract images by fetching top pages separately
     let crawledImages = [];
+    const seenImageUrls = new Set();
     try {
-      const homeRes = await fetchWithTimeout(normalized, { headers: { 'User-Agent': 'DefiaOnboardingBot/1.0' } }, 10000);
-      if (homeRes.ok && isHtmlResponse(homeRes)) {
-        const homeHtml = await homeRes.text();
-        const seenImages = new Set();
-        const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-        let imgMatch;
-        while ((imgMatch = imgRegex.exec(homeHtml)) !== null) {
-          const src = imgMatch[1];
-          if (src.startsWith('data:') || /\.(svg|ico)(\?|$)/i.test(src)) continue;
-          if (/\b(1x1|pixel|tracker|analytics|beacon)\b/i.test(src)) continue;
-          const absoluteUrl = src.startsWith('http') ? src : new URL(src, normalized).href;
-          if (!seenImages.has(absoluteUrl)) {
-            seenImages.add(absoluteUrl);
-            crawledImages.push({ url: absoluteUrl, sourcePage: normalized, isOwnDomain: true });
+      // Fetch homepage + up to 4 additional pages for image extraction
+      const pagesToFetch = [normalized];
+      const otherPages = pages.filter(p => p.url !== normalized).slice(0, 4);
+      pagesToFetch.push(...otherPages.map(p => p.url));
+
+      for (const pageUrl of pagesToFetch) {
+        try {
+          const imgRes = await fetchWithTimeout(pageUrl, { headers: { 'User-Agent': 'DefiaOnboardingBot/1.0' } }, 8000);
+          if (!imgRes.ok || !isHtmlResponse(imgRes)) continue;
+          const pageHtml = await imgRes.text();
+          const pageImages = extractImagesFromHtml(pageHtml, pageUrl);
+          for (const img of pageImages) {
+            if (seenImageUrls.has(img.url)) continue;
+            seenImageUrls.add(img.url);
+            crawledImages.push(img);
           }
-        }
-        const ogImgMatch = homeHtml.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-                        || homeHtml.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-        if (ogImgMatch && !seenImages.has(ogImgMatch[1])) {
-          crawledImages.unshift({ url: ogImgMatch[1], sourcePage: normalized, isOwnDomain: true });
-        }
-        crawledImages = crawledImages.slice(0, 15);
+        } catch { /* skip failed pages */ }
       }
+
+      // Sort: meta images (og:image, twitter:image) first, then own-domain, limit to 25
+      crawledImages.sort((a, b) => {
+        const scoreA = (a.isMeta ? 3 : 0) + (a.isOwnDomain ? 2 : 0);
+        const scoreB = (b.isMeta ? 3 : 0) + (b.isOwnDomain ? 2 : 0);
+        return scoreB - scoreA;
+      });
+      crawledImages = crawledImages.slice(0, 25);
     } catch (imgErr) {
-      console.warn('[Onboarding] Image extraction from homepage failed:', imgErr.message);
+      console.warn('[Onboarding] Image extraction failed:', imgErr.message);
     }
 
     console.log(`[Onboarding] Deep crawl complete: ${pages.length} pages, ${knowledgeBase.length} KB entries, ${docs.size} doc links, ${crawledImages.length} images`);

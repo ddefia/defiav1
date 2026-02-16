@@ -186,8 +186,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   const [analysisProgress, setAnalysisProgress] = useState({
     website: { status: 'pending' as 'pending' | 'loading' | 'complete', message: '' },
     twitter: { status: 'pending' as 'pending' | 'loading' | 'complete', message: '' },
+    research: { status: 'pending' as 'pending' | 'loading' | 'complete', message: '' },
     assets: { status: 'pending' as 'pending' | 'loading' | 'complete', message: '' },
   });
+
+  const [analysisStartTime, setAnalysisStartTime] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const [enrichedData, setEnrichedData] = useState<EnrichedData | null>(null);
 
@@ -395,10 +399,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     setIsRunning(true);
     setError('');
     setCurrentStep('analyzing');
+    setAnalysisStartTime(Date.now());
+    setElapsedSeconds(0);
 
     setAnalysisProgress({
       website: { status: 'loading', message: 'Scanning website content, products, and key messaging...' },
       twitter: { status: 'pending', message: '' },
+      research: { status: 'pending', message: '' },
       assets: { status: 'pending', message: '' },
     });
 
@@ -423,11 +430,29 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       let knowledgeBaseFromCrawl: string[] = [];
       let defiMetrics: any = null;
 
+      // Timed progress messages during long crawl
+      const crawlStart = Date.now();
+      let crawlMsgInterval: ReturnType<typeof setInterval> | null = null;
+
       try {
         setAnalysisProgress(prev => ({
           ...prev,
-          website: { status: 'loading', message: 'Deep scanning website, docs, and extracting knowledge...' },
+          website: { status: 'loading', message: 'Scanning website content...' },
         }));
+
+        crawlMsgInterval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - crawlStart) / 1000);
+          let msg = 'Scanning website content...';
+          if (elapsed > 5)   msg = 'Crawling pages and subdomains...';
+          if (elapsed > 15)  msg = 'Deep-scanning documentation and subpages...';
+          if (elapsed > 30)  msg = 'Extracting content from discovered pages...';
+          if (elapsed > 60)  msg = 'Still scanning — large sites take longer...';
+          if (elapsed > 120) msg = 'Almost done — finalizing extraction...';
+          setAnalysisProgress(prev => {
+            if (prev.website.status !== 'loading') return prev;
+            return { ...prev, website: { ...prev.website, message: msg } };
+          });
+        }, 4000);
 
         // Try deep crawl first (comprehensive)
         const crawlRes = await fetch(`${baseUrl}/api/onboarding/deep-crawl`, {
@@ -440,6 +465,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             includeDocsSubdomain: true
           })
         });
+
+        if (crawlMsgInterval) clearInterval(crawlMsgInterval);
 
         if (!crawlRes.ok) {
           const data = await crawlRes.json().catch(() => ({}));
@@ -503,6 +530,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           twitter: { status: 'loading', message: 'Analyzing tweets, engagement patterns, and brand voice...' },
         }));
       } catch (crawlError: any) {
+        if (crawlMsgInterval) clearInterval(crawlMsgInterval);
         // Fallback to simple crawl if deep crawl fails
         console.warn('Deep crawl failed, falling back to simple crawl:', crawlError);
         try {
@@ -617,14 +645,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           setAnalysisProgress(prev => ({
             ...prev,
             twitter: { status: 'complete', message: twitterMsg },
-            assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
+            research: { status: 'loading', message: 'Analyzing brand voice and tone...' },
           }));
         } catch (twitterError: any) {
           console.error('[Onboarding] Twitter fetch error:', twitterError);
           setAnalysisProgress(prev => ({
             ...prev,
             twitter: { status: 'complete', message: 'Twitter import failed — AI will use website data instead' },
-            assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
+            research: { status: 'loading', message: 'Analyzing brand voice and tone...' },
           }));
         }
       } else {
@@ -632,9 +660,23 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         setAnalysisProgress(prev => ({
           ...prev,
           twitter: { status: 'complete', message: 'Skipped — no X handle provided' },
-          assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
+          research: { status: 'loading', message: 'Analyzing brand voice and tone...' },
         }));
       }
+
+      // Timed progress messages during Gemini brand research
+      const researchStart = Date.now();
+      const researchMsgInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - researchStart) / 1000);
+        let msg = 'Analyzing brand voice and tone...';
+        if (elapsed > 5)  msg = 'Extracting visual identity patterns...';
+        if (elapsed > 12) msg = 'Building comprehensive knowledge base...';
+        if (elapsed > 20) msg = 'Finalizing brand intelligence...';
+        setAnalysisProgress(prev => {
+          if (prev.research.status !== 'loading') return prev;
+          return { ...prev, research: { ...prev.research, message: msg } };
+        });
+      }, 4000);
 
       let researchResult: BrandConfig = { colors: [], knowledgeBase: [], tweetExamples: [], referenceImages: [] };
       try {
@@ -656,12 +698,21 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         };
       }
 
+      clearInterval(researchMsgInterval);
+
+      // Transition: research complete → assets loading
+      setAnalysisProgress(prev => ({
+        ...prev,
+        research: { status: 'complete', message: `Brand research complete — ${(researchResult.knowledgeBase || []).length} insights extracted` },
+        assets: { status: 'loading', message: 'Assembling brand configuration...' },
+      }));
+
       // GitHub signals removed — not a priority for onboarding
       const githubSignals: string[] = [];
 
       setAnalysisProgress(prev => ({
         ...prev,
-        assets: { status: 'complete', message: 'Brand intelligence research complete' },
+        assets: { status: 'complete', message: 'Brand configuration assembled' },
       }));
 
       const sourcesSummary = [
@@ -1107,35 +1158,43 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     });
   }, [enrichedData]);
 
+  // Elapsed time counter for analyzing step
+  useEffect(() => {
+    if (currentStep !== 'analyzing' || !analysisStartTime) return;
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - analysisStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [currentStep, analysisStartTime]);
+
   // Track if we've already started generating for this index to prevent double-generation
   const generatingRef = useRef<Set<number>>(new Set());
 
+  // Pre-generate ALL style images when entering styles step (staggered to avoid rate limits)
   useEffect(() => {
-    console.log('[Onboarding] Styles useEffect triggered:', {
-      currentStep,
-      hasStyleExamples: styleExamples.length > 0,
-      currentStyleIndex,
+    if (currentStep !== 'styles') return;
+    if (styleExamples.length === 0) return;
+
+    console.log('[Onboarding] Styles step entered — pre-generating all images:', {
+      count: styleExamples.length,
       enrichedDataRefImages: enrichedData?.config?.referenceImages?.length || 0
     });
-    if (currentStep !== 'styles') return;
-    if (!styleExamples[currentStyleIndex]) return;
 
-    // Only generate once per index
-    if (generatingRef.current.has(currentStyleIndex)) {
-      console.log('[Onboarding] Skipping - already generating for index:', currentStyleIndex);
-      return;
+    for (let i = 0; i < styleExamples.length; i++) {
+      if (!styleExamples[i]) continue;
+
+      // Skip if already generating or generated
+      if (generatingRef.current.has(i)) continue;
+      const existing = styleGraphics[i];
+      if (existing?.variants?.[0]?.status === 'ready' || existing?.variants?.[0]?.status === 'loading') continue;
+
+      generatingRef.current.add(i);
+      // Stagger by 2s to avoid Gemini rate limits
+      const delay = i * 2000;
+      console.log(`[Onboarding] Scheduling image generation for index ${i} (delay: ${delay}ms)`);
+      setTimeout(() => ensureVariant(i, 0), delay);
     }
-
-    // Check if we already have a graphic for this index
-    const existing = styleGraphics[currentStyleIndex];
-    if (existing?.variants?.[0]?.status === 'ready' || existing?.variants?.[0]?.status === 'loading') {
-      console.log('[Onboarding] Skipping - already have graphic for index:', currentStyleIndex);
-      return;
-    }
-
-    generatingRef.current.add(currentStyleIndex);
-    ensureVariant(currentStyleIndex, 0);
-  }, [currentStep, currentStyleIndex, styleExamples.length]);
+  }, [currentStep, styleExamples.length]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -1761,7 +1820,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           <div className="space-y-2">
             <h2 className="text-white text-2xl font-semibold">Analyzing Your Company</h2>
             <p className="text-[#8E8E93] text-base">
-              This usually takes about 30 seconds
+              {elapsedSeconds > 0
+                ? `${Math.floor(elapsedSeconds / 60) > 0 ? `${Math.floor(elapsedSeconds / 60)}m ` : ''}${elapsedSeconds % 60}s elapsed`
+                : 'This usually takes 1–3 minutes depending on site size'}
               <span className="inline-flex ml-1 gap-0.5">
                 <span className="w-1 h-1 rounded-full bg-[#8E8E93] inline-block" style={{ animation: 'onb-dot-pulse 1.4s ease-in-out infinite' }} />
                 <span className="w-1 h-1 rounded-full bg-[#8E8E93] inline-block" style={{ animation: 'onb-dot-pulse 1.4s ease-in-out infinite 0.2s' }} />
@@ -1773,15 +1834,19 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
 
         <div className="w-full max-w-[480px] space-y-4">
           {[
-            { key: 'website' as const, label: 'Website Content', msg: analysisProgress.website.message || 'Scanning website content, products, and key messaging...', delay: '0s',
+            { key: 'website' as const, label: 'Website Content', msg: analysisProgress.website.message || 'Scanning website content...', delay: '0s',
               icon: <svg className="w-4.5 h-4.5 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>,
-              pendingCheck: analysisProgress.assets.status === 'pending' && analysisProgress.website.status === 'pending',
+              pendingCheck: analysisProgress.website.status === 'pending',
               bg: 'bg-[#1A1208]' },
-            { key: 'twitter' as const, label: 'Twitter Profile', msg: analysisProgress.twitter.message || 'Analyzing tweets, engagement patterns, and brand voice...', delay: '0.15s',
+            { key: 'twitter' as const, label: 'Twitter Profile', msg: analysisProgress.twitter.message || 'Analyzing tweets and engagement...', delay: '0.1s',
               icon: <svg className="w-4.5 h-4.5 text-[#FF5C00]" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>,
               pendingCheck: analysisProgress.twitter.status === 'pending',
               bg: 'bg-[#1A1208]' },
-            { key: 'assets' as const, label: 'Brand Assets', msg: analysisProgress.assets.message || 'Extracting logos, images, and visual identity...', delay: '0.3s',
+            { key: 'research' as const, label: 'Brand Research', msg: analysisProgress.research.message || 'AI analyzing brand identity...', delay: '0.2s',
+              icon: <svg className="w-4.5 h-4.5 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
+              pendingCheck: analysisProgress.research.status === 'pending',
+              bg: 'bg-[#1A1208]' },
+            { key: 'assets' as const, label: 'Configuration', msg: analysisProgress.assets.message || 'Assembling brand configuration...', delay: '0.3s',
               icon: <svg className="w-4.5 h-4.5 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
               pendingCheck: analysisProgress.assets.status === 'pending',
               bg: 'bg-[#1F1F23]' },
@@ -2391,6 +2456,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           <div>
             <h2 className="text-white text-2xl font-semibold tracking-tight">Train Your AI Voice</h2>
             <p className="text-[#8E8E93] text-sm mt-1">Review AI-generated content examples. Approve ones that match your style.</p>
+            {(() => {
+              const readyCount = Object.values(styleGraphics).filter(g => g?.variants?.[0]?.status === 'ready').length;
+              if (readyCount < totalExamples) {
+                return <p className="text-[#6B6B70] text-xs mt-1">Generating previews... {readyCount}/{totalExamples}</p>;
+              }
+              return null;
+            })()}
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
