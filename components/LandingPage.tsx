@@ -872,7 +872,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
             </button>
           </div>
           <p style={{ fontSize: '13px', color: '#4A4A4E', margin: '4px 0 0' }}>
-            No credit card required · Free 14-day trial · Cancel anytime
+            No credit card required · Free 24-hour trial · Cancel anytime
           </p>
         </div>
       </section>

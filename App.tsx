@@ -36,7 +36,7 @@ import { RecommendationsPage, generateSupplementalRecs } from './components/Reco
 import { NewsArticleDetail } from './components/NewsArticleDetail';
 import { ToastProvider } from './components/Toast';
 import { ImageSize, AspectRatio, BrandConfig, ReferenceImage, CampaignItem, TrendItem, CalendarEvent, SocialMetrics, StrategyTask, ComputedMetrics, GrowthReport, SocialSignals, StrategicPosture } from './types';
-import { getEffectiveBrainInterval, checkUsageLimit, incrementUsage } from './services/subscription';
+import { getEffectiveBrainInterval, checkUsageLimit, incrementUsage, createDefaultSubscription } from './services/subscription';
 
 const ONBOARDING_STORAGE_KEY = 'defia_onboarding_state_v1';
 
@@ -1097,6 +1097,9 @@ const App: React.FC = () => {
 
     const truncate = (value: string, max: number) => (value.length > max ? value.slice(0, max).trim() : value.trim());
 
+    const toTitleCase = (str: string) =>
+        str.replace(/\b\w/g, c => c.toUpperCase());
+
     const deriveKickoffTheme = (brandName: string, config: BrandConfig) => {
         const candidate =
             config?.brandCollectorProfile?.positioning?.oneLiner ||
@@ -1104,7 +1107,7 @@ const App: React.FC = () => {
             config?.missionStatement ||
             config?.brandDescription ||
             `${brandName} launch momentum`;
-        return truncate(String(candidate || `${brandName} launch momentum`), 120);
+        return toTitleCase(truncate(String(candidate || `${brandName} launch momentum`), 120));
     };
 
     const mergeCalendarEvents = (existing: CalendarEvent[], incoming: CalendarEvent[]) => {
@@ -1845,7 +1848,36 @@ const App: React.FC = () => {
     return (
         <ToastProvider>
         {showProductTour && (
-            <ProductTour onComplete={handleTourComplete} onSkip={handleTourSkip} />
+            <ProductTour
+                brandName={selectedBrand}
+                kickoffDrafts={(() => {
+                    try {
+                        const cs = loadCampaignState(selectedBrand);
+                        return cs?.campaignItems?.map((item: any) => ({ tweet: item.tweet, content: item.tweet })) || [];
+                    } catch { return []; }
+                })()}
+                socialMetrics={socialMetrics ? {
+                    followers: socialMetrics.totalFollowers,
+                    engagement: socialMetrics.engagementRate,
+                    impressions: socialMetrics.weeklyImpressions,
+                } : undefined}
+                theme={theme}
+                onThemeChange={(t) => {
+                    setTheme(t);
+                    localStorage.setItem('defia_theme', t);
+                }}
+                onSelectPlan={(tier) => {
+                    if (selectedBrand && profiles[selectedBrand]) {
+                        const sub = createDefaultSubscription(tier);
+                        setProfiles(prev => ({
+                            ...prev,
+                            [selectedBrand]: { ...prev[selectedBrand], subscription: sub },
+                        }));
+                    }
+                }}
+                onComplete={handleTourComplete}
+                onSkip={handleTourSkip}
+            />
         )}
         <div className="font-sans flex flex-row h-full overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
             {/* SIDEBAR */}

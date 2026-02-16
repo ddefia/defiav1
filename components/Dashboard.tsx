@@ -625,7 +625,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {briefData && briefData.confidence?.explanation && (
                         <div
                             className="rounded-xl overflow-hidden mb-7 transition-all duration-200"
-                            style={{ border: '1px solid #FF5C0033', background: 'linear-gradient(135deg, #111113 0%, #1A120D 100%)' }}
+                            style={{ border: '1px solid #FF5C0033', background: 'var(--bg-secondary)' }}
                         >
                             <div
                                 onClick={() => setIsBriefOpen(!isBriefOpen)}
@@ -783,7 +783,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     {briefLoading && !briefData && <SkeletonBriefCard />}
 
                     {kickoffState && (
-                        <div className="rounded-xl border border-[#22C55E33] bg-[#0F1510] p-5 mb-7">
+                        <div className="rounded-xl border border-[#22C55E33] bg-[#111113] p-5 mb-7">
                             <div className="flex items-center justify-between gap-4 flex-wrap">
                                 <div>
                                     <div className="text-xs font-semibold text-[#22C55E] tracking-widest">KICKOFF COMPLETE</div>
@@ -827,7 +827,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                                             .slice(0, 7)
                                             .map((event, index) => (
-                                                <div key={event.id || index} className="flex items-start gap-3 rounded-lg px-3 py-2">
+                                                <div key={event.id || index} className="flex items-start gap-3 rounded-lg px-3 py-2 cursor-pointer hover:bg-[#1F1F23] transition-colors" onClick={() => onNavigate('calendar')}>
                                                     <div className="text-[11px] font-semibold text-[#22C55E]">{formatKickoffDate(event.date)}</div>
                                                     <div className="text-sm text-white/90 flex-1">
                                                         {String(event.content || '').slice(0, 90)}{String(event.content || '').length > 90 ? '…' : ''}
@@ -1159,7 +1159,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                         <div className="p-5 grid grid-cols-4 gap-4">
                             {upcomingContent.length > 0 ? upcomingContent.map((content: any, i) => (
-                                <div key={content.id || i} className="rounded-xl bg-[#0A0A0B] border border-[#1F1F23] overflow-hidden">
+                                <div key={content.id || i} className="rounded-xl bg-[#0A0A0B] border border-[#1F1F23] overflow-hidden cursor-pointer hover:border-[#FF5C00]/50 transition-colors" onClick={() => onNavigate('calendar')}>
                                     <div
                                         className="h-[100px] flex items-center justify-center text-3xl"
                                         style={{ background: getContentTypeBg(content.platform) }}

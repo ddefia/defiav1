@@ -1172,7 +1172,8 @@ export const generateCampaignDrafts = async (
     3. **HIGH-SIGNAL**: Use dense, insightful language. Avoid fluff.
     4. **FORMATTED**: Use short paragraphs. ONE idea per line.
     5. **IMPACT OVER LENGTH**: Do NOT write walls of text. Be PUNCHY. Use short sentences for rhythm. "Why? Keep reading." is better than a long explanation.
-    6. **VISUAL VARIETY**: ${availableTemplates}
+    6. **TITLE CASE**: Use proper Title Case for all campaign names, titles, and headlines. Ensure proper grammar, punctuation, and capitalization throughout.
+    7. **VISUAL VARIETY**: ${availableTemplates}
        - CRITICAL INSTRUCTION: When assigning a "visualTemplate" to a tweet:
        - **Strictly limit 'Quote' templates** to genuine quotes/testimonials. 
        - For explaining technology (e.g. Sequencers, L2s), use 'Feature Update', 'Deep Dive', or 'Educational' templates.

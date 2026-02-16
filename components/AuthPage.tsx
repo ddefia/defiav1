@@ -187,7 +187,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         </h2>
                         <p className="text-[#8E8E93] text-sm">
                             {mode === 'login' && 'Sign in to access your AI CMO dashboard'}
-                            {mode === 'signup' && 'Start your 14-day free trial'}
+                            {mode === 'signup' && 'Start your 24-hour free trial'}
                             {mode === 'forgot' && "Enter your email and we'll send you a reset link"}
                         </p>
                     </div>

@@ -66,6 +66,7 @@ export const createDefaultSubscription = (plan: PlanTier): BrandSubscription => 
         imagesThisMonth: 0,
         lastResetAt: Date.now(),
     },
+    trialEndsAt: Date.now() + 24 * 60 * 60 * 1000,  // 24-hour free trial
     billingPeriod: 'monthly',
 });
 

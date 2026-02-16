@@ -284,7 +284,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onSelectPlan, currentP
                 </span>
                 <div>
                     <span className="text-sm font-medium block" style={{ color: 'var(--text-primary)' }}>
-                        14-day free trial on all plans
+                        24-hour free trial on all plans
                     </span>
                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                         No credit card required. Cancel anytime during your trial.
