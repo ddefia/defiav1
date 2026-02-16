@@ -2298,8 +2298,8 @@ if (process.env.VERCEL !== '1') {
         // Start Autonomous Agent
         startAgent();
 
-        // Start Scheduled Publisher (local dev)
-        // startPublishing(); // PAUSED - enable when ready to test publishing
+        // Start Scheduled Publisher (checks every 10 minutes for due tweets)
+        startPublishing();
     });
 }
 

@@ -1749,7 +1749,7 @@ export const generateIdeas = async (brandName: string): Promise<string[]> => {
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: `Generate 4 distinct tweet topics / ideas for a ${brandName} marketing strategist.Return only the topics as a simple list.`,
+            contents: `Generate 4 distinct tweet topics for ${brandName}, a web3/crypto project. Focus on: protocol updates, DeFi alpha, ecosystem news, or community engagement. Keep each topic to one short sentence. Return only the topics as a simple list.`,
         });
         return (safeResponseText(response) || '').split('\n').map(l => l.replace(/^[\d\-\.\*]+\s*/, '').trim()).filter(l => l.length > 5);
     } catch (e) {

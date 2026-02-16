@@ -8,17 +8,33 @@ const CALENDAR_STORAGE_KEY = 'defia_calendar_events_v1';
 const normalizeKey = (value) => String(value || '').toLowerCase();
 
 const fetchCalendarEvents = async (supabase, brandName) => {
-    const key = `${CALENDAR_STORAGE_KEY}_${normalizeKey(brandName)}`;
+    const suffix = `${CALENDAR_STORAGE_KEY}_${normalizeKey(brandName)}`;
+
+    // Client stores with user-scoped keys like "abc12345:abc12345_defia_calendar_events_v1_brand"
+    // Try pattern match first, then fall back to exact key for legacy data
+    const { data: scopedRows } = await supabase
+        .from('app_storage')
+        .select('key, value')
+        .like('key', `%${suffix}`)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+    if (scopedRows && scopedRows.length > 0 && scopedRows[0].value) {
+        const row = scopedRows[0];
+        return { key: row.key, events: Array.isArray(row.value) ? row.value : [] };
+    }
+
+    // Fallback: try exact key (legacy unscoped)
     const { data, error } = await supabase
         .from('app_storage')
-        .select('value')
-        .eq('key', key)
+        .select('key, value')
+        .eq('key', suffix)
         .maybeSingle();
 
     if (error || !data?.value) {
-        return { key, events: [] };
+        return { key: suffix, events: [] };
     }
-    return { key, events: Array.isArray(data.value) ? data.value : [] };
+    return { key: data.key, events: Array.isArray(data.value) ? data.value : [] };
 };
 
 const saveCalendarEvents = async (supabase, key, events) => {

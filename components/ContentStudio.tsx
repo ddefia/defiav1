@@ -19,7 +19,7 @@ interface ContentStudioProps {
 type ContentType = 'all' | 'twitter' | 'discord' | 'email' | 'graphics';
 type ContentStatus = 'published' | 'scheduled' | 'draft' | 'review';
 type CreateType = 'tweet' | 'graphic' | 'quote-tweet';
-type TweetContentType = 'announcement' | 'article' | 'thought' | 'community' | 'thread' | 'repost';
+type TweetContentType = 'announcement' | 'thought' | 'community' | 'thread';
 type QuoteTweetMode = 'amplify' | 'explain';
 
 interface FetchedTweetData {
@@ -44,12 +44,10 @@ interface ContentItem {
 }
 
 const CONTENT_TYPE_OPTIONS: { id: TweetContentType; emoji: string; label: string; description: string }[] = [
-    { id: 'announcement', emoji: '📢', label: 'Announcement', description: 'Product launches, updates' },
-    { id: 'article', emoji: '📰', label: 'Article Share', description: 'Blog posts, news links' },
-    { id: 'thought', emoji: '💡', label: 'Thought Leadership', description: 'Industry insights, opinions' },
-    { id: 'community', emoji: '🎉', label: 'Community', description: 'Engagement, milestones' },
-    { id: 'thread', emoji: '🧵', label: 'Thread', description: 'Deep dives, tutorials' },
-    { id: 'repost', emoji: '🔄', label: 'Repost', description: 'Quote tweets, replies' },
+    { id: 'announcement', emoji: '📢', label: 'Announcement', description: 'Launches, partnerships, milestones' },
+    { id: 'thought', emoji: '💡', label: 'Alpha / Insight', description: 'Market takes, industry analysis' },
+    { id: 'thread', emoji: '🧵', label: 'Thread', description: 'Deep dives, explainers' },
+    { id: 'community', emoji: '🎉', label: 'Community', description: 'Engagement, AMAs, giveaways' },
 ];
 
 // Content items are loaded from storage/API - no mock data
@@ -221,11 +219,9 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             // Map content type to tone
             const toneMap: Record<TweetContentType, string> = {
                 announcement: 'Professional',
-                article: 'Educational',
                 thought: 'Professional',
                 community: 'Casual',
-                thread: 'Educational',
-                repost: 'Casual'
+                thread: 'Educational'
             };
             const tone = toneMap[selectedContentType];
 
@@ -857,7 +853,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                         {/* Content Type */}
                         <div className="space-y-2.5">
                             <label className="text-sm font-semibold text-white">Content Type</label>
-                            <div className="grid grid-cols-3 gap-2.5">
+                            <div className="grid grid-cols-2 gap-2.5">
                                 {CONTENT_TYPE_OPTIONS.map(opt => (
                                     <button
                                         key={opt.id}
@@ -1075,7 +1071,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             name: img.name,
         }));
 
-        const visualStyles = ['Modern', 'Minimalist', 'Bold', 'Neon', 'Vintage', 'Corporate'];
+        const visualStyles = ['Modern', 'Minimalist', 'Bold', 'Neon'];
 
         return (
             <div className="flex-1 flex bg-[#0A0A0B] min-h-0">
