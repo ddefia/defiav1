@@ -1136,6 +1136,14 @@ app.post('/api/onboarding/deep-crawl', requireAuth, async (req, res) => {
             result.defiMetrics = extractDefiMetrics(result.content);
         }
 
+        console.log(`[DeepCrawl] Result:`, {
+            pages: result.pages?.length || 0,
+            knowledgeBase: result.knowledgeBase?.length || 0,
+            contentLength: result.content?.length || 0,
+            images: result.crawledImages?.length || 0,
+            docs: result.docs?.length || 0
+        });
+
         return res.json(result);
     } catch (e) {
         console.error('[DeepCrawl] Failed:', e);
@@ -1183,7 +1191,14 @@ app.post('/api/onboarding/twitter', requireAuth, async (req, res) => {
         });
 
         if (result.error) {
-            return res.status(400).json({ error: result.error });
+            console.warn('[OnboardingTwitter] Apify error (returning empty gracefully):', result.error);
+            // Return success with empty data instead of error — frontend handles empty arrays gracefully
+            return res.json({
+                tweets: result.tweets || [],
+                tweetExamples: result.tweetExamples || [],
+                referenceImages: result.referenceImages || [],
+                warning: result.error
+            });
         }
         return res.json(result);
     } catch (e) {

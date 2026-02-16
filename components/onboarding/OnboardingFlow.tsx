@@ -665,10 +665,30 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       ]).join('\n');
 
       // Gemini deep research is the primary knowledge source (long-form paragraphs)
-      // Only fall back to crawl sentences if Gemini returned nothing
-      const baseKnowledge = (researchResult.knowledgeBase && researchResult.knowledgeBase.length > 0)
-        ? researchResult.knowledgeBase
-        : buildKnowledgeFallback(crawlContent, crawlDocs);
+      // Always supplement with crawl fallback content to ensure the KB is never empty
+      const geminiKB = researchResult.knowledgeBase || [];
+      const crawlFallbackKB = buildKnowledgeFallback(crawlContent, crawlDocs);
+
+      // If Gemini returned entries, use them as primary and add non-duplicate crawl entries
+      // If Gemini returned nothing, use crawl fallback entirely
+      let baseKnowledge: string[];
+      if (geminiKB.length > 0) {
+        // Add crawl entries that aren't redundant with Gemini entries
+        const geminiText = geminiKB.join(' ').toLowerCase();
+        const supplemental = crawlFallbackKB.filter(entry => {
+          const key = entry.replace(/^Website:\s*/i, '').slice(0, 60).toLowerCase();
+          return !geminiText.includes(key);
+        });
+        baseKnowledge = [...geminiKB, ...supplemental.slice(0, 5)];
+      } else {
+        baseKnowledge = crawlFallbackKB;
+      }
+
+      console.log('[Onboarding] Knowledge assembly:', {
+        geminiEntries: geminiKB.length,
+        crawlFallback: crawlFallbackKB.length,
+        finalBaseKnowledge: baseKnowledge.length
+      });
 
       const baseTweetExamples = tweetExamples.length > 0
         ? tweetExamples
@@ -1901,7 +1921,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">{enrichedData?.brandName}</h1>
-              <p className="text-[#8E8E93] mt-1">{enrichedData?.config.targetAudience?.split(',')[0] || 'Web3 Technology'}</p>
+              <p className="text-[#8E8E93] mt-1">{(enrichedData?.config.targetAudience && !enrichedData.config.targetAudience.toLowerCase().includes('no information available'))
+                ? enrichedData.config.targetAudience.split(',')[0]
+                : 'Web3 Technology'}</p>
               <div className="flex items-center gap-4 mt-2">
                 <a href={enrichedData?.sources.domains[0]} target="_blank" rel="noopener noreferrer" className="text-[#FF5C00] text-sm hover:underline flex items-center gap-1">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1970,7 +1992,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </h3>
           </div>
           <p className="text-[#C5C5C7] text-sm leading-relaxed mb-4">
-            {enrichedData?.config.voiceGuidelines || 'Professional yet approachable, with a focus on technical credibility and community-first messaging. Clear explanations of complex concepts while maintaining authenticity.'}
+            {(enrichedData?.config.voiceGuidelines && !enrichedData.config.voiceGuidelines.toLowerCase().includes('no information available'))
+              ? enrichedData.config.voiceGuidelines
+              : 'Professional yet approachable, with a focus on technical credibility and community-first messaging. Clear explanations of complex concepts while maintaining authenticity.'}
           </p>
           {enrichedData?.config.bannedPhrases && enrichedData.config.bannedPhrases.length > 0 && (
             <div className="mt-4 pt-4 border-t border-[#2A2A2E]">

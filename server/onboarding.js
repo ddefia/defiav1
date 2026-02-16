@@ -517,13 +517,44 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
       .map((page) => `SOURCE: ${page.url}\nCATEGORY: ${page.category}\nTITLE: ${page.title}\n\n${page.text}`)
       .join('\n\n---\n\n');
 
-    console.log(`[Onboarding] Deep crawl complete: ${pages.length} pages, ${knowledgeBase.length} KB entries, ${docs.size} doc links`);
+    // Deep crawl uses blockMedia, so extract images from homepage separately
+    let crawledImages = [];
+    try {
+      const homeRes = await fetchWithTimeout(normalized, { headers: { 'User-Agent': 'DefiaOnboardingBot/1.0' } }, 10000);
+      if (homeRes.ok && isHtmlResponse(homeRes)) {
+        const homeHtml = await homeRes.text();
+        const seenImages = new Set();
+        const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+        let imgMatch;
+        while ((imgMatch = imgRegex.exec(homeHtml)) !== null) {
+          const src = imgMatch[1];
+          if (src.startsWith('data:') || /\.(svg|ico)(\?|$)/i.test(src)) continue;
+          if (/\b(1x1|pixel|tracker|analytics|beacon)\b/i.test(src)) continue;
+          const absoluteUrl = src.startsWith('http') ? src : new URL(src, normalized).href;
+          if (!seenImages.has(absoluteUrl)) {
+            seenImages.add(absoluteUrl);
+            crawledImages.push({ url: absoluteUrl, sourcePage: normalized, isOwnDomain: true });
+          }
+        }
+        const ogImgMatch = homeHtml.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                        || homeHtml.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+        if (ogImgMatch && !seenImages.has(ogImgMatch[1])) {
+          crawledImages.unshift({ url: ogImgMatch[1], sourcePage: normalized, isOwnDomain: true });
+        }
+        crawledImages = crawledImages.slice(0, 15);
+      }
+    } catch (imgErr) {
+      console.warn('[Onboarding] Image extraction from homepage failed:', imgErr.message);
+    }
+
+    console.log(`[Onboarding] Deep crawl complete: ${pages.length} pages, ${knowledgeBase.length} KB entries, ${docs.size} doc links, ${crawledImages.length} images`);
 
     return {
       content,
       pages: pages.map((page) => ({ url: page.url, title: page.title, category: page.category })),
       docs: Array.from(docs),
       knowledgeBase,
+      crawledImages,
       stats: {
         totalPages: pages.length,
         totalChars,

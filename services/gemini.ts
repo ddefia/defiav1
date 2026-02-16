@@ -1865,60 +1865,65 @@ export const researchBrandIdentity = async (
         if (!getApiKey()) throw new Error("No API Key");
 
         const systemInstruction = `
-You are a Brand Intelligence Analyst. Your job is to produce a brand dossier from the PROVIDED SOURCE MATERIAL ONLY.
+You are a Brand Intelligence Analyst for web3/crypto projects. Your job is to produce a comprehensive brand dossier.
 
 TASK:
-Analyze "${brandName}" (${url}) using ONLY the provided source material below. Do NOT use your own training knowledge. Do NOT guess or hallucinate facts.
+Analyze "${brandName}" (${url}). Use the provided source material as your PRIMARY information source. Extract as much as possible from the website content and tweets.
 
-STRICT RULES:
-- ONLY use information that appears in the provided website content and tweets.
-- If the source material doesn't contain information about a topic, SKIP IT. Do not make it up.
-- Do NOT invent tokenomics, partnerships, team members, or features not mentioned in the sources.
-- Every fact in the knowledge base must be traceable to the provided content.
+RULES:
+- Base all specific facts (features, partnerships, team, tokenomics) ONLY on the provided source material.
+- Do NOT invent specific facts, names, numbers, or partnerships not in the sources.
+- For voice guidelines and target audience: if the source material is thin, you MUST still provide useful defaults based on the brand being a web3/crypto project at ${url}. Never return empty strings for these fields.
+- ALWAYS return all fields — never skip a field. If sources are thin, provide reasonable defaults.
 
 CRITICAL REQUIREMENTS:
 
-1. **knowledgeBase** — Write 5-15 entries based on what the website actually says. Each entry should be a full paragraph (3-6 sentences). Only cover topics present in the source material:
+1. **knowledgeBase** — Extract information from the website content. Write 5-15 entries, each a full paragraph (3-6 sentences). Cover:
    - What the project is and what problem it solves
    - Products, features, and how they work
    - Technology and architecture (if mentioned)
-   - Tokenomics (only if explicitly mentioned)
+   - Tokenomics (only if explicitly stated in sources)
    - Partnerships and integrations (only if mentioned)
    - Any other facts directly stated on the website
+   If source content is very thin, extract whatever you can — even 2-3 entries from a homepage is fine.
 
-2. **voiceGuidelines** — Based on the writing style of the website and tweets, describe: overall tone, technical depth level, community engagement style. Be specific to THIS brand's actual communication style.
+2. **voiceGuidelines** — Analyze the writing style of the website and tweets. Describe: overall tone (professional, casual, technical, community-driven), technical depth level, and community engagement style. If sources are thin, write: "Professional and technically-grounded web3 voice. Balances technical credibility with approachable communication. Focuses on educating and engaging the crypto community."
 
-3. **targetAudience** — Based on the website content, infer who this product is for. Be specific but grounded in evidence.
+3. **targetAudience** — Based on website content, describe who this product is for. If sources are thin, write a reasonable audience based on the project being a web3/crypto platform: "DeFi users, crypto traders, web3 developers, and blockchain enthusiasts looking for [category] solutions."
 
-4. **tweetExamples** — Write 5 example tweets that match the brand's tone. ABSOLUTELY NO HASHTAGS — never use # symbols. No emojis at the start. Natural, human writing.
+4. **tweetExamples** — Write 5 example tweets that match the brand's tone. ABSOLUTELY NO HASHTAGS — never use the # symbol. No emojis at the very start of a tweet. Natural, human writing style.
 
-5. **bannedPhrases** — List generic web3 spam phrases to avoid: "to the moon", "WAGMI", "LFG", etc.
+5. **bannedPhrases** — Return as a JSON array of strings. Always include these: ["to the moon", "WAGMI", "LFG", "NFA", "DYOR", "wen moon", "diamond hands", "paper hands", "ape in", "few understand"]
 
-6. **colors** — Extract brand colors from the website if visible in the source content.
+6. **colors** — Extract brand colors from the website if visible.
 
-7. **visualIdentity** — Describe what you can see from the website: dark/light theme, typography, imagery style.
+7. **visualIdentity** — Describe the website's visual style: dark/light theme, typography feel, imagery style. If limited info, describe what you see or default to "Modern dark theme with clean typography."
 
-OUTPUT FORMAT (JSON):
+OUTPUT FORMAT — Return valid JSON matching this exact schema:
 {
     "colors": [
         { "id": "c1", "name": "Primary", "hex": "#HEX" },
         { "id": "c2", "name": "Secondary", "hex": "#HEX" },
         { "id": "c3", "name": "Accent", "hex": "#HEX" }
     ],
-    "knowledgeBase": ["Paragraph from source material...", "..."],
-    "tweetExamples": ["Tweet without hashtags...", "..."],
-    "voiceGuidelines": "Voice description based on actual content...",
-    "visualIdentity": "Visual identity from website...",
-    "targetAudience": "Audience inferred from content...",
-    "bannedPhrases": ["to the moon", "WAGMI", "LFG", "NFA", "DYOR"]
+    "knowledgeBase": ["Paragraph about the project...", "Another paragraph..."],
+    "tweetExamples": ["Tweet without hashtags...", "Another tweet..."],
+    "voiceGuidelines": "Description of brand voice...",
+    "visualIdentity": "Description of visual identity...",
+    "targetAudience": "Description of target audience...",
+    "bannedPhrases": ["to the moon", "WAGMI", "LFG", "NFA", "DYOR", "wen moon", "diamond hands", "paper hands", "ape in", "few understand"]
 }
 `;
 
         console.log(`[Gemini] Deep brand research for ${brandName} — sending ${siteContent.length} chars of content`);
 
+        const contentPrompt = sourceBlock
+            ? `BRAND ANALYSIS REQUEST for "${brandName}" (${url}).\n\nBelow is the source material from the website and/or tweets. Extract all relevant information from it. Base your facts on this content.\n\n${sourceBlock}`
+            : `BRAND ANALYSIS REQUEST for "${brandName}" (${url}).\n\nThe website crawl returned very little content (it may be a JavaScript SPA or have bot protection). Provide reasonable defaults:\n- knowledgeBase: ["${brandName} is a web3/crypto project accessible at ${url}."]\n- voiceGuidelines, targetAudience: provide reasonable web3 defaults\n- tweetExamples: write 5 example tweets for a web3 brand called ${brandName}\n- bannedPhrases: return the standard list\n- colors: return empty array []`;
+
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: `BRAND ANALYSIS REQUEST for "${brandName}" (${url}).\n\nBelow is the ONLY source material you may use. Extract all relevant information from it. Do NOT add information from your own knowledge.\n\n${sourceBlock || `No content was crawled from ${url}. Return minimal results with empty knowledgeBase array.`}`,
+            contents: contentPrompt,
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json",
@@ -1928,7 +1933,7 @@ OUTPUT FORMAT (JSON):
 
         const data = JSON.parse(safeResponseText(response) || "{}");
 
-        console.log(`[Gemini] Research complete: ${(data.knowledgeBase || []).length} KB entries, voice: ${(data.voiceGuidelines || '').length} chars`);
+        console.log(`[Gemini] Research complete: ${(data.knowledgeBase || []).length} KB entries, voice: ${(data.voiceGuidelines || '').length} chars, audience: ${(data.targetAudience || '').length} chars`);
 
         // Post-process tweet examples: remove hashtags, clean up spacing
         const cleanTweets = (data.tweetExamples || []).map((t: string) => {
@@ -1938,15 +1943,39 @@ OUTPUT FORMAT (JSON):
             return text;
         }).filter((t: string) => t.length > 0);
 
+        // Ensure bannedPhrases is always a proper array of strings
+        const defaultBanned = ["to the moon", "WAGMI", "LFG", "NFA", "DYOR", "wen moon", "diamond hands", "paper hands", "ape in", "few understand"];
+        let bannedPhrases: string[] = defaultBanned;
+        if (Array.isArray(data.bannedPhrases) && data.bannedPhrases.length > 0) {
+            // Validate each entry is a string
+            bannedPhrases = data.bannedPhrases
+                .map((p: any) => String(p).trim())
+                .filter((p: string) => p.length > 0 && p.length < 50);
+            if (bannedPhrases.length === 0) bannedPhrases = defaultBanned;
+        } else if (typeof data.bannedPhrases === 'string') {
+            // Gemini sometimes returns a string — split it
+            bannedPhrases = data.bannedPhrases.split(/[,;|]/).map((p: string) => p.trim()).filter((p: string) => p.length > 0);
+            if (bannedPhrases.length === 0) bannedPhrases = defaultBanned;
+        }
+
+        // Ensure voice and audience always have content
+        const voiceGuidelines = (data.voiceGuidelines && data.voiceGuidelines.trim().length > 10)
+            ? data.voiceGuidelines.trim()
+            : `Professional and technically-grounded web3 voice for ${brandName}. Balances technical credibility with approachable communication. Focuses on educating and engaging the crypto community while maintaining authenticity.`;
+
+        const targetAudience = (data.targetAudience && data.targetAudience.trim().length > 10)
+            ? data.targetAudience.trim()
+            : `DeFi users, crypto traders, web3 developers, and blockchain enthusiasts interested in ${brandName}.`;
+
         return {
             colors: data.colors || [],
             knowledgeBase: data.knowledgeBase || [],
             tweetExamples: cleanTweets,
             referenceImages: [],
-            voiceGuidelines: data.voiceGuidelines,
-            visualIdentity: data.visualIdentity,
-            targetAudience: data.targetAudience,
-            bannedPhrases: data.bannedPhrases || []
+            voiceGuidelines,
+            visualIdentity: data.visualIdentity || `Modern dark-themed web3 interface with clean typography.`,
+            targetAudience,
+            bannedPhrases
         };
 
     } catch (e) {
