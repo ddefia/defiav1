@@ -1865,40 +1865,38 @@ export const researchBrandIdentity = async (
         if (!getApiKey()) throw new Error("No API Key");
 
         const systemInstruction = `
-You are an elite Web3 Brand Intelligence Analyst. Your job is to produce a COMPREHENSIVE brand dossier that will be used as the core knowledge base for an AI-powered social media manager.
+You are a Brand Intelligence Analyst. Your job is to produce a brand dossier from the PROVIDED SOURCE MATERIAL ONLY.
 
 TASK:
-Analyze "${brandName}" (${url}) using ALL provided source material, plus your own knowledge of this project and its ecosystem.
+Analyze "${brandName}" (${url}) using ONLY the provided source material below. Do NOT use your own training knowledge. Do NOT guess or hallucinate facts.
+
+STRICT RULES:
+- ONLY use information that appears in the provided website content and tweets.
+- If the source material doesn't contain information about a topic, SKIP IT. Do not make it up.
+- Do NOT invent tokenomics, partnerships, team members, or features not mentioned in the sources.
+- Every fact in the knowledge base must be traceable to the provided content.
 
 CRITICAL REQUIREMENTS:
 
-1. **knowledgeBase** — This is the MOST IMPORTANT field. Write 10-25 DETAILED entries. Each entry should be a full paragraph (3-6 sentences), NOT a single sentence. Cover:
-   - What the project is and what problem it solves (detailed explanation)
-   - Core products, features, and how they work
-   - Technology stack, blockchain(s), smart contracts, architecture
-   - Tokenomics: token name, supply, utility, staking, governance
-   - Ecosystem: partnerships, integrations, supported chains
-   - Team background and credibility (if known)
-   - Community: size, engagement, governance model
-   - Competitive landscape: how it compares to similar projects
-   - Recent developments, milestones, roadmap items
-   - Unique value propositions and differentiators
-   - Security: audits, bug bounties, track record
-   - Use cases and target user workflows
+1. **knowledgeBase** — Write 5-15 entries based on what the website actually says. Each entry should be a full paragraph (3-6 sentences). Only cover topics present in the source material:
+   - What the project is and what problem it solves
+   - Products, features, and how they work
+   - Technology and architecture (if mentioned)
+   - Tokenomics (only if explicitly mentioned)
+   - Partnerships and integrations (only if mentioned)
+   - Any other facts directly stated on the website
 
-2. **voiceGuidelines** — Write 3-5 paragraphs covering: overall tone, technical depth level, community engagement style, how to handle FUD/criticism, hashtag usage, emoji usage, call-to-action style. Be specific to THIS brand.
+2. **voiceGuidelines** — Based on the writing style of the website and tweets, describe: overall tone, technical depth level, community engagement style. Be specific to THIS brand's actual communication style.
 
-3. **targetAudience** — Write a detailed paragraph listing primary and secondary audience segments with specifics: "DeFi power users who manage $10k+ portfolios across multiple chains" not just "DeFi users".
+3. **targetAudience** — Based on the website content, infer who this product is for. Be specific but grounded in evidence.
 
-4. **tweetExamples** — Write 5 example tweets that capture the brand's exact voice and style. Include a mix: announcement-style, educational, community engagement, and trend commentary.
+4. **tweetExamples** — Write 5 example tweets that match the brand's tone. ABSOLUTELY NO HASHTAGS — never use # symbols. No emojis at the start. Natural, human writing.
 
-5. **bannedPhrases** — List phrases this brand should NEVER use (scammy language, competitor names used negatively, regulatory red flags).
+5. **bannedPhrases** — List generic web3 spam phrases to avoid: "to the moon", "WAGMI", "LFG", etc.
 
-6. **colors** — Extract brand colors from the website content if possible.
+6. **colors** — Extract brand colors from the website if visible in the source content.
 
-7. **visualIdentity** — Describe the visual style: dark/light theme, typography feel, imagery style, graphic design patterns.
-
-USE YOUR KNOWLEDGE: If you know this project from your training data, USE that knowledge to fill gaps. The crawled content may be incomplete — supplement with what you know about ${brandName}, its ecosystem, and its competitive landscape.
+7. **visualIdentity** — Describe what you can see from the website: dark/light theme, typography, imagery style.
 
 OUTPUT FORMAT (JSON):
 {
@@ -1907,23 +1905,12 @@ OUTPUT FORMAT (JSON):
         { "id": "c2", "name": "Secondary", "hex": "#HEX" },
         { "id": "c3", "name": "Accent", "hex": "#HEX" }
     ],
-    "knowledgeBase": [
-        "Detailed paragraph about what the project does and why it exists...",
-        "Detailed paragraph about the core product and how it works...",
-        "Detailed paragraph about tokenomics and governance...",
-        "... (10-25 entries, each 3-6 sentences)"
-    ],
-    "tweetExamples": [
-        "Example tweet 1...",
-        "Example tweet 2...",
-        "Example tweet 3...",
-        "Example tweet 4...",
-        "Example tweet 5..."
-    ],
-    "voiceGuidelines": "Multiple paragraphs of detailed voice guidance...",
-    "visualIdentity": "Detailed visual identity description...",
-    "targetAudience": "Detailed audience segments with specifics...",
-    "bannedPhrases": ["phrase1", "phrase2", "..."]
+    "knowledgeBase": ["Paragraph from source material...", "..."],
+    "tweetExamples": ["Tweet without hashtags...", "..."],
+    "voiceGuidelines": "Voice description based on actual content...",
+    "visualIdentity": "Visual identity from website...",
+    "targetAudience": "Audience inferred from content...",
+    "bannedPhrases": ["to the moon", "WAGMI", "LFG", "NFA", "DYOR"]
 }
 `;
 
@@ -1931,7 +1918,7 @@ OUTPUT FORMAT (JSON):
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: `DEEP RESEARCH REQUEST: Build a comprehensive brand intelligence dossier for "${brandName}" (${url}).\n\nBelow is all available source material. Analyze it thoroughly, then supplement with your own knowledge of this project and its web3 ecosystem.\n\n${sourceBlock || `No crawled content available. Use your knowledge of "${brandName}" at ${url} to build the dossier.`}`,
+            contents: `BRAND ANALYSIS REQUEST for "${brandName}" (${url}).\n\nBelow is the ONLY source material you may use. Extract all relevant information from it. Do NOT add information from your own knowledge.\n\n${sourceBlock || `No content was crawled from ${url}. Return minimal results with empty knowledgeBase array.`}`,
             config: {
                 systemInstruction: systemInstruction,
                 responseMimeType: "application/json",
@@ -1943,10 +1930,18 @@ OUTPUT FORMAT (JSON):
 
         console.log(`[Gemini] Research complete: ${(data.knowledgeBase || []).length} KB entries, voice: ${(data.voiceGuidelines || '').length} chars`);
 
+        // Post-process tweet examples: remove hashtags, clean up spacing
+        const cleanTweets = (data.tweetExamples || []).map((t: string) => {
+            let text = String(t).trim();
+            text = text.replace(/#\w+/g, '').trim();
+            text = text.replace(/\s{2,}/g, ' ').trim();
+            return text;
+        }).filter((t: string) => t.length > 0);
+
         return {
             colors: data.colors || [],
             knowledgeBase: data.knowledgeBase || [],
-            tweetExamples: data.tweetExamples || [],
+            tweetExamples: cleanTweets,
             referenceImages: [],
             voiceGuidelines: data.voiceGuidelines,
             visualIdentity: data.visualIdentity,

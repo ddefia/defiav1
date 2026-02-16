@@ -416,6 +416,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       let crawlContent = '';
       let crawlDocs: string[] = [];
       let crawlPages: string[] = [];
+      let crawlImages: ReferenceImage[] = [];
       let tweetExamples: string[] = [];
       let tweetImages: ReferenceImage[] = [];
 
@@ -460,11 +461,22 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           });
         }
 
+        // Extract images from crawl
+        if (data.crawledImages && Array.isArray(data.crawledImages)) {
+          crawlImages = data.crawledImages.map((img: any, idx: number) => ({
+            id: `crawl-img-${idx}`,
+            url: img.url,
+            name: `Website image`,
+            category: 'Website'
+          }));
+        }
+
         console.log('[Onboarding] Deep crawl data received:', {
           pages: crawlPages.length,
           docs: crawlDocs.length,
           knowledgeBase: knowledgeBaseFromCrawl.length,
           contentLength: crawlContent.length,
+          images: crawlImages.length,
           sampleKB: knowledgeBaseFromCrawl[0]?.slice(0, 100)
         });
 
@@ -510,11 +522,22 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
               });
             }
 
+            // Extract images from simple crawl
+            if (data.crawledImages && Array.isArray(data.crawledImages)) {
+              crawlImages = data.crawledImages.map((img: any, idx: number) => ({
+                id: `crawl-img-${idx}`,
+                url: img.url,
+                name: `Website image`,
+                category: 'Website'
+              }));
+            }
+
             console.log('[Onboarding] Simple crawl data received:', {
               pages: crawlPages.length,
               docs: crawlDocs.length,
               knowledgeBase: knowledgeBaseFromCrawl.length,
-              contentLength: crawlContent.length
+              contentLength: crawlContent.length,
+              images: crawlImages.length
             });
           }
         } catch {
@@ -587,7 +610,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         console.error('[Onboarding] Twitter fetch error:', twitterError);
         setAnalysisProgress(prev => ({
           ...prev,
-          twitter: { status: 'complete', message: twitterError?.message || 'Twitter scan skipped (no access)' },
+          twitter: { status: 'complete', message: 'Skipped — add Apify token to import tweets' },
           assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
         }));
       }
@@ -659,7 +682,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
 
       const combinedReferenceImages = dedupeReferenceImages([
         ...(researchResult.referenceImages || []),
-        ...tweetImages
+        ...tweetImages,
+        ...crawlImages
       ]);
 
       console.log('[Onboarding] Combined reference images:', {
@@ -1811,7 +1835,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   ) || enrichedData?.config.referenceImages?.[0];
 
   const renderReviewStep = () => (
-    <div className="flex-1 overflow-y-auto px-12 py-10">
+    <div className="flex-1 overflow-y-auto px-12 py-10 bg-[#0A0A0B]">
       {/* Image Viewer Modal */}
       {viewingImage && (
         <div
@@ -2170,9 +2194,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </div>
           {enrichedData?.config.tweetExamples && enrichedData.config.tweetExamples.length > 0 ? (
             <div className="space-y-3">
-              {enrichedData.config.tweetExamples.slice(0, 3).map((tweet, index) => (
+              {enrichedData.config.tweetExamples.slice(0, 5).map((tweet, index) => (
                 <div key={index} className="p-4 rounded-xl bg-[#0A0A0B] border border-[#1F1F23]">
-                  <p className="text-[#C5C5C7] text-sm leading-relaxed">{tweet}</p>
+                  <p className="text-[#C5C5C7] text-sm leading-relaxed whitespace-pre-wrap">{tweet}</p>
                 </div>
               ))}
             </div>
@@ -2240,7 +2264,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     // Empty state: no style examples found (e.g. Apify not configured)
     if (totalExamples === 0) {
       return (
-        <div className="flex-1 flex flex-col px-16 py-12">
+        <div className="flex-1 flex flex-col px-16 py-12 overflow-y-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-white text-2xl font-semibold">Content Style Examples</h2>
@@ -2281,7 +2305,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     }
 
     return (
-      <div className="flex-1 flex flex-col px-16 py-12">
+      <div className="flex-1 flex flex-col px-16 py-12 overflow-y-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-white text-2xl font-semibold">Content Style Examples</h2>

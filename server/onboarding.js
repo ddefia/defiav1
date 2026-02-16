@@ -223,7 +223,7 @@ const countCategories = (pages) => {
 export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, maxChars = DEFAULT_MAX_CHARS } = {}) => {
   const normalized = normalizeUrl(startUrl);
   if (!normalized) {
-    return { content: '', pages: [], docs: [], knowledgeBase: [] };
+    return { content: '', pages: [], docs: [], knowledgeBase: [], crawledImages: [] };
   }
 
   const visited = new Set();
@@ -263,7 +263,20 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
         const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
         const title = titleMatch ? titleMatch[1].trim() : extractTitleFromUrl(current);
         const category = categorizeContent(current, text);
-        pages.push({ url: current, text, title, category });
+
+        // Extract image URLs from <img> tags and og:image
+        const imageUrls = [];
+        const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+        let imgMatch;
+        while ((imgMatch = imgRegex.exec(html)) !== null) {
+          imageUrls.push(imgMatch[1]);
+        }
+        // Also extract Open Graph image
+        const ogImgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                        || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+        if (ogImgMatch) imageUrls.push(ogImgMatch[1]);
+
+        pages.push({ url: current, text, title, category, imageUrls });
         totalChars += text.length;
       }
 
@@ -306,13 +319,47 @@ export const crawlWebsite = async (startUrl, { maxPages = DEFAULT_MAX_PAGES, max
     return aIdx - bIdx;
   });
 
-  console.log(`[SimpleCrawl] Complete: ${pages.length} pages, ${knowledgeBase.length} KB entries, ${docs.size} doc links`);
+  // Extract unique, high-quality image URLs from all crawled pages
+  const seenImages = new Set();
+  const crawledImages = [];
+  const baseDomainForImages = (() => {
+    try { return new URL(normalized).hostname.replace(/^www\./, ''); } catch { return ''; }
+  })();
+
+  for (const page of pages) {
+    for (const imgUrl of (page.imageUrls || [])) {
+      try {
+        // Resolve relative URLs
+        const absoluteUrl = imgUrl.startsWith('http') ? imgUrl : new URL(imgUrl, page.url).href;
+
+        // Skip tiny images, tracking pixels, data URIs, SVGs, and icons
+        if (absoluteUrl.startsWith('data:')) continue;
+        if (/\.(svg|ico)(\?|$)/i.test(absoluteUrl)) continue;
+        if (/\b(1x1|pixel|tracker|analytics|beacon)\b/i.test(absoluteUrl)) continue;
+        if (seenImages.has(absoluteUrl)) continue;
+
+        seenImages.add(absoluteUrl);
+        crawledImages.push({
+          url: absoluteUrl,
+          sourcePage: page.url,
+          isOwnDomain: absoluteUrl.includes(baseDomainForImages)
+        });
+      } catch { /* skip malformed URLs */ }
+    }
+  }
+
+  // Prioritize own-domain images, limit to 15
+  crawledImages.sort((a, b) => (b.isOwnDomain ? 1 : 0) - (a.isOwnDomain ? 1 : 0));
+  const topImages = crawledImages.slice(0, 15);
+
+  console.log(`[SimpleCrawl] Complete: ${pages.length} pages, ${knowledgeBase.length} KB entries, ${docs.size} doc links, ${topImages.length} images`);
 
   return {
     content,
     pages: pages.map((page) => ({ url: page.url, title: page.title, category: page.category })),
     docs: Array.from(docs),
     knowledgeBase,
+    crawledImages: topImages,
     stats: {
       totalPages: pages.length,
       totalChars,
@@ -345,7 +392,7 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
 
   const normalized = normalizeUrl(startUrl);
   if (!normalized) {
-    return { content: '', pages: [], docs: [], knowledgeBase: [] };
+    return { content: '', pages: [], docs: [], knowledgeBase: [], crawledImages: [] };
   }
 
   console.log(`[Onboarding] Starting deep crawl of ${normalized}...`);
