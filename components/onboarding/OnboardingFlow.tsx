@@ -484,11 +484,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         const stats = data.stats || {};
         const categoryList = stats.categories ? Object.keys(stats.categories).join(', ') : '';
         const summaryParts = [
+          data.warning ? '(basic mode)' : null,
           `Scanned ${crawlPages.length} pages`,
           knowledgeBaseFromCrawl.length > 0 ? `extracted ${knowledgeBaseFromCrawl.length} knowledge entries` : null,
           crawlDocs.length > 0 ? `found ${crawlDocs.length} documents` : null,
           categoryList ? `(${categoryList})` : null
         ].filter(Boolean);
+
+        if (data.warning) {
+          console.warn('[Onboarding] Deep crawl warning:', data.warning);
+        }
 
         setAnalysisProgress(prev => ({
           ...prev,
@@ -593,24 +598,32 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         console.log('[Onboarding] Twitter data received:', {
           tweetExamples: tweetExamples.length,
           referenceImages: tweetImages.length,
+          warning: data.warning || null,
           sampleImage: tweetImages[0]?.url
         });
 
+        // Determine the right progress message based on what happened
+        let twitterMsg = '';
+        if (tweetExamples.length > 0) {
+          twitterMsg = `Collected ${tweetExamples.length} tweets${tweetImages.length > 0 ? ` & ${tweetImages.length} images` : ''}`;
+        } else if (data.noToken) {
+          twitterMsg = 'Skipped — add Apify token to import tweets';
+        } else if (data.warning) {
+          twitterMsg = `Twitter import unavailable — AI will use website data instead`;
+        } else {
+          twitterMsg = 'No tweets found — AI will generate content from website data';
+        }
+
         setAnalysisProgress(prev => ({
           ...prev,
-          twitter: {
-            status: 'complete',
-            message: tweetExamples.length > 0
-              ? `Collected ${tweetExamples.length} tweets${tweetImages.length > 0 ? ` & ${tweetImages.length} images` : ''}`
-              : 'Twitter scan complete (no examples found)'
-          },
+          twitter: { status: 'complete', message: twitterMsg },
           assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
         }));
       } catch (twitterError: any) {
         console.error('[Onboarding] Twitter fetch error:', twitterError);
         setAnalysisProgress(prev => ({
           ...prev,
-          twitter: { status: 'complete', message: 'Skipped — add Apify token to import tweets' },
+          twitter: { status: 'complete', message: 'Twitter import failed — AI will use website data instead' },
           assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
         }));
       }

@@ -445,8 +445,10 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
     const runData = await runRes.json();
 
     if (!runData.data || (runData.data.status !== 'SUCCEEDED' && runData.data.status !== 'RUNNING')) {
-      console.warn('[Onboarding] Deep crawl failed, falling back to simple crawl:', runData.data?.status);
-      return crawlWebsite(startUrl, { maxPages: 8 });
+      console.warn('[Onboarding] Deep crawl failed, falling back to simple crawl. Status:', runData.data?.status, 'Error:', JSON.stringify(runData?.error || runData?.data?.statusMessage || 'unknown'));
+      const fallback = await crawlWebsite(startUrl, { maxPages: 8 });
+      fallback.warning = `Deep crawl failed (${runData.data?.status || 'no response'}), used basic crawl`;
+      return fallback;
     }
 
     // Fetch results from dataset
@@ -460,7 +462,9 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
 
     if (!items || items.length === 0) {
       console.warn('[Onboarding] No results from deep crawl, falling back to simple crawl');
-      return crawlWebsite(startUrl, { maxPages: 8 });
+      const fallback = await crawlWebsite(startUrl, { maxPages: 8 });
+      fallback.warning = 'Deep crawl returned no pages, used basic crawl';
+      return fallback;
     }
 
     // Process and categorize content
@@ -565,7 +569,9 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
   } catch (e) {
     console.error('[Onboarding] Deep crawl error:', e.message);
     // Fallback to simple crawl
-    return crawlWebsite(startUrl, { maxPages: 8 });
+    const fallback = await crawlWebsite(startUrl, { maxPages: 8 });
+    fallback.warning = `Deep crawl error: ${e.message}, used basic crawl`;
+    return fallback;
   }
 };
 
@@ -687,101 +693,163 @@ export const fetchTwitterContent = async (handle, { maxItems = 25, brandName } =
     return { tweets: [], tweetExamples: [], referenceImages: [], noToken: true };
   }
 
-  // New unified Twitter actor
-  const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa';
-
-  // Start the run without waiting (so we can poll)
-  const runRes = await fetchImpl(`https://api.apify.com/v2/acts/${ACTOR_TWITTER}/runs?token=${token}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      handles: [handle],
-      tweetsDesired: maxItems,
-      profilesDesired: 1,
-      withReplies: false,
-      includeUserInfo: true,
-      proxyConfig: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] }
-    })
-  });
-
-  const runData = await runRes.json();
-  console.log('[OnboardingTwitter] Apify run started:', {
-    ok: runRes.ok,
-    status: runRes.status,
-    runId: runData?.data?.id,
-    hasDatasetId: !!runData?.data?.defaultDatasetId
-  });
-
-  if (!runRes.ok || !runData?.data?.id) {
-    const err = runData?.error?.message || 'Apify run failed to start';
-    console.error('[OnboardingTwitter] Apify run failed:', err);
-    return { tweets: [], tweetExamples: [], referenceImages: [], error: err };
-  }
-
-  const runId = runData.data.id;
-  const datasetId = runData.data.defaultDatasetId;
-
-  // Poll for run completion (max 120 seconds)
-  const maxWaitTime = 120000; // 2 minutes
-  const pollInterval = 3000; // 3 seconds
-  const startTime = Date.now();
-  let runStatus = runData.data.status;
-
-  while (runStatus !== 'SUCCEEDED' && runStatus !== 'FAILED' && runStatus !== 'ABORTED') {
-    if (Date.now() - startTime > maxWaitTime) {
-      console.warn('[OnboardingTwitter] Apify run timed out after 120s, status:', runStatus);
-      break;
+  // Actor definitions: primary + fallback
+  const ACTORS = [
+    {
+      label: 'primary (twitter-scraper)',
+      id: 'VsTreSuczsXhhRIqa',
+      input: {
+        handles: [handle],
+        tweetsDesired: maxItems,
+        profilesDesired: 1,
+        withReplies: false,
+        includeUserInfo: true,
+        proxyConfig: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] }
+      },
+      timeout: 60000 // 60s — this actor tends to hang, so shorter timeout
+    },
+    {
+      label: 'fallback (tweet-scraper)',
+      id: '61RPP7dywgiy0JPD0',
+      input: {
+        twitterHandles: [handle],
+        maxItems: maxItems,
+        sort: 'Latest',
+        tweetLanguage: 'en'
+      },
+      timeout: 90000
     }
+  ];
 
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  let items = null;
+  let lastError = '';
 
-    const statusRes = await fetchImpl(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`);
-    const statusData = await statusRes.json();
-    runStatus = statusData?.data?.status || 'UNKNOWN';
-    console.log('[OnboardingTwitter] Polling run status:', runStatus);
+  for (const actor of ACTORS) {
+    console.log(`[OnboardingTwitter] Trying ${actor.label} (${actor.id}) for @${handle}...`);
+
+    try {
+      const runRes = await fetchImpl(`https://api.apify.com/v2/acts/${actor.id}/runs?token=${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(actor.input)
+      });
+
+      const runData = await runRes.json();
+      console.log(`[OnboardingTwitter] ${actor.label} run started:`, {
+        ok: runRes.ok,
+        status: runRes.status,
+        runId: runData?.data?.id,
+        runStatus: runData?.data?.status,
+      });
+
+      if (!runRes.ok || !runData?.data?.id) {
+        const err = runData?.error?.message || `HTTP ${runRes.status}`;
+        console.warn(`[OnboardingTwitter] ${actor.label} failed to start: ${err}`);
+        lastError = `${actor.label}: ${err}`;
+        continue; // try next actor
+      }
+
+      const runId = runData.data.id;
+      const datasetId = runData.data.defaultDatasetId;
+      const startTime = Date.now();
+      let runStatus = runData.data.status;
+
+      // Poll for completion
+      while (runStatus !== 'SUCCEEDED' && runStatus !== 'FAILED' && runStatus !== 'ABORTED') {
+        if (Date.now() - startTime > actor.timeout) {
+          console.warn(`[OnboardingTwitter] ${actor.label} timed out after ${actor.timeout / 1000}s, status: ${runStatus}`);
+          // Try to abort the hanging run to save Apify credits
+          try {
+            await fetchImpl(`https://api.apify.com/v2/actor-runs/${runId}/abort?token=${token}`, { method: 'POST' });
+            console.log(`[OnboardingTwitter] Aborted hanging run ${runId}`);
+          } catch { /* ignore abort errors */ }
+          break;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const statusRes = await fetchImpl(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`);
+        const statusData = await statusRes.json();
+        runStatus = statusData?.data?.status || 'UNKNOWN';
+      }
+
+      console.log(`[OnboardingTwitter] ${actor.label} final status: ${runStatus}`);
+
+      if (runStatus !== 'SUCCEEDED') {
+        lastError = `${actor.label}: run ${runStatus}`;
+        continue; // try next actor
+      }
+
+      // Fetch results
+      const itemsRes = await fetchImpl(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}`);
+      const fetched = await itemsRes.json();
+
+      // Check for noResults / empty
+      const hasRealData = Array.isArray(fetched) && fetched.length > 0 && !fetched[0]?.noResults;
+      console.log(`[OnboardingTwitter] ${actor.label} returned ${fetched?.length || 0} items, hasRealData: ${hasRealData}`);
+
+      if (hasRealData) {
+        items = fetched;
+        console.log(`[OnboardingTwitter] ✓ Using results from ${actor.label}`);
+        break; // success, stop trying actors
+      } else {
+        lastError = `${actor.label}: completed but returned no results`;
+        continue; // try next actor
+      }
+    } catch (e) {
+      console.error(`[OnboardingTwitter] ${actor.label} exception:`, e.message);
+      lastError = `${actor.label}: ${e.message}`;
+      continue; // try next actor
+    }
   }
 
-  console.log('[OnboardingTwitter] Final run status:', runStatus);
-
-  if (runStatus !== 'SUCCEEDED') {
-    console.error('[OnboardingTwitter] Run did not succeed:', runStatus);
-    return { tweets: [], tweetExamples: [], referenceImages: [], error: `Apify run status: ${runStatus}` };
+  // If no actor returned data, return graceful empty with error info
+  if (!items || items.length === 0) {
+    console.warn(`[OnboardingTwitter] All actors failed for @${handle}. Last error: ${lastError}`);
+    return {
+      tweets: [],
+      tweetExamples: [],
+      referenceImages: [],
+      error: `Twitter scraping unavailable: ${lastError}`,
+      warning: 'Twitter/X scraping actors are currently experiencing issues. Tweet data could not be imported — AI will generate content based on website analysis instead.'
+    };
   }
 
-  const itemsRes = await fetchImpl(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}`);
-  const items = await itemsRes.json();
   console.log('[OnboardingTwitter] Dataset items:', {
-    datasetId,
     itemsCount: items?.length || 0,
-    sampleItem: items?.[0] ? { id: items[0].id, hasText: !!items[0].text, hasImages: !!(items[0].images?.length) } : null
+    sampleKeys: items?.[0] ? Object.keys(items[0]).slice(0, 8).join(', ') : null,
+    sampleItem: items?.[0] ? { id: items[0].id, hasText: !!(items[0].text || items[0].full_text), hasImages: !!(items[0].images?.length) } : null
   });
 
-  // Map new actor output format - FILTER OUT retweets, quote tweets, and replies
+  // Map actor output - handles BOTH primary (text, images) and fallback (full_text) formats
+  // FILTER OUT retweets, quote tweets, and replies
   const tweets = (items || [])
     .filter((item) => {
       // Skip retweets, quote tweets, and replies - we only want original content
       if (item.isRetweet || item.isQuote || item.isReply) return false;
+      // Fallback actor: skip items with noResults flag
+      if (item.noResults) return false;
       return true;
     })
     .map((item) => {
-      const text = item.text || '';
-      const likes = item.likes || 0;
-      const retweets = item.retweets || 0;
-      const replies = item.replies || 0;
-      const quotes = item.quotes || 0;
-      // New actor uses images array instead of nested media objects
-      const mediaUrls = item.images || [];
+      // Support both actor formats: primary uses `text`, fallback uses `full_text`
+      const text = item.text || item.full_text || '';
+      const likes = item.likes || item.favorite_count || 0;
+      const retweets = item.retweets || item.retweet_count || 0;
+      const replies = item.replies || item.reply_count || 0;
+      const quotes = item.quotes || item.quote_count || 0;
+      // Primary: images array; Fallback: entities.media
+      const mediaUrls = item.images || (item.entities?.media || []).map(m => m.media_url_https || m.media_url).filter(Boolean) || [];
 
       const score = likes + retweets * 2 + replies * 1.5 + quotes;
 
       return {
-        id: item.id,
+        id: item.id || item.id_str || '',
         text,
-        createdAt: item.timestamp || '',
+        createdAt: item.timestamp || item.created_at || '',
         likes,
         retweets,
         replies,
-        views: 0, // New actor doesn't provide view count
+        views: item.views || 0,
         mediaUrls,
         score
       };

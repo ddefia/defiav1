@@ -587,6 +587,45 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), agent: 'active' });
 });
 
+// --- Debug: Apify Status ---
+app.get('/api/debug/apify-status', async (req, res) => {
+    const token = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';
+    if (!token) {
+        return res.json({ token: false, error: 'No APIFY_API_TOKEN configured' });
+    }
+
+    const actors = {
+        websiteCrawler: { id: 'aYG0l9s7dbB7j3gbS', name: 'website-content-crawler' },
+        twitterPrimary: { id: 'VsTreSuczsXhhRIqa', name: 'twitter-scraper (primary)' },
+        twitterFallback: { id: '61RPP7dywgiy0JPD0', name: 'tweet-scraper (fallback)' },
+    };
+
+    const results = { token: true, tokenPrefix: token.slice(0, 12) + '...' };
+
+    for (const [key, actor] of Object.entries(actors)) {
+        try {
+            const checkRes = await fetch(`https://api.apify.com/v2/acts/${actor.id}?token=${token}`);
+            const checkData = await checkRes.json();
+            results[key] = {
+                id: actor.id,
+                name: actor.name,
+                accessible: checkRes.status === 200,
+                httpStatus: checkRes.status,
+                actorName: checkData?.data?.name || null,
+            };
+        } catch (e) {
+            results[key] = {
+                id: actor.id,
+                name: actor.name,
+                accessible: false,
+                error: e.message,
+            };
+        }
+    }
+
+    res.json(results);
+});
+
 app.get('/api/health/extended', async (req, res) => {
     const supabase = getSupabaseClient();
     let dbStatus = 'unconfigured';
