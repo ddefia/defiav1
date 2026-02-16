@@ -18,6 +18,62 @@ import Stripe from 'stripe';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ━━━ Startup Environment Validation ━━━
+(() => {
+    const check = (name, ...vars) => vars.some(v => !!process.env[v]);
+    const status = [];
+
+    // Gemini
+    status.push(check('Gemini', 'GEMINI_API_KEY', 'VITE_GEMINI_API_KEY')
+        ? '  \x1b[32m✓\x1b[0m Gemini AI'
+        : '  \x1b[31m✗\x1b[0m Gemini AI — missing GEMINI_API_KEY');
+
+    // Supabase
+    const hasSupabaseUrl = check('SB', 'SUPABASE_URL', 'VITE_SUPABASE_URL');
+    const hasSupabaseKey = check('SB', 'SUPABASE_KEY', 'VITE_SUPABASE_ANON_KEY');
+    const hasServiceRole = check('SB', 'SUPABASE_SERVICE_ROLE_KEY');
+    if (hasSupabaseUrl && hasSupabaseKey) {
+        status.push(hasServiceRole
+            ? '  \x1b[32m✓\x1b[0m Supabase (with service role key)'
+            : '  \x1b[33m⚠\x1b[0m Supabase (anon key only — add SUPABASE_SERVICE_ROLE_KEY for full DB access)');
+    } else {
+        status.push('  \x1b[31m✗\x1b[0m Supabase — missing URL or key');
+    }
+
+    // Apify
+    status.push(check('Apify', 'APIFY_API_TOKEN', 'VITE_APIFY_API_TOKEN')
+        ? '  \x1b[32m✓\x1b[0m Apify (deep crawl, Twitter, news)'
+        : '  \x1b[33m⚠\x1b[0m Apify — not configured (onboarding will use basic crawl)');
+
+    // X/Twitter Publishing
+    const hasXPub = check('X', 'X_API_KEY') && check('X', 'X_API_SECRET') && check('X', 'X_ACCESS_TOKEN') && check('X', 'X_ACCESS_SECRET');
+    status.push(hasXPub
+        ? '  \x1b[32m✓\x1b[0m X/Twitter publishing'
+        : '  \x1b[31m✗\x1b[0m X/Twitter publishing — missing credentials (X_API_KEY etc.)');
+
+    // X OAuth
+    const hasXOAuth = check('X', 'X_CLIENT_ID') && check('X', 'X_CLIENT_SECRET');
+    status.push(hasXOAuth
+        ? '  \x1b[32m✓\x1b[0m X/Twitter OAuth ("Connect X" button)'
+        : '  \x1b[33m⚠\x1b[0m X/Twitter OAuth — not configured (Connect X button won\'t work)');
+
+    // Stripe
+    status.push(check('Stripe', 'STRIPE_SECRET_KEY')
+        ? '  \x1b[32m✓\x1b[0m Stripe billing'
+        : '  \x1b[33m⚠\x1b[0m Stripe — not configured (billing disabled)');
+
+    // FRONTEND_URL (critical for production)
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+        status.push(process.env.FRONTEND_URL
+            ? `  \x1b[32m✓\x1b[0m FRONTEND_URL: ${process.env.FRONTEND_URL}`
+            : '  \x1b[31m✗\x1b[0m FRONTEND_URL — NOT SET! CORS will block ALL API requests in production!');
+    }
+
+    console.log('\n━━━ DEFIA API Status ━━━');
+    status.forEach(s => console.log(s));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━\n');
+})();
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
