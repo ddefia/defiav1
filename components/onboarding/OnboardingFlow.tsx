@@ -148,6 +148,15 @@ const STEPS: { id: OnboardingStep; label: string; description: string }[] = [
 ];
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComplete }) => {
+  // Force dark theme during onboarding — restore on unmount
+  useEffect(() => {
+    const prev = document.documentElement.getAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', 'dark');
+    return () => {
+      if (prev) document.documentElement.setAttribute('data-theme', prev);
+    };
+  }, []);
+
   // Check if user already has a profile (skip profile step) - only on initial mount
   const existingProfileRef = useRef(loadUserProfile());
   const [currentStep, setCurrentStep] = useState<OnboardingStep>(() =>
@@ -221,8 +230,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     return brandName.trim().length > 1 &&
            normalizedDomain &&
            isValidUrl(normalizedDomain) &&
-           normalizedHandle &&
-           isValidHandle(normalizedHandle);
+           (!normalizedHandle || isValidHandle(normalizedHandle));
   }, [brandName, normalizedDomain, normalizedHandle]);
 
   const getStepIndex = (step: OnboardingStep) => {
@@ -457,7 +465,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         if (data.knowledgeBase && Array.isArray(data.knowledgeBase)) {
           knowledgeBaseFromCrawl = data.knowledgeBase.map((entry: any) => {
             const prefix = entry.category !== 'general' ? `[${entry.category.toUpperCase()}] ` : '';
-            return `${prefix}${entry.title}: ${entry.content.slice(0, 500)}`;
+            return `${prefix}${entry.title}: ${entry.content.slice(0, 3000)}`;
           });
         }
 
@@ -523,7 +531,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             if (data.knowledgeBase && Array.isArray(data.knowledgeBase)) {
               knowledgeBaseFromCrawl = data.knowledgeBase.map((entry: any) => {
                 const prefix = entry.category !== 'general' ? `[${entry.category.toUpperCase()}] ` : '';
-                return `${prefix}${entry.title}: ${entry.content.slice(0, 500)}`;
+                return `${prefix}${entry.title}: ${entry.content.slice(0, 3000)}`;
               });
             }
 
@@ -578,52 +586,61 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         collectorMode = 'fallback';
       }
 
-      // 2) Twitter scrape (real)
-      try {
-        const twitterRes = await fetch(`${baseUrl}/api/onboarding/twitter`, {
-          method: 'POST',
-          headers: authHeaders,
-          body: JSON.stringify({ handle: normalizedHandle, brandName: brandName.trim() })
-        });
+      // 2) Twitter scrape (real) — only if handle was provided
+      if (normalizedHandle && isValidHandle(normalizedHandle)) {
+        try {
+          const twitterRes = await fetch(`${baseUrl}/api/onboarding/twitter`, {
+            method: 'POST',
+            headers: authHeaders,
+            body: JSON.stringify({ handle: normalizedHandle, brandName: brandName.trim() })
+          });
 
-        if (!twitterRes.ok) {
-          const data = await twitterRes.json().catch(() => ({}));
-          throw new Error(data.error || 'Twitter scrape failed');
+          if (!twitterRes.ok) {
+            const data = await twitterRes.json().catch(() => ({}));
+            throw new Error(data.error || 'Twitter scrape failed');
+          }
+
+          const data = await twitterRes.json();
+          tweetExamples = Array.isArray(data.tweetExamples) ? data.tweetExamples : [];
+          tweetImages = Array.isArray(data.referenceImages) ? data.referenceImages : [];
+
+          console.log('[Onboarding] Twitter data received:', {
+            tweetExamples: tweetExamples.length,
+            referenceImages: tweetImages.length,
+            warning: data.warning || null,
+            sampleImage: tweetImages[0]?.url
+          });
+
+          // Determine the right progress message based on what happened
+          let twitterMsg = '';
+          if (tweetExamples.length > 0) {
+            twitterMsg = `Collected ${tweetExamples.length} tweets${tweetImages.length > 0 ? ` & ${tweetImages.length} images` : ''}`;
+          } else if (data.noToken) {
+            twitterMsg = 'Skipped — add Apify token to import tweets';
+          } else if (data.warning) {
+            twitterMsg = `Twitter import unavailable — AI will use website data instead`;
+          } else {
+            twitterMsg = 'No tweets found — AI will generate content from website data';
+          }
+
+          setAnalysisProgress(prev => ({
+            ...prev,
+            twitter: { status: 'complete', message: twitterMsg },
+            assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
+          }));
+        } catch (twitterError: any) {
+          console.error('[Onboarding] Twitter fetch error:', twitterError);
+          setAnalysisProgress(prev => ({
+            ...prev,
+            twitter: { status: 'complete', message: 'Twitter import failed — AI will use website data instead' },
+            assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
+          }));
         }
-
-        const data = await twitterRes.json();
-        tweetExamples = Array.isArray(data.tweetExamples) ? data.tweetExamples : [];
-        tweetImages = Array.isArray(data.referenceImages) ? data.referenceImages : [];
-
-        console.log('[Onboarding] Twitter data received:', {
-          tweetExamples: tweetExamples.length,
-          referenceImages: tweetImages.length,
-          warning: data.warning || null,
-          sampleImage: tweetImages[0]?.url
-        });
-
-        // Determine the right progress message based on what happened
-        let twitterMsg = '';
-        if (tweetExamples.length > 0) {
-          twitterMsg = `Collected ${tweetExamples.length} tweets${tweetImages.length > 0 ? ` & ${tweetImages.length} images` : ''}`;
-        } else if (data.noToken) {
-          twitterMsg = 'Skipped — add Apify token to import tweets';
-        } else if (data.warning) {
-          twitterMsg = `Twitter import unavailable — AI will use website data instead`;
-        } else {
-          twitterMsg = 'No tweets found — AI will generate content from website data';
-        }
-
+      } else {
+        // No X handle provided — skip Twitter scraping entirely
         setAnalysisProgress(prev => ({
           ...prev,
-          twitter: { status: 'complete', message: twitterMsg },
-          assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
-        }));
-      } catch (twitterError: any) {
-        console.error('[Onboarding] Twitter fetch error:', twitterError);
-        setAnalysisProgress(prev => ({
-          ...prev,
-          twitter: { status: 'complete', message: 'Twitter import failed — AI will use website data instead' },
+          twitter: { status: 'complete', message: 'Skipped — no X handle provided' },
           assets: { status: 'loading', message: 'Extracting logos, images, and visual identity...' },
         }));
       }
@@ -1161,7 +1178,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
 
     return (
       <div
-        className="w-[480px] h-full flex flex-col justify-between p-12 overflow-y-auto shrink-0"
+        className="w-[400px] xl:w-[480px] min-w-[360px] h-full flex flex-col justify-between p-8 xl:p-12 overflow-y-auto shrink-0"
         style={{ background: 'linear-gradient(180deg, #1A0A00 0%, #0A0A0B 100%)' }}
       >
         <div className="space-y-10">
@@ -1234,7 +1251,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     ];
 
     return (
-      <div className="flex-1 flex flex-col justify-center px-24 py-20">
+      <div className="flex-1 flex flex-col justify-start px-8 lg:px-16 xl:px-24 py-12 overflow-y-auto">
         <div className="max-w-[500px] space-y-10">
           <div className="space-y-2">
             <h2 className="text-white text-[32px] font-semibold">Your Profile</h2>
@@ -1458,7 +1475,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   const renderCompanyStep = () => (
-    <div className="flex-1 flex flex-col justify-center px-24 py-20">
+    <div className="flex-1 flex flex-col justify-start px-8 lg:px-16 xl:px-24 py-12 overflow-y-auto">
       <div className="max-w-[500px] space-y-10">
         <div className="space-y-2">
           <h2 className="text-white text-3xl font-semibold">Company Details</h2>
@@ -1500,7 +1517,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </div>
 
           <div className="space-y-2">
-            <label className="text-white text-sm font-medium">Twitter / X Handle</label>
+            <label className="text-white text-sm font-medium">Twitter / X Handle <span className="text-[#6B6B70] font-normal">(optional)</span></label>
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B6B70]">
                 <span className="text-base">@</span>
@@ -1715,93 +1732,99 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   );
 
   const renderAnalyzingStep = () => (
-    <div className="flex-1 flex flex-col items-center justify-center px-24 py-20">
+    <div className="flex-1 flex flex-col items-center justify-center px-8 lg:px-16 xl:px-24 py-20">
+      <style>{`
+        @keyframes onb-pulse-ring {
+          0% { transform: scale(1); opacity: 0.5; }
+          100% { transform: scale(1.8); opacity: 0; }
+        }
+        @keyframes onb-scan-glow {
+          0%, 100% { box-shadow: 0 0 20px rgba(255,92,0,0.3), 0 0 40px rgba(255,92,0,0.1); }
+          50% { box-shadow: 0 0 30px rgba(255,92,0,0.5), 0 0 60px rgba(255,92,0,0.2); }
+        }
+        @keyframes onb-fade-up {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes onb-shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        @keyframes onb-dot-pulse {
+          0%, 60%, 100% { opacity: 0.2; }
+          30% { opacity: 1; }
+        }
+      `}</style>
       <div className="space-y-12 text-center">
         <div className="space-y-8">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FF8C4A] flex items-center justify-center mx-auto">
-            <svg className="w-9 h-9 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+          <div className="relative w-24 h-24 mx-auto">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FF8C4A]" style={{ animation: 'onb-scan-glow 2s ease-in-out infinite' }} />
+            <div className="absolute inset-0 rounded-full border-2 border-[#FF5C00]/40" style={{ animation: 'onb-pulse-ring 2s ease-out infinite' }} />
+            <div className="absolute inset-0 rounded-full border-2 border-[#FF5C00]/30" style={{ animation: 'onb-pulse-ring 2s ease-out infinite 0.6s' }} />
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FF8C4A] flex items-center justify-center">
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
           </div>
           <div className="space-y-2">
             <h2 className="text-white text-2xl font-semibold">Analyzing Your Company</h2>
-            <p className="text-[#8E8E93] text-base">This usually takes about 30 seconds</p>
+            <p className="text-[#8E8E93] text-base">
+              This usually takes about 30 seconds
+              <span className="inline-flex ml-1 gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-[#8E8E93] inline-block" style={{ animation: 'onb-dot-pulse 1.4s ease-in-out infinite' }} />
+                <span className="w-1 h-1 rounded-full bg-[#8E8E93] inline-block" style={{ animation: 'onb-dot-pulse 1.4s ease-in-out infinite 0.2s' }} />
+                <span className="w-1 h-1 rounded-full bg-[#8E8E93] inline-block" style={{ animation: 'onb-dot-pulse 1.4s ease-in-out infinite 0.4s' }} />
+              </span>
+            </p>
           </div>
         </div>
 
-        <div className="w-[400px] space-y-4">
-          <div className={`rounded-xl bg-[#111113] border p-4 flex items-center gap-3 ${
-            analysisProgress.website.status === 'loading' ? 'border-[#FF5C00]' : 'border-[#2A2A2E]'
-          } ${analysisProgress.assets.status === 'pending' && analysisProgress.website.status === 'pending' ? 'opacity-50' : ''}`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              analysisProgress.website.status === 'complete' ? 'bg-[#1A3D1A]' : 'bg-[#1A1208]'
-            }`}>
-              {analysisProgress.website.status === 'complete' ? (
-                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                </svg>
-              )}
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-white text-sm font-medium">Website Content</p>
-              <p className="text-[#8E8E93] text-xs">
-                {analysisProgress.website.message || 'Scanning website content, products, and key messaging...'}
-              </p>
-            </div>
-          </div>
-
-          <div className={`rounded-xl bg-[#111113] border p-4 flex items-center gap-3 ${
-            analysisProgress.twitter.status === 'loading' ? 'border-[#FF5C00]' : 'border-[#2A2A2E]'
-          } ${analysisProgress.twitter.status === 'pending' ? 'opacity-50' : ''}`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              analysisProgress.twitter.status === 'complete' ? 'bg-[#1A3D1A]' : 'bg-[#1A1208]'
-            }`}>
-              {analysisProgress.twitter.status === 'complete' ? (
-                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-[#FF5C00]" fill="none" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
-              )}
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-white text-sm font-medium">Twitter Profile</p>
-              <p className="text-[#8E8E93] text-xs">
-                {analysisProgress.twitter.message || 'Analyzing tweets, engagement patterns, and brand voice...'}
-              </p>
-            </div>
-          </div>
-
-          <div className={`rounded-xl bg-[#111113] border p-4 flex items-center gap-3 ${
-            analysisProgress.assets.status === 'loading' ? 'border-[#FF5C00]' : 'border-[#2A2A2E]'
-          } ${analysisProgress.assets.status === 'pending' ? 'opacity-50' : ''}`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-              analysisProgress.assets.status === 'complete' ? 'bg-[#1A3D1A]' : 'bg-[#1F1F23]'
-            }`}>
-              {analysisProgress.assets.status === 'complete' ? (
-                <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              )}
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-white text-sm font-medium">Brand Assets</p>
-              <p className="text-[#8E8E93] text-xs">
-                {analysisProgress.assets.message || 'Extracting logos, images, and visual identity...'}
-              </p>
-            </div>
-          </div>
+        <div className="w-full max-w-[480px] space-y-4">
+          {[
+            { key: 'website' as const, label: 'Website Content', msg: analysisProgress.website.message || 'Scanning website content, products, and key messaging...', delay: '0s',
+              icon: <svg className="w-4.5 h-4.5 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>,
+              pendingCheck: analysisProgress.assets.status === 'pending' && analysisProgress.website.status === 'pending',
+              bg: 'bg-[#1A1208]' },
+            { key: 'twitter' as const, label: 'Twitter Profile', msg: analysisProgress.twitter.message || 'Analyzing tweets, engagement patterns, and brand voice...', delay: '0.15s',
+              icon: <svg className="w-4.5 h-4.5 text-[#FF5C00]" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>,
+              pendingCheck: analysisProgress.twitter.status === 'pending',
+              bg: 'bg-[#1A1208]' },
+            { key: 'assets' as const, label: 'Brand Assets', msg: analysisProgress.assets.message || 'Extracting logos, images, and visual identity...', delay: '0.3s',
+              icon: <svg className="w-4.5 h-4.5 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+              pendingCheck: analysisProgress.assets.status === 'pending',
+              bg: 'bg-[#1F1F23]' },
+          ].map((card) => {
+            const progress = analysisProgress[card.key];
+            return (
+              <div
+                key={card.key}
+                className={`relative overflow-hidden rounded-xl bg-[#111113] border p-4 flex items-center gap-3 ${
+                  progress.status === 'loading' ? 'border-[#FF5C00]' : 'border-[#2A2A2E]'
+                } ${card.pendingCheck ? 'opacity-50' : ''}`}
+                style={{ animation: `onb-fade-up 0.5s ease-out both`, animationDelay: card.delay }}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  progress.status === 'complete' ? 'bg-[#1A3D1A]' : card.bg
+                }`}>
+                  {progress.status === 'complete' ? (
+                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : card.icon}
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-white text-sm font-medium">{card.label}</p>
+                  <p className="text-[#8E8E93] text-xs">{card.msg}</p>
+                </div>
+                {progress.status === 'loading' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1F1F23] overflow-hidden">
+                    <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#FF5C00] to-transparent" style={{ animation: 'onb-shimmer 1.5s ease-in-out infinite' }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1868,7 +1891,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   ) || enrichedData?.config.referenceImages?.[0];
 
   const renderReviewStep = () => (
-    <div className="flex-1 overflow-y-auto px-12 py-10 bg-[#0A0A0B]">
+    <div className="flex-1 overflow-y-auto px-6 lg:px-12 py-10 pb-0 bg-[#0A0A0B]">
       {/* Image Viewer Modal */}
       {viewingImage && (
         <div
@@ -1911,121 +1934,142 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       />
 
       <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header with Logo */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-6">
-            {/* Company Logo/Avatar */}
-            <div
-              className="w-20 h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-[#1F1F23] to-[#0A0A0B] border border-[#2A2A2E] flex items-center justify-center cursor-pointer hover:border-[#FF5C00] transition-colors"
-              onClick={() => potentialLogo?.url && setViewingImage(potentialLogo.url)}
-              style={{ backgroundColor: primaryColor + '20' }}
-            >
-              {potentialLogo?.url || potentialLogo?.data ? (
-                <img
-                  src={potentialLogo.url || potentialLogo.data}
-                  alt="Logo"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-3xl font-bold" style={{ color: primaryColor }}>
-                  {enrichedData?.brandName?.charAt(0) || 'B'}
-                </span>
-              )}
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white">{enrichedData?.brandName}</h1>
-              <p className="text-[#8E8E93] mt-1">{(enrichedData?.config.targetAudience && !enrichedData.config.targetAudience.toLowerCase().includes('no information available'))
-                ? enrichedData.config.targetAudience.split(',')[0]
-                : 'Web3 Technology'}</p>
-              <div className="flex items-center gap-4 mt-2">
-                <a href={enrichedData?.sources.domains[0]} target="_blank" rel="noopener noreferrer" className="text-[#FF5C00] text-sm hover:underline flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                  </svg>
-                  {enrichedData?.sources.domains[0]?.replace('https://', '')}
-                </a>
-                <a href={`https://x.com/${enrichedData?.sources.xHandles[0]}`} target="_blank" rel="noopener noreferrer" className="text-[#FF5C00] text-sm hover:underline flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                  </svg>
-                  @{enrichedData?.sources.xHandles[0]}
-                </a>
+        {/* Brand Identity Hero Card */}
+        <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-[#FF5C00] via-[#FF8C4A] to-[#FF5C00]" />
+          <div className="p-8">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-6">
+                <div
+                  className="w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-br from-[#1F1F23] to-[#0A0A0B] border border-[#2A2A2E] flex items-center justify-center cursor-pointer hover:border-[#FF5C00] transition-colors shadow-lg"
+                  onClick={() => potentialLogo?.url && setViewingImage(potentialLogo.url)}
+                  style={{ backgroundColor: primaryColor + '20' }}
+                >
+                  {potentialLogo?.url || potentialLogo?.data ? (
+                    <img
+                      src={potentialLogo.url || potentialLogo.data}
+                      alt="Logo"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl font-bold" style={{ color: primaryColor }}>
+                      {enrichedData?.brandName?.charAt(0) || 'B'}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold text-white tracking-tight">{enrichedData?.brandName}</h1>
+                  <p className="text-[#8E8E93] mt-1">{(enrichedData?.config.targetAudience && !enrichedData.config.targetAudience.toLowerCase().includes('no information available'))
+                    ? enrichedData.config.targetAudience.split(',')[0]
+                    : 'Web3 Technology'}</p>
+                  <div className="flex items-center gap-3 mt-3">
+                    <a href={enrichedData?.sources.domains[0]} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#1F1F23]/50 px-3 py-1.5 text-[#FF5C00] text-sm hover:bg-[#1F1F23] transition-colors flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                      </svg>
+                      {enrichedData?.sources.domains[0]?.replace('https://', '')}
+                    </a>
+                    <a href={`https://x.com/${enrichedData?.sources.xHandles[0]}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#1F1F23]/50 px-3 py-1.5 text-[#FF5C00] text-sm hover:bg-[#1F1F23] transition-colors flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                      </svg>
+                      @{enrichedData?.sources.xHandles[0]}
+                    </a>
+                  </div>
+                </div>
               </div>
+              <button
+                onClick={() => setCurrentStep('company')}
+                className="px-4 py-2.5 rounded-xl bg-[#1F1F23] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#2A2A2E] transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Edit Details
+              </button>
             </div>
           </div>
-          <button
-            onClick={() => setCurrentStep('company')}
-            className="px-4 py-2.5 rounded-xl bg-[#1F1F23] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#2A2A2E] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-            Edit Details
-          </button>
         </div>
 
-        {/* Brand Colors */}
-        {brandColors.length > 0 && (
-          <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-semibold flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                  </svg>
-                </div>
-                Brand Colors
-              </h3>
-            </div>
-            <div className="flex gap-4">
-              {brandColors.map((color, index) => (
-                <div key={index} className="flex flex-col items-center gap-2">
-                  <div
-                    className="w-16 h-16 rounded-xl border-2 border-[#2A2A2E] shadow-lg"
-                    style={{ backgroundColor: color.hex }}
-                  />
-                  <span className="text-xs text-[#8E8E93]">{color.name}</span>
-                  <span className="text-xs text-[#6B6B70] font-mono">{color.hex}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Section Divider: Brand Identity */}
+        <div className="flex items-center gap-4">
+          <div className="h-px flex-1 bg-[#2A2A2E]" />
+          <span className="text-[10px] uppercase tracking-[0.2em] text-[#6B6B70]">Brand Identity</span>
+          <div className="h-px flex-1 bg-[#2A2A2E]" />
+        </div>
 
-        {/* Brand Voice & Personality */}
-        <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white font-semibold flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
+        {/* Colors + Voice two-column grid */}
+        <div className={`grid gap-6 ${brandColors.length > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {/* Brand Colors */}
+          {brandColors.length > 0 && (
+            <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                    </svg>
+                  </div>
+                  Brand Colors
+                </h3>
               </div>
-              Brand Voice & Personality
-            </h3>
-          </div>
-          <p className="text-[#C5C5C7] text-sm leading-relaxed mb-4">
-            {(enrichedData?.config.voiceGuidelines && !enrichedData.config.voiceGuidelines.toLowerCase().includes('no information available'))
-              ? enrichedData.config.voiceGuidelines
-              : 'Professional yet approachable, with a focus on technical credibility and community-first messaging. Clear explanations of complex concepts while maintaining authenticity.'}
-          </p>
-          {enrichedData?.config.bannedPhrases && enrichedData.config.bannedPhrases.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-[#2A2A2E]">
-              <p className="text-xs text-[#6B6B70] uppercase tracking-wider mb-2">Avoid These Phrases</p>
-              <div className="flex gap-2 flex-wrap">
-                {enrichedData.config.bannedPhrases.slice(0, 6).map((phrase, index) => (
-                  <span key={index} className="px-2 py-1 rounded-md bg-red-500/10 text-red-400 text-xs">{phrase}</span>
+              <div className="flex gap-4 flex-wrap">
+                {brandColors.map((color, index) => (
+                  <div key={index} className="flex flex-col items-center gap-2">
+                    <div
+                      className="w-14 h-14 rounded-xl border-2 border-[#2A2A2E] shadow-lg"
+                      style={{ backgroundColor: color.hex }}
+                    />
+                    <span className="text-xs text-[#8E8E93]">{color.name}</span>
+                    <span className="text-xs text-[#6B6B70] font-mono">{color.hex}</span>
+                  </div>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Brand Voice & Personality */}
+          <div className={`rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6 ${brandColors.length === 0 ? 'col-span-1' : ''}`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                Brand Voice & Personality
+              </h3>
+            </div>
+            <p className="text-[#C5C5C7] text-sm leading-relaxed mb-4">
+              {(enrichedData?.config.voiceGuidelines && !enrichedData.config.voiceGuidelines.toLowerCase().includes('no information available'))
+                ? enrichedData.config.voiceGuidelines
+                : 'Professional yet approachable, with a focus on technical credibility and community-first messaging. Clear explanations of complex concepts while maintaining authenticity.'}
+            </p>
+            {enrichedData?.config.bannedPhrases && enrichedData.config.bannedPhrases.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-[#2A2A2E]">
+                <p className="text-xs text-[#6B6B70] uppercase tracking-wider mb-2">Avoid These Phrases</p>
+                <div className="flex gap-2 flex-wrap">
+                  {enrichedData.config.bannedPhrases.slice(0, 6).map((phrase, index) => (
+                    <span key={index} className="px-2 py-1 rounded-md bg-red-500/10 text-red-400 text-xs">{phrase}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section Divider: Content & Assets */}
+        <div className="flex items-center gap-4">
+          <div className="h-px flex-1 bg-[#2A2A2E]" />
+          <span className="text-[10px] uppercase tracking-[0.2em] text-[#6B6B70]">Content & Assets</span>
+          <div className="h-px flex-1 bg-[#2A2A2E]" />
         </div>
 
         {/* Knowledge Base */}
         <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center">
                 <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
@@ -2046,7 +2090,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
               {uploadingFile ? 'Uploading...' : 'Add PDF/Doc'}
             </button>
           </div>
-          <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+          <div className="relative">
+          <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
             {enrichedData?.config.knowledgeBase?.slice(0, 5).map((item, index) => {
               const cleanItem = item.replace(/^\[(.*?)\]\s*/, '');
               const truncated = cleanItem.length > 180 ? cleanItem.slice(0, 180) + '...' : cleanItem;
@@ -2071,6 +2116,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
                 </div>
               );
             })}
+          </div>
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#111113]" />
           </div>
           {(enrichedData?.config.knowledgeBase?.length || 0) > 5 && (
             <button
@@ -2142,7 +2189,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-green-500/20 flex items-center justify-center">
                 <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
@@ -2164,11 +2211,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             </button>
           </div>
           {enrichedData?.config.referenceImages && enrichedData.config.referenceImages.length > 0 ? (
-            <div className="grid grid-cols-4 gap-4">
-              {enrichedData.config.referenceImages.slice(0, 8).map((img, index) => (
+            <div className="grid grid-cols-3 gap-4">
+              {enrichedData.config.referenceImages.slice(0, 6).map((img, index) => (
                 <div
                   key={img.id || index}
-                  className="aspect-square rounded-xl bg-[#0A0A0B] border border-[#1F1F23] overflow-hidden cursor-pointer hover:border-[#FF5C00] hover:shadow-lg hover:shadow-[#FF5C00]/10 transition-all group relative"
+                  className="aspect-[4/3] rounded-xl bg-[#0A0A0B] border border-[#1F1F23] overflow-hidden cursor-pointer hover:border-[#FF5C00] hover:shadow-lg hover:shadow-[#FF5C00]/10 transition-all group relative"
                   onClick={() => setViewingImage(img.url || img.data || null)}
                 >
                   <img
@@ -2216,7 +2263,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-sky-500/20 flex items-center justify-center">
                 <svg className="w-4 h-4 text-sky-400" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                 </svg>
@@ -2245,8 +2292,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-4 pt-4 pb-8">
+        {/* Action Buttons — sticky bottom */}
+        <div className="sticky bottom-0 flex justify-between items-center pt-6 pb-6 bg-gradient-to-t from-[#0A0A0B] via-[#0A0A0B] to-transparent">
           <button
             onClick={() => setCurrentStep('company')}
             className="px-6 py-3.5 rounded-xl bg-[#1F1F23] text-white font-medium flex items-center gap-2 hover:bg-[#2A2A2E] transition-colors"
@@ -2259,7 +2306,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           {styleExamples.length > 0 ? (
             <button
               onClick={() => setCurrentStep('styles')}
-              className="px-8 py-3.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-[#FF5C00]/20"
+              className="px-10 py-4 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] hover:scale-[1.02] text-white font-semibold flex items-center gap-2 transition-all shadow-lg shadow-[#FF5C00]/25"
             >
               <span>Continue to Content Preview</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2269,7 +2316,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           ) : (
             <button
               onClick={handleLaunch}
-              className="px-8 py-3.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] text-white font-semibold flex items-center gap-2 transition-colors shadow-lg shadow-[#FF5C00]/20"
+              className="px-10 py-4 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] hover:scale-[1.02] text-white font-semibold flex items-center gap-2 transition-all shadow-lg shadow-[#FF5C00]/25"
             >
               <span>Launch AI CMO</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2301,7 +2348,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     // Empty state: no style examples found (e.g. Apify not configured)
     if (totalExamples === 0) {
       return (
-        <div className="flex-1 flex flex-col px-16 py-12 overflow-y-auto">
+        <div className="flex-1 flex flex-col px-6 lg:px-12 xl:px-16 py-12 overflow-y-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-white text-2xl font-semibold">Content Style Examples</h2>
@@ -2342,14 +2389,36 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
     }
 
     return (
-      <div className="flex-1 flex flex-col px-16 py-12 overflow-y-auto">
+      <div className="flex-1 flex flex-col px-6 lg:px-12 xl:px-16 py-12 overflow-y-auto">
+        <style>{`
+          @keyframes onb-card-enter {
+            from { opacity: 0; transform: translateY(8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+        `}</style>
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-white text-2xl font-semibold tracking-tight">Train Your AI Voice</h2>
             <p className="text-[#8E8E93] text-sm mt-1">Review AI-generated content examples. Approve ones that match your style.</p>
           </div>
-          <div className="px-4 py-2 rounded-full bg-[#1F1F23] text-white text-sm font-medium font-mono">
-            {currentStyleIndex + 1} / {totalExamples}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: totalExamples }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === currentStyleIndex
+                      ? 'w-6 bg-[#FF5C00]'
+                      : i < currentStyleIndex
+                        ? 'w-1.5 bg-[#FF5C00]/40'
+                        : 'w-1.5 bg-[#2A2A2E]'
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-[#6B6B70] text-xs font-mono">
+              {currentStyleIndex + 1}/{totalExamples}
+            </span>
           </div>
         </div>
 
@@ -2357,18 +2426,18 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           <button
             onClick={() => setCurrentStyleIndex(prev => Math.max(0, prev - 1))}
             disabled={currentStyleIndex === 0}
-            className="w-12 h-12 rounded-full bg-[#1F1F23] flex items-center justify-center text-white hover:bg-[#2A2A2E] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="w-14 h-14 rounded-2xl bg-[#111113] border border-[#2A2A2E] flex items-center justify-center text-white hover:border-[#FF5C00]/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
 
-          <div className="w-[540px] space-y-6">
-            <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] overflow-hidden shadow-lg shadow-black/20">
-              <div className="px-6 py-4 border-b border-[#2A2A2E] flex items-center justify-between">
+          <div className="w-full max-w-[560px] space-y-6" key={currentStyleIndex} style={{ animation: 'onb-card-enter 0.3s ease-out' }}>
+            <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] overflow-hidden shadow-xl shadow-black/30">
+              <div className="px-6 py-4 border-b border-[#2A2A2E] bg-[#0F0F12] flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FF8C4A] flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FF8C4A] flex items-center justify-center text-white font-bold text-sm shadow-md shadow-[#FF5C00]/20">
                     {enrichedData?.brandName?.charAt(0) || 'D'}
                   </div>
                   <div>
@@ -2376,21 +2445,24 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
                     <p className="text-[#6B6B70] text-xs">@{enrichedData?.sources.xHandles[0] || 'handle'}</p>
                   </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-[#FF5C00]/10 text-[#FF5C00] text-[10px] font-semibold tracking-wider uppercase">AI Draft</span>
+                <span className="px-3 py-1 rounded-full bg-[#FF5C00]/10 border border-[#FF5C00]/20 text-[#FF5C00] text-[10px] font-semibold tracking-wider uppercase">AI Draft</span>
               </div>
-              <div className="px-6 py-5">
-                <p className="text-white text-[15px] leading-relaxed whitespace-pre-wrap">
+              <div className="px-6 py-6">
+                <p className="text-white text-[15px] leading-[1.7] whitespace-pre-wrap">
                   {currentExample}
                 </p>
               </div>
             </div>
 
-            <div className="rounded-2xl bg-[#0F0F12] border border-[#2A2A2E] p-4">
+            <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5 text-[#FF5C00]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
                   <span className="text-xs font-semibold text-[#FF5C00]">Graphic Preview</span>
                   {variantLabel && (
-                    <span className="text-[10px] uppercase tracking-widest text-[#6B6B70]">
+                    <span className="bg-[#1F1F23] px-2 py-0.5 rounded text-[10px] uppercase tracking-widest text-[#6B6B70]">
                       {variantLabel}
                     </span>
                   )}
@@ -2437,7 +2509,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
                 ))}
               </div>
 
-              <div className="rounded-xl overflow-hidden border border-[#1F1F23] bg-[#0A0A0B] h-[240px] flex items-center justify-center">
+              <div className="rounded-xl overflow-hidden border border-[#1F1F23] bg-[#0A0A0B] h-[260px] flex items-center justify-center">
                 {selectedVariant?.image ? (
                   <img
                     src={selectedVariant.image}
@@ -2456,11 +2528,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-5">
               <button
                 onClick={handleRejectStyle}
                 disabled={!currentExample}
-                className="px-6 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-medium flex items-center gap-2 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-8 py-3.5 rounded-xl bg-[#1F1F23] border border-[#2A2A2E] text-[#C5C5C7] font-medium flex items-center gap-2 hover:bg-[#2A2A2E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2470,12 +2542,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
               <button
                 onClick={handleApproveStyle}
                 disabled={!currentExample}
-                className="px-6 py-3 rounded-xl bg-green-500 text-white font-medium flex items-center gap-2 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-8 py-3.5 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] hover:scale-[1.02] text-white font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[#FF5C00]/20"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                This is Me
+                This is My Style
               </button>
             </div>
           </div>
@@ -2483,7 +2555,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           <button
             onClick={() => setCurrentStyleIndex(prev => Math.min(totalExamples - 1, prev + 1))}
             disabled={currentStyleIndex >= totalExamples - 1}
-            className="w-12 h-12 rounded-full bg-[#1F1F23] flex items-center justify-center text-white hover:bg-[#2A2A2E] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="w-14 h-14 rounded-2xl bg-[#111113] border border-[#2A2A2E] flex items-center justify-center text-white hover:border-[#FF5C00]/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -2491,23 +2563,23 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </button>
         </div>
 
-        <div className="flex items-center justify-between mt-8">
-          <div className="flex items-center gap-6 text-[#6B6B70] text-sm">
+        <div className="flex items-center justify-between mt-10 pt-6 border-t border-[#1F1F23]">
+          <div className="flex items-center gap-6 text-[#6B6B70] text-xs">
             <span className="flex items-center gap-2">
-              <kbd className="px-2 py-1 rounded bg-[#1F1F23] text-xs">←</kbd> Previous
+              <kbd className="px-2 py-1 rounded-md border border-[#2A2A2E] bg-[#1F1F23] text-xs">←</kbd> Previous
             </span>
             <span className="flex items-center gap-2">
-              <kbd className="px-2 py-1 rounded bg-[#1F1F23] text-xs">→</kbd> Next
+              <kbd className="px-2 py-1 rounded-md border border-[#2A2A2E] bg-[#1F1F23] text-xs">→</kbd> Next
             </span>
             <span className="flex items-center gap-2">
-              <kbd className="px-2 py-1 rounded bg-[#1F1F23] text-xs">Enter</kbd> Approve
+              <kbd className="px-2 py-1 rounded-md border border-[#2A2A2E] bg-[#1F1F23] text-xs">Enter</kbd> Approve
             </span>
           </div>
           <button
             onClick={handleLaunch}
-            className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-colors ${
+            className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${
               currentStyleIndex >= styleExamples.length - 1
-                ? 'bg-[#FF5C00] hover:bg-[#FF6B1A] text-white shadow-lg shadow-[#FF5C00]/20'
+                ? 'bg-[#FF5C00] hover:bg-[#FF6B1A] hover:scale-[1.02] text-white shadow-lg shadow-[#FF5C00]/20'
                 : 'bg-[#1F1F23] text-[#8E8E93] hover:bg-[#2A2A2E] hover:text-white'
             }`}
           >
@@ -2522,7 +2594,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   return (
-    <div className="h-screen bg-[#0A0A0B] flex overflow-hidden">
+    <div className="h-screen bg-[#0A0A0B] flex overflow-x-auto overflow-y-hidden">
       {renderLeftPanel()}
       {currentStep === 'profile' && renderProfileStep()}
       {currentStep === 'company' && renderCompanyStep()}

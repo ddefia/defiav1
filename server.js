@@ -1218,12 +1218,14 @@ app.post('/api/onboarding/deep-crawl', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Valid URL is required.' });
         }
 
-        console.log(`[DeepCrawl] Starting deep crawl of ${normalized}...`);
+        const apifyToken = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';
+        console.log(`[DeepCrawl] Starting deep crawl of ${normalized} (Apify token: ${apifyToken ? 'present' : 'MISSING'})`);
 
         const result = await deepCrawlWebsite(normalized, {
             maxPages: typeof maxPages === 'number' ? Math.min(Math.max(maxPages, 10), 100) : 50,
             maxDepth: typeof maxDepth === 'number' ? Math.min(Math.max(maxDepth, 3), 20) : 10,
-            includeDocsSubdomain: includeDocsSubdomain !== false
+            includeDocsSubdomain: includeDocsSubdomain !== false,
+            waitForFinishSecs: 300
         });
 
         // Extract DeFi metrics from the content

@@ -1314,11 +1314,13 @@ const App: React.FC = () => {
 
         await bootstrapKickoffContent(payload.brandName, mergedConfig);
         navigate('/dashboard');
-        // Trigger product tour for new users
-        const tourState = loadTourState();
-        if (!tourState.completed && !tourState.dismissed) {
-            setShowProductTour(true);
-        }
+        // Trigger product tour for new users — delay to let dashboard render first
+        setTimeout(() => {
+            const tourState = loadTourState();
+            if (!tourState.completed && !tourState.dismissed) {
+                setShowProductTour(true);
+            }
+        }, 500);
     };
 
     const handleTourComplete = () => {
@@ -1749,9 +1751,14 @@ const App: React.FC = () => {
     // Landing page renders immediately — no auth needed
     if (isLanding) {
         return <LandingPage onOpenDashboard={() => {
-            // If user is logged in, go to dashboard, otherwise go to login
             if (currentUser) {
-                navigate('/dashboard');
+                // If user has a brand, go to dashboard; otherwise start onboarding
+                const userBrand = getCurrentUserBrand();
+                if (userBrand) {
+                    navigate('/dashboard');
+                } else {
+                    navigate('/onboarding');
+                }
             } else {
                 navigate('/login');
             }

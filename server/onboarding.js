@@ -381,7 +381,7 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
     maxPages = 50,
     maxDepth = 10,
     includeDocsSubdomain = true,
-    waitForFinishSecs = 180
+    waitForFinishSecs = 300
   } = options;
 
   const token = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';
@@ -411,9 +411,9 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
       console.log(`[Onboarding] Also crawling docs subdomain: ${docsUrl}`);
     }
 
-    // Run Apify Website Content Crawler
+    // Start Apify Website Content Crawler run
     const runRes = await fetchImpl(
-      `https://api.apify.com/v2/acts/${ACTOR_WEBSITE_CRAWLER}/runs?token=${token}&waitForFinish=${waitForFinishSecs}`,
+      `https://api.apify.com/v2/acts/${ACTOR_WEBSITE_CRAWLER}/runs?token=${token}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -444,15 +444,49 @@ export const deepCrawlWebsite = async (startUrl, options = {}) => {
 
     const runData = await runRes.json();
 
-    if (!runData.data || (runData.data.status !== 'SUCCEEDED' && runData.data.status !== 'RUNNING')) {
-      console.warn('[Onboarding] Deep crawl failed, falling back to simple crawl. Status:', runData.data?.status, 'Error:', JSON.stringify(runData?.error || runData?.data?.statusMessage || 'unknown'));
+    if (!runRes.ok || !runData?.data?.id) {
+      const err = runData?.error?.message || `HTTP ${runRes.status}`;
+      console.warn(`[Onboarding] Deep crawl failed to start: ${err}`);
       const fallback = await crawlWebsite(startUrl, { maxPages: 8 });
-      fallback.warning = `Deep crawl failed (${runData.data?.status || 'no response'}), used basic crawl`;
+      fallback.warning = `Deep crawl failed to start (${err}), used basic crawl`;
+      return fallback;
+    }
+
+    const runId = runData.data.id;
+    const datasetId = runData.data.defaultDatasetId;
+    let runStatus = runData.data.status;
+    const startTime = Date.now();
+    const timeoutMs = waitForFinishSecs * 1000;
+
+    console.log(`[Onboarding] Deep crawl run started: runId=${runId}, status=${runStatus}`);
+
+    // Poll for completion (same pattern as Twitter scraping)
+    while (runStatus !== 'SUCCEEDED' && runStatus !== 'FAILED' && runStatus !== 'ABORTED') {
+      const elapsed = Date.now() - startTime;
+      if (elapsed > timeoutMs) {
+        console.warn(`[Onboarding] Deep crawl timed out after ${Math.round(elapsed / 1000)}s, status: ${runStatus}`);
+        try {
+          await fetchImpl(`https://api.apify.com/v2/actor-runs/${runId}/abort?token=${token}`, { method: 'POST' });
+          console.log(`[Onboarding] Aborted hanging deep crawl run ${runId}`);
+        } catch { /* ignore abort errors */ }
+        break;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      const statusRes = await fetchImpl(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`);
+      const statusData = await statusRes.json();
+      runStatus = statusData?.data?.status || 'UNKNOWN';
+      console.log(`[Onboarding] Deep crawl [${Math.round(elapsed / 1000)}s] status: ${runStatus}`);
+    }
+
+    if (runStatus !== 'SUCCEEDED') {
+      console.warn(`[Onboarding] Deep crawl finished with status ${runStatus}, falling back to simple crawl`);
+      const fallback = await crawlWebsite(startUrl, { maxPages: 8 });
+      fallback.warning = `Deep crawl ${runStatus}, used basic crawl`;
       return fallback;
     }
 
     // Fetch results from dataset
-    const datasetId = runData.data.defaultDatasetId;
     const itemsRes = await fetchImpl(
       `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}`
     );
