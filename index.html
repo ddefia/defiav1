@@ -184,6 +184,18 @@
         height: auto;
         min-height: 117.647%;
       }
+      /* Mobile: disable scale transform so page is readable */
+      @media (max-width: 768px) {
+        #root {
+          transform: none !important;
+          width: 100% !important;
+          height: auto !important;
+          min-height: 100% !important;
+        }
+        body:not(.no-scroll) #root {
+          min-height: 100% !important;
+        }
+      }
       /* In light mode, override white text to dark inside themed containers */
       [data-theme="light"] .text-white {
         color: var(--text-primary) !important;

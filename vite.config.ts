@@ -43,7 +43,11 @@ export default defineConfig(({ mode }) => {
       'process.env.APIFY_API_TOKEN': JSON.stringify(env.APIFY_API_TOKEN || env.VITE_APIFY_API_TOKEN || process.env.APIFY_API_TOKEN),
       'process.env.VITE_APIFY_API_TOKEN': JSON.stringify(env.APIFY_API_TOKEN || env.VITE_APIFY_API_TOKEN || process.env.APIFY_API_TOKEN),
       'import.meta.env.VITE_APIFY_API_TOKEN': JSON.stringify(env.APIFY_API_TOKEN || env.VITE_APIFY_API_TOKEN || process.env.APIFY_API_TOKEN),
-      'process.env.DUNE_API_KEY': JSON.stringify(env.DUNE_API_KEY || process.env.DUNE_API_KEY)
+      'process.env.DUNE_API_KEY': JSON.stringify(env.DUNE_API_KEY || process.env.DUNE_API_KEY),
+      // Stripe keys
+      'import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY': JSON.stringify(env.VITE_STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLISHABLE_KEY || ''),
+      'import.meta.env.VITE_STRIPE_STARTER_PRICE_ID': JSON.stringify(env.VITE_STRIPE_STARTER_PRICE_ID || process.env.VITE_STRIPE_STARTER_PRICE_ID || ''),
+      'import.meta.env.VITE_STRIPE_GROWTH_PRICE_ID': JSON.stringify(env.VITE_STRIPE_GROWTH_PRICE_ID || process.env.VITE_STRIPE_GROWTH_PRICE_ID || ''),
     },
     resolve: {
       alias: {

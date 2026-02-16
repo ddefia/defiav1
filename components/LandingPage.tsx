@@ -9,6 +9,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
+  const [showMobileModal, setShowMobileModal] = useState(false);
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+
+  const handleGetStarted = () => {
+    if (isMobile) {
+      setShowMobileModal(true);
+    } else {
+      onOpenDashboard();
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -256,11 +267,148 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         .lp-testimonial:hover {
           transform: translateY(-4px) scale(1.02);
         }
+
+        /* ===== Mobile Responsive ===== */
+        @media (max-width: 768px) {
+          .lp-header {
+            padding: 16px 20px !important;
+          }
+          .lp-header-nav {
+            display: none !important;
+          }
+          .lp-hero {
+            padding: 60px 20px 40px !important;
+            gap: 32px !important;
+          }
+          .lp-hero h1 {
+            font-size: 36px !important;
+            letter-spacing: -1px !important;
+          }
+          .lp-hero-subtitle {
+            font-size: 16px !important;
+            padding: 0 8px;
+          }
+          .lp-hero-ctas {
+            flex-direction: column !important;
+            width: 100% !important;
+            padding: 0 8px;
+          }
+          .lp-hero-ctas button {
+            width: 100% !important;
+            justify-content: center;
+          }
+          .lp-product-mockup {
+            display: none !important;
+          }
+          .lp-trust-logos {
+            gap: 24px !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            padding: 0 16px;
+          }
+          .lp-trust-logos span {
+            font-size: 12px !important;
+            letter-spacing: 2px !important;
+          }
+          .lp-section {
+            padding: 60px 20px !important;
+          }
+          .lp-section-heading {
+            font-size: 32px !important;
+            letter-spacing: -1px !important;
+          }
+          .lp-section-desc {
+            font-size: 15px !important;
+          }
+          .lp-features-grid {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+          }
+          .lp-hiw-steps {
+            flex-direction: column !important;
+            gap: 16px !important;
+          }
+          .lp-hiw-line {
+            display: none !important;
+          }
+          .lp-stats-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            padding: 32px 20px !important;
+            gap: 24px !important;
+          }
+          .lp-stat-value {
+            font-size: 32px !important;
+          }
+          .lp-testimonials-row {
+            flex-direction: column !important;
+            gap: 16px !important;
+          }
+          .lp-cta-section {
+            padding: 80px 20px !important;
+          }
+          .lp-cta-section h2 {
+            font-size: 32px !important;
+            letter-spacing: -1px !important;
+          }
+          .lp-cta-buttons {
+            flex-direction: column !important;
+            width: 100% !important;
+          }
+          .lp-cta-buttons button {
+            width: 100% !important;
+            justify-content: center;
+          }
+          .lp-floating-icon {
+            display: none !important;
+          }
+          .lp-footer {
+            padding: 48px 20px !important;
+          }
+          .lp-footer-top {
+            flex-direction: column !important;
+            gap: 40px !important;
+          }
+          .lp-footer-links {
+            flex-wrap: wrap !important;
+            gap: 32px !important;
+          }
+          .lp-footer-bottom {
+            flex-direction: column !important;
+            gap: 16px !important;
+            align-items: center !important;
+            text-align: center;
+          }
+          .lp-footer-bottom-links {
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+          }
+        }
       `}</style>
+
+      {/* Mobile Modal */}
+      {showMobileModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', padding: '24px' }}>
+          <div style={{ maxWidth: '360px', width: '100%', padding: '40px 28px', borderRadius: '20px', backgroundColor: '#111113', border: '1px solid #1F1F23', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, #FF5C00, #FF8A4C)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '32px' }}>💻</span>
+            </div>
+            <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>Desktop Required</h3>
+            <p style={{ fontSize: '15px', color: '#9CA3AF', lineHeight: 1.7, margin: 0 }}>
+              Defia is optimized for desktop. Please open <span style={{ color: '#FF5C00', fontWeight: 500 }}>app.defia.io</span> on your laptop or desktop to get started.
+            </p>
+            <button
+              onClick={() => setShowMobileModal(false)}
+              style={{ width: '100%', padding: '14px', borderRadius: '12px', background: 'linear-gradient(135deg, #FF5C00 0%, #FF8A4C 100%)', border: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: 600, color: '#FFFFFF' }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header
-        className="flex items-center justify-between sticky top-0 z-50 transition-all duration-300"
+        className="lp-header flex items-center justify-between sticky top-0 z-50 transition-all duration-300"
         style={{
           padding: '20px 80px',
           backgroundColor: scrollY > 50 ? 'rgba(10,10,11,0.92)' : 'transparent',
@@ -278,7 +426,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           </div>
           <span style={{ fontFamily: 'DM Mono', fontSize: '20px', fontWeight: 600, letterSpacing: '3px', color: '#FFFFFF' }}>Defia</span>
         </div>
-        <nav className="flex items-center" style={{ gap: '40px' }}>
+        <nav className="lp-header-nav flex items-center" style={{ gap: '40px' }}>
           {['Features', 'How It Works', 'Pricing'].map((item) => (
             <a
               key={item}
@@ -293,7 +441,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         </nav>
         <div className="flex items-center" style={{ gap: '16px' }}>
           <button
-            onClick={onOpenDashboard}
+            onClick={handleGetStarted}
             style={{ fontSize: '14px', fontWeight: 500, color: '#FFFFFF', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
             onMouseEnter={(e) => e.currentTarget.style.color = '#FF5C00'}
             onMouseLeave={(e) => e.currentTarget.style.color = '#FFFFFF'}
@@ -301,7 +449,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
             Log in
           </button>
           <button
-            onClick={onOpenDashboard}
+            onClick={handleGetStarted}
             className="flex items-center lp-btn-glow"
             style={{
               gap: '8px',
@@ -322,7 +470,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
       </header>
 
       {/* Hero Section */}
-      <section className="flex flex-col items-center relative z-10" style={{ padding: '120px 80px 80px', gap: '48px' }}>
+      <section className="lp-hero flex flex-col items-center relative z-10" style={{ padding: '120px 80px 80px', gap: '48px' }}>
         {/* Badge */}
         <div className="flex items-center lp-slide-up" style={{ gap: '10px', padding: '8px 20px', borderRadius: '100px', backgroundColor: '#FF5C0010', border: '1px solid #FF5C0030', backdropFilter: 'blur(10px)' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22C55E', boxShadow: '0 0 8px #22C55E', position: 'relative' }}>
@@ -345,15 +493,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
               Never Sleeps
             </span>
           </h1>
-          <p className="lp-slide-up-d2" style={{ fontSize: '20px', fontWeight: 400, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.7, maxWidth: '680px', margin: 0 }}>
+          <p className="lp-hero-subtitle lp-slide-up-d2" style={{ fontSize: '20px', fontWeight: 400, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.7, maxWidth: '680px', margin: 0 }}>
             Defia analyzes trends, generates content, and executes campaigns automatically. Focus on building while AI handles your marketing.
           </p>
         </div>
 
         {/* Hero CTAs */}
-        <div className="flex items-center lp-slide-up-d3" style={{ gap: '16px' }}>
+        <div className="lp-hero-ctas flex items-center lp-slide-up-d3" style={{ gap: '16px' }}>
           <button
-            onClick={onOpenDashboard}
+            onClick={handleGetStarted}
             className="flex items-center lp-btn-glow"
             style={{
               gap: '10px',
@@ -386,6 +534,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
 
         {/* Product Mockup with enhanced glow */}
         <div
+          className="lp-product-mockup"
           style={{
             width: '1100px',
             borderRadius: '20px',
@@ -482,7 +631,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         {/* Trust Logos */}
         <div className="flex flex-col items-center" style={{ gap: '24px', paddingTop: '48px', width: '100%' }}>
           <span style={{ fontSize: '13px', fontWeight: 500, color: '#4A4A4E', letterSpacing: '1px', textTransform: 'uppercase' }}>Trusted by leading Web3 projects</span>
-          <div className="flex items-center" style={{ gap: '64px' }}>
+          <div className="lp-trust-logos flex items-center" style={{ gap: '64px' }}>
             {['SOLANA', 'POLYGON', 'ARBITRUM', 'OPTIMISM', 'BASE'].map((name, i) => (
               <span
                 key={name}
@@ -510,20 +659,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
       <section
         id="features-section"
         ref={setSectionRef('features-section')}
+        className="lp-section"
         style={{ padding: '120px 80px', position: 'relative', zIndex: 10 }}
       >
         <div className={`flex flex-col items-center lp-reveal ${isVisible('features-section') ? 'lp-visible' : ''}`} style={{ gap: '16px', marginBottom: '72px' }}>
           <span style={{ fontFamily: 'DM Mono', fontSize: '12px', fontWeight: 500, color: '#FF5C00', letterSpacing: '4px', textTransform: 'uppercase' }}>FEATURES</span>
-          <h2 style={{ fontFamily: 'Instrument Serif, serif', fontSize: '52px', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', letterSpacing: '-1.5px', maxWidth: '800px', margin: 0 }}>
+          <h2 className="lp-section-heading" style={{ fontFamily: 'Instrument Serif, serif', fontSize: '52px', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', letterSpacing: '-1.5px', maxWidth: '800px', margin: 0 }}>
             Everything You Need to Dominate{' '}
             <span style={{ color: '#FF5C00' }}>Web3 Marketing</span>
           </h2>
-          <p style={{ fontSize: '18px', color: '#6B6B70', textAlign: 'center', lineHeight: 1.7, maxWidth: '600px', margin: 0 }}>
+          <p className="lp-section-desc" style={{ fontSize: '18px', color: '#6B6B70', textAlign: 'center', lineHeight: 1.7, maxWidth: '600px', margin: 0 }}>
             From trend analysis to content creation to automated posting — all powered by AI that understands crypto.
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+        <div className="lp-features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
           {[
             { icon: '🧠', gradient: 'linear-gradient(135deg, #FF5C00, #FF8A4C)', title: 'AI CMO Brain', desc: 'Your AI marketing executive analyzing market trends, competitor moves, and community sentiment 24/7.', features: ['Real-time market analysis', 'Competitor intelligence', 'Sentiment monitoring'], tag: 'Core' },
             { icon: '✍️', gradient: 'linear-gradient(135deg, #3B82F6, #60A5FA)', title: 'Content Generation', desc: 'Generate tweets, threads, and announcements that match your brand voice and resonate with your audience.', features: ['Brand voice matching', 'Thread generation', 'Multi-format content'], tag: 'Create' },
@@ -591,6 +741,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
       <section
         id="how-it-works-section"
         ref={setSectionRef('how-it-works-section')}
+        className="lp-section"
         style={{ padding: '120px 80px', backgroundColor: '#080809', position: 'relative', zIndex: 10 }}
       >
         {/* Background accent */}
@@ -598,14 +749,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
 
         <div className={`flex flex-col items-center lp-reveal ${isVisible('how-it-works-section') ? 'lp-visible' : ''}`} style={{ gap: '16px', marginBottom: '72px' }}>
           <span style={{ fontFamily: 'DM Mono', fontSize: '12px', fontWeight: 500, color: '#FF5C00', letterSpacing: '4px' }}>HOW IT WORKS</span>
-          <h2 style={{ fontFamily: 'Instrument Serif, serif', fontSize: '52px', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', letterSpacing: '-1.5px', margin: 0 }}>
+          <h2 className="lp-section-heading" style={{ fontFamily: 'Instrument Serif, serif', fontSize: '52px', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', letterSpacing: '-1.5px', margin: 0 }}>
             Three Steps to{' '}<span style={{ color: '#FF5C00' }}>Marketing Autopilot</span>
           </h2>
         </div>
 
-        <div className="flex items-stretch" style={{ gap: '24px', position: 'relative' }}>
+        <div className="lp-hiw-steps flex items-stretch" style={{ gap: '24px', position: 'relative' }}>
           {/* Connecting line */}
-          <div style={{ position: 'absolute', top: '60px', left: 'calc(33.33% - 12px)', right: 'calc(33.33% - 12px)', height: '2px', background: 'linear-gradient(90deg, #FF5C0040, #FF5C00, #FF5C0040)', zIndex: 1 }} />
+          <div className="lp-hiw-line" style={{ position: 'absolute', top: '60px', left: 'calc(33.33% - 12px)', right: 'calc(33.33% - 12px)', height: '2px', background: 'linear-gradient(90deg, #FF5C0040, #FF5C00, #FF5C0040)', zIndex: 1 }} />
 
           {[
             { num: '01', title: 'Connect Your Brand', desc: 'Link your Twitter account and upload your brand kit. The AI learns your voice, tone, and audience in minutes.', visual: 'connect', accentColor: '#FF5C00' },
@@ -703,10 +854,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
       <section
         id="stats-section"
         ref={setSectionRef('stats-section')}
+        className="lp-section"
         style={{ padding: '120px 80px', position: 'relative', zIndex: 10 }}
       >
         {/* Stats Row */}
-        <div className={`lp-reveal ${isVisible('stats-section') ? 'lp-visible' : ''}`} style={{
+        <div className={`lp-stats-grid lp-reveal ${isVisible('stats-section') ? 'lp-visible' : ''}`} style={{
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px',
           padding: '56px 48px', borderRadius: '24px',
           backgroundColor: '#0C0C0E', border: '1px solid #1A1A1E',
@@ -730,11 +882,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         <div className={`flex flex-col items-center lp-reveal ${isVisible('stats-section') ? 'lp-visible' : ''}`} style={{ gap: '48px' }}>
           <div className="flex flex-col items-center" style={{ gap: '12px' }}>
             <span style={{ fontFamily: 'DM Mono', fontSize: '12px', fontWeight: 500, color: '#FF5C00', letterSpacing: '4px' }}>TESTIMONIALS</span>
-            <h2 style={{ fontFamily: 'Instrument Serif, serif', fontSize: '44px', fontWeight: 'normal', color: '#FFFFFF', letterSpacing: '-1px', margin: 0 }}>
+            <h2 className="lp-section-heading" style={{ fontFamily: 'Instrument Serif, serif', fontSize: '44px', fontWeight: 'normal', color: '#FFFFFF', letterSpacing: '-1px', margin: 0 }}>
               Loved by Web3 Builders
             </h2>
           </div>
-          <div className="flex" style={{ gap: '20px', width: '100%' }}>
+          <div className="lp-testimonials-row flex" style={{ gap: '20px', width: '100%' }}>
             {[
               { quote: 'Defia completely transformed our marketing. We went from struggling to post daily to having a full content calendar running on autopilot.', author: 'Alex Chen', role: 'Founder, DeFi Protocol', color: '#FF5C00', metric: '+400% engagement' },
               { quote: 'The AI recommendations are next level. It suggested a trending topic strategy and we got 5x our normal reach. Like having a team that never sleeps.', author: 'Sarah Kim', role: 'Marketing Lead, NFT Project', color: '#3B82F6', metric: '5x reach increase' },
@@ -791,6 +943,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
       <section
         id="cta-section"
         ref={setSectionRef('cta-section')}
+        className="lp-cta-section"
         style={{ padding: '140px 80px', position: 'relative', overflow: 'hidden', zIndex: 10 }}
       >
         {/* Background effects */}
@@ -805,7 +958,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         ].map((f, i) => (
           <div
             key={i}
-            className="flex items-center justify-center"
+            className="lp-floating-icon flex items-center justify-center"
             style={{
               position: 'absolute',
               left: f.left,
@@ -840,9 +993,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           <p style={{ fontSize: '18px', color: '#6B6B70', textAlign: 'center', lineHeight: 1.7, maxWidth: '560px', margin: 0 }}>
             Join 500+ Web3 projects already using Defia to automate their marketing and grow their communities.
           </p>
-          <div className="flex items-center" style={{ gap: '16px', marginTop: '12px' }}>
+          <div className="lp-cta-buttons flex items-center" style={{ gap: '16px', marginTop: '12px' }}>
             <button
-              onClick={onOpenDashboard}
+              onClick={handleGetStarted}
               className="flex items-center lp-btn-glow"
               style={{
                 gap: '10px',
@@ -878,8 +1031,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
       </section>
 
       {/* Footer */}
-      <footer style={{ padding: '64px 80px', backgroundColor: '#080809', borderTop: '1px solid #141416', position: 'relative', zIndex: 10 }}>
-        <div className="flex justify-between" style={{ marginBottom: '48px' }}>
+      <footer className="lp-footer" style={{ padding: '64px 80px', backgroundColor: '#080809', borderTop: '1px solid #141416', position: 'relative', zIndex: 10 }}>
+        <div className="lp-footer-top flex justify-between" style={{ marginBottom: '48px' }}>
           <div style={{ maxWidth: '300px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="flex items-center" style={{ gap: '10px' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #FF5C00, #FF8A4C)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -904,7 +1057,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
               ))}
             </div>
           </div>
-          <div className="flex" style={{ gap: '80px' }}>
+          <div className="lp-footer-links flex" style={{ gap: '80px' }}>
             {[
               { title: 'Product', links: ['Features', 'Pricing', 'Integrations', 'Changelog'] },
               { title: 'Resources', links: ['Documentation', 'API Reference', 'Blog', 'Case Studies'] },
@@ -928,9 +1081,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           </div>
         </div>
         <div style={{ height: '1px', backgroundColor: '#141416', marginBottom: '32px' }} />
-        <div className="flex items-center justify-between">
+        <div className="lp-footer-bottom flex items-center justify-between">
           <span style={{ fontSize: '13px', color: '#3A3A3E' }}>© {new Date().getFullYear()} Defia. All rights reserved.</span>
-          <div className="flex items-center" style={{ gap: '24px' }}>
+          <div className="lp-footer-bottom-links flex items-center" style={{ gap: '24px' }}>
             {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((link) => (
               <a
                 key={link}
