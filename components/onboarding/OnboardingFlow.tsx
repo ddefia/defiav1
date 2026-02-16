@@ -2332,11 +2332,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       <div className="flex-1 flex flex-col px-16 py-12 overflow-y-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-white text-2xl font-semibold">Content Style Examples</h2>
-            <p className="text-[#8E8E93] text-sm mt-1">Swipe through examples from your content. Approve or reject to train your AI.</p>
+            <h2 className="text-white text-2xl font-semibold tracking-tight">Train Your AI Voice</h2>
+            <p className="text-[#8E8E93] text-sm mt-1">Review AI-generated content examples. Approve ones that match your style.</p>
           </div>
-          <div className="px-4 py-2 rounded-full bg-[#1F1F23] text-white text-sm font-medium">
-            {currentStyleIndex + 1} of {totalExamples}
+          <div className="px-4 py-2 rounded-full bg-[#1F1F23] text-white text-sm font-medium font-mono">
+            {currentStyleIndex + 1} / {totalExamples}
           </div>
         </div>
 
@@ -2352,42 +2352,23 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
           </button>
 
           <div className="w-[540px] space-y-6">
-            <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] overflow-hidden">
-              <div className="px-5 py-3 border-b border-[#2A2A2E]">
+            <div className="rounded-2xl bg-[#111113] border border-[#2A2A2E] overflow-hidden shadow-lg shadow-black/20">
+              <div className="px-6 py-4 border-b border-[#2A2A2E] flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FF8C4A] flex items-center justify-center text-white font-bold">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FF8C4A] flex items-center justify-center text-white font-bold text-sm">
                     {enrichedData?.brandName?.charAt(0) || 'D'}
                   </div>
                   <div>
-                    <p className="text-white font-medium">{enrichedData?.brandName || 'Your Brand'}</p>
-                    <p className="text-[#6B6B70] text-sm">@{enrichedData?.sources.xHandles[0] || 'handle'}</p>
+                    <p className="text-white font-semibold text-sm">{enrichedData?.brandName || 'Your Brand'}</p>
+                    <p className="text-[#6B6B70] text-xs">@{enrichedData?.sources.xHandles[0] || 'handle'}</p>
                   </div>
                 </div>
+                <span className="px-2.5 py-1 rounded-full bg-[#FF5C00]/10 text-[#FF5C00] text-[10px] font-semibold tracking-wider uppercase">AI Draft</span>
               </div>
-              <div className="p-5">
-                <p className="text-white text-base leading-relaxed whitespace-pre-wrap">
+              <div className="px-6 py-5">
+                <p className="text-white text-[15px] leading-relaxed whitespace-pre-wrap">
                   {currentExample}
                 </p>
-              </div>
-              <div className="px-5 py-3 border-t border-[#2A2A2E] flex items-center gap-6 text-[#6B6B70] text-sm">
-                <span className="flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  24
-                </span>
-                <span className="flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  156
-                </span>
-                <span className="flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  89
-                </span>
               </div>
             </div>
 

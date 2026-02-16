@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, DailyBrief } from '../types';
 import { fetchCampaignPerformance } from '../services/analytics';
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
-import { loadCampaignState, loadCampaignLogs } from '../services/storage';
+import { loadCampaignState, loadCampaignLogs, loadIntegrationKeys } from '../services/storage';
 import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton';
 import { generateSupplementalRecs } from './RecommendationsPage';
 import { PLAN_NAMES, getResetUsage } from '../services/subscription';
@@ -179,6 +179,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [briefLoading, setBriefLoading] = useState(false);
     const [newsItems, setNewsItems] = useState<{ icon: string; iconBg: string; title: string; source: string; time: string; url?: string; rawArticle?: any }[]>([]);
     const [newsLoading, setNewsLoading] = useState(true);
+    const [setupBannerDismissed, setSetupBannerDismissed] = useState(false);
+    const [xConnected, setXConnected] = useState<boolean | null>(null);
+
+    // Check for missing setup items
+    const integrationKeys = useMemo(() => loadIntegrationKeys(brandName), [brandName]);
+    const missingSetup = useMemo(() => {
+        const items: { label: string; key: string }[] = [];
+        if (xConnected === false) items.push({ label: 'Connect X/Twitter account', key: 'x-auth' });
+        if (!integrationKeys.apify && !integrationKeys.xHandle) items.push({ label: 'Add X handle in Settings', key: 'x-handle' });
+        return items;
+    }, [xConnected, integrationKeys]);
+
+    useEffect(() => {
+        const checkXStatus = async () => {
+            try {
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+                const res = await fetch(`${baseUrl}/api/auth/x/status?brandId=${encodeURIComponent(brandName)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setXConnected(!!data.connected);
+                } else {
+                    setXConnected(false);
+                }
+            } catch {
+                setXConnected(false);
+            }
+        };
+        checkXStatus();
+    }, [brandName]);
 
     const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics), [socialMetrics]);
 
@@ -411,6 +440,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </button>
                 </div>
             </div>
+
+            {/* Setup Banner — shows when X auth or key configs are missing */}
+            {!setupBannerDismissed && missingSetup.length > 0 && (
+                <div
+                    className="rounded-xl p-4 flex items-center justify-between"
+                    style={{ backgroundColor: 'var(--accent-soft)', border: '1px solid var(--accent)' }}
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-[#FF5C00] flex items-center justify-center flex-shrink-0">
+                            <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 400" }}>info</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Complete your setup</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                                {missingSetup.map(s => s.label).join(' \u00B7 ')}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => onNavigate('settings')}
+                            className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
+                        >
+                            Go to Settings
+                        </button>
+                        <button
+                            onClick={() => setSetupBannerDismissed(true)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/10 transition-colors"
+                            style={{ color: 'var(--text-muted)' }}
+                        >
+                            <span className="material-symbols-sharp text-lg">close</span>
+                        </button>
+                    </div>
+                </div>
+            )}
 
                     {/* Metrics Row */}
                     <div className="grid grid-cols-4 gap-4 mb-7">

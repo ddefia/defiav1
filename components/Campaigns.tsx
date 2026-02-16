@@ -919,7 +919,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             <span className="material-symbols-sharp text-[#6B6B70] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>folder_open</span>
                         </div>
                         <p className="text-[32px] font-semibold text-white font-mono">{totalCampaigns}</p>
-                        <p className="text-xs text-[#22C55E] mt-2">+3 this month</p>
+                        {totalCampaigns > 0 && <p className="text-xs text-[#6B6B70] mt-2">{activeCampaignsCount} active</p>}
                     </div>
                     {/* Active Campaigns */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-xl p-5">
@@ -928,7 +928,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             <span className="material-symbols-sharp text-[#22C55E] text-lg" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>radio_button_checked</span>
                         </div>
                         <p className="text-[32px] font-semibold text-white font-mono">{activeCampaignsCount}</p>
-                        <p className="text-xs text-[#3B82F6] mt-2">2 launching soon</p>
+                        {activeCampaignsCount > 0
+                            ? <p className="text-xs text-[#3B82F6] mt-2">Running now</p>
+                            : <p className="text-xs text-[#6B6B70] mt-2">None active</p>}
                     </div>
                     {/* Total Reach */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-xl p-5">
@@ -936,23 +938,17 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             <span className="text-sm text-[#6B6B70]">Total Reach</span>
                             <span className="material-symbols-sharp text-[#6B6B70] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>visibility</span>
                         </div>
-                        <p className="text-[32px] font-semibold text-white font-mono">4.2M</p>
-                        <div className="flex items-center gap-1.5 mt-2">
-                            <span className="material-symbols-sharp text-[#22C55E] text-sm">trending_up</span>
-                            <span className="text-xs text-[#22C55E]">+18.2% vs last month</span>
-                        </div>
+                        <p className="text-[32px] font-semibold text-[#2E2E2E] font-mono">—</p>
+                        <p className="text-xs text-[#6B6B70] mt-2">No data yet</p>
                     </div>
                     {/* Average ROI */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-xl p-5">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-sm text-[#6B6B70]">Average ROI</span>
-                            <span className="material-symbols-sharp text-[#22C55E] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
+                            <span className="material-symbols-sharp text-[#6B6B70] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
                         </div>
-                        <p className="text-[32px] font-semibold text-[#22C55E] font-mono">+186%</p>
-                        <div className="flex items-center gap-1.5 mt-2">
-                            <span className="material-symbols-sharp text-[#22C55E] text-sm">trending_up</span>
-                            <span className="text-xs text-[#22C55E]">+24% improvement</span>
-                        </div>
+                        <p className="text-[32px] font-semibold text-[#2E2E2E] font-mono">—</p>
+                        <p className="text-xs text-[#6B6B70] mt-2">No data yet</p>
                     </div>
                 </div>
 
@@ -1027,19 +1023,19 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         </div>
                                         {/* Budget */}
                                         <div className="w-[100px]">
-                                            <span className="text-[13px] text-white font-mono">$12,500</span>
+                                            <span className="text-[13px] text-white font-mono">{camp.budget || '—'}</span>
                                         </div>
                                         {/* Reach */}
                                         <div className="w-[100px]">
-                                            <span className="text-[13px] text-white font-mono">1.2M</span>
+                                            <span className="text-[13px] text-[#6B6B70] font-mono">{camp.reach || '—'}</span>
                                         </div>
                                         {/* Conversion */}
                                         <div className="w-[110px]">
-                                            <span className="text-[13px] text-white font-mono">3.2%</span>
+                                            <span className="text-[13px] text-[#6B6B70] font-mono">{camp.conversion || '—'}</span>
                                         </div>
                                         {/* ROI */}
                                         <div className="w-[80px]">
-                                            <span className="text-[13px] font-medium text-[#22C55E] font-mono">+247%</span>
+                                            <span className="text-[13px] font-medium text-[#6B6B70] font-mono">{camp.roi || '—'}</span>
                                         </div>
                                         {/* Actions */}
                                         <div className="flex-1 flex justify-end">

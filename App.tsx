@@ -324,7 +324,7 @@ const App: React.FC = () => {
 
     // Theme State
     const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-        try { return (localStorage.getItem('defia_theme') as 'dark' | 'light') || 'dark'; } catch { return 'dark'; }
+        try { return (localStorage.getItem('defia_theme') as 'dark' | 'light') || 'light'; } catch { return 'light'; }
     });
 
     // Studio Deep Link State
@@ -1313,7 +1313,7 @@ const App: React.FC = () => {
         }
 
         await bootstrapKickoffContent(payload.brandName, mergedConfig);
-        navigate('/campaigns');
+        navigate('/dashboard');
         // Trigger product tour for new users
         const tourState = loadTourState();
         if (!tourState.completed && !tourState.dismissed) {
