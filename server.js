@@ -367,7 +367,8 @@ const PUBLIC_API_PREFIXES = [
     '/api/action-center/',
     '/api/lunarcrush/',
     '/api/auth/x/',
-    '/api/x/metrics/'
+    '/api/x/metrics/',
+    '/api/onboarding/',
 ];
 
 const parseApiKeys = () => {
