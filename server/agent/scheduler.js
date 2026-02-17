@@ -5,6 +5,7 @@ import { generateDailyBriefing } from './generator.js'; // Import Generator
 import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
 import { fetchActiveBrands } from './brandRegistry.js';
 import { scheduledNewsFetch } from '../services/web3News.js';
+import { notifyLinkedChats } from '../telegram/notifier.js';
 
 /**
  * SCHEDULER SERVICE
@@ -182,6 +183,14 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
                     const record = { ...decision, brandId };
                     saveDecisionToFile(record);
                     await saveDecisionToDb(supabase, decision, brandId);
+
+                    // Notify linked Telegram chats about new decision
+                    try {
+                        await notifyLinkedChats(supabase, brandId, 'decision', decision);
+                    } catch (tgErr) {
+                        console.warn(`     - Telegram decision notification failed:`, tgErr.message);
+                    }
+
                     if (!savedAny) {
                         results.push({ brandId, decision });
                         savedAny = true;
@@ -253,6 +262,13 @@ export const startAgent = () => {
                     }
                 }
                 await generateDailyBriefing(brandId);
+
+                // Send briefing to linked Telegram groups
+                try {
+                    await notifyLinkedChats(supabase, brandId, 'briefing');
+                } catch (tgErr) {
+                    console.warn(`   - Telegram briefing notification failed for ${brandId}:`, tgErr.message);
+                }
             }
         } catch (e) {
             console.error("   - Morning Generation Failed:", e.message);

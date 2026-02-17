@@ -5,7 +5,7 @@ import { fetchMentions, computeSocialSignals, fetchSocialMetrics, computeGrowthM
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
 import { fetchActionCenter } from './services/actionCenter';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, loadCampaignState, saveCampaignState, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage, loadIntegrationKeys, saveIntegrationKeys, loadDecisionLoopLastRun, saveDecisionLoopLastRun, loadCampaignLogs } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, loadCampaignState, saveCampaignState, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage, loadIntegrationKeys, saveIntegrationKeys, loadDecisionLoopLastRun, saveDecisionLoopLastRun, loadCampaignLogs, loadContentItems, saveContentItems } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { getCurrentUser, onAuthStateChange, loadUserProfile, UserProfile, getAuthToken } from './services/auth'; // Import auth
 import { Button } from './components/Button';
@@ -28,6 +28,8 @@ import { TwitterFeed } from './components/TwitterFeed'; // Import TwitterFeed
 import { Web3NewsFeed } from './components/Web3NewsFeed'; // Import Web3NewsFeed
 import { LandingPage } from './components/LandingPage';
 import { AuthPage } from './components/AuthPage'; // Import AuthPage
+import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { TermsOfService } from './components/TermsOfService';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { OnboardingPrompt } from './components/onboarding/OnboardingPrompt';
 import { ProductTour } from './components/onboarding/ProductTour';
@@ -135,6 +137,7 @@ const App: React.FC = () => {
     // Auth State
     const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
     const [isAuthLoading, setIsAuthLoading] = useState(true); // Default to dashboard
+    const [isKickoffGenerating, setIsKickoffGenerating] = useState(false);
 
     useEffect(() => {
         const handlePopState = () => setRoute(window.location.pathname);
@@ -364,7 +367,7 @@ const App: React.FC = () => {
     }, [profiles]);
 
     // Apply theme to document — force dark on auth/onboarding (hardcoded dark UI)
-    const forceDarkRoute = route === '/' || route === '/login' || route === '/signup' || route.startsWith('/onboarding');
+    const forceDarkRoute = route === '/' || route === '/login' || route === '/signup' || route.startsWith('/onboarding') || isLegalRoute;
     useEffect(() => {
         const effectiveTheme = forceDarkRoute ? 'dark' : theme;
         document.documentElement.setAttribute('data-theme', effectiveTheme);
@@ -1157,10 +1160,10 @@ const App: React.FC = () => {
         if (!brandName || !config) return;
         if (hasKickoffBootstrap(brandName)) return;
 
-        const existingCampaignState = loadCampaignState(brandName);
+        const existingContentItems = loadContentItems(brandName);
         const existingCalendar = loadCalendarEvents(brandName);
 
-        if ((existingCampaignState?.campaignItems?.length || 0) > 0 || (existingCalendar?.length || 0) > 0) {
+        if ((existingContentItems?.length || 0) > 0 || (existingCalendar?.length || 0) > 0) {
             markKickoffBootstrap(brandName);
             return;
         }
@@ -1176,49 +1179,31 @@ const App: React.FC = () => {
                 throw new Error('No drafts generated');
             }
 
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() + 1);
-            const startDateStr = startDate.toISOString().split('T')[0];
-
-            const campaignItems: CampaignItem[] = drafts.slice(0, 3).map((draft: any, index: number) => ({
+            // Save kickoff drafts as Content Studio items (not campaign state)
+            const contentItems = drafts.slice(0, 3).map((draft: any, index: number) => ({
                 id: `kickoff-draft-${Date.now()}-${index}`,
-                tweet: draft.tweet,
-                isApproved: false,
-                approvalStatus: 'review',
-                status: 'draft',
-                images: [],
-                campaignColor: result?.themeColor,
-                template: draft.template,
-                referenceImageId: draft.referenceImageId,
+                type: 'twitter' as const,
+                title: String(draft.tweet || '').slice(0, 80) + (String(draft.tweet || '').length > 80 ? '…' : ''),
+                description: draft.tweet,
+                status: 'draft' as const,
+                date: new Date().toISOString().split('T')[0],
                 reasoning: draft.reasoning,
+                template: draft.template,
                 visualHeadline: draft.visualHeadline,
-                visualDescription: draft.visualDescription
+                visualDescription: draft.visualDescription,
+                referenceImageId: draft.referenceImageId,
+                campaignColor: result?.themeColor,
+                kickoffTheme: kickoffTheme,
             }));
 
-            const kickoffState = {
-                viewMode: 'wizard',
-                campaignStep: 3,
-                campaignType: 'theme',
-                campaignTheme: kickoffTheme,
-                campaignGoal: 'Launch momentum',
-                campaignPlatforms: ['Twitter'],
-                campaignContext: '',
-                campaignStrategy: null,
-                campaignTemplate: '',
-                campaignReferenceImage: null,
-                campaignItems,
-                campaignStartDate: startDateStr,
-                contentPlan: null
-            };
-
-            saveCampaignState(brandName, kickoffState);
+            saveContentItems(brandName, contentItems);
 
             const calendarEvents = buildKickoffCalendarEvents(kickoffTheme, drafts);
             const mergedEvents = mergeCalendarEvents(existingCalendar || [], calendarEvents);
             saveCalendarEvents(brandName, mergedEvents);
             setCalendarEvents(mergedEvents);
 
-            setSystemLogs(prev => ["Kickoff: Campaign drafts + 7-day calendar ready.", ...prev]);
+            setSystemLogs(prev => ["Kickoff: Content drafts + 7-day calendar ready.", ...prev]);
         } catch (e: any) {
             const message = e?.message || 'Kickoff generation failed.';
             setSystemLogs(prev => [`Kickoff: ${message}`, ...prev]);
@@ -1319,8 +1304,12 @@ const App: React.FC = () => {
             // Never block onboarding for Dune failures
         }
 
-        await bootstrapKickoffContent(payload.brandName, mergedConfig);
+        // Navigate to dashboard immediately, generate kickoff content in background
         navigate('/dashboard');
+        setIsKickoffGenerating(true);
+        bootstrapKickoffContent(payload.brandName, mergedConfig)
+            .catch(() => {})
+            .finally(() => setIsKickoffGenerating(false));
         // Trigger product tour for new users — delay to let dashboard render first
         setTimeout(() => {
             const tourState = loadTourState();
@@ -1742,18 +1731,19 @@ const App: React.FC = () => {
     const isLanding = route === '/';
     const isAuthRoute = route === '/login' || route === '/signup';
     const isOnboardingRoute = route.startsWith('/onboarding');
-    const isDashboardRoute = !isLanding && !isAuthRoute && !isOnboardingRoute;
+    const isLegalRoute = route === '/privacy' || route === '/terms';
+    const isDashboardRoute = !isLanding && !isAuthRoute && !isOnboardingRoute && !isLegalRoute;
     const shouldShowOnboardingPrompt = isDashboardRoute && !onboardingState.completed && !onboardingState.dismissed;
 
-    // Toggle body scroll: landing page scrolls, dashboard/auth lock scroll
+    // Toggle body scroll: landing + legal pages scroll, dashboard/auth lock scroll
     useEffect(() => {
-        if (isLanding) {
+        if (isLanding || isLegalRoute) {
             document.body.classList.remove('no-scroll');
         } else {
             document.body.classList.add('no-scroll');
         }
         return () => { document.body.classList.remove('no-scroll'); };
-    }, [isLanding]);
+    }, [isLanding, isLegalRoute]);
 
     // Landing page renders immediately — no auth needed
     if (isLanding) {
@@ -1770,6 +1760,21 @@ const App: React.FC = () => {
                 navigate('/login');
             }
         }} />;
+    }
+
+    // Legal pages — no auth required, scrollable dark pages
+    if (isLegalRoute) {
+        const goBack = () => {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                navigate('/');
+            }
+        };
+        if (route === '/privacy') {
+            return <PrivacyPolicy onBack={goBack} />;
+        }
+        return <TermsOfService onBack={goBack} />;
     }
 
     // Auth loading state — only for non-landing routes
@@ -1836,6 +1841,17 @@ const App: React.FC = () => {
         return null;
     }
 
+    // Redirect back to onboarding if returning from X OAuth callback
+    if (isDashboardRoute && !onboardingState.completed) {
+        try {
+            const savedOnboarding = sessionStorage.getItem('defia_onboarding_session');
+            if (savedOnboarding) {
+                navigate('/onboarding');
+                return null;
+            }
+        } catch {}
+    }
+
     if (isOnboardingRoute) {
         return (
             <OnboardingFlow
@@ -1852,6 +1868,11 @@ const App: React.FC = () => {
                 brandName={selectedBrand}
                 kickoffDrafts={(() => {
                     try {
+                        // Primary: load from Content Studio storage
+                        const items = loadContentItems(selectedBrand);
+                        const kickoff = items.filter((i: any) => String(i?.id || '').startsWith('kickoff-'));
+                        if (kickoff.length > 0) return kickoff.map((item: any) => ({ tweet: item.description || item.title, content: item.description || item.title }));
+                        // Fallback: legacy campaign state
                         const cs = loadCampaignState(selectedBrand);
                         return cs?.campaignItems?.map((item: any) => ({ tweet: item.tweet, content: item.tweet })) || [];
                     } catch { return []; }
@@ -1943,6 +1964,7 @@ const App: React.FC = () => {
                         sharedRegenLastRun={regenLastRun}
                         sharedDecisionSummary={decisionSummary}
                         onRegenerate={handleRecommendationRegenerate}
+                        isKickoffGenerating={isKickoffGenerating}
                     />
                 )}
 
@@ -1993,6 +2015,7 @@ const App: React.FC = () => {
                         initialIntent={campaignIntent}
                         onClearIntent={() => setCampaignIntent(null)}
                         recentPosts={socialMetrics?.recentPosts || []}
+                        onNavigate={handleNavigate}
                     />
                 )}
 
@@ -2016,6 +2039,7 @@ const App: React.FC = () => {
                         config={profiles[selectedBrand]}
                         onChange={handleUpdateCurrentBrandConfig}
                         onBack={() => handleNavigate('settings', null)}
+                        onNavigate={handleNavigate}
                     />
                 )}
 

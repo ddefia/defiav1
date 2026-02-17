@@ -14,6 +14,9 @@ import { crawlWebsite, deepCrawlWebsite, fetchTwitterContent, uploadCarouselGrap
 import { fetchWeb3News, scheduledNewsFetch } from './server/services/web3News.js';
 import { generateAndCreateQueries, CHAIN_SCHEMAS } from './server/services/dune.js';
 import Stripe from 'stripe';
+import { handleTelegramWebhook } from './server/telegram/webhookHandler.js';
+import { generateLinkCode, getLinkedChats } from './server/telegram/linkManager.js';
+import { sendMessage as sendTelegramMessage, setWebhook as setTelegramWebhook, deleteWebhook as deleteTelegramWebhook, getMe as getTelegramMe, isConfigured as isTelegramConfigured } from './server/telegram/telegramClient.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,6 +64,11 @@ const __dirname = path.dirname(__filename);
     status.push(check('Stripe', 'STRIPE_SECRET_KEY')
         ? '  \x1b[32m✓\x1b[0m Stripe billing'
         : '  \x1b[33m⚠\x1b[0m Stripe — not configured (billing disabled)');
+
+    // Telegram Bot
+    status.push(check('Telegram', 'TELEGRAM_BOT_TOKEN')
+        ? '  \x1b[32m✓\x1b[0m Telegram Bot'
+        : '  \x1b[33m⚠\x1b[0m Telegram Bot — not configured (TELEGRAM_BOT_TOKEN)');
 
     // FRONTEND_URL (critical for production)
     if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
@@ -369,6 +377,8 @@ const PUBLIC_API_PREFIXES = [
     '/api/auth/x/',
     '/api/x/metrics/',
     '/api/onboarding/',
+    '/api/telegram/webhook/',
+    '/api/telegram/health',
 ];
 
 const parseApiKeys = () => {
@@ -582,6 +592,58 @@ const ensureBrandOwnership = async (supabase, brandId, ownerId) => {
 
     return { status: 200 };
 };
+
+// --- Gemini API Proxy ---
+// Prevents API key exposure in client bundle. Client sends request params, server adds API key and forwards.
+import { GoogleGenAI } from "@google/genai";
+
+const getGeminiApiKey = () => process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+
+app.post('/api/gemini/generate', async (req, res) => {
+    try {
+        const apiKey = getGeminiApiKey();
+        if (!apiKey) return res.status(500).json({ error: 'Gemini API key not configured on server' });
+
+        const { model, contents, config } = req.body;
+        if (!model || !contents) return res.status(400).json({ error: 'Missing model or contents' });
+
+        const ai = new GoogleGenAI({ apiKey });
+        const result = await ai.models.generateContent({ model, contents, config });
+
+        // Extract response - handle both property and function access patterns
+        const text = typeof result.text === 'string' ? result.text : typeof result.text === 'function' ? result.text() : (result.candidates?.[0]?.content?.parts?.[0]?.text || '');
+
+        // Check for inline image data (for image generation models)
+        const parts = result.candidates?.[0]?.content?.parts || [];
+        const images = parts
+            .filter(p => p.inlineData?.mimeType?.startsWith('image/'))
+            .map(p => ({ mimeType: p.inlineData.mimeType, data: p.inlineData.data }));
+
+        res.json({ text, images, raw: { candidates: result.candidates } });
+    } catch (err) {
+        console.error('[Gemini Proxy] Error:', err.message || err);
+        const status = err.status || err.httpStatusCode || 500;
+        res.status(status).json({ error: err.message || 'Gemini API call failed' });
+    }
+});
+
+app.post('/api/gemini/embed', async (req, res) => {
+    try {
+        const apiKey = getGeminiApiKey();
+        if (!apiKey) return res.status(500).json({ error: 'Gemini API key not configured on server' });
+
+        const { model, contents } = req.body;
+        if (!model || !contents) return res.status(400).json({ error: 'Missing model or contents' });
+
+        const ai = new GoogleGenAI({ apiKey });
+        const result = await ai.models.embedContent({ model, contents });
+
+        res.json({ embeddings: result.embeddings });
+    } catch (err) {
+        console.error('[Gemini Embed Proxy] Error:', err.message || err);
+        res.status(500).json({ error: err.message || 'Gemini embed call failed' });
+    }
+});
 
 // --- Health Check ---
 app.get('/api/health', (req, res) => {
@@ -1645,7 +1707,7 @@ app.patch('/api/brands/:id/integrations', requireAuth, async (req, res) => {
 });
 
 // --- Agent Trigger (Immediate Brain Cycle) ---
-app.post('/api/agent/trigger', async (req, res) => {
+app.post('/api/agent/trigger', requireAuth, async (req, res) => {
     try {
         const { brandId, brandName } = req.body || {};
         const target = brandId || brandName;
@@ -2398,6 +2460,128 @@ app.get('/api/billing/status', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('[Billing] Status error:', err);
         res.status(500).json({ error: err.message });
+    }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TELEGRAM BOT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// Webhook endpoint (PUBLIC — Telegram calls this)
+app.post('/api/telegram/webhook/:secret', (req, res) => handleTelegramWebhook(req, res));
+
+// Health check (PUBLIC)
+app.get('/api/telegram/health', async (req, res) => {
+    if (!isTelegramConfigured()) {
+        return res.json({ ok: false, error: 'TELEGRAM_BOT_TOKEN not set' });
+    }
+    try {
+        const me = await getTelegramMe();
+        res.json({ ok: true, bot: { username: me.username, name: me.first_name } });
+    } catch (e) {
+        res.json({ ok: false, error: e.message });
+    }
+});
+
+// Generate link code (AUTH REQUIRED)
+app.post('/api/telegram/generate-link-code', requireAuth, async (req, res) => {
+    const { brandId } = req.body || {};
+    if (!brandId) return res.status(400).json({ error: 'brandId is required' });
+
+    const supabase = getSupabaseAdminClient();
+    if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+    // Verify brand ownership
+    const ownership = await ensureBrandOwnership(supabase, brandId, req.authUser.id);
+    if (ownership.status !== 200) {
+        return res.status(ownership.status).json({ error: ownership.error });
+    }
+
+    try {
+        const code = await generateLinkCode(supabase, brandId);
+
+        // Get bot username for deep link
+        let botUsername = 'DefiaBot';
+        if (isTelegramConfigured()) {
+            try {
+                const me = await getTelegramMe();
+                botUsername = me.username;
+            } catch { /* ignore */ }
+        }
+
+        res.json({
+            code,
+            botUsername,
+            deepLink: `https://t.me/${botUsername}?startgroup=${code}`,
+        });
+    } catch (e) {
+        console.error('[Telegram] Link code generation failed:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get linked chats (AUTH REQUIRED)
+app.get('/api/telegram/status', requireAuth, async (req, res) => {
+    const brandId = req.query.brandId;
+    if (!brandId) return res.status(400).json({ error: 'brandId query param required' });
+
+    const supabase = getSupabaseAdminClient();
+    if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+    try {
+        const chats = await getLinkedChats(supabase, brandId);
+        res.json({ linked: chats.length > 0, chats });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Unlink a chat (AUTH REQUIRED)
+app.post('/api/telegram/unlink', requireAuth, async (req, res) => {
+    const { brandId, chatId } = req.body || {};
+    if (!brandId || !chatId) return res.status(400).json({ error: 'brandId and chatId required' });
+
+    const supabase = getSupabaseAdminClient();
+    if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+    const ownership = await ensureBrandOwnership(supabase, brandId, req.authUser.id);
+    if (ownership.status !== 200) {
+        return res.status(ownership.status).json({ error: ownership.error });
+    }
+
+    try {
+        const { error } = await supabase
+            .from('telegram_links')
+            .delete()
+            .eq('brand_id', brandId)
+            .eq('chat_id', chatId);
+
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Setup webhook (AUTH REQUIRED — one-time setup)
+app.post('/api/telegram/setup-webhook', requireAuth, async (req, res) => {
+    if (!isTelegramConfigured()) {
+        return res.status(400).json({ error: 'TELEGRAM_BOT_TOKEN not configured' });
+    }
+
+    const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+        return res.status(400).json({ error: 'TELEGRAM_WEBHOOK_SECRET not configured' });
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const webhookUrl = `${frontendUrl}/api/telegram/webhook/${webhookSecret}`;
+
+    try {
+        const result = await setTelegramWebhook(webhookUrl);
+        res.json({ success: true, webhookUrl, result });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

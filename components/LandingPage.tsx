@@ -427,15 +427,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           <span style={{ fontFamily: 'DM Mono', fontSize: '20px', fontWeight: 600, letterSpacing: '3px', color: '#FFFFFF' }}>Defia</span>
         </div>
         <nav className="lp-header-nav flex items-center" style={{ gap: '40px' }}>
-          {['Features', 'How It Works', 'Pricing'].map((item) => (
+          {[
+            { label: 'Features', href: '#features-section' },
+            { label: 'How It Works', href: '#how-it-works-section' },
+            { label: 'Pricing', href: '#cta-section' },
+          ].map((item) => (
             <a
-              key={item}
-              href={`#${item.toLowerCase().replace(/\s+/g, '-')}`}
+              key={item.label}
+              href={item.href}
               style={{ fontSize: '14px', fontWeight: 500, color: '#9CA3AF', textDecoration: 'none', transition: 'color 0.2s' }}
               onMouseEnter={(e) => e.currentTarget.style.color = '#FF5C00'}
               onMouseLeave={(e) => e.currentTarget.style.color = '#9CA3AF'}
             >
-              {item}
+              {item.label}
             </a>
           ))}
         </nav>
@@ -523,12 +527,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           </button>
           <button
             className="flex items-center"
-            style={{ gap: '10px', padding: '18px 36px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: 'all 0.3s ease', backdropFilter: 'blur(10px)' }}
+            style={{ gap: '10px', padding: '18px 36px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: 'all 0.3s ease', backdropFilter: 'blur(10px)', position: 'relative' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FF5C00'; e.currentTarget.style.backgroundColor = 'rgba(255,92,0,0.05)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
+            onClick={() => {
+              const btn = document.getElementById('demo-toast');
+              if (btn) { btn.style.opacity = '1'; btn.style.transform = 'translateY(0)'; setTimeout(() => { btn.style.opacity = '0'; btn.style.transform = 'translateY(8px)'; }, 2000); }
+            }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="#FFFFFF"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             <span style={{ fontSize: '16px', fontWeight: 500, color: '#FFFFFF' }}>Watch Demo</span>
+            <span
+              id="demo-toast"
+              style={{ position: 'absolute', top: '110%', left: '50%', transform: 'translateX(-50%) translateY(8px)', whiteSpace: 'nowrap', fontSize: '12px', color: '#FF5C00', background: '#1A1A1E', border: '1px solid #2E2E2E', borderRadius: '8px', padding: '6px 14px', opacity: 0, transition: 'all 0.3s ease', pointerEvents: 'none' }}
+            >
+              Coming soon
+            </span>
           </button>
         </div>
 
@@ -1059,21 +1073,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           </div>
           <div className="lp-footer-links flex" style={{ gap: '80px' }}>
             {[
-              { title: 'Product', links: ['Features', 'Pricing', 'Integrations', 'Changelog'] },
-              { title: 'Resources', links: ['Documentation', 'API Reference', 'Blog', 'Case Studies'] },
-              { title: 'Company', links: ['About', 'Careers', 'Contact', 'Partners'] }
+              { title: 'Product', links: [
+                { label: 'Features', href: '#features-section' },
+                { label: 'Pricing', href: '#cta-section' },
+                { label: 'Integrations', href: '#features-section' },
+                { label: 'Changelog', href: '#' },
+              ]},
+              { title: 'Resources', links: [
+                { label: 'Documentation', href: '#' },
+                { label: 'API Reference', href: '#' },
+                { label: 'Blog', href: '#' },
+                { label: 'Case Studies', href: '#' },
+              ]},
+              { title: 'Legal', links: [
+                { label: 'Terms of Service', href: '/terms' },
+                { label: 'Privacy Policy', href: '/privacy' },
+                { label: 'Contact', href: 'mailto:hello@defia.app' },
+              ]},
             ].map((col) => (
               <div key={col.title} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF', letterSpacing: '0.5px' }}>{col.title}</span>
                 {col.links.map((link) => (
                   <a
-                    key={link}
-                    href="#"
+                    key={link.label}
+                    href={link.href}
                     style={{ fontSize: '13px', color: '#4A4A4E', textDecoration: 'none', transition: 'color 0.2s' }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = '#FF5C00'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = '#4A4A4E'; }}
                   >
-                    {link}
+                    {link.label}
                   </a>
                 ))}
               </div>
@@ -1084,15 +1112,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         <div className="lp-footer-bottom flex items-center justify-between">
           <span style={{ fontSize: '13px', color: '#3A3A3E' }}>© {new Date().getFullYear()} Defia. All rights reserved.</span>
           <div className="lp-footer-bottom-links flex items-center" style={{ gap: '24px' }}>
-            {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((link) => (
+            {[
+              { label: 'Privacy Policy', href: '/privacy' },
+              { label: 'Terms of Service', href: '/terms' },
+              { label: 'Cookie Policy', href: '/privacy' },
+            ].map((link) => (
               <a
-                key={link}
-                href="#"
+                key={link.label}
+                href={link.href}
                 style={{ fontSize: '13px', color: '#3A3A3E', textDecoration: 'none', transition: 'color 0.2s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#FF5C00'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = '#3A3A3E'; }}
               >
-                {link}
+                {link.label}
               </a>
             ))}
           </div>

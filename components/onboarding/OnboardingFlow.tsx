@@ -147,12 +147,31 @@ const STEPS: { id: OnboardingStep; label: string; description: string }[] = [
   { id: 'review', label: 'Review & Launch', description: 'Go live' },
 ];
 
+const ONBOARDING_SESSION_KEY = 'defia_onboarding_session';
+
+const saveOnboardingSession = (data: Record<string, any>) => {
+  try { sessionStorage.setItem(ONBOARDING_SESSION_KEY, JSON.stringify(data)); } catch {}
+};
+const loadOnboardingSession = (): Record<string, any> | null => {
+  try {
+    const raw = sessionStorage.getItem(ONBOARDING_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+const clearOnboardingSession = () => {
+  try { sessionStorage.removeItem(ONBOARDING_SESSION_KEY); } catch {}
+};
+
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComplete }) => {
   // Check if user already has a profile (skip profile step) - only on initial mount
   const existingProfileRef = useRef(loadUserProfile());
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>(() =>
-    existingProfileRef.current ? 'company' : 'profile'
-  );
+  const savedSession = useRef(loadOnboardingSession());
+
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>(() => {
+    // If returning from X OAuth, restore the saved step
+    if (savedSession.current?.step) return savedSession.current.step as OnboardingStep;
+    return existingProfileRef.current ? 'company' : 'profile';
+  });
 
   // User profile state
   const [userEmail, setUserEmail] = useState('');
@@ -219,6 +238,20 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   const [approvedGraphics, setApprovedGraphics] = useState<ReferenceImage[]>([]);
   const [isLaunching, setIsLaunching] = useState(false);
   const [stableReferenceImageIds, setStableReferenceImageIds] = useState<string[]>([]);
+
+  // Restore onboarding session after X OAuth redirect
+  useEffect(() => {
+    const session = savedSession.current;
+    if (!session) return;
+    if (session.brandName) setBrandName(session.brandName);
+    if (session.websiteUrl) setWebsiteUrl(session.websiteUrl);
+    if (session.twitterHandle) setTwitterHandle(session.twitterHandle);
+    if (session.competitors) setCompetitors(session.competitors);
+    if (session.contracts) setContracts(session.contracts);
+    if (session.duneApiKey) setDuneApiKey(session.duneApiKey);
+    // Clear saved session after restoring
+    clearOnboardingSession();
+  }, []);
 
   const normalizedDomain = useMemo(() => normalizeDomain(websiteUrl), [websiteUrl]);
   const normalizedHandle = useMemo(() => normalizeHandle(twitterHandle), [twitterHandle]);
@@ -302,6 +335,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         setXConnectError(data?.error || 'Failed to start X connection.');
         return;
       }
+      // Save onboarding state before leaving for X OAuth
+      saveOnboardingSession({
+        step: currentStep,
+        brandName: brandName.trim(),
+        websiteUrl,
+        twitterHandle,
+        competitors,
+        contracts,
+        duneApiKey,
+      });
       window.location.href = data.url;
     } catch (e: any) {
       setXConnectError(e?.message || 'Failed to start X connection.');
@@ -981,6 +1024,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         }
       }
 
+      clearOnboardingSession();
       await onComplete({
         ...enrichedData,
         config: finalConfig,
@@ -1043,15 +1087,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   const buildGraphicPrompt = (text: string, mode: 'article' | 'announcement' | 'article_image', config: BrandConfig) => {
-    const { title, body } = extractTitleAndBody(text);
-    const brandColor = config.colors?.[0]?.hex || '#FF5C00';
-    if (mode === 'article_image') {
-      return `Create a premium article card overlay on a branded background image. Use the reference image as a textured backdrop, then overlay a clean text panel. Headline: "${title}". Body: "${body}". Use brand color ${brandColor} for accents. High-contrast, editorial typography.`;
-    }
-    if (mode === 'article') {
-      return `Create a clean editorial article card. Headline: "${title}". Body: "${body}". Use brand color ${brandColor} for accents. Minimal, high-contrast, legible typography.`;
-    }
-    return `Create a bold announcement card. Headline: "${title}". Supporting text: "${body}". Use brand color ${brandColor}. High-impact layout, clean typography, strong hierarchy.`;
+    const { title } = extractTitleAndBody(text);
+    // Keep the art prompt minimal — the reference image is the primary design authority.
+    // The PIXEL-PERFECT REPLICATION MODE in generateWeb3Graphic handles all layout/style instructions.
+    return `Replicate the reference image exactly, but change the headline text to: "${title}".`;
   };
 
   const getVariantConfigs = (text: string, config: BrandConfig) => {
@@ -1124,13 +1163,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
         }))
       });
 
-      // ALWAYS use reference images for style consistency across all modes
-      // Use the stable reference image set for visual consistency across all carousel graphics
+      // Use only 1 reference image to prevent style dilution across different templates.
+      // The AI produces much closer matches when it has a single source of truth.
       const selectedReferenceImages = stableReferenceImageIds.length > 0
-        ? stableReferenceImageIds
+        ? [stableReferenceImageIds[0]]
         : (enrichedData.config.referenceImages || [])
             .filter(img => img.id && (img.url || img.data))
-            .slice(0, 3)
+            .slice(0, 1)
             .map(img => img.id);
 
       console.log('[Onboarding] Generating graphic with reference images:', selectedReferenceImages);
@@ -1188,18 +1227,23 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
       img => img.id && (img.url || img.data)
     );
 
-    // Prioritize Twitter/social images first, then website images
+    // Prioritize Tweet images first (category 'Tweet' from server, or id starts with 'tweet-')
     const twitterImages = allImages.filter(img =>
+      img.category === 'Tweet' ||
       img.category?.toLowerCase().includes('twitter') ||
-      img.category?.toLowerCase().includes('social')
+      img.category?.toLowerCase().includes('social') ||
+      img.id?.startsWith('tweet-')
     );
     const websiteImages = allImages.filter(img =>
+      img.category !== 'Tweet' &&
       !img.category?.toLowerCase().includes('twitter') &&
-      !img.category?.toLowerCase().includes('social')
+      !img.category?.toLowerCase().includes('social') &&
+      !img.id?.startsWith('tweet-')
     );
 
+    // Use only 1 reference image — single source of truth for consistent generation
     const selected = [...twitterImages, ...websiteImages]
-      .slice(0, 3)
+      .slice(0, 1)
       .map(img => img.id);
 
     console.log('[Onboarding] Stable reference images selected:', selected);
@@ -1947,6 +1991,22 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
             );
           })}
         </div>
+
+        {/* Skip button — shown after 90 seconds */}
+        {elapsedSeconds >= 90 && isRunning && (
+          <div className="mt-8 text-center" style={{ animation: 'onb-fade-up 0.5s ease-out both' }}>
+            <p className="text-[#6B6B70] text-sm mb-3">Taking longer than expected?</p>
+            <button
+              onClick={() => {
+                setIsRunning(false);
+                setCurrentStep('review');
+              }}
+              className="text-[#FF5C00] text-sm font-medium hover:text-[#FF8400] transition-colors"
+            >
+              Skip and continue with available data →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

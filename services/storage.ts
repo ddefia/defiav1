@@ -168,6 +168,7 @@ export const STORAGE_EVENTS = {
     AUTOMATION_UPDATE: 'defia_automation_update',
     INTEGRATIONS_UPDATE: 'defia_integrations_update',
     CAMPAIGN_LOG_UPDATE: 'defia_campaign_log_update',
+    CONTENT_ITEMS_UPDATE: 'defia_content_items_update',
 };
 
 const dispatchStorageEvent = (eventName: string, detail: any) => {
@@ -920,6 +921,7 @@ export const saveBrainLog = (log: any): void => {
 
 const CAMPAIGN_STORAGE_KEY = 'defia_campaign_drafts_v1';
 const STUDIO_STORAGE_KEY = 'defia_studio_state_v1';
+const CONTENT_ITEMS_KEY = 'defia_content_items_v1';
 
 export const loadCampaignState = (brandName: string): any => {
     try {
@@ -991,6 +993,85 @@ export const saveStudioState = (brandName: string, state: any): void => {
         saveToCloud(key, state);
     } catch (e) {
         console.error("Failed to save studio state", e);
+    }
+};
+
+// --- CONTENT ITEMS PERSISTENCE ---
+
+export const loadContentItems = (brandName: string): any[] => {
+    try {
+        const key = `${CONTENT_ITEMS_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+        fetchFromCloud(key).then(res => {
+            if (res && res.value && JSON.stringify(res.value) !== stored) {
+                console.log("Cloud content items found via fetchFromCloud");
+            }
+        }).catch(() => {});
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error("Failed to load content items", e);
+        return [];
+    }
+};
+
+export const saveContentItems = (brandName: string, items: any[]): void => {
+    try {
+        const key = `${CONTENT_ITEMS_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(items));
+        saveToCloud(key, items);
+        dispatchStorageEvent(STORAGE_EVENTS.CONTENT_ITEMS_UPDATE, { brandName });
+    } catch (e) {
+        console.error("Failed to save content items", e);
+    }
+};
+
+/**
+ * One-time migration: move kickoff drafts from campaign state to content items.
+ * For users who completed onboarding before this change.
+ */
+export const migrateKickoffToContentItems = (brandName: string): boolean => {
+    try {
+        const migrationKey = `defia_kickoff_migrated_v1_${brandName.toLowerCase()}`;
+        if (localStorage.getItem(migrationKey)) return false;
+
+        const contentItems = loadContentItems(brandName);
+        if (contentItems.some((i: any) => String(i?.id || '').startsWith('kickoff-'))) {
+            localStorage.setItem(migrationKey, '1');
+            return false;
+        }
+
+        const campaignState = loadCampaignState(brandName);
+        const campaignItems = Array.isArray(campaignState?.campaignItems) ? campaignState.campaignItems : [];
+        const kickoffDrafts = campaignItems.filter((item: any) => String(item?.id || '').startsWith('kickoff-'));
+
+        if (kickoffDrafts.length === 0) {
+            localStorage.setItem(migrationKey, '1');
+            return false;
+        }
+
+        const migratedItems = kickoffDrafts.map((draft: any) => ({
+            id: draft.id,
+            type: 'twitter' as const,
+            title: String(draft.tweet || '').slice(0, 80) + (String(draft.tweet || '').length > 80 ? '…' : ''),
+            description: draft.tweet,
+            status: 'draft' as const,
+            date: new Date().toISOString().split('T')[0],
+            reasoning: draft.reasoning,
+            template: draft.template,
+            visualHeadline: draft.visualHeadline,
+            visualDescription: draft.visualDescription,
+            referenceImageId: draft.referenceImageId,
+            campaignColor: draft.campaignColor,
+            kickoffTheme: campaignState?.campaignTheme,
+        }));
+
+        const merged = [...migratedItems, ...contentItems];
+        saveContentItems(brandName, merged);
+        localStorage.setItem(migrationKey, '1');
+        return true;
+    } catch (e) {
+        console.error("Failed to migrate kickoff content items", e);
+        return false;
     }
 };
 

@@ -272,3 +272,21 @@ create table if not exists subscriptions (
 create index if not exists subscriptions_user_idx on subscriptions (user_id);
 create index if not exists subscriptions_brand_idx on subscriptions (brand_id);
 create index if not exists subscriptions_stripe_customer_idx on subscriptions (stripe_customer_id);
+
+-- Telegram bot: links between Telegram group chats and Defia brands
+create table if not exists telegram_links (
+  id bigserial primary key,
+  brand_id text not null,
+  chat_id bigint not null,
+  chat_title text,
+  chat_type text,                  -- 'group' | 'supergroup' | 'private'
+  linked_by text,                  -- Telegram username who ran /link
+  link_code text,
+  notifications_enabled boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create unique index if not exists telegram_links_brand_chat_unique on telegram_links (brand_id, chat_id);
+create index if not exists telegram_links_brand_idx on telegram_links (brand_id);
+create index if not exists telegram_links_chat_idx on telegram_links (chat_id);

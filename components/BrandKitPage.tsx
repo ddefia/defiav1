@@ -6,12 +6,15 @@ import { parseDocumentFile } from '../services/documentParser';
 import { analyzeBrandKit } from '../services/gemini';
 import { ingestContext } from '../services/rag';
 import { checkCountLimit } from '../services/subscription';
+import { UsageLimitModal } from './UsageLimitModal';
+import { useToast } from './Toast';
 
 interface BrandKitPageProps {
     brandName: string;
     config: BrandConfig;
     onChange: (newConfig: BrandConfig) => void;
     onBack?: () => void;
+    onNavigate?: (section: string, params?: any) => void;
 }
 
 // Default brand colors
@@ -34,8 +37,10 @@ interface CompetitorItem {
     notes: string;
 }
 
-export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, onChange, onBack }) => {
+export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, onChange, onBack, onNavigate }) => {
     const [isSaving, setIsSaving] = useState(false);
+    const [limitModal, setLimitModal] = useState<{ current: number; max: number } | null>(null);
+    const { showToast } = useToast();
     const [isUploadingKB, setIsUploadingKB] = useState(false);
     const [isAnalyzingKit, setIsAnalyzingKit] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,7 +98,7 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
         // Enforce knowledge base document limit
         const kbCheck = checkCountLimit(config.subscription, 'maxKnowledgeDocs', (config.knowledgeBase || []).length);
         if (!kbCheck.allowed) {
-            alert(`Knowledge base limit reached (${kbCheck.current}/${kbCheck.max} docs). Upgrade your plan for more.`);
+            setLimitModal({ current: kbCheck.current, max: kbCheck.max });
             if (kbFileInputRef.current) kbFileInputRef.current.value = '';
             return;
         }
@@ -132,7 +137,7 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                 }
             }
         } catch (err: any) {
-            console.error("Failed to parse file", err);
+            showToast('Failed to parse uploaded file', 'error');
             alert(err.message || "Failed to read document.");
         } finally {
             setIsUploadingKB(false);
@@ -158,7 +163,7 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                 alert("Visual Identity Extracted Successfully!");
             }
         } catch (err: any) {
-            console.error("Analysis failed", err);
+            showToast('Brand kit analysis failed', 'error');
             alert(err.message || "Failed to analyze document.");
         } finally {
             setIsAnalyzingKit(false);
@@ -544,10 +549,15 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3 mb-4">
-                            {config.referenceImages.slice(0, 2).map(img => (
-                                <div key={img.id} className="aspect-square rounded-lg bg-[#1A1A1D] border border-[#2E2E2E] overflow-hidden">
+                        <div className="grid grid-cols-3 gap-3 mb-4 max-h-72 overflow-y-auto">
+                            {config.referenceImages.map(img => (
+                                <div key={img.id} className="aspect-square rounded-lg bg-[#1A1A1D] border border-[#2E2E2E] overflow-hidden relative group">
                                     <img src={img.data || img.url} alt={img.name} className="w-full h-full object-cover" />
+                                    {img.category && (
+                                        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-white text-[10px]">
+                                            {img.category}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                             <button
@@ -646,6 +656,22 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                     </div>
                 </div>
             </div>
+
+            {/* Usage Limit Modal */}
+            {limitModal && (
+                <UsageLimitModal
+                    isOpen={true}
+                    limitType="knowledgeBase"
+                    current={limitModal.current}
+                    max={limitModal.max}
+                    currentPlan={config.subscription?.plan || 'starter'}
+                    onUpgrade={() => {
+                        setLimitModal(null);
+                        onNavigate?.('settings', { tab: 'billing' });
+                    }}
+                    onDismiss={() => setLimitModal(null)}
+                />
+            )}
         </div>
     );
 };

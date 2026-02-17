@@ -3,8 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrandConfig } from '../types';
 import { generateTweet, generateWeb3Graphic, generateIdeas } from '../services/gemini';
 import { saveBrainMemory } from '../services/supabase';
-import { saveStudioState, loadStudioState, saveImageToGallery, createThumbnail } from '../services/storage';
+import { saveStudioState, loadStudioState, saveImageToGallery, createThumbnail, loadContentItems, saveContentItems, migrateKickoffToContentItems } from '../services/storage';
 import { checkUsageLimit, incrementUsage } from '../services/subscription';
+import { UsageLimitModal, LimitType } from './UsageLimitModal';
+import { useToast } from './Toast';
 
 interface ContentStudioProps {
     brandName: string;
@@ -128,6 +130,12 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         return [...TEMPLATE_OPTIONS, ...custom];
     }, [brandConfig.graphicTemplates]);
 
+    // Usage Limit Modal State
+    const [limitModal, setLimitModal] = useState<{ limitType: LimitType; current: number; max: number } | null>(null);
+
+    // Editing existing content item
+    const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
     // Generator State (preserved from original)
     const [tweetText, setTweetText] = useState('');
     const [visualPrompt, setVisualPrompt] = useState('');
@@ -143,6 +151,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     const [uploadedAssets, setUploadedAssets] = useState<{ id: string; data: string; mimeType: string }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [error, setError] = useState<string | null>(null);
+    const { showToast } = useToast();
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -183,6 +192,11 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                 if (saved.generatedImages) setGeneratedImages(saved.generatedImages);
             }
         }
+
+        // Load content library items (always, regardless of deep links)
+        migrateKickoffToContentItems(brandName);
+        const savedItems = loadContentItems(brandName);
+        if (savedItems.length > 0) setContentItems(savedItems);
     }, [brandName, initialDraft, initialVisualPrompt]);
 
     useEffect(() => {
@@ -193,13 +207,20 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         return () => clearTimeout(timeout);
     }, [writerTopic, generatedDrafts, tweetText, visualPrompt, negativePrompt, generatedImages, brandName]);
 
+    // Auto-save content items
+    useEffect(() => {
+        if (contentItems.length === 0) return;
+        const timeout = setTimeout(() => saveContentItems(brandName, contentItems), 1000);
+        return () => clearTimeout(timeout);
+    }, [contentItems, brandName]);
+
     // --- HANDLERS (preserved from original) ---
     const handleGenerateIdeas = async () => {
         setIsGeneratingIdeas(true);
         try {
             const ideas = await generateIdeas(brandName);
             setSuggestedIdeas(ideas);
-        } catch (e) { console.error(e); } finally { setIsGeneratingIdeas(false); }
+        } catch (e: any) { showToast(e?.message || 'Failed to generate ideas', 'error'); } finally { setIsGeneratingIdeas(false); }
     };
 
     const handleGenerateTweet = async () => {
@@ -207,7 +228,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         // Enforce content usage limit
         const contentCheck = checkUsageLimit(brandConfig.subscription, 'contentPerMonth');
         if (!contentCheck.allowed) {
-            setError(`Monthly limit reached (${contentCheck.current}/${contentCheck.max} ${contentCheck.label}). Upgrade your plan for more.`);
+            setLimitModal({ limitType: 'content', current: contentCheck.current, max: contentCheck.max });
             return;
         }
         setIsGeneratingTweet(true);
@@ -295,7 +316,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         // Enforce content usage limit
         const contentCheck = checkUsageLimit(brandConfig.subscription, 'contentPerMonth');
         if (!contentCheck.allowed) {
-            setError(`Monthly limit reached (${contentCheck.current}/${contentCheck.max} ${contentCheck.label}). Upgrade your plan for more.`);
+            setLimitModal({ limitType: 'content', current: contentCheck.current, max: contentCheck.max });
             return;
         }
         setIsWritingTweet(true);
@@ -336,7 +357,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         // Enforce image usage limit
         const imageCheck = checkUsageLimit(brandConfig.subscription, 'imagesPerMonth');
         if (!imageCheck.allowed) {
-            setError(`Monthly limit reached (${imageCheck.current}/${imageCheck.max} ${imageCheck.label}). Upgrade your plan for more.`);
+            setLimitModal({ limitType: 'image', current: imageCheck.current, max: imageCheck.max });
             return;
         }
         setIsGenerating(true);
@@ -391,7 +412,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         // Enforce image usage limit
         const imageCheck = checkUsageLimit(brandConfig.subscription, 'imagesPerMonth');
         if (!imageCheck.allowed) {
-            setError(`Monthly limit reached (${imageCheck.current}/${imageCheck.max} ${imageCheck.label}). Upgrade your plan for more.`);
+            setLimitModal({ limitType: 'image', current: imageCheck.current, max: imageCheck.max });
             return;
         }
         setIsGenerating(true);
@@ -419,7 +440,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             } else {
                 setError(msg || 'Failed to generate image.');
             }
-            console.error('Failed to generate image:', err);
+            showToast(err?.message || 'Failed to generate image', 'error');
         } finally {
             setIsGenerating(false);
         }
@@ -460,7 +481,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                 mimeType
             }]);
         } catch (err) {
-            console.error("Asset upload failed", err);
+            showToast('Failed to upload asset', 'error');
             setError("Failed to upload asset");
         }
     };
@@ -560,6 +581,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         setGeneratedThreadPreview([]);
         setCurrentThreadIndex(0);
         setPreviewImage(null);
+        setEditingItemId(null);
     };
 
     const handleGoToAddTweetImage = () => {
@@ -794,6 +816,49 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         return num.toString();
     };
 
+    const handleContentCardClick = (item: ContentItem) => {
+        if (item.type === 'twitter' || item.type === 'thread') {
+            setEditingItemId(item.id);
+            setTweetTopic(item.description || item.title);
+            setGeneratedTweetPreview(item.description || item.title);
+            if (item.image) setPreviewImage(item.image);
+            setCurrentView('create-tweet');
+        } else if (item.type === 'graphic') {
+            setCurrentView('create-graphic');
+        }
+    };
+
+    const handleSaveDraft = (text: string, image?: string, type?: 'twitter' | 'thread') => {
+        if (!text) return;
+
+        // If editing an existing item, update it in-place
+        if (editingItemId) {
+            setContentItems(prev => prev.map(item =>
+                item.id === editingItemId
+                    ? { ...item, title: text.slice(0, 80) + (text.length > 80 ? '…' : ''), description: text, image: image || item.image, type: type || item.type }
+                    : item
+            ));
+            setEditingItemId(null);
+            setCurrentView('library');
+            setGeneratedTweetPreview('');
+            setTweetTopic('');
+            setPreviewImage(null);
+            return;
+        }
+
+        const newItem: ContentItem = {
+            id: `studio-draft-${Date.now()}`,
+            type: type || 'twitter',
+            title: text.slice(0, 80) + (text.length > 80 ? '…' : ''),
+            description: text,
+            status: 'draft',
+            date: new Date().toISOString().split('T')[0],
+            image: image || undefined,
+        };
+        setContentItems(prev => [newItem, ...prev.filter(i => i.id !== newItem.id)]);
+        setCurrentView('library');
+    };
+
     // Distribute content into 3 columns (masonry-style)
     const columns: ContentItem[][] = [[], [], []];
     filteredContent.forEach((item, index) => {
@@ -1020,6 +1085,14 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
                         {/* Action Buttons */}
                         <div className="flex items-center justify-center gap-3">
+                            <button
+                                onClick={() => currentTweetText && handleSaveDraft(currentTweetText, previewImage || undefined, isThreadPreview ? 'thread' : 'twitter')}
+                                disabled={!currentTweetText}
+                                className="flex items-center gap-2 px-4 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>{editingItemId ? 'save' : 'bookmark'}</span>
+                                {editingItemId ? 'Save Changes' : 'Save Draft'}
+                            </button>
                             <button
                                 onClick={() => currentTweetText && onSchedule(currentTweetText, previewImage || undefined)}
                                 disabled={!currentTweetText}
@@ -2082,10 +2155,20 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                 return (
                                     <div
                                         key={item.id}
+                                        onClick={() => handleContentCardClick(item)}
                                         className="bg-[#111113] border border-[#1F1F23] rounded-2xl overflow-hidden hover:border-[#2E2E2E] transition-colors cursor-pointer group"
                                     >
                                         {/* Card Image */}
                                         <div className={`h-40 ${getCardGradient(item.type)} relative`}>
+                                            {/* Launch Pack badge for kickoff items */}
+                                            {String(item.id).startsWith('kickoff-') && (
+                                                <div className="absolute top-3 right-3">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#22C55E]/20 text-[#22C55E] text-[10px] font-semibold backdrop-blur-sm">
+                                                        <span className="material-symbols-sharp text-xs" style={{ fontVariationSettings: "'wght' 300" }}>rocket_launch</span>
+                                                        Launch Pack
+                                                    </span>
+                                                </div>
+                                            )}
                                             {item.type === 'twitter' && (
                                                 <div className="absolute bottom-5 left-5">
                                                     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${badge.bg} text-white text-xs font-semibold`}>
@@ -2195,6 +2278,31 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                                     )}
                                                 </div>
                                             )}
+
+                                            {/* Quick Actions (hover) */}
+                                            <div className="flex items-center gap-2 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleContentCardClick(item); }}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1F1F23] text-[#8B8B8F] text-xs font-medium hover:text-white transition-colors"
+                                                >
+                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(item.description || item.title); }}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1F1F23] text-[#8B8B8F] text-xs font-medium hover:text-white transition-colors"
+                                                >
+                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>content_copy</span>
+                                                    Copy
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onSchedule(item.description || item.title, item.image); }}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1F1F23] text-[#8B8B8F] text-xs font-medium hover:text-white transition-colors"
+                                                >
+                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
+                                                    Schedule
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -2235,6 +2343,22 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* Usage Limit Modal */}
+            {limitModal && (
+                <UsageLimitModal
+                    isOpen={true}
+                    limitType={limitModal.limitType}
+                    current={limitModal.current}
+                    max={limitModal.max}
+                    currentPlan={brandConfig.subscription?.plan || 'starter'}
+                    onUpgrade={() => {
+                        setLimitModal(null);
+                        onNavigate?.('settings', { tab: 'billing' });
+                    }}
+                    onDismiss={() => setLimitModal(null)}
+                />
             )}
         </div>
     );

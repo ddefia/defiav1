@@ -3,48 +3,83 @@ import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, Campai
 import { saveBrainLog } from "./storage";
 import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
 
-// Global constant defined in vite.config.ts
-// Global constant removed
-
-
-
 // --- API KEY HELPER ---
-// --- API KEY HELPER ---
+// Server-side only: direct SDK access. Browser: proxied through /api/gemini/*
 const getApiKey = (): string => {
-    // 1. Check Build-Time Injections (Vite 'define' replacements)
-    // We try/catch these because if Vite replaces them, they become strings.
-    // If not, 'process' might be undefined, which we catch.
-    try {
-        // @ts-ignore
-        if (process.env.API_KEY) return process.env.API_KEY;
-    } catch (e) { }
-
-    try {
-        // @ts-ignore
-        if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
-    } catch (e) { }
-
-    // 2. Check Standard Vite Envs
-    const metaEnv = (import.meta as any).env;
-    if (metaEnv) {
-        if (metaEnv.VITE_GEMINI_API_KEY) return metaEnv.VITE_GEMINI_API_KEY;
-        if (metaEnv.GEMINI_API_KEY) return metaEnv.GEMINI_API_KEY;
-    }
-
-    // 3. Fallback to Local Storage (User Settings)
-    if (typeof window !== 'undefined') {
+    // Server-side (Node.js) — read from environment directly
+    if (typeof window === 'undefined') {
         try {
-            const stored = localStorage.getItem('defia_integrations_v1');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                if (parsed.geminiKey) return parsed.geminiKey;
-            }
+            // @ts-ignore
+            if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
+            // @ts-ignore
+            if (process.env.VITE_GEMINI_API_KEY) return process.env.VITE_GEMINI_API_KEY;
         } catch (e) { }
     }
-
-    console.warn("⚠️ API Key Missing! Check Vercel Env Vars or Settings.");
-    return "";
+    // Browser-side — return empty, proxy handles the key
+    return '';
 };
+
+// --- PROXY-AWARE AI WRAPPER ---
+// In browser: routes through /api/gemini/* (key stays server-side)
+// In Node.js: calls GoogleGenAI SDK directly
+const isServer = typeof window === 'undefined';
+
+const createProxyAI = () => ({
+    models: {
+        generateContent: async (params: any) => {
+            if (isServer) {
+                const apiKey = getApiKey();
+                const directAI = new GoogleGenAI({ apiKey });
+                return directAI.models.generateContent(params);
+            }
+            // Browser: proxy through server
+            const res = await fetch('/api/gemini/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: params.model, contents: params.contents, config: params.config }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: res.statusText }));
+                const error: any = new Error(err.error || 'Gemini API call failed');
+                error.status = res.status;
+                throw error;
+            }
+            const data = await res.json();
+            // Reconstruct response shape to match SDK
+            return {
+                text: data.text || '',
+                candidates: data.raw?.candidates || [{
+                    content: {
+                        parts: [
+                            ...(data.text ? [{ text: data.text }] : []),
+                            ...(data.images || []).map((img: any) => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+                        ]
+                    }
+                }],
+            };
+        },
+        embedContent: async (params: any) => {
+            if (isServer) {
+                const apiKey = getApiKey();
+                const directAI = new GoogleGenAI({ apiKey });
+                return directAI.models.embedContent(params);
+            }
+            const res = await fetch('/api/gemini/embed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: params.model, contents: params.contents }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: res.statusText }));
+                throw new Error(err.error || 'Gemini embed call failed');
+            }
+            return res.json();
+        },
+    },
+});
+
+// Singleton proxy AI instance
+const getAI = (): any => createProxyAI();
 
 // --- SAFE RESPONSE TEXT HELPER ---
 // Handles both property and function access patterns across SDK versions
@@ -74,9 +109,7 @@ const dispatchThinking = (message: string, detail?: any) => {
  * Helper to generate embeddings for RAG.
  */
 export const getEmbedding = async (text: string): Promise<number[]> => {
-    const apiKey = getApiKey();
-    if (!apiKey) console.error("MISSING API KEY in getEmbedding");
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
     try {
         const result = await ai.models.embedContent({
             model: "text-embedding-004",
@@ -123,8 +156,7 @@ const getBase64FromUrl = async (url: string): Promise<string> => {
 const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<string> => {
     if (!images || images.length === 0) return "";
 
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Limits consistency to first 3 images to avoid token overload
     // Prioritize images with data, then url
@@ -180,7 +212,17 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
             model: 'gemini-2.0-flash',
             contents: [
                 ...validParts,
-                { text: "Analyze these reference images. Describe their VISUAL STYLE (lighting, colors) AND TYPOGRAPHY (Is the text All Caps, Title Case, or Sentence Case? Font weight?). Focus on how elements are arranged." }
+                { text: `Analyze these reference images to create an EXACT TEMPLATE SPECIFICATION for replication.
+
+Describe with extreme precision:
+1. LAYOUT: Exact position of every element using spatial relationships (e.g. "title centered in top 20%", "icon occupies center 40%").
+2. COLORS: List every dominant color as hex values. Background gradient direction and colors. Glow effects or overlays.
+3. TYPOGRAPHY: Font style, weight, case (ALL CAPS / Title Case / Sentence case), size relative to frame, color, any effects (shadow, glow).
+4. VISUAL ELEMENTS: Every shape, icon, pattern, 3D object, border, card, overlay — their position, size, and style.
+5. LIGHTING: Light direction, ambient glow colors, contrast level, depth effects.
+6. COMPOSITION: Alignment, margins, spacing, visual hierarchy.
+
+Be forensically precise. A designer reading ONLY your description should recreate this image pixel-for-pixel with different text.` }
             ]
         });
 
@@ -204,13 +246,7 @@ const analyzeStyleFromReferences = async (images: ReferenceImage[]): Promise<str
 export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<string> => {
     dispatchThinking(`🎨 Generating Graphic for: "${params.prompt}"`, { template: params.templateType, style: params.artPrompt });
 
-    // Robust Key Loading
-    const apiKey = getApiKey();
-    if (!apiKey) {
-        console.error("FATAL: No API Key found.");
-        throw new Error("API Key is missing. Check Vercel Env Vars.");
-    }
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const colorPalette = params.brandConfig.colors.map(c => `${c.name} (${c.hex})`).join(', ');
     const brandName = params.brandName || "Web3";
@@ -374,13 +410,20 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - ✅ Use text SPARINGLY (Title/Stat only).
         
         ${effectiveReferenceImageIds.length > 0 ? `
-           REFERENCE IMAGE UTILIZATION (HIGHEST PRIORITY):
-           - I have provided ${effectiveReferenceImageIds.length} reference images.
-           - 🚨 STRICT TEMPLATE MODE: The user wants to use the Reference Image as a LAYOUT TEMPLATE.
-           - COMPOSITION: You MUST copy the exact layout of the reference. If there is a title at the top, put your new title at the top. If there is a central icon, put your new icon in the center.
-           - REPLACE TEXT: Use a SHORT HEADLINE (Max 5 words) derived from: "${params.prompt}". 🚨 NEVER paste the full text/tweet.
-           - REPLACE ICON: Update the central graphic/icon to match the topic ("${params.prompt}"), but keep it in the SAME position and style as the reference.
-           - STYLE: ${analyzedStyleDescription || "Match the reference style exactly."}
+           REFERENCE IMAGE UTILIZATION (HIGHEST PRIORITY — OVERRIDES ALL OTHER INSTRUCTIONS):
+           - I have provided ${effectiveReferenceImageIds.length} reference image(s). This is your MASTER TEMPLATE.
+           - 🚨 PIXEL-PERFECT REPLICATION MODE:
+             - Your output MUST look like the reference image was opened in Photoshop and ONLY the text was swapped.
+             - SAME background (exact colors, gradients, effects).
+             - SAME layout (every element in the same position and proportion).
+             - SAME typography style (font weight, case, size, color, effects).
+             - SAME visual elements (shapes, icons, borders, cards, overlays) in the SAME positions.
+             - SAME lighting, atmosphere, and color grading.
+           - ONLY CHANGE: Replace the headline text with a SHORT HEADLINE (Max 5 words) from: "${params.prompt}". 🚨 NEVER paste the full tweet.
+           - DO NOT add, remove, or modify any visual elements.
+           - DO NOT change colors, lighting, or atmosphere.
+           - DO NOT reinterpret or "improve" the design. COPY IT EXACTLY.
+           - ${analyzedStyleDescription || "Match the reference style exactly."}
         ` : ''}
     `;
     }
@@ -553,8 +596,7 @@ export const editWeb3Graphic = async (
     aspectRatio: string = '1:1',
     quality: '1K' | '2K' = '1K'
 ): Promise<string> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Prepare Image Part
     const mimeMatch = imageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
@@ -660,8 +702,7 @@ export const generateTweet = async (
     count: number = 1
 ): Promise<string | string[]> => {
     dispatchThinking(`🐦 Generating Tweet for: "${topic}"`, { tone, brand: brandName, count });
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const examples = brandConfig.tweetExamples.length > 0
         ? `STYLE REFERENCE (MIMIC THIS VOICE/PACE/LENGTH): \n${brandConfig.tweetExamples.map(t => `- ${t}`).join('\n')} `
@@ -807,8 +848,7 @@ export const generateTweet = async (
  */
 export const analyzeContentNotes = async (notes: string, brandName: string, images: string[] = []): Promise<any> => {
     dispatchThinking(`📝 Analyzing Content Notes & Images`, { notesLength: notes.length, imageCount: images.length });
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const systemInstruction = `
     You are a Content Strategy Expert for ${brandName}.
@@ -941,8 +981,7 @@ const assignVisualStrategy = async (drafts: any[], brandConfig: BrandConfig): Pr
     }
     `;
 
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const response = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
@@ -991,8 +1030,7 @@ export const generateCampaignDrafts = async (
     recentPosts: any[] = [] // NEW: Analytics History
 ): Promise<{ drafts: any[], thinking: string, themeColor?: string, systemPrompt?: string }> => {
     dispatchThinking(`🚀 Drafting Campaign: "${theme}"`, { count, focus: focusContent ? 'Yes' : 'No' });
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // FORMATTING: STRICTLY FORBID COPYING, BUT ENCOURAGE STYLE MIMICRY
     const examples = brandConfig.tweetExamples.length > 0
@@ -1285,8 +1323,7 @@ export const generateCampaignStrategy = async (
     focusContent: string = "", // NEW (User Doc)
     ragContext: string = "" // NEW (Deep Search)
 ): Promise<CampaignStrategy> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // SYSTEM THINKING
     dispatchThinking("Generating Campaign Strategy", {
@@ -1416,8 +1453,7 @@ export const generateTrendReaction = async (
     brandConfig: BrandConfig,
     type: 'Tweet' | 'Meme'
 ): Promise<string> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const examples = brandConfig.tweetExamples.length > 0
         ? `STYLE EXAMPLES: \n${brandConfig.tweetExamples.slice(0, 2).map(t => `- ${t}`).join('\n')} `
@@ -1521,8 +1557,7 @@ export const generateBusinessConnections = async (
     brandName: string,
     brandConfig: BrandConfig
 ): Promise<string> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Filter top 10 trends for prompt
     const topTrends = trends.slice(0, 10).map(t => `- ${t.headline}: ${t.summary} `).join('\n');
@@ -1579,8 +1614,7 @@ export const generateGrowthReport = async (
     brandConfig: BrandConfig
 ): Promise<GrowthReport> => {
     dispatchThinking("Generating Daily Strategic Briefing...", { brand: brandName, trendsCount: trends.length });
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Filter for high impact trends
     const significantTrends = trends
@@ -1677,8 +1711,7 @@ export const refineStrategicPosture = async (
     growthReport: GrowthReport | null
 ): Promise<StrategicPosture> => {
     dispatchThinking("🧠 Refining Strategic Posture...", { brand: brandName });
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const recentTrends = trends.slice(0, 5).map(t => `- ${t.headline}`).join('\n');
     const briefing = growthReport ? `EXECUTIVE SUMMARY: ${growthReport.executiveSummary}` : "";
@@ -1745,8 +1778,7 @@ export const refineStrategicPosture = async (
 };
 
 export const generateIdeas = async (brandName: string): Promise<string[]> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
@@ -1764,9 +1796,7 @@ export const generateStyleExamples = async (
     brandConfig: BrandConfig,
     count: number = 8
 ): Promise<string[]> => {
-    const apiKey = getApiKey();
-    if (!apiKey) throw new Error("Missing API Key");
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const kb = brandConfig.knowledgeBase?.length
         ? `KNOWLEDGE BASE (SOURCE OF TRUTH):\n${brandConfig.knowledgeBase.join('\n')}`
@@ -1797,8 +1827,13 @@ CRITICAL RULES - FOLLOW EXACTLY:
 - No generic phrases like "Stay tuned" or "Let's go".
 - No corporate speak or marketing fluff.
 
+FORMATTING REQUIREMENTS:
+- YOU MUST use double line breaks (\\n\\n) between sections (hook, body, CTA).
+- Structure each tweet with clear visual separation. NOT one continuous paragraph.
+- Each tweet should have a punchy hook line, then a body, then optionally a CTA — separated by blank lines.
+
 OUTPUT FORMAT:
-Return ONLY valid JSON array of strings. No markdown.
+Return ONLY valid JSON array of strings. Use \\n for line breaks within each string. No markdown.
 
 VOICE:
 - ${voice}
@@ -1826,8 +1861,8 @@ ${tweetRef}
                 let text = String(item).trim();
                 // Remove hashtags (e.g., #DeFi, #Web3, etc.)
                 text = text.replace(/#\w+/g, '').trim();
-                // Clean up any double spaces left behind
-                text = text.replace(/\s{2,}/g, ' ').trim();
+                // Clean up double spaces left behind (preserve newlines for tweet formatting)
+                text = text.replace(/ {2,}/g, ' ').trim();
                 return text;
             }).filter((item) => item.length > 0);
         }
@@ -1854,8 +1889,7 @@ export const researchBrandIdentity = async (
     url: string,
     options: BrandResearchOptions = {}
 ): Promise<BrandConfig> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Feed Gemini as much content as possible — it can handle 1M tokens
     const siteContent = (options.siteContent || '').slice(0, 100000);
@@ -1942,11 +1976,11 @@ OUTPUT FORMAT — Return valid JSON matching this exact schema:
 
         console.log(`[Gemini] Research complete: ${(data.knowledgeBase || []).length} KB entries, voice: ${(data.voiceGuidelines || '').length} chars, audience: ${(data.targetAudience || '').length} chars`);
 
-        // Post-process tweet examples: remove hashtags, clean up spacing
+        // Post-process tweet examples: remove hashtags, clean up spacing (preserve newlines)
         const cleanTweets = (data.tweetExamples || []).map((t: string) => {
             let text = String(t).trim();
             text = text.replace(/#\w+/g, '').trim();
-            text = text.replace(/\s{2,}/g, ' ').trim();
+            text = text.replace(/ {2,}/g, ' ').trim();
             return text;
         }).filter((t: string) => t.length > 0);
 
@@ -2001,8 +2035,7 @@ export const generateSmartReply = async (
     brandName: string,
     brandConfig: BrandConfig
 ): Promise<string> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Determine stance based on 'War Room' sentiment
     const stance = sentimentScore > 60 ? "BULLISH/CONFIDENT" : sentimentScore < 40 ? "DEFENSIVE/REASSURING" : "NEUTRAL/PROFESSIONAL";
@@ -2066,8 +2099,7 @@ export const generateAnalyticsReport = async (
     trends: TrendItem[] = []
 ): Promise<GrowthReport> => {
     dispatchThinking(`📊 Generating Growth Report`, { hasOnChain: !!metrics, hasSocial: !!socialMetrics, hasTrends: trends.length > 0 });
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     let onChainSection = "ON-CHAIN DATA: Not connected / Unavailable. Focus analysis on social strategy.";
 
@@ -2222,8 +2254,7 @@ export const generateStrategicAnalysis = async (
     agentDecisions: any[] = [] // New: Backend Agent Decisions
 ): Promise<{ tasks: StrategyTask[], systemPrompt?: string, thoughts?: string }> => {
     dispatchThinking(`🤖 Generating Strategic Analysis (Gaia)`, { brand: brandName, trendCount: trends.length });
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // War Room Context
     const warRoomContext = signals ? `
@@ -2462,8 +2493,7 @@ function growthScore(report: GrowthReport): string {
  * CLASSIFIER: Categorizes an image into a specific template bucket.
  */
 export const classifyImage = async (imageUrl: string, categories: string[]): Promise<string | null> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     try {
         // Fetch Base64
@@ -2514,8 +2544,7 @@ export const classifyImage = async (imageUrl: string, categories: string[]): Pro
  * Extracts visual style guidelines from raw PDF text.
  */
 export const analyzeBrandKit = async (text: string): Promise<string> => {
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Truncate if too long (Gemini 2.0 has big context, but let's be safe/efficient)
     const truncatedText = text.substring(0, 50000);
@@ -2567,8 +2596,7 @@ export const analyzeBrandKit = async (text: string): Promise<string> => {
  */
 export const analyzeMarketContext = async (context: BrainContext): Promise<AnalysisReport> => {
     dispatchThinking("🧠 Brain Phase 1: Analyzing Market Context...");
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const cm = context.marketState.chainMetrics;
     const chainBlock = cm ? `
@@ -2639,8 +2667,7 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
  */
 export const formulateStrategy = async (context: BrainContext, analysis: AnalysisReport): Promise<ActionPlan> => {
     dispatchThinking("🧠 Brain Phase 2: Formulating Action Plan...", { angle: analysis.strategicAngle });
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     const brandName = context.brand.name || 'Brand';
     const performanceBlock = buildPerformanceAnalysis(context.memory.recentPosts);
@@ -2749,8 +2776,7 @@ const buildCompetitorBlock = (competitors?: { name: string; handle?: string; str
 
 const runAgentInsight = async (prompt: string, fallback: AgentInsight): Promise<AgentInsight> => {
     try {
-        const apiKey = getApiKey();
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAI();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
@@ -2986,8 +3012,7 @@ export const classifyAndPopulate = async (
     marketingContext?: { calendar: any[], tasks: any[], report: any }
 ): Promise<ChatIntentResponse> => {
     dispatchThinking(`🤖 Copilot: Analyzing user intent...`);
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Latest user message
     const lastMessage = userHistory[userHistory.length - 1].content;
@@ -3096,8 +3121,7 @@ export const generateGeneralChatResponse = async (
     marketingContext?: { calendar: any[], tasks: any[], report: any }
 ): Promise<{ text: string, actions?: { label: string, action: string }[] }> => {
     dispatchThinking(`🤖 Copilot: Consulting Knowledge Base...`);
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Latest user message
     const lastMessage = userHistory.length > 0 ? userHistory[userHistory.length - 1].content : "";
@@ -3234,8 +3258,7 @@ export const generateDailyBrief = async (
     chainMetrics?: ComputedMetrics | null
 ): Promise<DailyBrief> => {
     dispatchThinking("📊 Generating Daily AI Brief (Analyst Mode)");
-    const apiKey = getApiKey();
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = getAI();
 
     // Prepare Context from VISIBLE Data Only
     const kpiSummary = kpis.map(k => `${k.label}: ${k.value} (${k.trend} ${k.delta}%)`).join('\n');

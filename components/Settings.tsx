@@ -43,6 +43,13 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
     const [xConnectError, setXConnectError] = useState('');
     const [xConnectLoading, setXConnectLoading] = useState(false);
 
+    // Telegram state
+    const [telegramLinkCode, setTelegramLinkCode] = useState('');
+    const [telegramDeepLink, setTelegramDeepLink] = useState('');
+    const [telegramLinkLoading, setTelegramLinkLoading] = useState(false);
+    const [telegramLinkedChats, setTelegramLinkedChats] = useState<Array<{ chat_id: number; chat_title?: string; linked_by?: string; created_at?: string }>>([]);
+    const [telegramError, setTelegramError] = useState('');
+
     // Profile data from auth
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [profileName, setProfileName] = useState('Alex Chen');
@@ -98,6 +105,83 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
         fetchXStatus();
         return () => { isActive = false; };
     }, [brandName]);
+
+    // Fetch Telegram linked chats
+    useEffect(() => {
+        let isActive = true;
+        const fetchTelegramStatus = async () => {
+            try {
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+                const registryEntry = getBrandRegistryEntry(brandName);
+                const brandKey = registryEntry?.brandId || brandName;
+                const authToken = await getAuthToken();
+                const response = await fetch(`${baseUrl}/api/telegram/status?brandId=${encodeURIComponent(brandKey)}`, {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                if (isActive) setTelegramLinkedChats(data.chats || []);
+            } catch {
+                if (isActive) setTelegramLinkedChats([]);
+            }
+        };
+        fetchTelegramStatus();
+        return () => { isActive = false; };
+    }, [brandName]);
+
+    const handleGenerateTelegramLink = async () => {
+        setTelegramLinkLoading(true);
+        setTelegramError('');
+        setTelegramLinkCode('');
+        setTelegramDeepLink('');
+        try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+            const registryEntry = getBrandRegistryEntry(brandName);
+            const brandKey = registryEntry?.brandId || brandName;
+            const authToken = await getAuthToken();
+            const response = await fetch(`${baseUrl}/api/telegram/generate-link-code`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+                },
+                body: JSON.stringify({ brandId: brandKey }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                setTelegramError(data?.error || 'Failed to generate link code');
+                return;
+            }
+            setTelegramLinkCode(data.code);
+            setTelegramDeepLink(data.deepLink || '');
+        } catch (e: any) {
+            setTelegramError(e?.message || 'Failed to generate link code');
+        } finally {
+            setTelegramLinkLoading(false);
+        }
+    };
+
+    const handleUnlinkTelegram = async (chatId: number) => {
+        try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+            const registryEntry = getBrandRegistryEntry(brandName);
+            const brandKey = registryEntry?.brandId || brandName;
+            const authToken = await getAuthToken();
+            const response = await fetch(`${baseUrl}/api/telegram/unlink`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+                },
+                body: JSON.stringify({ brandId: brandKey, chatId }),
+            });
+            if (response.ok) {
+                setTelegramLinkedChats(prev => prev.filter(c => c.chat_id !== chatId));
+            }
+        } catch {
+            setTelegramError('Failed to unlink chat');
+        }
+    };
 
     const handleConnectX = async () => {
         setXConnectError('');
@@ -398,7 +482,12 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                                 + Add Competitor {compLimit.max > 0 && <span className="text-[#6B6B70]">({settingsCompetitors.length}/{compLimit.max})</span>}
                                             </button>
                                         ) : (
-                                            <span className="text-xs text-[#6B6B70]">Limit reached ({compLimit.current}/{compLimit.max})</span>
+                                            <button
+                                                onClick={() => setActiveTab('billing')}
+                                                className="text-xs text-[#FF5C00] hover:text-[#FF6B1A] font-medium transition-colors"
+                                            >
+                                                Limit reached ({compLimit.current}/{compLimit.max}) — Upgrade →
+                                            </button>
                                         );
                                     })()}
                                 </div>
@@ -715,6 +804,114 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                         )}
                                     </button>
                                 </div>
+                            </div>
+
+                            {/* Telegram Bot Integration Card */}
+                            <div className="rounded-xl border border-[#1F1F23] bg-[#111113] p-6 space-y-4">
+                                <div className="flex items-center gap-3 mb-1">
+                                    <div className="w-8 h-8 rounded-lg bg-[#0088CC]/10 flex items-center justify-center">
+                                        <span className="material-symbols-sharp text-[#0088CC]" style={{ fontSize: 18 }}>send</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-white text-sm font-semibold">Telegram Bot</h3>
+                                        <p className="text-[11px] text-[#6B6B70]">AI co-pilot in your Telegram group</p>
+                                    </div>
+                                    <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full ${telegramLinkedChats.length > 0 ? 'bg-green-500/10 text-green-400' : 'bg-[#1F1F23] text-[#6B6B70]'}`}>
+                                        {telegramLinkedChats.length > 0 ? 'Connected' : 'Not connected'}
+                                    </span>
+                                </div>
+
+                                <p className="text-[#A0A0A6] text-[13px] leading-relaxed">
+                                    Connect the Defia bot to your Telegram group for automated daily briefings, AI recommendations, and natural language content creation.
+                                </p>
+
+                                {/* Linked chats */}
+                                {telegramLinkedChats.length > 0 && (
+                                    <div className="space-y-2">
+                                        <span className="text-xs font-semibold text-[#94A3B8] uppercase tracking-widest">Linked Groups</span>
+                                        {telegramLinkedChats.map(chat => (
+                                            <div key={chat.chat_id} className="flex items-center gap-3 p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                                <span className="material-symbols-sharp text-[#0088CC]" style={{ fontSize: 16 }}>group</span>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white text-sm font-medium truncate">{chat.chat_title || `Chat ${chat.chat_id}`}</p>
+                                                    <p className="text-[#6B6B70] text-[11px]">
+                                                        {chat.linked_by ? `Linked by @${chat.linked_by}` : 'Linked'}
+                                                        {chat.created_at ? ` • ${new Date(chat.created_at).toLocaleDateString()}` : ''}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleUnlinkTelegram(chat.chat_id)}
+                                                    className="text-[#6B6B70] hover:text-red-400 transition-colors text-xs"
+                                                >
+                                                    Unlink
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Generate link code */}
+                                {!telegramLinkCode ? (
+                                    <button
+                                        onClick={handleGenerateTelegramLink}
+                                        disabled={telegramLinkLoading}
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#0088CC]/10 border border-[#0088CC]/20 text-[#0088CC] text-sm font-semibold hover:bg-[#0088CC]/20 disabled:opacity-50 transition-colors"
+                                    >
+                                        {telegramLinkLoading ? (
+                                            <>
+                                                <span className="material-symbols-sharp text-base animate-spin" style={{ fontVariationSettings: "'wght' 300" }}>progress_activity</span>
+                                                Generating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-sharp text-base">link</span>
+                                                {telegramLinkedChats.length > 0 ? 'Link Another Group' : 'Generate Link Code'}
+                                            </>
+                                        )}
+                                    </button>
+                                ) : (
+                                    <div className="space-y-3 p-4 rounded-lg bg-[#0A0A0B] border border-[#0088CC]/20">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-sharp text-green-400" style={{ fontSize: 16 }}>check_circle</span>
+                                            <span className="text-white text-sm font-semibold">Link Code Generated</span>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <code className="flex-1 px-3 py-2 rounded bg-[#1F1F23] text-[#FF5C00] text-sm font-mono font-bold tracking-wider text-center">
+                                                {telegramLinkCode}
+                                            </code>
+                                            <button
+                                                onClick={() => navigator.clipboard.writeText(telegramLinkCode)}
+                                                className="p-2 rounded-lg hover:bg-[#1F1F23] text-[#6B6B70] hover:text-white transition-colors"
+                                                title="Copy code"
+                                            >
+                                                <span className="material-symbols-sharp" style={{ fontSize: 16 }}>content_copy</span>
+                                            </button>
+                                        </div>
+
+                                        {telegramDeepLink && (
+                                            <a
+                                                href={telegramDeepLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#0088CC] text-white text-sm font-semibold hover:bg-[#0077B5] transition-colors"
+                                            >
+                                                <span className="material-symbols-sharp text-base">open_in_new</span>
+                                                Add Bot to Telegram Group
+                                            </a>
+                                        )}
+
+                                        <div className="text-[#6B6B70] text-[11px] space-y-1">
+                                            <p>1. Click the button above to add the bot to your group</p>
+                                            <p>2. The bot will auto-link using your code</p>
+                                            <p>3. Code expires in 30 minutes</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {telegramError && (
+                                    <p className="text-xs text-red-400">{telegramError}</p>
+                                )}
                             </div>
 
                             {/* Brand Data Management Card */}

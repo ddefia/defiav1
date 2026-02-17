@@ -2,10 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, DailyBrief } from '../types';
 import { fetchCampaignPerformance } from '../services/analytics';
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
-import { loadCampaignState, loadCampaignLogs, loadIntegrationKeys } from '../services/storage';
+import { loadCampaignState, loadCampaignLogs, loadIntegrationKeys, loadContentItems } from '../services/storage';
 import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton';
 import { generateSupplementalRecs } from './RecommendationsPage';
 import { PLAN_NAMES, getResetUsage } from '../services/subscription';
+import { useToast } from './Toast';
 
 interface DashboardProps {
     brandName: string;
@@ -27,6 +28,7 @@ interface DashboardProps {
     sharedRegenLastRun?: number;
     sharedDecisionSummary?: any;
     onRegenerate?: () => void;
+    isKickoffGenerating?: boolean;
 }
 
 const formatEngagements = (metrics: SocialMetrics) => {
@@ -152,7 +154,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     sharedRegenLastRun = 0,
     sharedDecisionSummary = {},
     onRegenerate,
+    isKickoffGenerating = false,
 }) => {
+    const { showToast } = useToast();
     const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([]);
     const [campaignTab, setCampaignTab] = useState<'all' | 'active' | 'completed'>('all');
     const [kickoffState, setKickoffState] = useState<{
@@ -183,6 +187,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [xConnected, setXConnected] = useState<boolean | null>(null);
     const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
     const [trialTimeLeft, setTrialTimeLeft] = useState('');
+    const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() => {
+        try { return localStorage.getItem(`defia_getting_started_dismissed_${brandName}`) === 'true'; } catch { return false; }
+    });
+    const [gettingStartedCollapsed, setGettingStartedCollapsed] = useState(false);
 
     // Trial countdown timer
     const trialEndsAt = brandConfig?.subscription?.trialEndsAt;
@@ -283,6 +291,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     // Fetch Web3 news for dashboard
     useEffect(() => {
         setNewsLoading(true);
+        // Fallback: stop loading after 10 seconds regardless
+        const timeout = setTimeout(() => setNewsLoading(false), 10000);
         const fetchNews = async () => {
             try {
                 const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
@@ -319,6 +329,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }
         };
         fetchNews();
+        return () => clearTimeout(timeout);
     }, [brandName]);
 
     // Pre-load daily brief: show cached instantly, then refresh in background
@@ -385,19 +396,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }, [brandName, chainMetrics]);
 
     useEffect(() => {
-        const state = loadCampaignState(brandName);
-        const allDrafts = Array.isArray(state?.campaignItems) ? state.campaignItems : [];
-        const kickoffDrafts = allDrafts.filter((item: any) => String(item?.id || '').startsWith('kickoff-'));
+        // Primary: load kickoff drafts from Content Studio storage (new location)
+        const contentItems = loadContentItems(brandName);
+        const kickoffContentItems = contentItems.filter((item: any) => String(item?.id || '').startsWith('kickoff-'));
         const kickoffSchedule = calendarEvents.filter((event) => String(event?.id || '').startsWith('kickoff-'));
 
-        if (kickoffDrafts.length === 0 && kickoffSchedule.length === 0) {
+        // Fallback: check legacy campaign state for backward compatibility
+        let legacyDrafts: any[] = [];
+        let legacyTheme = `${brandName} Launch`;
+        if (kickoffContentItems.length === 0) {
+            const state = loadCampaignState(brandName);
+            const allDrafts = Array.isArray(state?.campaignItems) ? state.campaignItems : [];
+            legacyDrafts = allDrafts.filter((item: any) => String(item?.id || '').startsWith('kickoff-'));
+            legacyTheme = state?.campaignTheme || legacyTheme;
+        }
+
+        const drafts = kickoffContentItems.length > 0 ? kickoffContentItems : legacyDrafts;
+
+        if (drafts.length === 0 && kickoffSchedule.length === 0) {
             setKickoffState(null);
             return;
         }
 
+        // Normalize: ContentItems use 'description', CampaignItems use 'tweet'
+        const normalizedDrafts = drafts.map((d: any) => ({
+            id: d.id,
+            tweet: d.description || d.tweet || d.title,
+        }));
+
         setKickoffState({
-            theme: state?.campaignTheme || `${brandName} Launch`,
-            drafts: kickoffDrafts.length > 0 ? kickoffDrafts : allDrafts.slice(0, 3),
+            theme: kickoffContentItems.length > 0
+                ? (kickoffContentItems[0]?.kickoffTheme || `${brandName} Launch`)
+                : legacyTheme,
+            drafts: normalizedDrafts,
             schedule: kickoffSchedule
         });
     }, [brandName, calendarEvents]);
@@ -419,6 +450,61 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (campaignTab === 'completed') return campaigns.filter(c => c.status === 'Pause' || c.status === 'Kill');
         return campaigns;
     }, [campaigns, campaignTab]);
+
+    // Getting Started checklist
+    const gettingStartedItems = useMemo(() => [
+        {
+            id: 'profile',
+            title: 'Brand profile created',
+            subtitle: 'Your AI CMO has analyzed your brand identity and voice',
+            done: true,
+            icon: 'person',
+        },
+        {
+            id: 'kickoff',
+            title: 'Review your launch content',
+            subtitle: '3 draft posts and a 7-day calendar are ready',
+            done: !!kickoffState?.drafts?.length,
+            icon: 'edit_note',
+            action: () => onNavigate('studio'),
+            actionLabel: 'Review in Studio',
+        },
+        {
+            id: 'create',
+            title: 'Create your first post',
+            subtitle: 'Head to Content Studio to generate tweets and graphics',
+            done: (brandConfig?.subscription?.usage?.contentThisMonth || 0) > 0,
+            icon: 'draw',
+            action: () => onNavigate('studio'),
+            actionLabel: 'Open Studio',
+        },
+        {
+            id: 'connect',
+            title: 'Connect your X account',
+            subtitle: 'Link Twitter for real metrics and auto-publishing',
+            done: xConnected === true,
+            icon: 'link',
+            action: () => onNavigate('settings'),
+            actionLabel: 'Connect X',
+        },
+        {
+            id: 'recs',
+            title: 'Explore AI recommendations',
+            subtitle: 'Your AI CMO analyzes market signals and suggests actions',
+            done: (sharedRecommendations?.length || 0) > 0 || (agentDecisions?.length || 0) > 0,
+            icon: 'auto_awesome',
+            action: () => onNavigate('recommendations'),
+            actionLabel: 'View Recs',
+        },
+    ], [kickoffState, brandConfig, xConnected, sharedRecommendations, agentDecisions, onNavigate]);
+
+    const gettingStartedComplete = gettingStartedItems.filter(i => i.done).length;
+    const gettingStartedTotal = gettingStartedItems.length;
+
+    const dismissGettingStarted = () => {
+        setGettingStartedDismissed(true);
+        try { localStorage.setItem(`defia_getting_started_dismissed_${brandName}`, 'true'); } catch {}
+    };
 
     const getContentTypeIcon = (platform: string) => {
         switch (platform.toLowerCase()) {
@@ -547,6 +633,141 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* Getting Started Checklist */}
+            {brandConfig?.subscription && !gettingStartedDismissed && (
+                <div
+                    className="rounded-xl overflow-hidden"
+                    style={{
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border)',
+                        boxShadow: 'var(--card-shadow)',
+                        borderLeft: '3px solid #FF5C00',
+                    }}
+                >
+                    {/* Header */}
+                    <div
+                        className="px-5 py-4 flex items-center justify-between cursor-pointer"
+                        onClick={() => setGettingStartedCollapsed(!gettingStartedCollapsed)}
+                        style={{ borderBottom: gettingStartedCollapsed ? 'none' : '1px solid var(--border)' }}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center flex-shrink-0">
+                                <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 400" }}>rocket_launch</span>
+                            </div>
+                            <div>
+                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Getting Started</span>
+                                <span className="text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
+                                    {gettingStartedComplete} of {gettingStartedTotal} complete
+                                </span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {/* Progress bar */}
+                            <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                                <div
+                                    className="h-full rounded-full transition-all duration-500"
+                                    style={{
+                                        width: `${(gettingStartedComplete / gettingStartedTotal) * 100}%`,
+                                        backgroundColor: gettingStartedComplete === gettingStartedTotal ? '#22C55E' : '#FF5C00',
+                                    }}
+                                />
+                            </div>
+                            <span
+                                className="material-symbols-sharp text-sm transition-transform duration-200"
+                                style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300", transform: gettingStartedCollapsed ? 'rotate(0deg)' : 'rotate(90deg)' }}
+                            >
+                                arrow_forward
+                            </span>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); dismissGettingStarted(); }}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-black/10 transition-colors"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
+                                <span className="material-symbols-sharp text-base">close</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Checklist items */}
+                    {!gettingStartedCollapsed && (
+                        <div className="px-5 py-3">
+                            {gettingStartedComplete === gettingStartedTotal && (
+                                <div className="flex items-center justify-between py-3 px-4 mb-3 rounded-lg" style={{ backgroundColor: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="material-symbols-sharp text-[#22C55E] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>celebration</span>
+                                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>All done! You're all set.</span>
+                                    </div>
+                                    <button
+                                        onClick={dismissGettingStarted}
+                                        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[#22C55E] text-white hover:bg-[#36D06C] transition-colors"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
+                            )}
+                            {gettingStartedItems.map((item, i) => (
+                                <div
+                                    key={item.id}
+                                    className="flex items-center gap-4 py-3"
+                                    style={{ borderBottom: i < gettingStartedItems.length - 1 ? '1px solid var(--border)' : 'none' }}
+                                >
+                                    <div
+                                        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                                        style={{
+                                            backgroundColor: item.done ? 'rgba(34, 197, 94, 0.12)' : 'var(--bg-tertiary)',
+                                            border: `1px solid ${item.done ? 'rgba(34, 197, 94, 0.3)' : 'var(--border)'}`,
+                                        }}
+                                    >
+                                        <span
+                                            className="material-symbols-sharp text-sm"
+                                            style={{
+                                                color: item.done ? '#22C55E' : 'var(--text-muted)',
+                                                fontVariationSettings: item.done ? "'FILL' 1, 'wght' 400" : "'wght' 300",
+                                            }}
+                                        >
+                                            {item.done ? 'check_circle' : item.icon}
+                                        </span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p
+                                            className="text-sm font-medium"
+                                            style={{ color: item.done ? 'var(--text-muted)' : 'var(--text-primary)' }}
+                                        >
+                                            {item.title}
+                                        </p>
+                                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{item.subtitle}</p>
+                                    </div>
+                                    {!item.done && item.action && (
+                                        <button
+                                            onClick={item.action}
+                                            className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-[#FF5C00] hover:bg-[#FF6B1A] transition-colors flex-shrink-0"
+                                        >
+                                            {item.actionLabel}
+                                        </button>
+                                    )}
+                                    {item.done && (
+                                        <span className="text-xs font-medium text-[#22C55E] flex-shrink-0">Done</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+            {/* Restore Getting Started link when dismissed */}
+            {brandConfig?.subscription && gettingStartedDismissed && (
+                <button
+                    onClick={() => {
+                        setGettingStartedDismissed(false);
+                        try { localStorage.removeItem(`defia_getting_started_dismissed_${brandName}`); } catch {}
+                    }}
+                    className="text-xs text-[#6B6B70] hover:text-[#FF5C00] transition-colors mb-4 flex items-center gap-1.5"
+                >
+                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>help_outline</span>
+                    Show setup guide
+                </button>
             )}
 
                     {/* Metrics Row */}
@@ -855,6 +1076,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     )}
                     {briefLoading && !briefData && <SkeletonBriefCard />}
 
+                    {/* Kickoff generating skeleton */}
+                    {isKickoffGenerating && !kickoffState && (
+                        <div className="rounded-xl border border-[#FF5C0033] bg-[#111113] p-5 mb-7">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-5 h-5 border-2 border-[#FF5C00] border-t-transparent rounded-full animate-spin" />
+                                <div>
+                                    <div className="text-xs font-semibold text-[#FF5C00] tracking-widest">GENERATING</div>
+                                    <h3 className="text-white text-lg font-semibold mt-1">Creating your launch content...</h3>
+                                    <p className="text-[#8B8B8F] text-sm mt-1">Preparing draft posts and scheduling your 7-day calendar.</p>
+                                </div>
+                            </div>
+                            <div className="space-y-3 mt-4">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="h-10 rounded-lg bg-[#1F1F23] animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {kickoffState && (
                         <div className="rounded-xl border border-[#22C55E33] bg-[#111113] p-5 mb-7">
                             <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -865,10 +1105,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
-                                        onClick={() => onNavigate('campaigns')}
+                                        onClick={() => onNavigate('studio')}
                                         className="px-4 py-2 rounded-lg bg-[#22C55E] text-[#0A0A0B] text-xs font-semibold hover:bg-[#36D06C] transition-colors"
                                     >
-                                        Review Drafts
+                                        Review in Studio
                                     </button>
                                     <button
                                         onClick={() => onNavigate('calendar')}
@@ -1038,7 +1278,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     </button>
                                 )) : (
                                     <div className="flex flex-col items-center justify-center py-8 text-center">
-                                        <p className="text-[#6B6B70] text-xs">No news available. Start server to fetch Web3 news.</p>
+                                        <span className="material-symbols-sharp text-2xl mb-2" style={{ color: '#3A3A3E', fontVariationSettings: "'wght' 300" }}>newspaper</span>
+                                        <p className="text-[#6B6B70] text-xs">No news yet — check back shortly.</p>
                                     </div>
                                 )}
                             </div>

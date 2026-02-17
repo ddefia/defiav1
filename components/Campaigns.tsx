@@ -10,6 +10,8 @@ import { saveCalendarEvents, saveCampaignState, loadCampaignState, loadBrainLogs
 import { saveBrainMemory } from '../services/supabase';
 import { BrandConfig, CampaignItem, CalendarEvent, CampaignStrategy, ActionPlan, MarketingAction, CampaignLog } from '../types';
 import { checkCountLimit } from '../services/subscription';
+import { UsageLimitModal } from './UsageLimitModal';
+import { useToast } from './Toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -21,6 +23,7 @@ interface CampaignsProps {
     initialIntent?: { type: 'theme' | 'diverse', theme: string } | null;
     onClearIntent?: () => void;
     recentPosts?: any[];
+    onNavigate?: (section: string, params?: any) => void;
 }
 
 export const Campaigns: React.FC<CampaignsProps> = ({
@@ -30,10 +33,13 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     onUpdateEvents,
     initialIntent,
     onClearIntent,
-    recentPosts = []
+    recentPosts = [],
+    onNavigate
 }) => {
     // View State: 'list' | 'wizard'
     const [viewMode, setViewMode] = useState<'list' | 'wizard'>('list');
+    const [limitModal, setLimitModal] = useState<{ current: number; max: number } | null>(null);
+    const { showToast } = useToast();
     const [promptProvenance, setPromptProvenance] = useState<string>('Manual Creation');
     const [showBrief, setShowBrief] = useState<boolean>(false);
     const [activeTab, setActiveTab] = useState<'all' | 'active' | 'draft' | 'completed'>('all');
@@ -89,18 +95,27 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     useEffect(() => {
         const saved = loadCampaignState(brandName);
         if (saved) {
-            if (saved.viewMode) setViewMode(saved.viewMode);
-            if (saved.campaignStep) setCampaignStep(saved.campaignStep);
-            if (saved.campaignType) setCampaignType(saved.campaignType);
-            if (saved.campaignTheme) setCampaignTheme(saved.campaignTheme);
-            if (saved.campaignGoal) setCampaignGoal(saved.campaignGoal);
-            if (saved.campaignPlatforms) setCampaignPlatforms(saved.campaignPlatforms);
-            if (saved.campaignStrategy) setCampaignStrategy(saved.campaignStrategy);
-            if (saved.campaignTemplate) setCampaignTemplate(saved.campaignTemplate);
-            if (saved.campaignReferenceImage) setCampaignReferenceImage(saved.campaignReferenceImage);
-            if (saved.campaignItems) setCampaignItems(saved.campaignItems);
-            if (saved.campaignStartDate) setCampaignStartDate(saved.campaignStartDate);
-            if (saved.contentPlan) setContentPlan(saved.contentPlan);
+            // Skip restoring kickoff-only campaign state — kickoff drafts now live in Content Studio
+            const allItems = saved.campaignItems || [];
+            const nonKickoffItems = allItems.filter(
+                (item: any) => !String(item?.id || '').startsWith('kickoff-')
+            );
+            const isKickoffOnly = nonKickoffItems.length === 0 && saved.viewMode === 'wizard' && saved.campaignStep === 3;
+
+            if (!isKickoffOnly) {
+                if (saved.viewMode) setViewMode(saved.viewMode);
+                if (saved.campaignStep) setCampaignStep(saved.campaignStep);
+                if (saved.campaignType) setCampaignType(saved.campaignType);
+                if (saved.campaignTheme) setCampaignTheme(saved.campaignTheme);
+                if (saved.campaignGoal) setCampaignGoal(saved.campaignGoal);
+                if (saved.campaignPlatforms) setCampaignPlatforms(saved.campaignPlatforms);
+                if (saved.campaignStrategy) setCampaignStrategy(saved.campaignStrategy);
+                if (saved.campaignTemplate) setCampaignTemplate(saved.campaignTemplate);
+                if (saved.campaignReferenceImage) setCampaignReferenceImage(saved.campaignReferenceImage);
+                if (nonKickoffItems.length > 0) setCampaignItems(nonKickoffItems);
+                if (saved.campaignStartDate) setCampaignStartDate(saved.campaignStartDate);
+                if (saved.contentPlan) setContentPlan(saved.contentPlan);
+            }
         }
 
         try {
@@ -125,7 +140,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 } as any));
             setRecommendedStrategies(recommendations);
         } catch (e) {
-            console.error("Failed to load recommended campaigns", e);
+            showToast('Failed to load campaign recommendations', 'error');
         }
     }, [brandName]);
 
@@ -233,7 +248,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const tryStartCampaign = () => {
         const campCheck = checkCountLimit(brandConfig.subscription, 'maxCampaigns', getActiveCampaigns().length);
         if (!campCheck.allowed) {
-            alert(`Campaign limit reached (${campCheck.current}/${campCheck.max} campaigns). Upgrade your plan for more.`);
+            setLimitModal({ current: campCheck.current, max: campCheck.max });
             return false;
         }
         return true;
@@ -588,7 +603,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             }));
             setActiveUploadId(null);
             if (campaignFileInputRef.current) campaignFileInputRef.current.value = '';
-        } catch (err) { console.error("Campaign upload failed", err); }
+        } catch (err) { showToast('Failed to upload campaign image', 'error'); }
     };
 
     const handleFocusDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2415,6 +2430,22 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 {/* Hidden File Inputs */}
                 <input type="file" ref={campaignFileInputRef} onChange={handleCampaignImageUpload} accept="image/*" className="hidden" />
                 <input type="file" ref={focusDocInputRef} onChange={handleFocusDocUpload} accept=".txt,.pdf,.doc,.docx" className="hidden" />
+
+                {/* Usage Limit Modal */}
+                {limitModal && (
+                    <UsageLimitModal
+                        isOpen={true}
+                        limitType="campaign"
+                        current={limitModal.current}
+                        max={limitModal.max}
+                        currentPlan={brandConfig.subscription?.plan || 'starter'}
+                        onUpgrade={() => {
+                            setLimitModal(null);
+                            onNavigate?.('settings', { tab: 'billing' });
+                        }}
+                        onDismiss={() => setLimitModal(null)}
+                    />
+                )}
             </div>
         </div>
     );
