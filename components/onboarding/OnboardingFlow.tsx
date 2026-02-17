@@ -1869,6 +1869,24 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
               {xConnectError && <span className="text-red-400 ml-2">{xConnectError}</span>}
             </div>
           </div>
+
+          {/* Telegram Bot */}
+          <div className="rounded-xl border border-[#2A2A2E] bg-[#111113] px-4 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-white text-sm font-medium flex items-center gap-2">
+                  <span className="material-symbols-sharp text-[#0088CC]" style={{ fontSize: 16 }}>send</span>
+                  Telegram Bot (optional)
+                </p>
+                <p className="text-[#6B6B70] text-xs mt-0.5">
+                  Add our AI bot to your Telegram group for daily briefings, content creation, and trend alerts. Set this up anytime from Settings.
+                </p>
+              </div>
+            </div>
+            <p className="mt-2 text-[10px] text-[#6B6B70]">
+              You can connect Telegram later from Settings → Telegram Bot
+            </p>
+          </div>
         </div>
 
         <div className="space-y-4">

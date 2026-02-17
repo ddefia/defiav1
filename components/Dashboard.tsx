@@ -7,6 +7,7 @@ import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton
 import { generateSupplementalRecs } from './RecommendationsPage';
 import { PLAN_NAMES, getResetUsage } from '../services/subscription';
 import { useToast } from './Toast';
+import { getAuthToken } from '../services/auth';
 
 interface DashboardProps {
     brandName: string;
@@ -185,6 +186,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [newsLoading, setNewsLoading] = useState(true);
     const [setupBannerDismissed, setSetupBannerDismissed] = useState(false);
     const [xConnected, setXConnected] = useState<boolean | null>(null);
+    const [telegramLinked, setTelegramLinked] = useState(false);
     const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
     const [trialTimeLeft, setTrialTimeLeft] = useState('');
     const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() => {
@@ -236,6 +238,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }
         };
         checkXStatus();
+    }, [brandName]);
+
+    // Check Telegram link status
+    useEffect(() => {
+        const checkTelegramStatus = async () => {
+            try {
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+                const authToken = await getAuthToken();
+                const res = await fetch(`${baseUrl}/api/telegram/status?brandId=${encodeURIComponent(brandName)}`, {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setTelegramLinked(data.linked === true);
+                }
+            } catch { /* ignore */ }
+        };
+        checkTelegramStatus();
     }, [brandName]);
 
     const kpis = useMemo(() => transformMetricsToKPIs(socialMetrics), [socialMetrics]);
@@ -496,7 +516,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
             action: () => onNavigate('recommendations'),
             actionLabel: 'View Recs',
         },
-    ], [kickoffState, brandConfig, xConnected, sharedRecommendations, agentDecisions, onNavigate]);
+        {
+            id: 'telegram',
+            title: 'Connect Telegram bot',
+            subtitle: 'Get daily briefings and create content from your Telegram group',
+            done: telegramLinked,
+            icon: 'send',
+            action: () => onNavigate('settings'),
+            actionLabel: 'Connect',
+        },
+    ], [kickoffState, brandConfig, xConnected, telegramLinked, sharedRecommendations, agentDecisions, onNavigate]);
 
     const gettingStartedComplete = gettingStartedItems.filter(i => i.done).length;
     const gettingStartedTotal = gettingStartedItems.length;
