@@ -64,42 +64,203 @@ ${banned}
     return text.trim();
 };
 
-// ━━━ Image Generation ━━━
+// ━━━ Reference Image Helpers ━━━
 
-const buildImagePrompt = (prompt, brandProfile) => {
-    const brandName = brandProfile.name || 'the brand';
-    const colors = (brandProfile.colors || []).map(c => `${c.name || c.hex}: ${c.hex}`).join(', ');
-    const style = brandProfile.visualStyle || brandProfile.styleDescription || '';
+/**
+ * Pick a random reference image from the brand profile and resolve its base64 data.
+ * Returns { base64, mimeType } or null.
+ */
+const pickReferenceImage = async (brandProfile) => {
+    const refs = brandProfile.referenceImages || [];
+    if (refs.length === 0) return null;
 
-    return `Create a professional social media graphic for ${brandName}.
+    // Shuffle and pick first one with data
+    const shuffled = [...refs].sort(() => Math.random() - 0.5);
 
-VISUAL DIRECTION: ${prompt}
-${colors ? `BRAND COLORS: ${colors}` : ''}
-${style ? `BRAND STYLE: ${style}` : ''}
+    for (const img of shuffled) {
+        try {
+            let base64 = null;
+            let mimeType = 'image/png';
 
-Style: Clean, modern, Web3/crypto aesthetic. Bold typography. Dark background preferred.
-DO NOT include any text that looks like placeholder or lorem ipsum.`.trim();
+            if (img.data) {
+                // Inline base64 data
+                const match = img.data.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9\-.+]+);base64,(.*)/);
+                if (match) {
+                    mimeType = match[1];
+                    base64 = match[2];
+                } else {
+                    base64 = img.data.includes('base64,') ? img.data.split('base64,')[1] : img.data;
+                }
+            } else if (img.url) {
+                // Fetch from URL (Supabase storage)
+                const res = await fetch(img.url);
+                if (!res.ok) continue;
+                const arrayBuffer = await res.arrayBuffer();
+                mimeType = res.headers.get('content-type') || 'image/png';
+                base64 = Buffer.from(arrayBuffer).toString('base64');
+            }
+
+            if (base64) return { base64, mimeType, name: img.name || 'reference' };
+        } catch (e) {
+            console.warn(`[ContentGenerator] Failed to load reference image ${img.name || img.id}:`, e.message);
+        }
+    }
+    return null;
 };
 
 /**
- * Primary: Uses the server's /api/generate-image endpoint (Imagen 4 via Vertex AI)
- * Fallback: Uses Gemini native image generation (gemini-2.0-flash-exp)
+ * Analyze a reference image to extract a precise style description.
+ * Same approach as client-side analyzeStyleFromReferences().
  */
-const generateImage = async (prompt, brandProfile) => {
-    const imagePrompt = buildImagePrompt(prompt, brandProfile);
+const analyzeReferenceStyle = async (refImage) => {
+    if (!refImage) return '';
+    try {
+        const genAI = getGenAI();
+        const response = await genAI.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [
+                { inlineData: { mimeType: refImage.mimeType, data: refImage.base64 } },
+                { text: `Analyze this reference image to create an EXACT TEMPLATE SPECIFICATION for replication.
 
-    // Try Imagen 4 via the internal server endpoint first
-    const base64 = await tryImagen4(imagePrompt);
-    if (base64) return base64;
+Describe with extreme precision:
+1. LAYOUT: Position of every element using spatial relationships.
+2. COLORS: Every dominant color as hex values. Background gradient direction.
+3. TYPOGRAPHY: Font style, weight, case, size relative to frame.
+4. VISUAL ELEMENTS: Shapes, icons, patterns, 3D objects, borders, overlays.
+5. LIGHTING: Light direction, ambient glow colors, contrast level.
+6. COMPOSITION: Alignment, margins, spacing, visual hierarchy.
 
-    // Fallback: Gemini native image generation
-    console.log('[ContentGenerator] Imagen 4 unavailable, trying Gemini native image gen...');
-    return await tryGeminiImage(imagePrompt);
+Be forensically precise. A designer reading ONLY your description should recreate this with different text.` }
+            ],
+            config: { temperature: 0.2 },
+        });
+
+        const text = response.text || '';
+        return text.trim() ? `VISUAL STYLE REFERENCE (from brand's own images):\n${text.trim()}` : '';
+    } catch (e) {
+        console.warn('[ContentGenerator] Reference style analysis failed:', e.message);
+        return '';
+    }
 };
 
+// ━━━ Image Generation ━━━
+
+/**
+ * Generates a branded image using reference images from the brand profile.
+ *
+ * Flow:
+ * 1. Pick a random reference image from the brand profile
+ * 2. Analyze it to extract a precise style description
+ * 3. Generate via Gemini (multimodal — passes ref image + style + prompt)
+ * 4. Fallback to Imagen 4 (text-only prompt with style description)
+ */
+const generateImage = async (prompt, brandProfile) => {
+    const brandName = brandProfile.name || 'the brand';
+    const colors = (brandProfile.colors || []).map(c => `${c.name || c.hex}: ${c.hex}`).join(', ');
+    const visualIdentity = brandProfile.visualIdentity || brandProfile.visualStyle || '';
+
+    // Step 1: Pick a reference image from the brand
+    const refImage = await pickReferenceImage(brandProfile);
+    let styleDescription = '';
+
+    // Step 2: Analyze reference image style (if we have one)
+    if (refImage) {
+        console.log(`[ContentGenerator] Using reference image: ${refImage.name}`);
+        styleDescription = await analyzeReferenceStyle(refImage);
+    }
+
+    const basePrompt = `Create a professional social media graphic for ${brandName}.
+
+VISUAL DIRECTION: ${prompt}
+${colors ? `BRAND COLORS: ${colors}` : ''}
+${visualIdentity ? `BRAND VISUAL IDENTITY:\n${visualIdentity}` : ''}
+${styleDescription}
+
+CRITICAL RULES:
+- MATCH the reference image style EXACTLY — same colors, layout patterns, typography feel.
+- DO NOT include any text that looks like placeholder or lorem ipsum.
+- Professional, clean, modern aesthetic.`.trim();
+
+    // Step 3: Try Gemini native with reference image (multimodal)
+    if (refImage) {
+        const result = await tryGeminiImageWithRef(basePrompt, refImage);
+        if (result) return result;
+    }
+
+    // Step 4: Try Gemini text-only
+    const geminiResult = await tryGeminiImage(basePrompt);
+    if (geminiResult) return geminiResult;
+
+    // Step 5: Fallback to Imagen 4 (text prompt only — no ref image support)
+    console.log('[ContentGenerator] Gemini unavailable, trying Imagen 4...');
+    return await tryImagen4(basePrompt);
+};
+
+/**
+ * Gemini native image generation WITH a reference image passed as multimodal input.
+ */
+const tryGeminiImageWithRef = async (prompt, refImage) => {
+    try {
+        const genAI = getGenAI();
+        const response = await genAI.models.generateContent({
+            model: 'gemini-2.0-flash-exp',
+            contents: {
+                parts: [
+                    // Pass the reference image so Gemini can SEE it
+                    { inlineData: { mimeType: refImage.mimeType, data: refImage.base64 } },
+                    { text: `${prompt}\n\nThe image above is a STYLE REFERENCE from the brand. Your generated image MUST match this visual style (colors, layout patterns, typography feel) but with new content based on the visual direction above.` },
+                ],
+            },
+            config: {
+                responseModalities: ['image', 'text'],
+            },
+        });
+
+        const parts = response.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+            if (part.inlineData?.mimeType?.startsWith('image/')) {
+                return part.inlineData.data; // base64
+            }
+        }
+        return null;
+    } catch (e) {
+        console.warn('[ContentGenerator] Gemini multimodal image gen failed:', e.message);
+        return null;
+    }
+};
+
+/**
+ * Gemini native image generation (text prompt only, no reference).
+ */
+const tryGeminiImage = async (prompt) => {
+    try {
+        const genAI = getGenAI();
+        const response = await genAI.models.generateContent({
+            model: 'gemini-2.0-flash-exp',
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                responseModalities: ['image', 'text'],
+            },
+        });
+
+        const parts = response.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+            if (part.inlineData?.mimeType?.startsWith('image/')) {
+                return part.inlineData.data; // base64
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error('[ContentGenerator] Gemini text-only image gen failed:', e.message);
+        return null;
+    }
+};
+
+/**
+ * Imagen 4 via Vertex AI (text prompt only — no multimodal reference support).
+ */
 const tryImagen4 = async (prompt) => {
     try {
-        // Call the existing Vertex AI image endpoint internally
         const serverUrl = process.env.FRONTEND_URL || process.env.VERCEL_URL
             ? `https://${process.env.VERCEL_URL || new URL(process.env.FRONTEND_URL).host}`
             : 'http://localhost:3001';
@@ -117,7 +278,6 @@ const tryImagen4 = async (prompt) => {
 
         const data = await response.json();
         if (data.image) {
-            // Strip data URL prefix: "data:image/png;base64,..."
             const raw = data.image.includes('base64,')
                 ? data.image.split('base64,')[1]
                 : data.image;
@@ -126,31 +286,6 @@ const tryImagen4 = async (prompt) => {
         return null;
     } catch (e) {
         console.warn('[ContentGenerator] Imagen 4 call failed:', e.message);
-        return null;
-    }
-};
-
-const tryGeminiImage = async (prompt) => {
-    try {
-        const genAI = getGenAI();
-        const response = await genAI.models.generateContent({
-            model: 'gemini-2.0-flash-exp',
-            contents: { parts: [{ text: prompt }] },
-            config: {
-                responseModalities: ['image', 'text'],
-            },
-        });
-
-        // Extract image from response
-        const parts = response.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) {
-            if (part.inlineData?.mimeType?.startsWith('image/')) {
-                return part.inlineData.data; // base64
-            }
-        }
-        return null;
-    } catch (e) {
-        console.error('[ContentGenerator] Gemini image generation failed:', e.message);
         return null;
     }
 };
