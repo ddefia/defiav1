@@ -103,15 +103,11 @@ const formatAgentDecision = (decision) => {
 
 const formatTweetDraft = (text, reasoning) => {
     const lines = [];
-    lines.push(`\u{1F426} ${bold('Generated Tweet')}`);
-    lines.push('');
     lines.push(codeBlock(text));
-    lines.push('');
     if (reasoning) {
-        lines.push(`${italic(reasoning)}`);
         lines.push('');
+        lines.push(`${italic(reasoning)}`);
     }
-    lines.push(escapeMarkdownV2('Copy the text above and paste into your Content Studio or schedule directly.'));
     return lines.join('\n');
 };
 
@@ -141,38 +137,32 @@ const formatTrendSummary = (trends) => {
 
 const formatWelcome = () => {
     const lines = [];
-    lines.push(`\u{1F680} ${bold('Defia Bot')}`);
+    lines.push(bold('Defia'));
     lines.push('');
-    lines.push(escapeMarkdownV2('Your AI marketing co-pilot, now in Telegram.'));
+    lines.push(escapeMarkdownV2("What's up. I'm your marketing brain — tweets, graphics, strategy, all of it."));
     lines.push('');
-    lines.push(escapeMarkdownV2('To get started, link this chat to your Defia brand:'));
-    lines.push(escapeMarkdownV2('1. Go to Settings in Defia → Telegram section'));
-    lines.push(escapeMarkdownV2('2. Click "Generate Link Code"'));
-    lines.push(escapeMarkdownV2('3. Send /link YOUR_CODE in this chat'));
+    lines.push(escapeMarkdownV2('Link me to your brand first:'));
+    lines.push(escapeMarkdownV2('1. Defia Settings → Telegram → Generate Link Code'));
+    lines.push(escapeMarkdownV2('2. Send /link YOUR_CODE here'));
     lines.push('');
-    lines.push(escapeMarkdownV2('Once linked, you can chat naturally or use /help for commands.'));
+    lines.push(escapeMarkdownV2('After that, just @ me or reply to my messages. /help for commands.'));
     return lines.join('\n');
 };
 
 const formatHelp = () => {
     const lines = [];
-    lines.push(`\u{1F4CB} ${bold('Available Commands')}`);
+    lines.push(bold('Commands'));
+    lines.push(`${code('/link CODE')} ${escapeMarkdownV2('— connect to your brand')}`);
+    lines.push(`${code('/unlink')} ${escapeMarkdownV2('— disconnect')}`);
+    lines.push(`${code('/status')} ${escapeMarkdownV2('— check connection')}`);
+    lines.push(`${code('/brief')} ${escapeMarkdownV2('— daily marketing briefing')}`);
+    lines.push(`${code('/recs')} ${escapeMarkdownV2('— AI recommendations')}`);
     lines.push('');
-    lines.push(`${code('/link CODE')} ${escapeMarkdownV2('— Link this chat to your Defia brand')}`);
-    lines.push(`${code('/unlink')} ${escapeMarkdownV2('— Disconnect this chat')}`);
-    lines.push(`${code('/status')} ${escapeMarkdownV2('— Show linked brand info')}`);
-    lines.push(`${code('/brief')} ${escapeMarkdownV2('— Get today\'s daily briefing')}`);
-    lines.push(`${code('/recs')} ${escapeMarkdownV2('— View recent AI recommendations')}`);
-    lines.push(`${code('/help')} ${escapeMarkdownV2('— Show this command list')}`);
+    lines.push(bold('Talking to me'));
+    lines.push(escapeMarkdownV2('In groups: @defiaxyzbot or reply to my messages'));
+    lines.push(escapeMarkdownV2('In DMs: just type'));
     lines.push('');
-    lines.push(bold('Chat with me'));
-    lines.push(escapeMarkdownV2('In groups, mention me or reply to my messages:'));
-    lines.push(escapeMarkdownV2('• @defiaxyzbot write a tweet about our partnership'));
-    lines.push(escapeMarkdownV2('• @defiaxyzbot create an image for our launch'));
-    lines.push(escapeMarkdownV2('• @defiaxyzbot what\'s trending in Web3?'));
-    lines.push(escapeMarkdownV2('• Reply to my message to continue the conversation'));
-    lines.push('');
-    lines.push(escapeMarkdownV2('In DMs, just type normally — no @ needed.'));
+    lines.push(escapeMarkdownV2('I can write tweets, make graphics, analyze trends, pull briefings. I remember the conversation so you can say "now make a graphic for that" after I draft a tweet.'));
     return lines.join('\n');
 };
 
@@ -186,7 +176,7 @@ const formatChatResponse = (text) => {
 // ━━━ Error ━━━
 
 const formatError = (message) => {
-    return `\u26A0\uFE0F ${escapeMarkdownV2(message || 'Something went wrong. Please try again.')}`;
+    return escapeMarkdownV2(message || 'Something broke. Try again.');
 };
 
 export {

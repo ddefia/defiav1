@@ -28,15 +28,18 @@ const classifyMessage = async (text, hasImage, chatHistory = [], brandProfile = 
         : 'No previous context.';
 
     const systemPrompt = `You are an intent classifier for a Telegram marketing bot for "${brandName}".
-Your job is to classify the user's message into one of these intents and extract parameters.
+Classify the user's message into one intent and extract parameters.
 
 INTENTS:
 - DRAFT_CONTENT: User wants to create/draft a tweet, post, or social media content. Extract the topic.
-- GENERATE_IMAGE: User wants to generate a visual/graphic/banner/image. Extract the prompt/description. Also use this if user sent an image with a caption requesting a post inspired by it.
-- ANALYZE_TRENDS: User wants to know what's trending, market analysis, recent news, or current topics.
-- USE_RECOMMENDATION: User references a specific recommendation number or wants to use an AI suggestion. Extract the recommendation number if mentioned.
-- GET_BRIEFING: User asks for the daily brief, morning report, strategy summary, or executive summary.
+- GENERATE_IMAGE: User wants to generate a visual/graphic/banner/image. Extract the prompt/description. IMPORTANT: If user says something like "now make a graphic for that" or "create an image for the tweet above" — this IS GENERATE_IMAGE. Use the conversation history to understand what "that" refers to and include it in imagePrompt.
+- ANALYZE_TRENDS: User wants to know what's trending, market analysis, recent news.
+- USE_RECOMMENDATION: User references a specific recommendation number. Extract the number.
+- GET_BRIEFING: User asks for the daily brief, morning report, strategy summary.
 - GENERAL_CHAT: Any other question, conversation, or request.
+
+CRITICAL — CONVERSATION CONTINUITY:
+When the user says "that", "this", "it", "the tweet", "the post", "above", or references something from earlier, YOU MUST look at the conversation history below to understand what they're referring to. Include the referenced content in your extracted params.
 
 CONTEXT:
 - Has image attached: ${hasImage ? 'YES' : 'NO'}

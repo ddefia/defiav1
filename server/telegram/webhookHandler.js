@@ -171,7 +171,7 @@ const processMessage = async (update) => {
                 if (startParam && supabase) {
                     const result = await validateAndLink(supabase, startParam, chatId, chatTitle, chatType, username);
                     if (result.success) {
-                        await safeSend(chatId, formatWelcome() + `\n\n\u2705 ${formatChatResponse(`Linked to ${result.brandName}! You're all set.`)}`);
+                        await safeSend(chatId, formatWelcome() + `\n\n${formatChatResponse(`Linked to ${result.brandName}. We're good to go.`)}`);
                         return;
                     }
                 }
@@ -191,7 +191,7 @@ const processMessage = async (update) => {
                 }
                 const result = await validateAndLink(supabase, code, chatId, chatTitle, chatType, username);
                 if (result.success) {
-                    await safeSend(chatId, formatChatResponse(`\u2705 Linked to ${result.brandName}! I'll send daily briefings and AI recommendations here. Type /help to see what I can do.`));
+                    await safeSend(chatId, formatChatResponse(`Linked to ${result.brandName}. I'll drop briefings and recs here. /help if you need it.`));
                 } else {
                     await safeSend(chatId, formatError(result.error || 'Invalid or expired link code'));
                 }
@@ -205,7 +205,7 @@ const processMessage = async (update) => {
                 }
                 const result = await unlinkChat(supabase, chatId);
                 if (result.success) {
-                    await safeSend(chatId, formatChatResponse('\u{1F44B} Unlinked. I won\'t send any more updates to this chat.'));
+                    await safeSend(chatId, formatChatResponse('Unlinked. I\\'m out.'));
                 } else {
                     await safeSend(chatId, formatError('Failed to unlink'));
                 }
@@ -219,9 +219,9 @@ const processMessage = async (update) => {
                 }
                 const linked = await getLinkedBrand(supabase, chatId);
                 if (linked) {
-                    await safeSend(chatId, formatChatResponse(`\u{1F517} Linked to: ${linked.brandName}\nNotifications: ${linked.notificationsEnabled ? 'On' : 'Off'}`));
+                    await safeSend(chatId, formatChatResponse(`Linked to ${linked.brandName}. Notifications ${linked.notificationsEnabled ? 'on' : 'off'}.`));
                 } else {
-                    await safeSend(chatId, formatChatResponse('Not linked to any brand. Use /link CODE to connect.'));
+                    await safeSend(chatId, formatChatResponse('Not linked to anything. /link CODE to set up.'));
                 }
                 return;
             }
@@ -266,7 +266,7 @@ const processMessage = async (update) => {
 
     const linked = await getLinkedBrand(supabase, chatId);
     if (!linked) {
-        await safeSend(chatId, formatChatResponse('This chat isn\'t linked to a brand yet. Use /link CODE to connect.'));
+        await safeSend(chatId, formatChatResponse('Not linked yet. Send /link CODE to connect me to your brand.'));
         return;
     }
 
@@ -277,7 +277,7 @@ const processMessage = async (update) => {
     }
 
     // Send "thinking" indicator
-    const thinkingMsg = await safeSend(chatId, formatChatResponse('\u{1F914} Thinking...'));
+    const thinkingMsg = await safeSend(chatId, formatChatResponse('...'));
     const thinkingMsgId = thinkingMsg?.message_id;
 
     try {
@@ -309,6 +309,7 @@ const processMessage = async (update) => {
 
         let responseText = '';
         let responseImage = null;
+        let historyNote = ''; // Extra context to save in chat history
 
         // ━━━ Execute by Intent ━━━
 
@@ -318,6 +319,7 @@ const processMessage = async (update) => {
                 // Generate the tweet
                 const tweet = await generateTweet(topic, brandProfile);
                 responseText = formatTweetDraft(tweet);
+                historyNote = `[Generated tweet about "${topic}"]: ${tweet}`;
 
                 // Also generate a companion image in parallel (best-effort)
                 try {
@@ -329,14 +331,22 @@ const processMessage = async (update) => {
             }
 
             case INTENTS.GENERATE_IMAGE: {
-                const prompt = params.imagePrompt || cleanText;
+                // Check conversation history for context (e.g., "create graphic for that tweet")
+                const lastAssistantMsg = [...chatHistory].reverse().find(m => m.role === 'assistant');
+                const hasContextRef = /that|this|it|the tweet|the post|above|previous/i.test(cleanText);
+                let prompt = params.imagePrompt || cleanText;
+
+                if (hasContextRef && lastAssistantMsg?.text) {
+                    // Pull context from last assistant message (e.g., the tweet that was just generated)
+                    prompt = `${cleanText}\n\nContext from previous message: ${lastAssistantMsg.text.slice(0, 500)}`;
+                }
                 const enrichedPrompt = imageAnalysis
                     ? `${prompt}\n\nReference image analysis: ${imageAnalysis}`
                     : prompt;
 
                 // Update thinking message to reflect image generation
                 if (thinkingMsgId) {
-                    try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('\u{1F3A8} Generating image...')); } catch { /* ignore */ }
+                    try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('generating...')); } catch { /* ignore */ }
                 }
 
                 try {
@@ -348,7 +358,7 @@ const processMessage = async (update) => {
                 if (responseImage) {
                     responseText = null; // Will send as photo instead
                 } else {
-                    responseText = formatError('Image generation failed. Try a more descriptive prompt, e.g. "Create a dark gradient banner with the logo and text: Launch Day"');
+                    responseText = formatError('Image gen failed. Try being more specific — like "dark gradient banner with our logo and the text: Launch Day"');
                 }
                 break;
             }
@@ -448,7 +458,7 @@ const processMessage = async (update) => {
         } else if (responseImage) {
             // Image-only response (explicit "create an image" request)
             if (thinkingMsgId) {
-                try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('\u{1F3A8} Here\u0027s your image!')); } catch { /* ignore */ }
+                try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('here you go')); } catch { /* ignore */ }
             }
             const caption = cleanText ? `Generated from: "${cleanText.slice(0, 100)}"` : 'Generated image';
             try {
@@ -472,9 +482,12 @@ const processMessage = async (update) => {
             }
         }
 
-        // Save to chat history
+        // Save to chat history — preserve enough context for follow-up messages
         chatHistory.push({ role: 'user', text: cleanText || '(image)', timestamp: Date.now() });
-        chatHistory.push({ role: 'assistant', text: responseText?.slice(0, 200) || '(image sent)', timestamp: Date.now() });
+        const assistantHistoryText = historyNote
+            || responseText?.slice(0, 600)
+            || (responseImage ? '(generated an image)' : '(no response)');
+        chatHistory.push({ role: 'assistant', text: assistantHistoryText, timestamp: Date.now() });
         await saveChatHistory(supabase, chatId, chatHistory);
 
     } catch (e) {
