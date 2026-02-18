@@ -4,7 +4,7 @@
  * Validates → routes → classifies → generates → responds.
  */
 
-import { sendMessage, editMessageText, sendPhoto, getFile, getMe } from './telegramClient.js';
+import { sendMessage, editMessageText, deleteMessage, sendPhoto, getFile, getMe } from './telegramClient.js';
 import { validateAndLink, getLinkedBrand, unlinkChat } from './linkManager.js';
 import { classifyMessage, INTENTS } from './intentClassifier.js';
 import {
@@ -276,6 +276,11 @@ const processMessage = async (update) => {
         return;
     }
 
+    // Ensure brand name is always set (profile may not have it but linked data does)
+    if (!brandProfile.name && linked.brandName) {
+        brandProfile.name = linked.brandName;
+    }
+
     // Send "thinking" indicator
     const thinkingMsg = await safeSend(chatId, formatChatResponse('...'));
     const thinkingMsgId = thinkingMsg?.message_id;
@@ -457,8 +462,9 @@ const processMessage = async (update) => {
             }
         } else if (responseImage) {
             // Image-only response (explicit "create an image" request)
+            // Delete the thinking message — the photo IS the response
             if (thinkingMsgId) {
-                try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('here you go')); } catch { /* ignore */ }
+                try { await deleteMessage(chatId, thinkingMsgId); } catch { /* ignore */ }
             }
             const caption = cleanText ? `Generated from: "${cleanText.slice(0, 100)}"` : 'Generated image';
             try {

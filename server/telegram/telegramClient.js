@@ -98,6 +98,15 @@ const sendPhoto = async (chatId, photoInput, caption = '', options = {}) => {
     return json.result;
 };
 
+// ━━━ Delete Message ━━━
+
+const deleteMessage = async (chatId, messageId) => {
+    return telegramRequest('deleteMessage', {
+        chat_id: chatId,
+        message_id: messageId,
+    });
+};
+
 // ━━━ Files (for downloading user-sent images) ━━━
 
 const getFile = async (fileId) => {
@@ -137,6 +146,7 @@ export {
     isConfigured,
     sendMessage,
     editMessageText,
+    deleteMessage,
     sendPhoto,
     getFile,
     setWebhook,

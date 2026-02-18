@@ -28,10 +28,10 @@ const notifyLinkedChats = async (supabase, brandId, type, payload = null) => {
     try {
         const { data: brandRow } = await supabase
             .from('brands')
-            .select('config')
+            .select('name')
             .eq('id', brandId)
             .maybeSingle();
-        if (brandRow?.config?.name) brandName = brandRow.config.name;
+        if (brandRow?.name) brandName = brandRow.name;
     } catch { /* ignore */ }
 
     switch (type) {

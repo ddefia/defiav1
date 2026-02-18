@@ -72,7 +72,13 @@ ${banned}
  */
 const pickReferenceImage = async (brandProfile) => {
     const refs = brandProfile.referenceImages || [];
+    console.log(`[ContentGenerator] Reference images available: ${refs.length}`);
     if (refs.length === 0) return null;
+
+    // Log what we have to work with
+    refs.slice(0, 3).forEach((img, i) => {
+        console.log(`[ContentGenerator]   [${i}] name=${img.name || 'unnamed'}, hasData=${!!img.data}, hasUrl=${!!img.url}`);
+    });
 
     // Shuffle and pick first one with data
     const shuffled = [...refs].sort(() => Math.random() - 0.5);
@@ -93,11 +99,16 @@ const pickReferenceImage = async (brandProfile) => {
                 }
             } else if (img.url) {
                 // Fetch from URL (Supabase storage)
+                console.log(`[ContentGenerator] Fetching reference image from URL: ${img.url.slice(0, 100)}...`);
                 const res = await fetch(img.url);
-                if (!res.ok) continue;
+                if (!res.ok) {
+                    console.warn(`[ContentGenerator] Reference image fetch failed: ${res.status} ${res.statusText}`);
+                    continue;
+                }
                 const arrayBuffer = await res.arrayBuffer();
                 mimeType = res.headers.get('content-type') || 'image/png';
                 base64 = Buffer.from(arrayBuffer).toString('base64');
+                console.log(`[ContentGenerator] Reference image loaded: ${(base64.length / 1024).toFixed(0)}KB, type=${mimeType}`);
             }
 
             if (base64) return { base64, mimeType, name: img.name || 'reference' };
@@ -172,6 +183,7 @@ const generateImage = async (prompt, brandProfile) => {
     }
 
     // Step 3: Build the full branded prompt (mirrors client-side generateWeb3Graphic quality)
+    console.log(`[ContentGenerator] Brand context: name=${brandName}, colors=${colorPalette ? colorPalette.slice(0, 80) + '...' : 'NONE'}, visualIdentity=${visualIdentity ? 'YES (' + visualIdentity.length + ' chars)' : 'NONE'}, refImage=${refImage ? refImage.name : 'NONE'}, styleDesc=${styleDescription ? 'YES (' + styleDescription.length + ' chars)' : 'NONE'}`);
     const QUALITY_SUFFIX = 'High Quality, 8k resolution, photorealistic, sharp focus, highly detailed, crystal clear, cinematic lighting.';
 
     const basePrompt = `You are an expert 3D graphic designer for ${brandName}, a leading Web3 company.

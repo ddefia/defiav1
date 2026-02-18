@@ -100,10 +100,10 @@ const validateAndLink = async (supabase, code, chatId, chatTitle, chatType, link
     try {
         const { data: brandRow } = await supabase
             .from('brands')
-            .select('config')
+            .select('name')
             .eq('id', brandId)
             .maybeSingle();
-        if (brandRow?.config?.name) brandName = brandRow.config.name;
+        if (brandRow?.name) brandName = brandRow.name;
     } catch (_) { /* ignore */ }
 
     return { success: true, brandId, brandName };
@@ -127,10 +127,10 @@ const getLinkedBrand = async (supabase, chatId) => {
     try {
         const { data: brandRow } = await supabase
             .from('brands')
-            .select('config')
+            .select('name')
             .eq('id', data.brand_id)
             .maybeSingle();
-        if (brandRow?.config?.name) brandName = brandRow.config.name;
+        if (brandRow?.name) brandName = brandRow.name;
     } catch (_) { /* ignore */ }
 
     return {
