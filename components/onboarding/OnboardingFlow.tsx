@@ -2849,7 +2849,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onExit, onComple
   };
 
   return (
-    <div className="h-screen bg-[#0A0A0B] flex overflow-x-auto overflow-y-hidden">
+    <div className="h-full min-h-screen bg-[#0A0A0B] flex overflow-x-auto overflow-y-hidden">
       {renderLeftPanel()}
       {currentStep === 'profile' && renderProfileStep()}
       {currentStep === 'company' && renderCompanyStep()}

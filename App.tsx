@@ -175,9 +175,16 @@ const App: React.FC = () => {
                 // If user has a linked brand (by brandId, brandName, or email), auto-select it
                 if (user) {
                     const userBrand = getCurrentUserBrand();
+                    // Also check Supabase user metadata — profiles may not be in localStorage yet
+                    const hasBrandInMetadata = !!(user.brandId || user.brandName);
                     if (userBrand) {
                         setSelectedBrand(userBrand.brandName);
-                        // Also mark onboarding as complete for users with existing brands
+                    } else if (hasBrandInMetadata) {
+                        // Brand exists in Supabase but profiles not yet synced to localStorage
+                        setSelectedBrand(user.brandName || user.brandId || '');
+                    }
+                    if (userBrand || hasBrandInMetadata) {
+                        // Mark onboarding as complete for users with existing brands
                         setOnboardingState(prev => ({
                             ...prev,
                             completed: true,
@@ -186,7 +193,8 @@ const App: React.FC = () => {
 
                         // Sync brand assets from Supabase storage (images, etc.)
                         // This runs in background and updates the UI via storage events
-                        syncBrandAssetsFromStorage(userBrand.brandName).then(result => {
+                        const brandNameForSync = userBrand?.brandName || user.brandName || user.brandId || '';
+                        syncBrandAssetsFromStorage(brandNameForSync).then(result => {
                             if (result.imagesAdded > 0) {
                                 // Reload profiles from localStorage directly (avoid cloud fetch loop)
                                 try {

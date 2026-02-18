@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { signIn, signUp, sendPasswordReset } from '../services/auth';
+import { signIn, signUp, sendPasswordReset, loadUserProfile } from '../services/auth';
 import { getCurrentUserBrand } from '../services/storage';
 
 interface AuthPageProps {
@@ -53,8 +53,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 setError(authError);
             } else if (user) {
                 // Check if user already has a brand linked
+                // First try localStorage profiles, then fall back to Supabase user metadata
                 const existingBrand = getCurrentUserBrand();
-                onSuccess(!!existingBrand);
+                const userProfile = loadUserProfile();
+                const hasBrandInMetadata = !!(userProfile?.brandId || userProfile?.brandName);
+                onSuccess(!!existingBrand || hasBrandInMetadata);
             }
         } finally {
             setIsLoading(false);
