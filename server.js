@@ -367,8 +367,6 @@ const PUBLIC_API_PATHS = new Set([
     '/api/auth/x/status',
     // Stripe webhook uses its own signature verification
     '/api/billing/webhook',
-    // Telegram public endpoints
-    '/api/telegram/health',
 ]);
 
 // Prefixes for dynamic routes that should be public
@@ -379,8 +377,7 @@ const PUBLIC_API_PREFIXES = [
     '/api/auth/x/',
     '/api/x/metrics/',
     '/api/onboarding/',
-    '/api/telegram/webhook/',
-    '/api/telegram/health',
+    '/api/telegram/',
 ];
 
 const parseApiKeys = () => {
