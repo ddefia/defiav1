@@ -205,7 +205,7 @@ const processMessage = async (update) => {
                 }
                 const result = await unlinkChat(supabase, chatId);
                 if (result.success) {
-                    await safeSend(chatId, formatChatResponse('Unlinked. I\\'m out.'));
+                    await safeSend(chatId, formatChatResponse('Unlinked. Peace.'));
                 } else {
                     await safeSend(chatId, formatError('Failed to unlink'));
                 }
