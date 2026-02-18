@@ -162,14 +162,17 @@ const formatHelp = () => {
     lines.push(`${code('/unlink')} ${escapeMarkdownV2('— Disconnect this chat')}`);
     lines.push(`${code('/status')} ${escapeMarkdownV2('— Show linked brand info')}`);
     lines.push(`${code('/brief')} ${escapeMarkdownV2('— Get today\'s daily briefing')}`);
+    lines.push(`${code('/recs')} ${escapeMarkdownV2('— View recent AI recommendations')}`);
     lines.push(`${code('/help')} ${escapeMarkdownV2('— Show this command list')}`);
     lines.push('');
     lines.push(bold('Natural Language'));
-    lines.push(escapeMarkdownV2('You can also just chat naturally:'));
-    lines.push(escapeMarkdownV2('• "Create a tweet about our new partnership"'));
+    lines.push(escapeMarkdownV2('Just chat naturally — I\'m your AI CMO:'));
+    lines.push(escapeMarkdownV2('• "Write a tweet about our new partnership"'));
+    lines.push(escapeMarkdownV2('• "Create an image for our upcoming launch"'));
     lines.push(escapeMarkdownV2('• "What\'s trending in Web3?"'));
     lines.push(escapeMarkdownV2('• "Use recommendation #1 to draft a post"'));
     lines.push(escapeMarkdownV2('• Send an image + "Create a post like this"'));
+    lines.push(escapeMarkdownV2('• "What should we post today?"'));
     return lines.join('\n');
 };
 

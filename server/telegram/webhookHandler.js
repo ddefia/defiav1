@@ -28,6 +28,33 @@ import {
 } from './messageFormatter.js';
 import { fetchBrandProfile, getSupabaseClient } from '../agent/brandContext.js';
 
+// ━━━ Safe Send Helper (MarkdownV2 fallback to plaintext) ━━━
+
+const safeSend = async (chatId, text, options = {}) => {
+    try {
+        return await sendMessage(chatId, text, { parseMode: 'MarkdownV2', ...options });
+    } catch (e) {
+        // If MarkdownV2 fails (bad escaping), retry as plain text
+        if (e.message?.includes('parse') || e.message?.includes('entities') || e.message?.includes('can\'t')) {
+            const plain = text.replace(/\\([_*[\]()~`>#+=|{}.!\-])/g, '$1');
+            return await sendMessage(chatId, plain);
+        }
+        throw e;
+    }
+};
+
+const safeEdit = async (chatId, msgId, text, options = {}) => {
+    try {
+        return await editMessageText(chatId, msgId, text, { parseMode: 'MarkdownV2', ...options });
+    } catch (e) {
+        if (e.message?.includes('parse') || e.message?.includes('entities') || e.message?.includes('can\'t')) {
+            const plain = text.replace(/\\([_*[\]()~`>#+=|{}.!\-])/g, '$1');
+            return await editMessageText(chatId, msgId, plain);
+        }
+        throw e;
+    }
+};
+
 // ━━━ Chat History Helper ━━━
 
 const HISTORY_KEY_PREFIX = 'telegram_chat_history_';
@@ -109,57 +136,57 @@ const processMessage = async (update) => {
                 if (startParam && supabase) {
                     const result = await validateAndLink(supabase, startParam, chatId, chatTitle, chatType, username);
                     if (result.success) {
-                        await sendMessage(chatId, formatWelcome() + `\n\n\u2705 ${formatChatResponse(`Linked to ${result.brandName}! You're all set.`)}`, { parseMode: 'MarkdownV2' });
+                        await safeSend(chatId, formatWelcome() + `\n\n\u2705 ${formatChatResponse(`Linked to ${result.brandName}! You're all set.`)}`);
                         return;
                     }
                 }
-                await sendMessage(chatId, formatWelcome(), { parseMode: 'MarkdownV2' });
+                await safeSend(chatId, formatWelcome());
                 return;
             }
 
             case '/link': {
                 const code = args[0];
                 if (!code) {
-                    await sendMessage(chatId, formatError('Usage: /link YOUR_CODE'), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatError('Usage: /link YOUR_CODE'));
                     return;
                 }
                 if (!supabase) {
-                    await sendMessage(chatId, formatError('Service temporarily unavailable'), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatError('Service temporarily unavailable'));
                     return;
                 }
                 const result = await validateAndLink(supabase, code, chatId, chatTitle, chatType, username);
                 if (result.success) {
-                    await sendMessage(chatId, formatChatResponse(`\u2705 Linked to ${result.brandName}! I'll send daily briefings and AI recommendations here. Type /help to see what I can do.`), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatChatResponse(`\u2705 Linked to ${result.brandName}! I'll send daily briefings and AI recommendations here. Type /help to see what I can do.`));
                 } else {
-                    await sendMessage(chatId, formatError(result.error || 'Invalid or expired link code'), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatError(result.error || 'Invalid or expired link code'));
                 }
                 return;
             }
 
             case '/unlink': {
                 if (!supabase) {
-                    await sendMessage(chatId, formatError('Service temporarily unavailable'), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatError('Service temporarily unavailable'));
                     return;
                 }
                 const result = await unlinkChat(supabase, chatId);
                 if (result.success) {
-                    await sendMessage(chatId, formatChatResponse('\u{1F44B} Unlinked. I won\'t send any more updates to this chat.'), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatChatResponse('\u{1F44B} Unlinked. I won\'t send any more updates to this chat.'));
                 } else {
-                    await sendMessage(chatId, formatError('Failed to unlink'), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatError('Failed to unlink'));
                 }
                 return;
             }
 
             case '/status': {
                 if (!supabase) {
-                    await sendMessage(chatId, formatError('Service temporarily unavailable'), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatError('Service temporarily unavailable'));
                     return;
                 }
                 const linked = await getLinkedBrand(supabase, chatId);
                 if (linked) {
-                    await sendMessage(chatId, formatChatResponse(`\u{1F517} Linked to: ${linked.brandName}\nNotifications: ${linked.notificationsEnabled ? 'On' : 'Off'}`), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatChatResponse(`\u{1F517} Linked to: ${linked.brandName}\nNotifications: ${linked.notificationsEnabled ? 'On' : 'Off'}`));
                 } else {
-                    await sendMessage(chatId, formatChatResponse('Not linked to any brand. Use /link CODE to connect.'), { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, formatChatResponse('Not linked to any brand. Use /link CODE to connect.'));
                 }
                 return;
             }
@@ -169,8 +196,14 @@ const processMessage = async (update) => {
                 return;
             }
 
+            case '/recommendations':
+            case '/recs': {
+                await handleRecommendationsCommand(supabase, chatId);
+                return;
+            }
+
             case '/help': {
-                await sendMessage(chatId, formatHelp(), { parseMode: 'MarkdownV2' });
+                await safeSend(chatId, formatHelp());
                 return;
             }
 
@@ -184,24 +217,24 @@ const processMessage = async (update) => {
 
     // Resolve brand
     if (!supabase) {
-        await sendMessage(chatId, formatError('Service temporarily unavailable'), { parseMode: 'MarkdownV2' });
+        await safeSend(chatId, formatError('Service temporarily unavailable'));
         return;
     }
 
     const linked = await getLinkedBrand(supabase, chatId);
     if (!linked) {
-        await sendMessage(chatId, formatChatResponse('This chat isn\'t linked to a brand yet. Use /link CODE to connect.'), { parseMode: 'MarkdownV2' });
+        await safeSend(chatId, formatChatResponse('This chat isn\'t linked to a brand yet. Use /link CODE to connect.'));
         return;
     }
 
     const brandProfile = await fetchBrandProfile(supabase, linked.brandId);
     if (!brandProfile) {
-        await sendMessage(chatId, formatError('Brand profile not found. Try relinking.'), { parseMode: 'MarkdownV2' });
+        await safeSend(chatId, formatError('Brand profile not found. Try relinking.'));
         return;
     }
 
     // Send "thinking" indicator
-    const thinkingMsg = await sendMessage(chatId, formatChatResponse('\u{1F914} Thinking...'), { parseMode: 'MarkdownV2' });
+    const thinkingMsg = await safeSend(chatId, formatChatResponse('\u{1F914} Thinking...'));
     const thinkingMsgId = thinkingMsg?.message_id;
 
     try {
@@ -249,7 +282,12 @@ const processMessage = async (update) => {
                 const enrichedPrompt = imageAnalysis
                     ? `${prompt}\n\nReference image analysis: ${imageAnalysis}`
                     : prompt;
-                responseImage = await generateImage(enrichedPrompt, brandProfile);
+                try {
+                    responseImage = await generateImage(enrichedPrompt, brandProfile);
+                } catch (e) {
+                    console.warn('[Telegram] Image generation error:', e.message);
+                    responseImage = null;
+                }
                 if (responseImage) {
                     responseText = null; // Will send as photo instead
                 } else {
@@ -301,11 +339,23 @@ const processMessage = async (update) => {
                 const contextParts = [];
                 if (imageAnalysis) contextParts.push(`User's image: ${imageAnalysis}`);
 
+                // Enrich chat with recent recommendations + briefing (AI CMO mode)
+                const enrichment = {};
+                try {
+                    const [recs, briefing] = await Promise.all([
+                        getRecentRecommendations(linked.brandId, supabase, 3),
+                        getLatestBriefing(linked.brandId, supabase),
+                    ]);
+                    if (recs.length > 0) enrichment.recentRecommendations = recs;
+                    if (briefing?.executiveSummary) enrichment.briefingSummary = briefing.executiveSummary;
+                } catch { /* non-critical */ }
+
                 const response = await generateChatResponse(
                     text || 'The user sent an image.',
                     chatHistory,
                     brandProfile,
-                    contextParts.join('\n')
+                    contextParts.join('\n'),
+                    enrichment
                 );
                 responseText = formatChatResponse(response);
                 break;
@@ -317,7 +367,7 @@ const processMessage = async (update) => {
         if (responseImage) {
             // Delete thinking message first
             if (thinkingMsgId) {
-                try { await editMessageText(chatId, thinkingMsgId, formatChatResponse('Done!'), { parseMode: 'MarkdownV2' }); } catch { /* ignore */ }
+                try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('Done!')); } catch { /* ignore */ }
             }
             const caption = text ? `Generated from: "${text.slice(0, 100)}"` : 'Generated image';
             await sendPhoto(chatId, responseImage, caption);
@@ -325,13 +375,13 @@ const processMessage = async (update) => {
             // Edit thinking message with the real response
             if (thinkingMsgId) {
                 try {
-                    await editMessageText(chatId, thinkingMsgId, responseText, { parseMode: 'MarkdownV2' });
+                    await safeEdit(chatId, thinkingMsgId, responseText);
                 } catch {
                     // If edit fails (e.g., message too old), send new message
-                    await sendMessage(chatId, responseText, { parseMode: 'MarkdownV2' });
+                    await safeSend(chatId, responseText);
                 }
             } else {
-                await sendMessage(chatId, responseText, { parseMode: 'MarkdownV2' });
+                await safeSend(chatId, responseText);
             }
         }
 
@@ -344,9 +394,9 @@ const processMessage = async (update) => {
         console.error('[Telegram] Processing failed:', e.message);
         const errorMsg = formatError('Something went wrong. Please try again.');
         if (thinkingMsgId) {
-            try { await editMessageText(chatId, thinkingMsgId, errorMsg, { parseMode: 'MarkdownV2' }); } catch { /* ignore */ }
+            try { await safeEdit(chatId, thinkingMsgId, errorMsg); } catch { /* ignore */ }
         } else {
-            await sendMessage(chatId, errorMsg, { parseMode: 'MarkdownV2' });
+            try { await safeSend(chatId, errorMsg); } catch { /* ignore */ }
         }
     }
 };
@@ -356,7 +406,7 @@ const processMessage = async (update) => {
 const handleBriefingCommand = async (supabase, chatId, editMsgId) => {
     const linked = await getLinkedBrand(supabase, chatId);
     if (!linked) {
-        await sendMessage(chatId, formatChatResponse('Not linked to a brand. Use /link CODE first.'), { parseMode: 'MarkdownV2' });
+        await safeSend(chatId, formatChatResponse('Not linked to a brand. Use /link CODE first.'));
         return;
     }
 
@@ -364,19 +414,59 @@ const handleBriefingCommand = async (supabase, chatId, editMsgId) => {
     if (!report) {
         const msg = formatChatResponse('No briefing available yet. The AI generates briefings daily at 6:00 AM.');
         if (editMsgId) {
-            try { await editMessageText(chatId, editMsgId, msg, { parseMode: 'MarkdownV2' }); } catch { /* ignore */ }
+            try { await safeEdit(chatId, editMsgId, msg); } catch { /* ignore */ }
         } else {
-            await sendMessage(chatId, msg, { parseMode: 'MarkdownV2' });
+            await safeSend(chatId, msg);
         }
         return;
     }
 
     const formatted = formatDailyBriefing(report, linked.brandName);
     if (editMsgId) {
-        try { await editMessageText(chatId, editMsgId, formatted, { parseMode: 'MarkdownV2' }); } catch { /* ignore */ }
+        try { await safeEdit(chatId, editMsgId, formatted); } catch { /* ignore */ }
     } else {
-        await sendMessage(chatId, formatted, { parseMode: 'MarkdownV2' });
+        await safeSend(chatId, formatted);
     }
+};
+
+// ━━━ Recommendations Command ━━━
+
+const handleRecommendationsCommand = async (supabase, chatId) => {
+    const linked = await getLinkedBrand(supabase, chatId);
+    if (!linked) {
+        await safeSend(chatId, formatChatResponse('Not linked to a brand. Use /link CODE first.'));
+        return;
+    }
+
+    const recommendations = await getRecentRecommendations(linked.brandId, supabase, 5);
+    if (recommendations.length === 0) {
+        await safeSend(chatId, formatChatResponse('No recent recommendations. The AI agent generates these during scheduled analysis cycles (every 6 hours).'));
+        return;
+    }
+
+    const lines = [`\u{1F4CB} *Recent AI Recommendations*\n`];
+    recommendations.forEach((rec, i) => {
+        const icon = rec.action === 'REPLY' ? '\u21A9\uFE0F'
+            : rec.action === 'TREND_JACK' ? '\u26A1'
+            : rec.action === 'CAMPAIGN' ? '\u{1F4E2}'
+            : rec.action === 'GAP_FILL' ? '\u{1F3AF}'
+            : rec.action === 'Tweet' ? '\u{1F426}'
+            : '\u{1F4AC}';
+        const escapedAction = rec.action?.replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&') || 'Unknown';
+        const escapedReason = (rec.reason || 'No details')
+            .slice(0, 120)
+            .replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&');
+        lines.push(`${icon} *#${i + 1}* \\- *${escapedAction}*`);
+        lines.push(`  ${escapedReason}`);
+        if (rec.draft) {
+            const draftPreview = rec.draft.slice(0, 80).replace(/[_*[\]()~`>#+=|{}.!\-]/g, '\\$&');
+            lines.push(`  _"${draftPreview}\\.\\.\\."_`);
+        }
+        lines.push('');
+    });
+    lines.push('_Say "use recommendation \\#N" to turn one into a tweet\\._');
+
+    await safeSend(chatId, lines.join('\n'));
 };
 
 export { handleTelegramWebhook };

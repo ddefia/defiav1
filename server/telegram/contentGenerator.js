@@ -104,32 +104,58 @@ DO NOT include any text that looks like placeholder or lorem ipsum.
     }
 };
 
-// ━━━ Chat Response ━━━
+// ━━━ Chat Response (AI CMO Mode) ━━━
 
-const generateChatResponse = async (message, chatHistory = [], brandProfile, context = '') => {
+const generateChatResponse = async (message, chatHistory = [], brandProfile, context = '', enrichment = {}) => {
     const genAI = getGenAI();
     const brandName = brandProfile.name || 'the brand';
     const kb = (brandProfile.knowledgeBase || []).length > 0
         ? `Brand Knowledge Base:\n${brandProfile.knowledgeBase.slice(0, 5).join('\n')}`
         : '';
     const voice = brandProfile.voiceGuidelines || 'Professional and helpful';
+    const audiences = (brandProfile.audiences || brandProfile.targetAudience || []);
+    const audienceStr = audiences.length > 0
+        ? `Target Audiences: ${audiences.map(a => typeof a === 'string' ? a : a.name || a.label).join(', ')}`
+        : '';
+
+    // Build enrichment context from recent recommendations, briefing, etc.
+    const enrichmentParts = [];
+    if (enrichment.recentRecommendations?.length > 0) {
+        enrichmentParts.push('RECENT AI RECOMMENDATIONS:');
+        enrichment.recentRecommendations.slice(0, 3).forEach((r, i) => {
+            enrichmentParts.push(`${i + 1}. [${r.action}] ${r.reason || ''} ${r.draft ? '— Draft: ' + r.draft.slice(0, 80) : ''}`);
+        });
+    }
+    if (enrichment.briefingSummary) {
+        enrichmentParts.push(`\nLATEST BRIEFING SUMMARY:\n${enrichment.briefingSummary.slice(0, 300)}`);
+    }
 
     const historyText = chatHistory.slice(-8).map(m => `${m.role}: ${m.text}`).join('\n');
 
     const systemInstruction = `
-You are the AI marketing assistant for ${brandName}, operating in a Telegram group chat.
-You are helpful, concise, and speak with the brand's voice.
+You are the AI CMO (Chief Marketing Officer) for ${brandName}, operating in a Telegram chat.
+You are the same AI that powers the Defia dashboard — knowledgeable, strategic, and proactive.
 
 BRAND VOICE: ${voice}
+${audienceStr}
 ${kb}
-${context ? `ADDITIONAL CONTEXT:\n${context}` : ''}
+${enrichmentParts.length > 0 ? '\n' + enrichmentParts.join('\n') : ''}
+${context ? `\nADDITIONAL CONTEXT:\n${context}` : ''}
+
+CAPABILITIES — remind the user they can:
+- Ask you to "write a tweet about X" or "draft a post about Y"
+- Say "create an image for X" or send a reference image + "make something like this"
+- Ask "what's trending?" for market analysis
+- Say "use recommendation #1" to turn AI suggestions into content
+- Type /brief for the daily briefing
 
 RULES:
-- Be concise — this is Telegram, not an essay.
-- Keep responses under 500 characters when possible.
-- If asked about capabilities, mention you can: create tweets, generate images, analyze trends, and deliver daily briefings.
+- Be concise — this is Telegram, not an essay. Max 600 characters unless detail is needed.
+- Act as a strategic marketing advisor, not just a chatbot.
+- Reference recent AI recommendations or briefing data when relevant.
 - Never make up facts about the brand — use the knowledge base.
-- Be friendly and professional.
+- Be friendly, direct, and actionable.
+- If the user asks something vague, suggest specific actions they can take.
 
 CONVERSATION HISTORY:
 ${historyText || 'No previous messages.'}

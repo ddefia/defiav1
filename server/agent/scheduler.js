@@ -342,6 +342,13 @@ export const triggerAgentRun = async (brandIdentifier) => {
             const record = { ...decision, brandId: target.id };
             saveDecisionToFile(record);
             await saveDecisionToDb(supabase, decision, target.id);
+
+            // Notify linked Telegram chats about new decision
+            try {
+                await notifyLinkedChats(supabase, target.id, 'decision', decision);
+            } catch (tgErr) {
+                console.warn(`     - Telegram notification failed:`, tgErr.message);
+            }
         }
     }
 
