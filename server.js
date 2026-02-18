@@ -367,6 +367,8 @@ const PUBLIC_API_PATHS = new Set([
     '/api/auth/x/status',
     // Stripe webhook uses its own signature verification
     '/api/billing/webhook',
+    // Image generation — called internally by telegram bot and client-side
+    '/api/generate-image',
 ]);
 
 // Prefixes for dynamic routes that should be public

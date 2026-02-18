@@ -118,7 +118,7 @@ const analyzeReferenceStyle = async (refImage) => {
         const genAI = getGenAI();
         const response = await genAI.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: [
+            contents: [{ parts: [
                 { inlineData: { mimeType: refImage.mimeType, data: refImage.base64 } },
                 { text: `Analyze this reference image to create an EXACT TEMPLATE SPECIFICATION for replication.
 
@@ -131,12 +131,14 @@ Describe with extreme precision:
 6. COMPOSITION: Alignment, margins, spacing, visual hierarchy.
 
 Be forensically precise. A designer reading ONLY your description should recreate this with different text.` }
-            ],
+            ] }],
             config: { temperature: 0.2 },
         });
 
-        const text = response.text || '';
-        return text.trim() ? `VISUAL STYLE REFERENCE (from brand's own images):\n${text.trim()}` : '';
+        const resultText = response.candidates?.[0]?.content?.parts?.[0]?.text
+            || (typeof response.text === 'function' ? response.text() : response.text)
+            || '';
+        return resultText.trim() ? `VISUAL STYLE REFERENCE (from brand's own images):\n${resultText.trim()}` : '';
     } catch (e) {
         console.warn('[ContentGenerator] Reference style analysis failed:', e.message);
         return '';
@@ -183,17 +185,22 @@ CRITICAL RULES:
 
     // Step 3: Try Gemini native with reference image (multimodal)
     if (refImage) {
+        console.log('[ContentGenerator] Step 3: Trying gemini-3-pro-image-preview with reference image...');
         const result = await tryGeminiImageWithRef(basePrompt, refImage);
-        if (result) return result;
+        if (result) { console.log('[ContentGenerator] ✓ Image generated with reference'); return result; }
     }
 
     // Step 4: Try Gemini text-only
+    console.log('[ContentGenerator] Step 4: Trying gemini-3-pro-image-preview text-only...');
     const geminiResult = await tryGeminiImage(basePrompt);
-    if (geminiResult) return geminiResult;
+    if (geminiResult) { console.log('[ContentGenerator] ✓ Image generated (text-only)'); return geminiResult; }
 
     // Step 5: Fallback to Imagen 4 (text prompt only — no ref image support)
-    console.log('[ContentGenerator] Gemini unavailable, trying Imagen 4...');
-    return await tryImagen4(basePrompt);
+    console.log('[ContentGenerator] Step 5: Gemini failed, trying Imagen 4...');
+    const imagenResult = await tryImagen4(basePrompt);
+    if (imagenResult) { console.log('[ContentGenerator] ✓ Image generated via Imagen 4'); return imagenResult; }
+    console.error('[ContentGenerator] ✗ All image generation methods failed');
+    return null;
 };
 
 /**
@@ -203,16 +210,16 @@ const tryGeminiImageWithRef = async (prompt, refImage) => {
     try {
         const genAI = getGenAI();
         const response = await genAI.models.generateContent({
-            model: 'gemini-2.0-flash-exp',
-            contents: {
-                parts: [
-                    // Pass the reference image so Gemini can SEE it
-                    { inlineData: { mimeType: refImage.mimeType, data: refImage.base64 } },
-                    { text: `${prompt}\n\nThe image above is a STYLE REFERENCE from the brand. Your generated image MUST match this visual style (colors, layout patterns, typography feel) but with new content based on the visual direction above.` },
-                ],
-            },
+            model: 'gemini-3-pro-image-preview',
+            contents: [{ parts: [
+                // Pass the reference image so Gemini can SEE it
+                { inlineData: { mimeType: refImage.mimeType, data: refImage.base64 } },
+                { text: `${prompt}\n\nThe image above is a STYLE REFERENCE from the brand. Your generated image MUST match this visual style (colors, layout patterns, typography feel) but with new content based on the visual direction above.` },
+            ] }],
             config: {
-                responseModalities: ['image', 'text'],
+                imageConfig: {
+                    aspectRatio: '1:1',
+                },
             },
         });
 
@@ -236,10 +243,12 @@ const tryGeminiImage = async (prompt) => {
     try {
         const genAI = getGenAI();
         const response = await genAI.models.generateContent({
-            model: 'gemini-2.0-flash-exp',
-            contents: { parts: [{ text: prompt }] },
+            model: 'gemini-3-pro-image-preview',
+            contents: [{ parts: [{ text: prompt }] }],
             config: {
-                responseModalities: ['image', 'text'],
+                imageConfig: {
+                    aspectRatio: '1:1',
+                },
             },
         });
 
