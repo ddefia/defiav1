@@ -168,18 +168,22 @@ Be forensically precise. A designer reading ONLY your description should recreat
  * 4. Fallback to Imagen 4 (text-only prompt with style description)
  */
 const generateImage = async (prompt, brandProfile) => {
+    const startTime = Date.now();
     const brandName = brandProfile.name || 'the brand';
     const colorPalette = (brandProfile.colors || []).map(c => `${c.name || c.hex} (${c.hex})`).join(', ');
     const visualIdentity = brandProfile.visualIdentity || brandProfile.visualStyle || '';
 
     // Step 1: Pick a reference image from the brand
     const refImage = await pickReferenceImage(brandProfile);
+    console.log(`[ContentGenerator] Ref image picked in ${Date.now() - startTime}ms`);
     let styleDescription = '';
 
     // Step 2: Analyze reference image style (if we have one)
     if (refImage) {
         console.log(`[ContentGenerator] Using reference image: ${refImage.name}`);
+        const analyzeStart = Date.now();
         styleDescription = await analyzeReferenceStyle(refImage);
+        console.log(`[ContentGenerator] Style analysis done in ${Date.now() - analyzeStart}ms`);
     }
 
     // Step 3: Build the full branded prompt (mirrors client-side generateWeb3Graphic quality)

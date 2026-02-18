@@ -276,9 +276,10 @@ const processMessage = async (update) => {
         return;
     }
 
-    // Ensure brand name is always set (profile may not have it but linked data does)
-    if (!brandProfile.name && linked.brandName) {
-        brandProfile.name = linked.brandName;
+    // Ensure brand name is always set
+    // Priority: profile.name > linked.brandName > brandId (brandId is always set, e.g. "Metis")
+    if (!brandProfile.name) {
+        brandProfile.name = linked.brandName || linked.brandId;
     }
 
     // Send "thinking" indicator
