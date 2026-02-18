@@ -4,7 +4,7 @@
  * Validates → routes → classifies → generates → responds.
  */
 
-import { sendMessage, editMessageText, sendPhoto, getFile } from './telegramClient.js';
+import { sendMessage, editMessageText, sendPhoto, getFile, getMe } from './telegramClient.js';
 import { validateAndLink, getLinkedBrand, unlinkChat } from './linkManager.js';
 import { classifyMessage, INTENTS } from './intentClassifier.js';
 import {
@@ -53,6 +53,41 @@ const safeEdit = async (chatId, msgId, text, options = {}) => {
         }
         throw e;
     }
+};
+
+// ━━━ Bot Identity Cache ━━━
+
+let _botInfo = null;
+const getBotInfo = async () => {
+    if (!_botInfo) {
+        try { _botInfo = await getMe(); } catch { _botInfo = { username: 'defiaxyzbot' }; }
+    }
+    return _botInfo;
+};
+
+// Check if a message in a group chat is directed at the bot
+const isDirectedAtBot = async (message, text) => {
+    const chatType = message.chat?.type || 'private';
+
+    // Private chats: always respond
+    if (chatType === 'private') return true;
+
+    // Slash commands are handled separately and always processed
+    if (text.startsWith('/')) return true;
+
+    const botInfo = await getBotInfo();
+    const botUsername = (botInfo.username || 'defiaxyzbot').toLowerCase();
+
+    // Message mentions @bot
+    if (text.toLowerCase().includes(`@${botUsername}`)) return true;
+
+    // Message is a reply to one of the bot's messages
+    if (message.reply_to_message?.from?.is_bot) {
+        const replyFromUsername = (message.reply_to_message.from.username || '').toLowerCase();
+        if (replyFromUsername === botUsername) return true;
+    }
+
+    return false;
 };
 
 // ━━━ Chat History Helper ━━━
@@ -215,6 +250,14 @@ const processMessage = async (update) => {
 
     // ━━━ Natural Language Processing ━━━
 
+    // In group chats, only respond when explicitly addressed (@bot or reply to bot)
+    const directed = await isDirectedAtBot(message, text);
+    if (!directed) return; // Silently ignore unaddressed group messages
+
+    // Strip @botname mention from text so AI processes clean input
+    const botInfo = await getBotInfo();
+    const cleanText = text.replace(new RegExp(`@${botInfo.username}`, 'gi'), '').trim();
+
     // Resolve brand
     if (!supabase) {
         await safeSend(chatId, formatError('Service temporarily unavailable'));
@@ -247,7 +290,7 @@ const processMessage = async (update) => {
                 const largestPhoto = photos[photos.length - 1]; // Telegram sends multiple sizes
                 const fileBuffer = await getFile(largestPhoto.file_id);
                 imageBase64 = fileBuffer.toString('base64');
-                imageAnalysis = await analyzeImage(imageBase64, text);
+                imageAnalysis = await analyzeImage(imageBase64, cleanText);
             } catch (e) {
                 console.warn('[Telegram] Image processing failed:', e.message);
             }
@@ -258,7 +301,7 @@ const processMessage = async (update) => {
 
         // Classify intent
         const { intent, params } = await classifyMessage(
-            text || imageAnalysis,
+            cleanText || imageAnalysis,
             hasPhoto,
             chatHistory,
             brandProfile
@@ -271,7 +314,7 @@ const processMessage = async (update) => {
 
         switch (intent) {
             case INTENTS.DRAFT_CONTENT: {
-                const topic = params.topic || text;
+                const topic = params.topic || cleanText;
                 // Generate the tweet
                 const tweet = await generateTweet(topic, brandProfile);
                 responseText = formatTweetDraft(tweet);
@@ -286,7 +329,7 @@ const processMessage = async (update) => {
             }
 
             case INTENTS.GENERATE_IMAGE: {
-                const prompt = params.imagePrompt || text;
+                const prompt = params.imagePrompt || cleanText;
                 const enrichedPrompt = imageAnalysis
                     ? `${prompt}\n\nReference image analysis: ${imageAnalysis}`
                     : prompt;
@@ -348,7 +391,7 @@ const processMessage = async (update) => {
             case INTENTS.GET_BRIEFING: {
                 await handleBriefingCommand(supabase, chatId, thinkingMsgId);
                 // Save to history
-                chatHistory.push({ role: 'user', text, timestamp: Date.now() });
+                chatHistory.push({ role: 'user', text: cleanText, timestamp: Date.now() });
                 chatHistory.push({ role: 'assistant', text: '(briefing sent)', timestamp: Date.now() });
                 await saveChatHistory(supabase, chatId, chatHistory);
                 return; // Already handled
@@ -371,7 +414,7 @@ const processMessage = async (update) => {
                 } catch { /* non-critical */ }
 
                 const response = await generateChatResponse(
-                    text || 'The user sent an image.',
+                    cleanText || 'The user sent an image.',
                     chatHistory,
                     brandProfile,
                     contextParts.join('\n'),
@@ -395,7 +438,7 @@ const processMessage = async (update) => {
                 await safeSend(chatId, responseText);
             }
             // Then send the image as a follow-up
-            const caption = text ? `\u{1F3A8} Companion graphic for: "${text.slice(0, 80)}"` : 'Generated graphic';
+            const caption = cleanText ? `\u{1F3A8} Companion graphic for: "${cleanText.slice(0, 80)}"` : 'Generated graphic';
             try {
                 await sendPhoto(chatId, responseImage, caption);
             } catch (photoErr) {
@@ -407,7 +450,7 @@ const processMessage = async (update) => {
             if (thinkingMsgId) {
                 try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('\u{1F3A8} Here\u0027s your image!')); } catch { /* ignore */ }
             }
-            const caption = text ? `Generated from: "${text.slice(0, 100)}"` : 'Generated image';
+            const caption = cleanText ? `Generated from: "${cleanText.slice(0, 100)}"` : 'Generated image';
             try {
                 await sendPhoto(chatId, responseImage, caption);
             } catch (photoErr) {
@@ -430,7 +473,7 @@ const processMessage = async (update) => {
         }
 
         // Save to chat history
-        chatHistory.push({ role: 'user', text: text || '(image)', timestamp: Date.now() });
+        chatHistory.push({ role: 'user', text: cleanText || '(image)', timestamp: Date.now() });
         chatHistory.push({ role: 'assistant', text: responseText?.slice(0, 200) || '(image sent)', timestamp: Date.now() });
         await saveChatHistory(supabase, chatId, chatHistory);
 

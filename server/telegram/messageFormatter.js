@@ -165,14 +165,14 @@ const formatHelp = () => {
     lines.push(`${code('/recs')} ${escapeMarkdownV2('— View recent AI recommendations')}`);
     lines.push(`${code('/help')} ${escapeMarkdownV2('— Show this command list')}`);
     lines.push('');
-    lines.push(bold('Natural Language'));
-    lines.push(escapeMarkdownV2('Just chat naturally — I\'m your AI CMO:'));
-    lines.push(escapeMarkdownV2('• "Write a tweet about our new partnership"'));
-    lines.push(escapeMarkdownV2('• "Create an image for our upcoming launch"'));
-    lines.push(escapeMarkdownV2('• "What\'s trending in Web3?"'));
-    lines.push(escapeMarkdownV2('• "Use recommendation #1 to draft a post"'));
-    lines.push(escapeMarkdownV2('• Send an image + "Create a post like this"'));
-    lines.push(escapeMarkdownV2('• "What should we post today?"'));
+    lines.push(bold('Chat with me'));
+    lines.push(escapeMarkdownV2('In groups, mention me or reply to my messages:'));
+    lines.push(escapeMarkdownV2('• @defiaxyzbot write a tweet about our partnership'));
+    lines.push(escapeMarkdownV2('• @defiaxyzbot create an image for our launch'));
+    lines.push(escapeMarkdownV2('• @defiaxyzbot what\'s trending in Web3?'));
+    lines.push(escapeMarkdownV2('• Reply to my message to continue the conversation'));
+    lines.push('');
+    lines.push(escapeMarkdownV2('In DMs, just type normally — no @ needed.'));
     return lines.join('\n');
 };
 
