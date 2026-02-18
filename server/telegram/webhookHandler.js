@@ -272,8 +272,16 @@ const processMessage = async (update) => {
         switch (intent) {
             case INTENTS.DRAFT_CONTENT: {
                 const topic = params.topic || text;
+                // Generate the tweet
                 const tweet = await generateTweet(topic, brandProfile);
                 responseText = formatTweetDraft(tweet);
+
+                // Also generate a companion image in parallel (best-effort)
+                try {
+                    const imgPrompt = `Social media visual for: ${topic}`;
+                    responseImage = await generateImage(imgPrompt, brandProfile);
+                } catch { /* non-critical — tweet is the primary output */ }
+
                 break;
             }
 
@@ -282,6 +290,12 @@ const processMessage = async (update) => {
                 const enrichedPrompt = imageAnalysis
                     ? `${prompt}\n\nReference image analysis: ${imageAnalysis}`
                     : prompt;
+
+                // Update thinking message to reflect image generation
+                if (thinkingMsgId) {
+                    try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('\u{1F3A8} Generating image...')); } catch { /* ignore */ }
+                }
+
                 try {
                     responseImage = await generateImage(enrichedPrompt, brandProfile);
                 } catch (e) {
@@ -291,7 +305,7 @@ const processMessage = async (update) => {
                 if (responseImage) {
                     responseText = null; // Will send as photo instead
                 } else {
-                    responseText = formatError('Image generation failed. Try describing what you want differently.');
+                    responseText = formatError('Image generation failed. Try a more descriptive prompt, e.g. "Create a dark gradient banner with the logo and text: Launch Day"');
                 }
                 break;
             }
@@ -322,6 +336,12 @@ const processMessage = async (update) => {
                 const topic = `${rec.action}: ${rec.reason || rec.draft || 'AI recommendation'}`;
                 const tweet = await generateTweet(topic, brandProfile);
                 responseText = formatAgentDecision(rec) + '\n\n' + formatTweetDraft(tweet, 'Generated from this recommendation');
+
+                // Also try generating a companion image
+                try {
+                    responseImage = await generateImage(`Social media graphic for: ${topic}`, brandProfile);
+                } catch { /* non-critical */ }
+
                 break;
             }
 
@@ -364,13 +384,37 @@ const processMessage = async (update) => {
 
         // ━━━ Send Response ━━━
 
-        if (responseImage) {
-            // Delete thinking message first
+        if (responseImage && responseText) {
+            // Both text AND image (e.g., tweet + companion graphic)
+            // Send the text first by editing the thinking message
             if (thinkingMsgId) {
-                try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('Done!')); } catch { /* ignore */ }
+                try { await safeEdit(chatId, thinkingMsgId, responseText); } catch {
+                    await safeSend(chatId, responseText);
+                }
+            } else {
+                await safeSend(chatId, responseText);
+            }
+            // Then send the image as a follow-up
+            const caption = text ? `\u{1F3A8} Companion graphic for: "${text.slice(0, 80)}"` : 'Generated graphic';
+            try {
+                await sendPhoto(chatId, responseImage, caption);
+            } catch (photoErr) {
+                console.warn('[Telegram] Failed to send companion image:', photoErr.message);
+                // Non-critical: the tweet was already sent
+            }
+        } else if (responseImage) {
+            // Image-only response (explicit "create an image" request)
+            if (thinkingMsgId) {
+                try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('\u{1F3A8} Here\u0027s your image!')); } catch { /* ignore */ }
             }
             const caption = text ? `Generated from: "${text.slice(0, 100)}"` : 'Generated image';
-            await sendPhoto(chatId, responseImage, caption);
+            try {
+                await sendPhoto(chatId, responseImage, caption);
+            } catch (photoErr) {
+                console.warn('[Telegram] Failed to send image:', photoErr.message);
+                const errMsg = formatError('Generated the image but failed to send it. The file may be too large. Try a simpler prompt.');
+                await safeSend(chatId, errMsg);
+            }
         } else if (responseText) {
             // Edit thinking message with the real response
             if (thinkingMsgId) {

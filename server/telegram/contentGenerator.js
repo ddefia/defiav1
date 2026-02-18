@@ -66,25 +66,76 @@ ${banned}
 
 // ━━━ Image Generation ━━━
 
-const generateImage = async (prompt, brandProfile) => {
-    const genAI = getGenAI();
+const buildImagePrompt = (prompt, brandProfile) => {
     const brandName = brandProfile.name || 'the brand';
     const colors = (brandProfile.colors || []).map(c => `${c.name || c.hex}: ${c.hex}`).join(', ');
+    const style = brandProfile.visualStyle || brandProfile.styleDescription || '';
 
-    const imagePrompt = `
-Create a professional social media graphic for ${brandName}.
+    return `Create a professional social media graphic for ${brandName}.
 
 VISUAL DIRECTION: ${prompt}
 ${colors ? `BRAND COLORS: ${colors}` : ''}
+${style ? `BRAND STYLE: ${style}` : ''}
 
 Style: Clean, modern, Web3/crypto aesthetic. Bold typography. Dark background preferred.
-DO NOT include any text that looks like placeholder or lorem ipsum.
-`;
+DO NOT include any text that looks like placeholder or lorem ipsum.`.trim();
+};
 
+/**
+ * Primary: Uses the server's /api/generate-image endpoint (Imagen 4 via Vertex AI)
+ * Fallback: Uses Gemini native image generation (gemini-2.0-flash-exp)
+ */
+const generateImage = async (prompt, brandProfile) => {
+    const imagePrompt = buildImagePrompt(prompt, brandProfile);
+
+    // Try Imagen 4 via the internal server endpoint first
+    const base64 = await tryImagen4(imagePrompt);
+    if (base64) return base64;
+
+    // Fallback: Gemini native image generation
+    console.log('[ContentGenerator] Imagen 4 unavailable, trying Gemini native image gen...');
+    return await tryGeminiImage(imagePrompt);
+};
+
+const tryImagen4 = async (prompt) => {
     try {
+        // Call the existing Vertex AI image endpoint internally
+        const serverUrl = process.env.FRONTEND_URL || process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL || new URL(process.env.FRONTEND_URL).host}`
+            : 'http://localhost:3001';
+
+        const response = await fetch(`${serverUrl}/api/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, aspectRatio: '1:1' }),
+        });
+
+        if (!response.ok) {
+            console.warn(`[ContentGenerator] Imagen 4 returned ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+        if (data.image) {
+            // Strip data URL prefix: "data:image/png;base64,..."
+            const raw = data.image.includes('base64,')
+                ? data.image.split('base64,')[1]
+                : data.image;
+            return raw;
+        }
+        return null;
+    } catch (e) {
+        console.warn('[ContentGenerator] Imagen 4 call failed:', e.message);
+        return null;
+    }
+};
+
+const tryGeminiImage = async (prompt) => {
+    try {
+        const genAI = getGenAI();
         const response = await genAI.models.generateContent({
             model: 'gemini-2.0-flash-exp',
-            contents: { parts: [{ text: imagePrompt }] },
+            contents: { parts: [{ text: prompt }] },
             config: {
                 responseModalities: ['image', 'text'],
             },
@@ -99,7 +150,7 @@ DO NOT include any text that looks like placeholder or lorem ipsum.
         }
         return null;
     } catch (e) {
-        console.error('[ContentGenerator] Image generation failed:', e.message);
+        console.error('[ContentGenerator] Gemini image generation failed:', e.message);
         return null;
     }
 };
