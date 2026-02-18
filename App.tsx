@@ -1802,7 +1802,17 @@ const App: React.FC = () => {
     if (isAuthRoute) {
         // If already logged in, redirect to dashboard
         if (currentUser) {
-            navigate('/dashboard');
+            // Ensure onboarding is marked complete for returning users with a brand
+            const userBrand = getCurrentUserBrand();
+            const hasBrandMeta = !!(currentUser.brandId || currentUser.brandName);
+            if ((userBrand || hasBrandMeta) && !onboardingState.completed) {
+                setOnboardingState(prev => ({
+                    ...prev,
+                    completed: true,
+                    updatedAt: Date.now(),
+                }));
+            }
+            navigate(userBrand || hasBrandMeta ? '/dashboard' : '/onboarding');
             return null;
         }
         return (
@@ -1851,14 +1861,21 @@ const App: React.FC = () => {
     }
 
     // Redirect back to onboarding if returning from X OAuth callback
+    // But ONLY if user genuinely has no brand (don't redirect returning users)
     if (isDashboardRoute && !onboardingState.completed) {
-        try {
-            const savedOnboarding = sessionStorage.getItem('defia_onboarding_session');
-            if (savedOnboarding) {
-                navigate('/onboarding');
-                return null;
-            }
-        } catch {}
+        const hasBrand = getCurrentUserBrand() || currentUser?.brandId || currentUser?.brandName;
+        if (hasBrand) {
+            // User has a brand — fix the stale onboarding state
+            setOnboardingState(prev => ({ ...prev, completed: true, updatedAt: Date.now() }));
+        } else {
+            try {
+                const savedOnboarding = sessionStorage.getItem('defia_onboarding_session');
+                if (savedOnboarding) {
+                    navigate('/onboarding');
+                    return null;
+                }
+            } catch {}
+        }
     }
 
     if (isOnboardingRoute) {

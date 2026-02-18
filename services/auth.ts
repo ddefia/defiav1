@@ -275,6 +275,7 @@ export const getCurrentUser = async (): Promise<UserProfile | null> => {
                 avatarUrl: user.user_metadata?.avatar_url || localProfile?.avatarUrl,
                 walletAddress: user.user_metadata?.wallet_address || localProfile?.walletAddress,
                 brandId: user.user_metadata?.brand_id || localProfile?.brandId,
+                brandName: user.user_metadata?.brand_name || localProfile?.brandName,
                 createdAt: new Date(user.created_at).getTime(),
                 updatedAt: Date.now(),
             };
