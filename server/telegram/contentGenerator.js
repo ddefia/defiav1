@@ -67,21 +67,42 @@ ${banned}
 // ━━━ Reference Image Helpers ━━━
 
 /**
- * Pick a random reference image from the brand profile and resolve its base64 data.
- * Returns { base64, mimeType } or null.
+ * Pick a reference image from the brand profile using the same priority as client-side:
+ * 1. Template-linked images (the curated branded templates)
+ * 2. Manually uploaded images (non-tweet, non-history)
+ * 3. Any remaining image as last resort
+ * Returns { base64, mimeType, name } or null.
  */
 const pickReferenceImage = async (brandProfile) => {
     const refs = brandProfile.referenceImages || [];
-    console.log(`[ContentGenerator] Reference images available: ${refs.length}`);
+    const templates = brandProfile.graphicTemplates || [];
+    console.log(`[ContentGenerator] Reference images available: ${refs.length}, templates: ${templates.length}`);
     if (refs.length === 0) return null;
 
-    // Log what we have to work with
-    refs.slice(0, 3).forEach((img, i) => {
-        console.log(`[ContentGenerator]   [${i}] name=${img.name || 'unnamed'}, hasData=${!!img.data}, hasUrl=${!!img.url}`);
+    // Collect all template-linked image IDs (these are the curated brand templates)
+    const templateLinkedIds = new Set();
+    templates.forEach(t => {
+        (t.referenceImageIds || []).forEach(id => templateLinkedIds.add(id));
     });
 
-    // Shuffle and pick first one with data
-    const shuffled = [...refs].sort(() => Math.random() - 0.5);
+    // Priority 1: Template-linked images (the 5-6 branded templates)
+    const templateImages = refs.filter(r => templateLinkedIds.has(r.id));
+    // Priority 2: Manually uploaded (not tweet-scraped, not history)
+    const manualImages = refs.filter(r =>
+        !templateLinkedIds.has(r.id) &&
+        !r.name?.startsWith('tweet-') &&
+        !r.id?.includes('_tweet-') &&
+        !r.name?.startsWith('History:')
+    );
+
+    const candidates = templateImages.length > 0 ? templateImages
+        : manualImages.length > 0 ? manualImages
+        : refs;
+
+    console.log(`[ContentGenerator] Image selection: ${templateImages.length} template-linked, ${manualImages.length} manual, using ${candidates === templateImages ? 'TEMPLATE' : candidates === manualImages ? 'MANUAL' : 'ALL'} pool (${candidates.length})`);
+
+    // Shuffle candidates and pick first one that loads
+    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
 
     for (const img of shuffled) {
         try {
