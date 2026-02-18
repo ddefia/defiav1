@@ -158,7 +158,7 @@ Be forensically precise. A designer reading ONLY your description should recreat
  */
 const generateImage = async (prompt, brandProfile) => {
     const brandName = brandProfile.name || 'the brand';
-    const colors = (brandProfile.colors || []).map(c => `${c.name || c.hex}: ${c.hex}`).join(', ');
+    const colorPalette = (brandProfile.colors || []).map(c => `${c.name || c.hex} (${c.hex})`).join(', ');
     const visualIdentity = brandProfile.visualIdentity || brandProfile.visualStyle || '';
 
     // Step 1: Pick a reference image from the brand
@@ -171,32 +171,80 @@ const generateImage = async (prompt, brandProfile) => {
         styleDescription = await analyzeReferenceStyle(refImage);
     }
 
-    const basePrompt = `Create a professional social media graphic for ${brandName}.
+    // Step 3: Build the full branded prompt (mirrors client-side generateWeb3Graphic quality)
+    const QUALITY_SUFFIX = 'High Quality, 8k resolution, photorealistic, sharp focus, highly detailed, crystal clear, cinematic lighting.';
 
-VISUAL DIRECTION: ${prompt}
-${colors ? `BRAND COLORS: ${colors}` : ''}
-${visualIdentity ? `BRAND VISUAL IDENTITY:\n${visualIdentity}` : ''}
-${styleDescription}
+    const basePrompt = `You are an expert 3D graphic designer for ${brandName}, a leading Web3 company.
+TASK: Create a professional social media graphic for: "${prompt}"
 
-CRITICAL RULES:
-- MATCH the reference image style EXACTLY — same colors, layout patterns, typography feel.
-- DO NOT include any text that looks like placeholder or lorem ipsum.
-- Professional, clean, modern aesthetic.`.trim();
+BRANDING ENFORCEMENT (CRITICAL):
+Strict adherence to the brand identity is required.
 
-    // Step 3: Try Gemini native with reference image (multimodal)
+1. COLORS:
+   - PRIMARY PALETTE: ${colorPalette || 'Use professional, modern tones.'}
+   - RULE: You MUST prioritize these exact colors.
+   ${refImage ? '- REFERENCE ALIGNMENT: Match the color grading and saturation of the provided Reference Image EXACTLY.' : ''}
+
+${visualIdentity ? `2. VISUAL IDENTITY SYSTEM:
+${visualIdentity}
+   - RULE: Follow these guidelines for composition, lighting, and texture.
+` : ''}
+
+3. STYLE & VIBE:
+   - Style: PROFESSIONAL, HIGH-END, PREMIUM.
+   ${styleDescription ? `- VISUAL STYLE EXTRACTION (FOLLOW STRICTLY): ${styleDescription}` : ''}
+   - If a Reference Image is provided, you MUST mimic its:
+     - Lighting (e.g. Neon vs Soft)
+     - Materiality (e.g. Glass vs Metal)
+     - Background Style (e.g. Abstract vs Cityscape)
+   - DO NOT deviate from the established brand look.
+
+4. LOGOS & TYPOGRAPHY (STRICT):
+   - LOGOS: If a Logo is visible in the reference, leave space or abstractly represent the logo in the same position.
+   - TEXT: If text is required, use the brand name "${brandName}" in a font style that matches the reference image.
+   - CASE SENSITIVITY: Look at the Reference Image.
+     - If the reference uses "Sentence case", you MUST use Sentence case.
+     - If the reference uses "ALL CAPS", you may use ALL CAPS.
+     - DEFAULT TO SENTENCE CASE if unclear. Do NOT use ALL CAPS by default.
+   - DO NOT use generic or cartoony fonts.
+
+INSTRUCTIONS:
+- Analyze tweet/topic sentiment.
+- STYLE ENFORCEMENT: ${QUALITY_SUFFIX}
+- NEGATIVE (DO NOT INCLUDE): blurry, low quality, grainy, pixelated, distorted, watermark, bad composition, ugly, lowres, cartoon rocket ship, generic stock imagery, rainbow gradients.
+- TEXT RULES:
+  - NEVER copy-paste the full prompt text onto the image.
+  - Use text SPARINGLY (Title/Stat only — max 5 words).
+
+${refImage ? `REFERENCE IMAGE UTILIZATION (HIGHEST PRIORITY — OVERRIDES ALL OTHER INSTRUCTIONS):
+- I have provided a reference image. This is your MASTER TEMPLATE.
+- PIXEL-PERFECT REPLICATION MODE:
+  - Your output MUST look like the reference image was opened in Photoshop and ONLY the text was swapped.
+  - SAME background (exact colors, gradients, effects).
+  - SAME layout (every element in the same position and proportion).
+  - SAME typography style (font weight, case, size, color, effects).
+  - SAME visual elements (shapes, icons, borders, cards, overlays) in the SAME positions.
+  - SAME lighting, atmosphere, and color grading.
+- ONLY CHANGE: Replace the headline text with a SHORT HEADLINE (Max 5 words) derived from: "${prompt}".
+- DO NOT add, remove, or modify any visual elements.
+- DO NOT change colors, lighting, or atmosphere.
+- DO NOT reinterpret or "improve" the design. COPY IT EXACTLY.
+` : ''}`.trim();
+
+    // Step 4: Try Gemini native with reference image (multimodal)
     if (refImage) {
-        console.log('[ContentGenerator] Step 3: Trying gemini-3-pro-image-preview with reference image...');
+        console.log('[ContentGenerator] Step 4: Trying gemini-3-pro-image-preview with reference image...');
         const result = await tryGeminiImageWithRef(basePrompt, refImage);
         if (result) { console.log('[ContentGenerator] ✓ Image generated with reference'); return result; }
     }
 
-    // Step 4: Try Gemini text-only
-    console.log('[ContentGenerator] Step 4: Trying gemini-3-pro-image-preview text-only...');
+    // Step 5: Try Gemini text-only
+    console.log('[ContentGenerator] Step 5: Trying gemini-3-pro-image-preview text-only...');
     const geminiResult = await tryGeminiImage(basePrompt);
     if (geminiResult) { console.log('[ContentGenerator] ✓ Image generated (text-only)'); return geminiResult; }
 
-    // Step 5: Fallback to Imagen 4 (text prompt only — no ref image support)
-    console.log('[ContentGenerator] Step 5: Gemini failed, trying Imagen 4...');
+    // Step 6: Fallback to Imagen 4 (text prompt only — no ref image support)
+    console.log('[ContentGenerator] Step 6: Gemini failed, trying Imagen 4...');
     const imagenResult = await tryImagen4(basePrompt);
     if (imagenResult) { console.log('[ContentGenerator] ✓ Image generated via Imagen 4'); return imagenResult; }
     console.error('[ContentGenerator] ✗ All image generation methods failed');
@@ -214,7 +262,7 @@ const tryGeminiImageWithRef = async (prompt, refImage) => {
             contents: [{ parts: [
                 // Pass the reference image so Gemini can SEE it
                 { inlineData: { mimeType: refImage.mimeType, data: refImage.base64 } },
-                { text: `${prompt}\n\nThe image above is a STYLE REFERENCE from the brand. Your generated image MUST match this visual style (colors, layout patterns, typography feel) but with new content based on the visual direction above.` },
+                { text: `${prompt}\n\nThe image above is a STYLE REFERENCE from the brand — it is your MASTER TEMPLATE. Your output MUST look like this reference was opened in Photoshop and only the headline text was swapped. Same background, same layout, same color grading, same typography style, same visual elements. COPY it exactly — do NOT reinterpret or add generic clip art.` },
             ] }],
             config: {
                 imageConfig: {

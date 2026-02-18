@@ -6,9 +6,60 @@ import { fetchBrandProfile, getSupabaseClient } from './brandContext.js';
 /**
  * GENERATOR SERVICE (Server-Side)
  * "The Writer"
- * 
- * Replicates the logic of the Frontend's `generateGrowthReport` but runs autonomously.
+ *
+ * Generates data-driven daily briefings using real social metrics,
+ * engagement data, and market signals.
  */
+
+// ━━━ Data Fetchers ━━━
+
+const fetchLunarCrushData = async (xHandle) => {
+    const apiKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
+    if (!apiKey || !xHandle) return null;
+
+    try {
+        const [creatorRes, postsRes] = await Promise.all([
+            fetch(`https://lunarcrush.com/api4/public/creator/twitter/${xHandle}/v1`, {
+                headers: { 'Authorization': `Bearer ${apiKey}` },
+            }),
+            fetch(`https://lunarcrush.com/api4/public/creator/twitter/${xHandle}/posts/v1`, {
+                headers: { 'Authorization': `Bearer ${apiKey}` },
+            }),
+        ]);
+
+        const creator = creatorRes.ok ? await creatorRes.json() : null;
+        const posts = postsRes.ok ? await postsRes.json() : null;
+
+        return { creator: creator?.data, posts: posts?.data?.slice(0, 10) };
+    } catch (e) {
+        console.warn('[Generator] LunarCrush fetch failed:', e.message);
+        return null;
+    }
+};
+
+const fetchRecentDecisions = async (supabase, brandId) => {
+    if (!supabase) return [];
+    try {
+        const { data } = await supabase
+            .from('agent_decisions')
+            .select('action, reason, draft, created_at')
+            .eq('brand_id', brandId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+        return data || [];
+    } catch {
+        return [];
+    }
+};
+
+const formatNumber = (n) => {
+    if (!n && n !== 0) return 'N/A';
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return String(n);
+};
+
+// ━━━ Main Briefing Generator ━━━
 
 export const generateDailyBriefing = async (brandId) => {
     console.log(`[Generator] Starting Daily Briefing for ${brandId}...`);
@@ -25,7 +76,7 @@ export const generateDailyBriefing = async (brandId) => {
         return;
     }
 
-    // 1. Fetch Context
+    // 1. Fetch brand profile
     const profile = await fetchBrandProfile(supabase, brandId);
     if (!profile) {
         console.warn(`[Generator] No profile found for ${brandId}. Skipping.`);
@@ -33,88 +84,129 @@ export const generateDailyBriefing = async (brandId) => {
     }
 
     const brandName = profile.name || brandId;
-    const voice = profile.voiceGuidelines || "Professional";
     const positioning = profile.positioning || "";
+    const xHandle = profile.xHandle || profile.twitterHandle || TRACKED_BRANDS[brandId] || brandId;
 
-    // 2. Fetch Live Market Data
+    // 2. Fetch data in parallel
     const apifyKey = process.env.APIFY_API_TOKEN;
+    console.log(`[Generator] Fetching data for ${brandName} (X: @${xHandle})...`);
 
-    const trends = [];
-    const [mentions] = await Promise.all([
-        fetchMentions(apifyKey, TRACKED_BRANDS[brandId] || brandId)
+    const [lunarData, mentions, recentDecisions] = await Promise.all([
+        fetchLunarCrushData(xHandle),
+        fetchMentions(apifyKey, TRACKED_BRANDS[brandId] || brandId),
+        fetchRecentDecisions(supabase, brandId),
     ]);
 
-    // 3. Prepare Prompt (Replicating Frontend Logic)
-    // FILTER: Apply GAIA strict filtering to backend trends too
-    const BLACKLIST = ['roblox', 'fortnite', 'minecraft', 'youtube', 'tiktok', 'netflix', 'disney', 'marvel', 'taylor swift'];
+    // 3. Format data sections
+    const socialMetricsSection = lunarData?.creator
+        ? `SOCIAL METRICS (LunarCrush — last 24h):
+    - Followers: ${formatNumber(lunarData.creator.followers_count)}
+    - Following: ${formatNumber(lunarData.creator.following_count)}
+    - Engagement Rate: ${lunarData.creator.engagement ? (lunarData.creator.engagement * 100).toFixed(2) + '%' : 'N/A'}
+    - Average Interactions: ${formatNumber(lunarData.creator.average_interactions)}
+    - Galaxy Score: ${lunarData.creator.galaxy_score || 'N/A'}/100
+    - Social Rank: #${formatNumber(lunarData.creator.rank) || 'N/A'}
+    - Sentiment: ${lunarData.creator.sentiment || 'N/A'}/5`
+        : 'SOCIAL METRICS: Not available (no LunarCrush data)';
 
-    const significantTrends = trends
-        .filter(t => t.relevanceScore > 70) // Base relevance
-        .filter(t => {
-            const topic = t.headline ? t.headline.toLowerCase() : "";
-            const matchesBlacklist = BLACKLIST.some(b => topic.includes(b));
-            return !matchesBlacklist; // Remove if matches blacklist
-        })
-        .slice(0, 5)
-        .map(t => `- ${t.headline} (${t.source}): ${t.summary}`)
-        .join('\n');
+    const topPostsSection = lunarData?.posts?.length > 0
+        ? `TOP RECENT POSTS (performance data):\n${lunarData.posts.slice(0, 5).map(p =>
+            `    - "${(p.body || p.text || '').slice(0, 100)}..." → ${formatNumber(p.interactions || p.social_interactions)} interactions, ${formatNumber(p.likes || p.social_likes)} likes`
+        ).join('\n')}`
+        : 'TOP POSTS: No recent post data available';
+
+    const mentionsSection = mentions?.length > 0
+        ? `RECENT MENTIONS/CONVERSATIONS:\n${mentions.slice(0, 8).map(m =>
+            `    - @${m.author}: "${(m.text || '').slice(0, 120)}"`
+        ).join('\n')}`
+        : 'MENTIONS: No recent mentions detected';
+
+    const recentActionsSection = recentDecisions.length > 0
+        ? `RECENT AI ACTIONS (what we've already done):\n${recentDecisions.map(d =>
+            `    - [${d.action}] ${d.reason?.slice(0, 100) || d.draft?.slice(0, 100) || 'No details'}`
+        ).join('\n')}`
+        : '';
 
     const kb = (profile.knowledgeBase && Array.isArray(profile.knowledgeBase))
-        ? profile.knowledgeBase.join('\n')
-        : "Brand context unavailable.";
+        ? profile.knowledgeBase.slice(0, 5).join('\n')
+        : "";
 
+    // 4. Build prompt
     const systemInstruction = `
-    You are the Chief Strategy Officer for ${brandName}.
-    BRAND VOICE: ${voice}
-    ${positioning ? `POSITIONING: ${positioning}` : ''}
-    
-    TASK: Generate the "Daily Strategic Briefing" based on real-time market signals.
-    
-    INPUT DATA:
-    - KEY MARKET TRENDS:
-    ${significantTrends || "No major market shifts detected."}
-    
-    - BRAND CONTEXT:
-    ${kb}
-    
-    OUTPUT FORMAT (JSON):
-    {
-        "executiveSummary": "2 sentences summarizing the market state and our stance (e.g. 'Market is bullish on L2s. We should pivot content to emphasize speed.').",
-        "tacticalPlan": "Specific, immediate actions for the social team (e.g. 'Reply to @Vitalik's post about scaling').",
-        "strategicPlan": [
-            {
-                "action": "KILL" | "DOUBLE_DOWN" | "OPTIMIZE",
-                "subject": "The specific initiative or topic",
-                "reasoning": "Why we are taking this action based on the trends."
-            },
-             {
-                "action": "DOUBLE_DOWN",
-                "subject": "Example Topic",
-                "reasoning": "Reason here."
-            }
-        ]
-    }
-    `;
+You are generating a daily marketing briefing for ${brandName}'s marketing team.
+${positioning ? `BRAND POSITIONING: ${positioning}` : ''}
 
-    // 4. Generate with Gemini
+Your briefing must be DATA-DRIVEN. Reference specific numbers from the data below. Never make up metrics.
+
+LIVE DATA:
+
+${socialMetricsSection}
+
+${topPostsSection}
+
+${mentionsSection}
+
+${recentActionsSection}
+
+${kb ? `BRAND KNOWLEDGE:\n${kb}` : ''}
+
+TASK: Generate a concise, actionable daily briefing.
+
+OUTPUT FORMAT (JSON):
+{
+    "executiveSummary": "2-3 sentences. MUST reference actual numbers from the data above. Example: 'Engagement rate at 2.3% with Galaxy Score 68/100. Our partnership thread pulled 4.2K interactions — 3x our average. Double down on the infrastructure narrative.'",
+    "tacticalPlan": "3-4 specific actions with reasons tied to the data. Not generic advice — reference actual posts, metrics, or conversations. Example: 'Post a follow-up thread to the DAT explainer (4.2K interactions). Reply to the 3 community questions about staking. Create a graphic comparing our TPS to competitors — data threads are outperforming narrative threads 2:1.'",
+    "strategicPlan": [
+        {
+            "action": "KILL" | "DOUBLE_DOWN" | "OPTIMIZE",
+            "subject": "Specific topic/initiative",
+            "reasoning": "Data-backed reason referencing actual metrics, not opinions."
+        }
+    ],
+    "keyMetrics": {
+        "followers": "${lunarData?.creator?.followers_count || 'N/A'}",
+        "engagementRate": "${lunarData?.creator?.engagement ? (lunarData.creator.engagement * 100).toFixed(2) + '%' : 'N/A'}",
+        "galaxyScore": "${lunarData?.creator?.galaxy_score || 'N/A'}",
+        "avgInteractions": "${lunarData?.creator?.average_interactions || 'N/A'}",
+        "topPostInteractions": "${lunarData?.posts?.[0]?.interactions || lunarData?.posts?.[0]?.social_interactions || 'N/A'}"
+    }
+}
+
+RULES:
+- Every claim must be backed by a number from the data.
+- If data is missing, say so — never fabricate metrics.
+- Be direct and specific. "Post more" is useless. "Post a follow-up to X because it got Y interactions" is useful.
+- Strategic actions must reference metrics or trends, not vibes.
+- Max 3 strategic actions. Quality over quantity.
+`;
+
+    // 5. Generate with Gemini
     try {
         const genAI = new GoogleGenAI({ apiKey });
         const response = await genAI.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: { parts: [{ text: "Generate Daily Briefing." }] },
+            contents: { parts: [{ text: "Generate the daily marketing briefing based on the live data provided." }] },
             config: {
                 systemInstruction: { parts: [{ text: systemInstruction }] },
-                responseMimeType: "application/json"
+                responseMimeType: "application/json",
+                temperature: 0.3,
             }
         });
 
-        const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        const text = response.candidates?.[0]?.content?.parts?.[0]?.text
+            || (typeof response.text === 'function' ? response.text() : response.text)
+            || "{}";
         const parsed = JSON.parse(text);
 
-        // Add Timestamp
+        // Add metadata
         parsed.lastUpdated = Date.now();
+        parsed.dataSourcesUsed = {
+            lunarCrush: !!lunarData?.creator,
+            mentions: mentions?.length || 0,
+            recentDecisions: recentDecisions.length,
+        };
 
-        // 5. Save to Supabase (app_storage)
+        // 6. Save to Supabase (app_storage)
         const storageKey = `defia_growth_report_v1_${brandId.toLowerCase()}`;
 
         const { error } = await supabase
@@ -129,6 +221,7 @@ export const generateDailyBriefing = async (brandId) => {
             console.error(`[Generator] DB Save Failed for ${brandId}:`, error.message);
         } else {
             console.log(`[Generator] ✅ Daily Briefing saved for ${brandId} (Key: ${storageKey})`);
+            console.log(`[Generator]    Data sources: LC=${!!lunarData?.creator}, Mentions=${mentions?.length || 0}, Decisions=${recentDecisions.length}`);
         }
 
     } catch (e) {

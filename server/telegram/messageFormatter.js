@@ -26,8 +26,24 @@ const formatDailyBriefing = (report, brandName) => {
     if (!report) return escapeMarkdownV2('No briefing data available.');
 
     const lines = [];
-    lines.push(`\u2600\uFE0F ${bold(`Daily Briefing — ${brandName || 'Your Brand'}`)}`);
+    lines.push(bold(`Daily Briefing — ${brandName || 'Your Brand'}`));
     lines.push('');
+
+    // Key metrics bar (if available from data-driven generator)
+    const km = report.keyMetrics;
+    if (km) {
+        const metricParts = [];
+        if (km.followers && km.followers !== 'N/A') metricParts.push(`Followers: ${km.followers}`);
+        if (km.engagementRate && km.engagementRate !== 'N/A') metricParts.push(`ER: ${km.engagementRate}`);
+        if (km.galaxyScore && km.galaxyScore !== 'N/A') metricParts.push(`Galaxy: ${km.galaxyScore}/100`);
+        if (km.avgInteractions && km.avgInteractions !== 'N/A') metricParts.push(`Avg Int: ${km.avgInteractions}`);
+        if (km.topPostInteractions && km.topPostInteractions !== 'N/A') metricParts.push(`Top Post: ${km.topPostInteractions}`);
+        if (metricParts.length > 0) {
+            lines.push(bold('Key Metrics'));
+            lines.push(escapeMarkdownV2(metricParts.join('  |  ')));
+            lines.push('');
+        }
+    }
 
     if (report.executiveSummary) {
         lines.push(bold('Executive Summary'));
@@ -43,23 +59,35 @@ const formatDailyBriefing = (report, brandName) => {
 
     if (report.strategicPlan && Array.isArray(report.strategicPlan)) {
         lines.push(bold('Strategic Actions'));
-        for (const item of report.strategicPlan.slice(0, 5)) {
-            const icon = item.action === 'DOUBLE_DOWN' ? '\u{1F680}'
-                : item.action === 'KILL' ? '\u274C'
-                : item.action === 'OPTIMIZE' ? '\u{1F527}'
-                : '\u{1F4CB}';
-            lines.push(`${icon} ${bold(item.action)}: ${escapeMarkdownV2(item.subject)}`);
+        for (const item of report.strategicPlan.slice(0, 3)) {
+            const tag = item.action === 'DOUBLE_DOWN' ? 'DOUBLE DOWN'
+                : item.action === 'KILL' ? 'KILL'
+                : item.action === 'OPTIMIZE' ? 'OPTIMIZE'
+                : item.action || 'ACTION';
+            lines.push(`${escapeMarkdownV2('[')}${bold(tag)}${escapeMarkdownV2(']')} ${escapeMarkdownV2(item.subject || '')}`);
             if (item.reasoning) {
-                lines.push(`   ${italic(item.reasoning)}`);
+                lines.push(`  ${italic(item.reasoning)}`);
             }
         }
         lines.push('');
     }
 
+    // Data sources footer
+    const ds = report.dataSourcesUsed;
+    if (ds) {
+        const sourceParts = [];
+        if (ds.lunarCrush) sourceParts.push('LunarCrush');
+        if (ds.mentions > 0) sourceParts.push(`${ds.mentions} mentions`);
+        if (ds.recentDecisions > 0) sourceParts.push(`${ds.recentDecisions} AI actions`);
+        if (sourceParts.length > 0) {
+            lines.push(escapeMarkdownV2(`Sources: ${sourceParts.join(', ')}`));
+        }
+    }
+
     const timestamp = report.lastUpdated
         ? new Date(report.lastUpdated).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
         : 'Just now';
-    lines.push(escapeMarkdownV2(`Generated: ${timestamp}`));
+    lines.push(escapeMarkdownV2(timestamp));
 
     return lines.join('\n');
 };
