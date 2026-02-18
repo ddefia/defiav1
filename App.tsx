@@ -367,6 +367,7 @@ const App: React.FC = () => {
     }, [profiles]);
 
     // Apply theme to document — force dark on auth/onboarding (hardcoded dark UI)
+    const isLegalRoute = route === '/privacy' || route === '/terms';
     const forceDarkRoute = route === '/' || route === '/login' || route === '/signup' || route.startsWith('/onboarding') || isLegalRoute;
     useEffect(() => {
         const effectiveTheme = forceDarkRoute ? 'dark' : theme;
@@ -1731,7 +1732,7 @@ const App: React.FC = () => {
     const isLanding = route === '/';
     const isAuthRoute = route === '/login' || route === '/signup';
     const isOnboardingRoute = route.startsWith('/onboarding');
-    const isLegalRoute = route === '/privacy' || route === '/terms';
+    // isLegalRoute is defined earlier (before forceDarkRoute) to avoid use-before-declaration
     const isDashboardRoute = !isLanding && !isAuthRoute && !isOnboardingRoute && !isLegalRoute;
     const shouldShowOnboardingPrompt = isDashboardRoute && !onboardingState.completed && !onboardingState.dismissed;
 
