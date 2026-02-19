@@ -1,22 +1,10 @@
 /**
  * TELEGRAM INTENT CLASSIFIER
- * Server-side Gemini-based intent classification for incoming Telegram messages.
- * Mirrors the client-side classifyAndPopulate() from services/gemini.ts.
+ * Server-side intent classification for incoming Telegram messages.
+ * Uses generateText() with Gemini → Groq fallback.
  */
 
-import { GoogleGenAI } from '@google/genai';
-
-const GEMINI_TIMEOUT_MS = 15000;
-
-const withTimeout = (promise, ms = GEMINI_TIMEOUT_MS) => {
-    let timer;
-    return Promise.race([
-        promise,
-        new Promise((_, reject) => {
-            timer = setTimeout(() => reject(new Error('AI classification timed out')), ms);
-        }),
-    ]).finally(() => clearTimeout(timer));
-};
+import { generateText } from './llm.js';
 
 const INTENTS = {
     DRAFT_CONTENT: 'DRAFT_CONTENT',       // "Create a tweet about X"
@@ -28,12 +16,6 @@ const INTENTS = {
 };
 
 const classifyMessage = async (text, hasImage, chatHistory = [], brandProfile = {}) => {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        console.error('[IntentClassifier] Missing GEMINI_API_KEY');
-        return { intent: INTENTS.GENERAL_CHAT, params: {} };
-    }
-
     const brandName = brandProfile.name || 'the brand';
     const historyContext = chatHistory.length > 0
         ? chatHistory.slice(-6).map(m => `${m.role}: ${m.text}`).join('\n')
@@ -71,19 +53,14 @@ Respond with ONLY valid JSON (no markdown fences):
 }`;
 
     try {
-        const genAI = new GoogleGenAI({ apiKey, httpOptions: { timeout: GEMINI_TIMEOUT_MS } });
-        const response = await withTimeout(genAI.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: { parts: [{ text: `User message: "${text || '(image only)'}"` }] },
-            config: {
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                responseMimeType: 'application/json',
-                temperature: 0.1,
-            },
-        }));
+        const raw = await generateText({
+            systemPrompt,
+            userMessage: `User message: "${text || '(image only)'}"`,
+            temperature: 0.1,
+            jsonMode: true,
+        });
 
-        const raw = response.text || '{}';
-        const parsed = JSON.parse(raw);
+        const parsed = JSON.parse(raw || '{}');
 
         // Validate intent
         if (!parsed.intent || !Object.values(INTENTS).includes(parsed.intent)) {

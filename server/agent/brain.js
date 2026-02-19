@@ -1,12 +1,10 @@
 
-import { GoogleGenAI } from '@google/genai';
+import { generateText } from '../telegram/llm.js';
 
 /**
  * BRAIN SERVICE (Server-Side)
  * "The Intelligence"
  */
-
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends, brandProfile = {}) => {
     try {
@@ -21,10 +19,10 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         BRAND VOICE: ${voice}
         BRAND KNOWLEDGE BASE:
         ${knowledgeBase}
-        
+
         CURRENT STATE:
         ${duneMetrics ? `- On-Chain Volume: $${duneMetrics.totalVolume?.toLocaleString() || 'N/A'}\n        - Active Wallets: ${duneMetrics.activeWallets || 'N/A'}` : '- On-Chain Data: Not available (no Dune integration configured)'}
-        
+
         LATEST SPECIFIC POSTS (DIRECT MENTIONS/TAGS):
         ${mentions.map(m => `- [${m.author}] "${m.text}"`).join('\n')}
 
@@ -33,7 +31,7 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
 
         RECENT ACTIVITY (LUNARCRUSH):
         ${lunarTrends.map(t => `- [${t.sentiment}] "${t.body}" (Interactions: ${t.interactions})`).join('\n')}
-        
+
         TASK:
         Act as a multi-role agent. Check for these 5 triggers (in priority order):
 
@@ -72,12 +70,9 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         }
         `;
 
-        const response = await genAI.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: prompt
+        const text = await generateText({
+            userMessage: prompt,
         });
-
-        const text = response.text;
 
         // SimpleJSON cleanup
         const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();

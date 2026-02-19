@@ -1,7 +1,7 @@
 
-import { GoogleGenAI } from '@google/genai';
 import { fetchMentions, TRACKED_BRANDS } from './ingest.js';
 import { fetchBrandProfile, getSupabaseClient } from './brandContext.js';
+import { generateText } from '../telegram/llm.js';
 
 /**
  * GENERATOR SERVICE (Server-Side)
@@ -63,12 +63,6 @@ const formatNumber = (n) => {
 
 export const generateDailyBriefing = async (brandId) => {
     console.log(`[Generator] Starting Daily Briefing for ${brandId}...`);
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        console.error("[Generator] Missing GEMINI_API_KEY");
-        return;
-    }
 
     const supabase = getSupabaseClient();
     if (!supabase) {
@@ -180,23 +174,16 @@ RULES:
 - Max 3 strategic actions. Quality over quantity.
 `;
 
-    // 5. Generate with Gemini
+    // 5. Generate with LLM (Gemini → Groq fallback)
     try {
-        const genAI = new GoogleGenAI({ apiKey });
-        const response = await genAI.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: { parts: [{ text: "Generate the daily marketing briefing based on the live data provided." }] },
-            config: {
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                responseMimeType: "application/json",
-                temperature: 0.3,
-            }
+        const text = await generateText({
+            systemPrompt: systemInstruction,
+            userMessage: "Generate the daily marketing briefing based on the live data provided.",
+            temperature: 0.3,
+            jsonMode: true,
         });
 
-        const text = response.candidates?.[0]?.content?.parts?.[0]?.text
-            || (typeof response.text === 'function' ? response.text() : response.text)
-            || "{}";
-        const parsed = JSON.parse(text);
+        const parsed = JSON.parse(text || '{}');
 
         // Add metadata
         parsed.lastUpdated = Date.now();

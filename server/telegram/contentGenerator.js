@@ -6,34 +6,19 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { getSupabaseClient } from '../agent/brandContext.js';
+import { generateText, withTimeout, TIMEOUT_MS } from './llm.js';
 
-// Vercel serverless functions timeout quickly (10s hobby, 60s pro).
-// Gemini SDK retries 429s twice with exponential backoff (~35s per retry),
-// which can easily exceed the function timeout and silently kill the response.
-// Set a short timeout and disable automatic retries for server-side calls.
-const GEMINI_TIMEOUT_MS = 15000;
-
+// Gemini client for multimodal calls (image analysis, image generation).
+// Text-only calls go through generateText() which has Groq fallback.
 const getGenAI = () => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
-    return new GoogleGenAI({ apiKey, httpOptions: { timeout: GEMINI_TIMEOUT_MS } });
-};
-
-// Wrap a promise with a hard timeout to prevent Vercel function death
-const withTimeout = (promise, ms = GEMINI_TIMEOUT_MS) => {
-    let timer;
-    return Promise.race([
-        promise,
-        new Promise((_, reject) => {
-            timer = setTimeout(() => reject(new Error('AI request timed out')), ms);
-        }),
-    ]).finally(() => clearTimeout(timer));
+    return new GoogleGenAI({ apiKey, httpOptions: { timeout: TIMEOUT_MS } });
 };
 
 // ━━━ Tweet Generation ━━━
 
 const generateTweet = async (topic, brandProfile) => {
-    const genAI = getGenAI();
     const brandName = brandProfile.name || 'the brand';
     const voice = brandProfile.voiceGuidelines || 'Professional and insightful';
     const examples = (brandProfile.tweetExamples || []).length > 0
@@ -46,8 +31,7 @@ const generateTweet = async (topic, brandProfile) => {
         ? `BANNED PHRASES: ${brandProfile.bannedPhrases.join(', ')}`
         : 'Avoid lazy AI words (e.g. Delve, Tapestry, Game changer, Unleash).';
 
-    const systemInstruction = `
-You are an Elite Content Creator for ${brandName}.
+    const systemPrompt = `You are an Elite Content Creator for ${brandName}.
 TASK: Write a single, high-quality tweet about: "${topic}".
 
 TONE: ${voice}
@@ -66,19 +50,12 @@ STRUCTURE:
 2. BODY: Explain the "Why" in detail.
 3. CTA: Clear directive.
 
-${banned}
-`;
+${banned}`;
 
-    const response = await withTimeout(genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: { parts: [{ text: `Generate a tweet about: "${topic}"` }] },
-        config: {
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-        },
-    }));
-
-    const text = response.text || '';
-    return text.trim();
+    return generateText({
+        systemPrompt,
+        userMessage: `Generate a tweet about: "${topic}"`,
+    });
 };
 
 // ━━━ Reference Image Helpers ━━━
@@ -411,7 +388,6 @@ const tryImagen4 = async (prompt) => {
 // ━━━ Chat Response (AI CMO Mode) ━━━
 
 const generateChatResponse = async (message, chatHistory = [], brandProfile, context = '', enrichment = {}) => {
-    const genAI = getGenAI();
     const brandName = brandProfile.name || 'the brand';
     const kb = (brandProfile.knowledgeBase || []).length > 0
         ? `Brand Knowledge Base:\n${brandProfile.knowledgeBase.slice(0, 5).join('\n')}`
@@ -435,8 +411,7 @@ const generateChatResponse = async (message, chatHistory = [], brandProfile, con
 
     const historyText = chatHistory.slice(-10).map(m => `${m.role}: ${m.text}`).join('\n');
 
-    const systemInstruction = `
-You are the marketing brain behind ${brandName}. You sit in this Telegram group as a team member — not an assistant, not a bot. You're the sharpest person in the room when it comes to marketing, positioning, and content for ${brandName}.
+    const systemPrompt = `You are the marketing brain behind ${brandName}. You sit in this Telegram group as a team member — not an assistant, not a bot. You're the sharpest person in the room when it comes to marketing, positioning, and content for ${brandName}.
 
 PERSONALITY:
 - Talk like a real person in a group chat. Short, punchy, no fluff.
@@ -460,19 +435,13 @@ RULES:
 - You know you can draft tweets, create images, analyze trends, and pull briefings. Mention these naturally only when actually relevant, never as a list.
 
 CONVERSATION HISTORY (IMPORTANT — this is your memory of the conversation):
-${historyText || '(New conversation)'}
-`;
+${historyText || '(New conversation)'}`;
 
-    const response = await withTimeout(genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: { parts: [{ text: message }] },
-        config: {
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            temperature: 0.7,
-        },
-    }));
-
-    return (response.text || 'Sorry, I couldn\'t generate a response.').trim();
+    return generateText({
+        systemPrompt,
+        userMessage: message,
+        temperature: 0.7,
+    });
 };
 
 // ━━━ Image Analysis (Multimodal) ━━━
@@ -544,9 +513,8 @@ const summarizeTrends = async (brandId, supabase) => {
         return { summary: 'No recent trends or news found.', trends: [] };
     }
 
-    // Use Gemini to create a quick summary
+    // Summarize with LLM (Gemini → Groq fallback)
     try {
-        const genAI = getGenAI();
         const newsText = combined.map(item => {
             const headline = item.headline || item.title || '';
             const source = item.source || item.news_provider || '';
@@ -554,14 +522,13 @@ const summarizeTrends = async (brandId, supabase) => {
             return `- ${headline} (${source}): ${summary}`;
         }).join('\n');
 
-        const response = await withTimeout(genAI.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: { parts: [{ text: `Summarize these Web3/crypto trends and news in 3-4 bullet points. Be concise:\n\n${newsText}` }] },
-            config: { temperature: 0.3 },
-        }));
+        const summary = await generateText({
+            userMessage: `Summarize these Web3/crypto trends and news in 3-4 bullet points. Be concise:\n\n${newsText}`,
+            temperature: 0.3,
+        });
 
         return {
-            summary: (response.text || '').trim(),
+            summary,
             trends: combined.slice(0, 8),
         };
     } catch (e) {
