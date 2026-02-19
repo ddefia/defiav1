@@ -10,8 +10,51 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
   const [showMobileModal, setShowMobileModal] = useState(false);
+  const [heroWordIndex, setHeroWordIndex] = useState(0);
+  const [statsAnimated, setStatsAnimated] = useState(false);
+  const [statValues, setStatValues] = useState({ projects: 0, tweets: 0, engagement: 0 });
+  const [barsVisible, setBarsVisible] = useState(false);
+
+  const heroWords = ['Never Sleeps', 'Thinks Ahead', 'Drives Growth', 'Creates Content'];
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+
+  // Rotating hero word carousel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeroWordIndex(prev => (prev + 1) % heroWords.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Trigger bar chart animation after page load
+  useEffect(() => {
+    const timer = setTimeout(() => setBarsVisible(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Animated stats counter
+  useEffect(() => {
+    if (isVisible('stats-section') && !statsAnimated) {
+      setStatsAnimated(true);
+      const duration = 2000;
+      const start = performance.now();
+      const ease = (t: number) => 1 - Math.pow(1 - t, 3); // ease-out cubic
+
+      const animate = (now: number) => {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = ease(progress);
+        setStatValues({
+          projects: Math.round(eased * 12),
+          tweets: Math.round(eased * 8500),
+          engagement: Math.round(eased * 340),
+        });
+        if (progress < 1) requestAnimationFrame(animate);
+      };
+      requestAnimationFrame(animate);
+    }
+  }, [visibleSections, statsAnimated]);
 
   const handleGetStarted = () => {
     if (isMobile) {
@@ -125,6 +168,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
             opacity: 0.4,
           }}
         />
+        {/* Floating particle star field */}
+        {!isMobile && Array.from({ length: 25 }).map((_, i) => {
+          const size = 2 + Math.random() * 2;
+          const left = Math.random() * 100;
+          const duration = 8 + Math.random() * 12;
+          const delay = Math.random() * 10;
+          const opacity = 0.3 + Math.random() * 0.5;
+          return (
+            <div
+              key={`particle-${i}`}
+              className="lp-particle"
+              style={{
+                width: `${size}px`,
+                height: `${size}px`,
+                left: `${left}%`,
+                bottom: `-${size}px`,
+                opacity: 0,
+                animationDuration: `${duration}s`,
+                animationDelay: `${delay}s`,
+                boxShadow: `0 0 ${size * 2}px rgba(255,138,76,${opacity})`,
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* CSS Animations */}
@@ -191,6 +258,109 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         @keyframes lp-typewriter {
           from { width: 0; }
           to { width: 100%; }
+        }
+
+        /* Particle star field */
+        @keyframes lp-particle-drift {
+          0% { transform: translateY(0) translateX(0); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(-100vh) translateX(20px); opacity: 0; }
+        }
+        .lp-particle {
+          position: absolute;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,138,76,0.9), rgba(255,92,0,0.4));
+          pointer-events: none;
+          animation: lp-particle-drift linear infinite;
+        }
+        @media (max-width: 768px) {
+          .lp-particle { display: none !important; }
+        }
+
+        /* Hero word carousel */
+        @keyframes lp-word-slide-up {
+          0% { transform: translateY(100%); opacity: 0; }
+          15% { transform: translateY(0); opacity: 1; }
+          85% { transform: translateY(0); opacity: 1; }
+          100% { transform: translateY(-100%); opacity: 0; }
+        }
+        .lp-word-carousel {
+          display: inline-block;
+          position: relative;
+          overflow: hidden;
+          vertical-align: bottom;
+          height: 1.1em;
+        }
+        .lp-word-carousel-inner {
+          display: inline-block;
+          animation: lp-word-slide-up 3s ease-in-out infinite;
+        }
+
+        /* Glowing rotating border */
+        @keyframes lp-border-rotate {
+          from { --lp-border-angle: 0deg; }
+          to { --lp-border-angle: 360deg; }
+        }
+        .lp-glow-border {
+          position: relative;
+          z-index: 0;
+        }
+        .lp-glow-border::before {
+          content: '';
+          position: absolute;
+          inset: -2px;
+          border-radius: 22px;
+          background: conic-gradient(
+            from var(--lp-border-angle, 0deg),
+            transparent 0%,
+            transparent 60%,
+            rgba(255,92,0,0.6) 75%,
+            rgba(255,138,76,0.8) 80%,
+            rgba(255,92,0,0.6) 85%,
+            transparent 100%
+          );
+          z-index: -1;
+          animation: lp-border-rotate 8s linear infinite;
+          filter: blur(2px);
+        }
+        .lp-glow-border::after {
+          content: '';
+          position: absolute;
+          inset: -6px;
+          border-radius: 26px;
+          background: conic-gradient(
+            from var(--lp-border-angle, 0deg),
+            transparent 0%,
+            transparent 60%,
+            rgba(255,92,0,0.15) 75%,
+            rgba(255,138,76,0.25) 80%,
+            rgba(255,92,0,0.15) 85%,
+            transparent 100%
+          );
+          z-index: -2;
+          animation: lp-border-rotate 8s linear infinite;
+          filter: blur(12px);
+        }
+        @property --lp-border-angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+
+        /* Bar chart animation */
+        .lp-bar-animated {
+          transition: height 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .lp-bar-green-animated {
+          transition: height 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 3D tilt on feature cards */
+        .lp-feature-card-3d {
+          transform-style: preserve-3d;
+          perspective: 1000px;
+          transition: transform 0.15s ease-out;
         }
 
         .lp-slide-up { animation: lp-slide-up 0.8s ease-out forwards; }
@@ -487,14 +657,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         <div className="flex flex-col items-center" style={{ gap: '28px', maxWidth: '900px' }}>
           <h1 className="lp-slide-up-d1" style={{ fontFamily: 'Instrument Serif, serif', fontSize: '76px', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', letterSpacing: '-2.5px', lineHeight: 1.05, margin: 0 }}>
             Your Web3 CMO That{' '}
-            <span style={{
-              background: 'linear-gradient(90deg, #FF5C00, #FF8A4C, #FFB380, #FF5C00)',
-              backgroundSize: '300% auto',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              animation: 'lp-gradient-shift 4s ease infinite',
-            }}>
-              Never Sleeps
+            <span className="lp-word-carousel">
+              <span
+                key={heroWordIndex}
+                className="lp-word-carousel-inner"
+                style={{
+                  background: 'linear-gradient(90deg, #FF5C00, #FF8A4C, #FFB380, #FF5C00)',
+                  backgroundSize: '300% auto',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  animation: 'lp-gradient-shift 4s ease infinite, lp-word-slide-up 3s ease-in-out',
+                }}
+              >
+                {heroWords[heroWordIndex]}
+              </span>
             </span>
           </h1>
           <p className="lp-hero-subtitle lp-slide-up-d2" style={{ fontSize: '20px', fontWeight: 400, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.7, maxWidth: '680px', margin: 0 }}>
@@ -546,9 +722,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           </button>
         </div>
 
-        {/* Product Mockup with enhanced glow */}
+        {/* Product Mockup with glowing rotating border */}
         <div
-          className="lp-product-mockup"
+          className="lp-product-mockup lp-glow-border"
           style={{
             width: '1100px',
             borderRadius: '20px',
@@ -632,8 +808,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
                 <div className="flex items-end" style={{ gap: '10px', height: '180px' }}>
                   {[35, 45, 40, 55, 50, 65, 60, 75, 70, 85, 80, 95].map((h, i) => (
                     <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'stretch' }}>
-                      <div style={{ height: `${h * 0.4}%`, borderRadius: '3px 3px 0 0', backgroundColor: '#22C55E30' }} />
-                      <div style={{ height: `${h}%`, borderRadius: '3px 3px 0 0', background: 'linear-gradient(180deg, #FF8A4C 0%, #FF5C00 100%)', opacity: 0.9 }} />
+                      <div className="lp-bar-green-animated" style={{ height: barsVisible ? `${h * 0.4}%` : '0%', borderRadius: '3px 3px 0 0', backgroundColor: '#22C55E30', transitionDelay: `${i * 0.06 + 0.1}s` }} />
+                      <div className="lp-bar-animated" style={{ height: barsVisible ? `${h}%` : '0%', borderRadius: '3px 3px 0 0', background: 'linear-gradient(180deg, #FF8A4C 0%, #FF5C00 100%)', opacity: 0.9, transitionDelay: `${i * 0.06}s` }} />
                     </div>
                   ))}
                 </div>
@@ -646,7 +822,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         <div className="flex flex-col items-center" style={{ gap: '24px', paddingTop: '48px', width: '100%' }}>
           <span style={{ fontSize: '13px', fontWeight: 500, color: '#4A4A4E', letterSpacing: '1px', textTransform: 'uppercase' }}>Trusted by leading Web3 projects</span>
           <div className="lp-trust-logos flex items-center" style={{ gap: '64px' }}>
-            {['SOLANA', 'POLYGON', 'ARBITRUM', 'OPTIMISM', 'BASE'].map((name, i) => (
+            {['METIS', 'LAZAI', 'TOPCHAT', 'NETSWAP', 'ENKIPROTOCOL'].map((name, i) => (
               <span
                 key={name}
                 style={{
@@ -677,75 +853,145 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
         style={{ padding: '120px 80px', position: 'relative', zIndex: 10 }}
       >
         <div className={`flex flex-col items-center lp-reveal ${isVisible('features-section') ? 'lp-visible' : ''}`} style={{ gap: '16px', marginBottom: '72px' }}>
-          <span style={{ fontFamily: 'DM Mono', fontSize: '12px', fontWeight: 500, color: '#FF5C00', letterSpacing: '4px', textTransform: 'uppercase' }}>FEATURES</span>
+          <span style={{ fontFamily: 'DM Mono', fontSize: '12px', fontWeight: 500, color: '#FF5C00', letterSpacing: '4px', textTransform: 'uppercase' }}>PLATFORM</span>
           <h2 className="lp-section-heading" style={{ fontFamily: 'Instrument Serif, serif', fontSize: '52px', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', letterSpacing: '-1.5px', maxWidth: '800px', margin: 0 }}>
-            Everything You Need to Dominate{' '}
-            <span style={{ color: '#FF5C00' }}>Web3 Marketing</span>
+            One Platform.{' '}
+            <span style={{ color: '#FF5C00' }}>Full-Stack Marketing.</span>
           </h2>
           <p className="lp-section-desc" style={{ fontSize: '18px', color: '#6B6B70', textAlign: 'center', lineHeight: 1.7, maxWidth: '600px', margin: 0 }}>
-            From trend analysis to content creation to automated posting — all powered by AI that understands crypto.
+            Strategy, content, execution, and analytics — unified under one AI-native marketing engine built for Web3.
           </p>
         </div>
 
-        <div className="lp-features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+        {/* Bento grid: 2 large on top, 3 compact on bottom */}
+        <div className="lp-features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+          {/* Top row — 2 large feature cards */}
           {[
-            { icon: '🧠', gradient: 'linear-gradient(135deg, #FF5C00, #FF8A4C)', title: 'AI CMO Brain', desc: 'Your AI marketing executive analyzing market trends, competitor moves, and community sentiment 24/7.', features: ['Real-time market analysis', 'Competitor intelligence', 'Sentiment monitoring'], tag: 'Core' },
-            { icon: '✍️', gradient: 'linear-gradient(135deg, #3B82F6, #60A5FA)', title: 'Content Generation', desc: 'Generate tweets, threads, and announcements that match your brand voice and resonate with your audience.', features: ['Brand voice matching', 'Thread generation', 'Multi-format content'], tag: 'Create' },
-            { icon: '📅', gradient: 'linear-gradient(135deg, #22C55E, #4ADE80)', title: 'Campaign Automation', desc: 'Schedule and execute multi-day campaigns across platforms with full automation and smart timing.', features: ['Multi-platform posting', 'Smart scheduling', 'Campaign templates'], tag: 'Automate' },
-            { icon: '📈', gradient: 'linear-gradient(135deg, #8B5CF6, #A78BFA)', title: 'Real-Time Analytics', desc: 'Track engagement, follower growth, and campaign performance with actionable insights.', features: ['Performance dashboards', 'Growth metrics', 'ROI tracking'], tag: 'Measure' },
-            { icon: '📰', gradient: 'linear-gradient(135deg, #F59E0B, #FBBF24)', title: 'News Integration', desc: 'AI monitors crypto news and market events to suggest timely, relevant content for your brand.', features: ['Trend detection', 'News aggregation', 'Timely suggestions'], tag: 'Discover' },
-            { icon: '👥', gradient: 'linear-gradient(135deg, #EC4899, #F472B6)', title: 'Community Growth', desc: 'Build and engage your community with AI-powered responses and growth strategies.', features: ['Engagement automation', 'Reply suggestions', 'Growth tactics'], tag: 'Grow' }
+            {
+              icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF5C00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/><path d="M10 21h4"/></svg>,
+              gradient: 'linear-gradient(135deg, #FF5C00, #FF8A4C)',
+              title: 'AI CMO Brain',
+              desc: 'A 4-agent system that analyzes market conditions, evaluates sentiment, monitors competitors, and formulates multi-day campaign strategies — autonomously.',
+              features: ['Multi-agent decision engine', 'Real-time market intelligence', 'Autonomous strategy formulation'],
+            },
+            {
+              icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
+              gradient: 'linear-gradient(135deg, #3B82F6, #60A5FA)',
+              title: 'Content Studio',
+              desc: 'Generate on-brand tweets, threads, and graphic assets from your templates. Every piece matches your voice, references your brand kit, and adapts to context.',
+              features: ['Brand-voice–matched copy', 'Template-driven graphic generation', 'Multi-format output (tweets, threads, images)'],
+            },
           ].map((f, i) => (
             <div
-              key={i}
-              className={`lp-feature-card lp-reveal ${isVisible('features-section') ? 'lp-visible' : ''}`}
+              key={`top-${i}`}
+              className={`lp-feature-card lp-feature-card-3d lp-reveal ${isVisible('features-section') ? 'lp-visible' : ''}`}
               style={{
-                padding: '36px',
+                padding: '40px',
                 borderRadius: '20px',
                 backgroundColor: '#0C0C0E',
                 border: '1px solid #1A1A1E',
-                transitionDelay: `${(i % 3) * 0.1 + 0.2}s`,
+                transitionDelay: `${i * 0.1 + 0.15}s`,
                 cursor: 'default',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px',
               }}
               onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
-                e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -3;
+                const rotateY = ((x - centerX) / centerX) * 3;
+                e.currentTarget.style.transform = `translateY(-8px) perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
               }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = ''; }}
             >
-              {/* Tag */}
-              <div style={{ marginBottom: '20px' }}>
-                <span style={{
-                  fontSize: '10px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase',
-                  color: '#FF5C00', backgroundColor: '#FF5C0012', padding: '4px 10px', borderRadius: '4px',
-                }}>{f.tag}</span>
+              <div className="lp-feature-icon" style={{
+                width: '48px', height: '48px', borderRadius: '14px', background: f.gradient,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+              }}>
+                {f.icon}
               </div>
-
-              {/* Icon */}
-              <div
-                className="lp-feature-icon"
-                style={{
-                  width: '56px', height: '56px', borderRadius: '16px', background: f.gradient,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                }}
-              >
-                <span style={{ fontSize: '28px' }}>{f.icon}</span>
+              <div>
+                <h3 style={{ fontSize: '22px', fontWeight: 600, color: '#FFFFFF', margin: '0 0 10px', letterSpacing: '-0.3px' }}>{f.title}</h3>
+                <p style={{ fontSize: '15px', color: '#6B6B70', lineHeight: 1.7, margin: 0 }}>{f.desc}</p>
               </div>
-
-              <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#FFFFFF', margin: '0 0 12px', letterSpacing: '-0.3px' }}>{f.title}</h3>
-              <p style={{ fontSize: '14px', color: '#6B6B70', lineHeight: 1.7, margin: '0 0 24px' }}>{f.desc}</p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
                 {f.features.map((feat) => (
                   <div key={feat} className="flex items-center" style={{ gap: '10px' }}>
-                    <div style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#FF5C0015', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FF5C00" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                    </div>
+                    <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#FF5C00', flexShrink: 0 }} />
                     <span style={{ fontSize: '13px', color: '#9CA3AF' }}>{feat}</span>
                   </div>
                 ))}
               </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom row — 3 compact feature cards */}
+        <div className="lp-features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '16px' }}>
+          {[
+            {
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+              color: '#22C55E',
+              title: 'Campaign Automation',
+              desc: 'Schedule and execute multi-day campaigns with smart timing and full autopilot.',
+            },
+            {
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+              color: '#8B5CF6',
+              title: 'Real-Time Analytics',
+              desc: 'Track engagement, growth, and campaign ROI with actionable performance dashboards.',
+            },
+            {
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6z"/></svg>,
+              color: '#F59E0B',
+              title: 'News Intelligence',
+              desc: 'AI monitors crypto news and market events to surface timely content opportunities.',
+            },
+          ].map((f, i) => (
+            <div
+              key={`btm-${i}`}
+              className={`lp-feature-card lp-feature-card-3d lp-reveal ${isVisible('features-section') ? 'lp-visible' : ''}`}
+              style={{
+                padding: '32px',
+                borderRadius: '20px',
+                backgroundColor: '#0C0C0E',
+                border: '1px solid #1A1A1E',
+                transitionDelay: `${i * 0.1 + 0.35}s`,
+                cursor: 'default',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+              }}
+              onMouseMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+                e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -3;
+                const rotateY = ((x - centerX) / centerX) * 3;
+                e.currentTarget.style.transform = `translateY(-8px) perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+              }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = ''; }}
+            >
+              <div style={{
+                width: '40px', height: '40px', borderRadius: '12px',
+                backgroundColor: `${f.color}12`, border: `1px solid ${f.color}25`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {f.icon}
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0, letterSpacing: '-0.2px' }}>{f.title}</h3>
+              <p style={{ fontSize: '14px', color: '#6B6B70', lineHeight: 1.7, margin: 0 }}>{f.desc}</p>
             </div>
           ))}
         </div>
@@ -879,9 +1125,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           marginBottom: '100px',
         }}>
           {[
-            { value: '500+', label: 'Active Projects', icon: '👥' },
-            { value: '2.4M', label: 'Tweets Generated', icon: '💬' },
-            { value: '340%', label: 'Avg. Engagement Boost', icon: '📈' },
+            { value: statsAnimated ? `${statValues.projects}` : '0', label: 'Brands Onboarded', icon: '🚀' },
+            { value: statsAnimated ? `${statValues.tweets.toLocaleString()}+` : '0', label: 'Posts Generated', icon: '✍️' },
+            { value: statsAnimated ? `${statValues.engagement}%` : '0%', label: 'Avg. Engagement Boost', icon: '📈' },
             { value: '24/7', label: 'AI Monitoring', icon: '🕐' }
           ].map((stat, i) => (
             <div key={stat.label} className={`flex flex-col items-center lp-reveal ${isVisible('stats-section') ? 'lp-visible' : ''}`} style={{ gap: '12px', transitionDelay: `${i * 0.1 + 0.2}s` }}>
@@ -1005,7 +1251,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
             }}>Web3 Marketing?</span>
           </h2>
           <p style={{ fontSize: '18px', color: '#6B6B70', textAlign: 'center', lineHeight: 1.7, maxWidth: '560px', margin: 0 }}>
-            Join 500+ Web3 projects already using Defia to automate their marketing and grow their communities.
+            Join the Web3 teams already using Defia to automate their marketing and grow their communities.
           </p>
           <div className="lp-cta-buttons flex items-center" style={{ gap: '16px', marginTop: '12px' }}>
             <button
