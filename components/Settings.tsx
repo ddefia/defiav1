@@ -906,6 +906,22 @@ export const Settings: React.FC<SettingsProps> = ({ brandName, config, onChange,
                                             <p>2. The bot will auto-link using your code</p>
                                             <p>3. Code expires in 30 minutes</p>
                                         </div>
+
+                                        <div className="mt-3 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[11px] text-amber-500/80 flex items-start gap-2">
+                                            <span className="material-symbols-sharp mt-0.5" style={{ fontSize: 14 }}>star</span>
+                                            <span>
+                                                <strong>Tip:</strong> Star your core reference images in Brand Kit — the bot prioritizes starred images when generating graphics.
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {telegramLinkedChats.length > 0 && !telegramLinkCode && (
+                                    <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10 text-[11px] text-amber-500/80 flex items-start gap-2">
+                                        <span className="material-symbols-sharp mt-0.5" style={{ fontSize: 14 }}>star</span>
+                                        <span>
+                                            <strong>Tip:</strong> Star your core reference images in Brand Kit — the bot prioritizes starred images when generating graphics.
+                                        </span>
                                     </div>
                                 )}
 

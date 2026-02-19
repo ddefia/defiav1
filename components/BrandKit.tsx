@@ -980,7 +980,13 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
       {/* 5. IMAGES */}
       <div className="space-y-4">
         <div className="flex items-center justify-between bg-gray-50/80 p-3 rounded-xl border border-gray-100">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider pl-1">Reference Images ({config.referenceImages.length})</h3>
+          <div className="flex flex-col gap-0.5 pl-1">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Reference Images ({config.referenceImages.length})</h3>
+            <p className="text-[10px] text-gray-400 leading-tight">
+              <svg className="w-2.5 h-2.5 inline-block mr-0.5 -mt-0.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              Star your core brand templates — starred images are prioritized when AI generates graphics
+            </p>
+          </div>
 
           <div className="flex gap-2">
             <button
