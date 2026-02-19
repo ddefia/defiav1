@@ -132,10 +132,8 @@ const handleTelegramWebhook = async (req, res) => {
         return res.status(403).json({ error: 'Invalid webhook secret' });
     }
 
-    // Immediately respond 200 to Telegram (prevent retries)
-    res.status(200).json({ ok: true });
-
-    // Process message asynchronously
+    // Process message BEFORE responding — on Vercel Hobby, the function may be
+    // killed immediately after sending the response, so async processing is unreliable.
     try {
         await processMessage(req.body);
     } catch (e) {
@@ -148,6 +146,9 @@ const handleTelegramWebhook = async (req, res) => {
             }
         } catch { /* truly nothing we can do */ }
     }
+
+    // Respond 200 after processing is complete
+    res.status(200).json({ ok: true });
 };
 
 const processMessage = async (update) => {
