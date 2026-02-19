@@ -142,6 +142,15 @@ const getMe = async () => {
     return telegramRequest('getMe');
 };
 
+// ━━━ Callback Query ━━━
+
+const answerCallbackQuery = async (callbackQueryId, text = '') => {
+    return telegramRequest('answerCallbackQuery', {
+        callback_query_id: callbackQueryId,
+        text: text || undefined,
+    });
+};
+
 export {
     isConfigured,
     sendMessage,
@@ -152,4 +161,5 @@ export {
     setWebhook,
     deleteWebhook,
     getMe,
+    answerCallbackQuery,
 };

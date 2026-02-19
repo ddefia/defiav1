@@ -4,7 +4,7 @@
  * Validates → routes → classifies → generates → responds.
  */
 
-import { sendMessage, editMessageText, deleteMessage, sendPhoto, getFile, getMe } from './telegramClient.js';
+import { sendMessage, editMessageText, deleteMessage, sendPhoto, getFile, getMe, answerCallbackQuery } from './telegramClient.js';
 import { validateAndLink, getLinkedBrand, unlinkChat } from './linkManager.js';
 import { classifyMessage, INTENTS } from './intentClassifier.js';
 import {
@@ -123,6 +123,110 @@ const saveChatHistory = async (supabase, chatId, history) => {
     }
 };
 
+// ━━━ Callback Query Handler (Template Selection) ━━━
+
+const handleCallbackQuery = async (callbackQuery) => {
+    const chatId = callbackQuery.message?.chat?.id;
+    const data = callbackQuery.data || '';
+    const callbackId = callbackQuery.id;
+
+    if (!chatId) return;
+
+    // Acknowledge the button press immediately
+    try { await answerCallbackQuery(callbackId, '🎨 Generating...'); } catch { /* ignore */ }
+
+    const pending = pendingImageRequests.get(String(chatId));
+    if (!pending) {
+        await safeSend(chatId, formatChatResponse('That selection expired. Send your image request again.'));
+        return;
+    }
+
+    // Clean up pending request
+    pendingImageRequests.delete(String(chatId));
+
+    const supabase = getSupabaseClient();
+    const { imageTitle, imageAnalysis: savedAnalysis, brandId } = pending;
+
+    // Load brand profile
+    let brandProfile = {};
+    if (supabase) {
+        brandProfile = await fetchBrandProfile(supabase, brandId) || {};
+    }
+
+    // Send "generating..." message
+    let genMsg;
+    try { genMsg = await safeSend(chatId, formatChatResponse('generating...')); } catch { /* ignore */ }
+
+    // Determine which template/reference was selected
+    let selectedTemplateId = null;
+    let selectedRefImageId = null;
+
+    if (data === 'img_auto') {
+        // Auto mode — let generateImage pick randomly (existing behavior)
+        console.log(`[Telegram] Template selection: AUTO for "${imageTitle}"`);
+    } else if (data.startsWith('img_tmpl:')) {
+        selectedTemplateId = data.replace('img_tmpl:', '');
+        console.log(`[Telegram] Template selection: ${selectedTemplateId} for "${imageTitle}"`);
+
+        // Find the template and select one of its linked reference images
+        const templates = brandProfile.graphicTemplates || [];
+        const tmpl = templates.find(t => t.id === selectedTemplateId || t.label === selectedTemplateId);
+        if (tmpl?.referenceImageIds?.length > 0) {
+            // Pick a random linked reference image from this template
+            selectedRefImageId = tmpl.referenceImageIds[Math.floor(Math.random() * tmpl.referenceImageIds.length)];
+        }
+    } else if (data.startsWith('img_ref:')) {
+        selectedRefImageId = data.replace('img_ref:', '');
+        console.log(`[Telegram] Reference image selection: ${selectedRefImageId} for "${imageTitle}"`);
+    }
+
+    // If a specific reference image was selected, override the brand profile
+    // to only include that one image (forces generateImage to use it)
+    if (selectedRefImageId && brandProfile.referenceImages) {
+        const selectedImg = brandProfile.referenceImages.find(r => r.id === selectedRefImageId);
+        if (selectedImg) {
+            // Pin ONLY this image so pickReferenceImage() selects it
+            brandProfile = {
+                ...brandProfile,
+                referenceImages: brandProfile.referenceImages.map(r => ({
+                    ...r,
+                    pinned: r.id === selectedRefImageId,
+                })),
+            };
+        }
+    }
+
+    const imagePrompt = savedAnalysis
+        ? `${imageTitle}\n\nReference image analysis: ${savedAnalysis}`
+        : imageTitle;
+
+    try {
+        const responseImage = await generateImage(imagePrompt, brandProfile);
+        if (responseImage) {
+            // Delete "generating..." message
+            if (genMsg?.message_id) {
+                try { await deleteMessage(chatId, genMsg.message_id); } catch { /* ignore */ }
+            }
+            const caption = `🎨 "${imageTitle}"`;
+            try {
+                await sendPhoto(chatId, responseImage, caption);
+            } catch (photoErr) {
+                console.warn('[Telegram] Failed to send image:', photoErr.message);
+                await safeSend(chatId, formatError('Generated the image but failed to send it. File may be too large.'));
+            }
+        } else {
+            if (genMsg?.message_id) {
+                try { await safeEdit(chatId, genMsg.message_id, formatError('Image gen failed. Try a simpler prompt.')); } catch { /* ignore */ }
+            }
+        }
+    } catch (e) {
+        console.error('[Telegram] Callback image gen error:', e.message);
+        if (genMsg?.message_id) {
+            try { await safeEdit(chatId, genMsg.message_id, formatError(`Error: ${e.message?.slice(0, 80)}`)); } catch { /* ignore */ }
+        }
+    }
+};
+
 // ━━━ Main Handler ━━━
 
 const handleTelegramWebhook = async (req, res) => {
@@ -152,9 +256,20 @@ const handleTelegramWebhook = async (req, res) => {
     res.status(200).json({ ok: true });
 };
 
+// ━━━ Pending Image Requests (in-memory, keyed by chatId) ━━━
+// Stores the extracted title while waiting for template selection.
+// Cleared after use or after 5 min timeout.
+const pendingImageRequests = new Map();
+
 const processMessage = async (update) => {
+    // Handle template selection callbacks
+    if (update.callback_query) {
+        await handleCallbackQuery(update.callback_query);
+        return;
+    }
+
     const message = update?.message;
-    if (!message) return; // Ignore non-message updates for now
+    if (!message) return;
 
     const chatId = message.chat?.id;
     const text = message.text || message.caption || '';
@@ -354,23 +469,72 @@ const processMessage = async (update) => {
                 let rawPrompt = params.imagePrompt || cleanText;
 
                 if (hasContextRef && lastAssistantMsg?.text) {
-                    // Pull context from last assistant message (e.g., the tweet that was just generated)
                     rawPrompt = `${cleanText}\n\nContext from previous message: ${lastAssistantMsg.text.slice(0, 500)}`;
                 }
 
-                // KEY FIX: Extract a short visual title from the raw text.
-                // The client-side UI does this via template selector — the bot needs LLM extraction.
-                // Without this, full tweet text gets dumped into the image prompt and Gemini
-                // tries to render it all as text on the image (garbled mess).
-                const brandName = brandProfile.name || linked.brandId;
-                const imageTitle = await extractImageTitle(rawPrompt, brandName);
+                // Extract a short visual title from the raw text
+                const imgBrandName = brandProfile.name || linked.brandId;
+                const imageTitle = await extractImageTitle(rawPrompt, imgBrandName);
                 console.log(`[Telegram] Image title extracted: "${imageTitle}" (from ${rawPrompt.length} chars)`);
 
+                // Check if brand has templates/reference images to choose from
+                const templates = brandProfile.graphicTemplates || [];
+                const refImages = brandProfile.referenceImages || [];
+                const pinnedImages = refImages.filter(r => r.pinned);
+
+                if (templates.length > 0 || pinnedImages.length > 0) {
+                    // Store pending request and show template picker
+                    pendingImageRequests.set(String(chatId), {
+                        imageTitle,
+                        imageAnalysis: imageAnalysis || null,
+                        brandId: linked.brandId,
+                        timestamp: Date.now(),
+                    });
+
+                    // Auto-expire after 5 min
+                    setTimeout(() => pendingImageRequests.delete(String(chatId)), 5 * 60 * 1000);
+
+                    // Build inline keyboard with template options
+                    const buttons = [];
+
+                    // Add template buttons (max 5)
+                    templates.slice(0, 5).forEach(t => {
+                        buttons.push([{ text: t.label, callback_data: `img_tmpl:${t.id || t.label}` }]);
+                    });
+
+                    // Add pinned images that aren't already covered by templates
+                    const templateLinkedIds = new Set();
+                    templates.forEach(t => (t.referenceImageIds || []).forEach(id => templateLinkedIds.add(id)));
+                    const unlinkedPinned = pinnedImages.filter(p => !templateLinkedIds.has(p.id));
+                    unlinkedPinned.slice(0, 3).forEach(p => {
+                        const label = p.name || p.id?.slice(0, 15) || 'Pinned Style';
+                        buttons.push([{ text: `📌 ${label}`, callback_data: `img_ref:${p.id}` }]);
+                    });
+
+                    // Always add Auto option
+                    buttons.push([{ text: '🎲 Auto (random style)', callback_data: 'img_auto' }]);
+
+                    // Delete thinking message and show picker
+                    if (thinkingMsgId) {
+                        try { await deleteMessage(chatId, thinkingMsgId); thinkingMsgId = null; } catch { /* ignore */ }
+                    }
+
+                    const pickerMsg = `🎨 *"${imageTitle.replace(/([_*[\]()~`>#+=|{}.!-])/g, '\\$1')}"*\n\nPick a style:`;
+                    await safeSend(chatId, pickerMsg, {
+                        replyMarkup: { inline_keyboard: buttons },
+                    });
+
+                    // Don't generate yet — wait for callback
+                    responseText = null;
+                    responseImage = null;
+                    break;
+                }
+
+                // No templates — generate directly with auto style
                 const imagePrompt = imageAnalysis
                     ? `${imageTitle}\n\nReference image analysis: ${imageAnalysis}`
                     : imageTitle;
 
-                // Update thinking message to reflect image generation
                 if (thinkingMsgId) {
                     try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('generating...')); } catch { /* ignore */ }
                 }
@@ -382,9 +546,9 @@ const processMessage = async (update) => {
                     responseImage = null;
                 }
                 if (responseImage) {
-                    responseText = null; // Will send as photo instead
+                    responseText = null;
                 } else {
-                    responseText = formatError('Image gen failed. Try being more specific — like "dark gradient banner with our logo and the text: Launch Day"');
+                    responseText = formatError('Image gen failed. Try a simpler prompt.');
                 }
                 break;
             }
