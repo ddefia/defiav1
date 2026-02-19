@@ -161,7 +161,9 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
                 }
             }
 
-            const brandProfile = supabase ? await fetchBrandProfile(supabase, brandId) : null;
+            const rawProfile = supabase ? await fetchBrandProfile(supabase, brandId) : null;
+            // Ensure brand name is always set (profile may have name: undefined)
+            const brandProfile = { ...(rawProfile || {}), name: rawProfile?.name || brandId };
 
             // 1. Brand Specific Data
             const [dune, mentions] = await Promise.all([
@@ -170,7 +172,7 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
             ]);
 
             // 2. Analyze (returns { actions: [...] })
-            const decisionResult = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || {});
+            const decisionResult = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile);
             const decisions = decisionResult.actions || [decisionResult];
 
             // 3. Act & Save — process all actions
@@ -333,8 +335,9 @@ export const triggerAgentRun = async (brandIdentifier) => {
         fetchMentions(apifyKey, target.xHandle || target.name || target.id)
     ]);
 
-    const brandProfile = await fetchBrandProfile(supabase, target.id);
-    const decisionResult = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile || { name: target.name });
+    const rawProfile = await fetchBrandProfile(supabase, target.id);
+    const brandProfile = { ...(rawProfile || {}), name: rawProfile?.name || target.name || target.id };
+    const decisionResult = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile);
     const decisions = decisionResult.actions || [decisionResult];
 
     for (const decision of decisions) {

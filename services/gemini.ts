@@ -2655,13 +2655,13 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
     BRAND INTELLIGENCE:
     ${context.memory.ragDocs.join('\n')}
 
-    TASK: Perform a comprehensive market analysis.
-    1. Identify the core "Market Vibe" (Bearish/Bullish/Hype/Quiet) based on trends and data.
-    2. Spot opportunities to insert ${brandName}'s narrative — where is the brand's expertise most relevant RIGHT NOW?
-    3. Analyze competitive positioning — where can ${brandName} differentiate vs competitors?
-    4. Identify which past content patterns the brand should double down on or pivot away from.
-    ${chainBlock ? '5. Factor in on-chain momentum — wallet growth, volume trends, campaign ROI — to identify product-market signals.' : ''}
-    6. Define a "Strategic Angle" — a specific, actionable narrative angle (not generic like "General Update").
+    TASK: Perform a sharp, brand-specific market analysis for ${brandName}.
+    1. Market Vibe: Bearish/Bullish/Hype/Quiet — cite specific data points.
+    2. Narrative Insertion: Where is ${brandName}'s SPECIFIC expertise (from the knowledge base above) most relevant to current conversations? Be precise — name the exact brand capability that maps to the opportunity.
+    3. Competitive Gaps: Where can ${brandName} differentiate? If no competitor data, identify the general competitive landscape for this brand's category.
+    4. Content Patterns: What worked vs what didn't? If no performance data, recommend a content testing framework.
+    ${chainBlock ? '5. On-Chain Signals: wallet growth, volume trends, campaign ROI — what do they tell us about product-market fit?' : ''}
+    6. Strategic Angle: A BOLD, SPECIFIC narrative angle that ONLY ${brandName} can own. NOT "General Update" or "Ecosystem Growth". Think: "Counter-narrative: while other L2s race on TPS, ${brandName} wins on decentralization" — something with edge.
 
     OUTPUT JSON:
     {
@@ -2669,7 +2669,7 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
         "keyThemes": ["Theme A", "Theme B", "Theme C"],
         "opportunities": ["Specific opportunity 1 citing data", "Opportunity 2 citing competitor gap or trend"],
         "risks": ["Risk 1 with data backing", "Risk 2"],
-        "strategicAngle": "A specific, bold narrative angle grounded in data (e.g. 'Counter-narrative: while competitors focus on X, we own Y because of our unique Z')"
+        "strategicAngle": "A specific, bold narrative angle that ONLY this brand can own. Must reference a specific brand capability from the knowledge base. Example: 'Counter-narrative: while other L2s centralize sequencers for speed, we prove decentralization doesn't mean slow — our sequencer is live and fast'"
     }
     `;
 
@@ -2732,19 +2732,19 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     PAST STRATEGIES (what we've already executed — avoid repeating):
     ${context.memory.pastStrategies?.slice(0, 5).map(s => `- ${s.title || s.type}: ${s.description || s.reasoning || ''}`).join('\n') || 'No past strategies recorded.'}
 
-    TASK: Create a concrete Action Plan of EXACTLY 5-6 marketing actions.
+    TASK: Create a concrete Action Plan of EXACTLY 5 marketing actions.
 
     MANDATORY RULES:
-    1. Generate EXACTLY 5-6 actions. Never fewer than 5. This is non-negotiable.
-    2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET, and 1 REPLY. The remaining 1-2 actions can be any type (CAMPAIGN, THREAD, TWEET, REPLY, or GAP_FILL).
-    3. DATA-BACKED: Each action MUST cite specific data — a trend headline, a past post performance stat, a competitor gap, or an on-chain metric. No vague justifications.
-    4. KNOWLEDGE: At least 2 actions MUST reference specific brand knowledge base entries.
-    5. COMPETITORS: At least 1 action MUST reference competitive positioning or a gap vs competitors.
-    6. PERFORMANCE: At least 1 action MUST reference past content performance patterns (what worked vs what didn't).
-    7. FRESHNESS: Do NOT repeat past strategies. Reference them as "already executed" and propose new angles.
-    8. Each reasoning MUST explain WHY NOW — what market signal makes this timely.
-    9. Each hook should be a memorable, bold internal code name.
-    10. Each action MUST have strategicAlignment citing which brand value or knowledge entry it serves.
+    1. Generate EXACTLY 5 actions. Never fewer, never more.
+    2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET. The remaining 2 can be any type.
+    3. SPECIFICITY (CRITICAL): Every action must be hyper-specific and immediately executable. BAD: "Post about our technology". GOOD: "Thread breaking down how our decentralized sequencer prevents MEV extraction — use the recent Flashbots controversy as the hook".
+    4. KNOWLEDGE: Every action MUST leverage specific brand knowledge base entries. Quote specific technical features, partnerships, or differentiators.
+    5. TIMELINESS: Each reasoning MUST explain WHY NOW. Reference a specific trend, market event, competitor move, or calendar date. If no fresh trend data is available, reference evergreen market narratives the brand can own.
+    6. FRESHNESS: Do NOT repeat past strategies. If past strategies are listed, propose completely different angles.
+    7. HOOKS: Each hook should be a punchy 2-4 word internal code name (e.g. "Sequencer Supremacy", "The MEV Shield").
+    8. CONTENT IDEAS: Each action needs 3 specific, creative content ideas — not restatements of the topic. Think headlines, angles, contrarian takes.
+    9. AVOID GENERIC: Never output actions like "General brand update", "Community engagement post", or "Thought leadership thread" without specific substance. Every action must pass the test: "Could this ONLY apply to THIS brand?"
+    10. TONE: Write reasoning as if you're a sharp CMO pitching to the CEO. Confident, data-aware, no fluff.
 
     OUTPUT JSON:
     {
