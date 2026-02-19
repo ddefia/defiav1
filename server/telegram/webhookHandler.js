@@ -15,6 +15,7 @@ import {
     summarizeTrends,
     getRecentRecommendations,
     getLatestBriefing,
+    extractImageTitle,
 } from './contentGenerator.js';
 import {
     formatDailyBriefing,
@@ -339,8 +340,8 @@ const processMessage = async (update) => {
 
                 // Also generate a companion image in parallel (best-effort)
                 try {
-                    const imgPrompt = `Social media visual for: ${topic}`;
-                    responseImage = await generateImage(imgPrompt, brandProfile);
+                    const imgTitle = await extractImageTitle(topic, brandProfile.name || linked.brandId);
+                    responseImage = await generateImage(imgTitle, brandProfile);
                 } catch { /* non-critical — tweet is the primary output */ }
 
                 break;
@@ -350,15 +351,24 @@ const processMessage = async (update) => {
                 // Check conversation history for context (e.g., "create graphic for that tweet")
                 const lastAssistantMsg = [...chatHistory].reverse().find(m => m.role === 'assistant');
                 const hasContextRef = /that|this|it|the tweet|the post|above|previous/i.test(cleanText);
-                let prompt = params.imagePrompt || cleanText;
+                let rawPrompt = params.imagePrompt || cleanText;
 
                 if (hasContextRef && lastAssistantMsg?.text) {
                     // Pull context from last assistant message (e.g., the tweet that was just generated)
-                    prompt = `${cleanText}\n\nContext from previous message: ${lastAssistantMsg.text.slice(0, 500)}`;
+                    rawPrompt = `${cleanText}\n\nContext from previous message: ${lastAssistantMsg.text.slice(0, 500)}`;
                 }
-                const enrichedPrompt = imageAnalysis
-                    ? `${prompt}\n\nReference image analysis: ${imageAnalysis}`
-                    : prompt;
+
+                // KEY FIX: Extract a short visual title from the raw text.
+                // The client-side UI does this via template selector — the bot needs LLM extraction.
+                // Without this, full tweet text gets dumped into the image prompt and Gemini
+                // tries to render it all as text on the image (garbled mess).
+                const brandName = brandProfile.name || linked.brandId;
+                const imageTitle = await extractImageTitle(rawPrompt, brandName);
+                console.log(`[Telegram] Image title extracted: "${imageTitle}" (from ${rawPrompt.length} chars)`);
+
+                const imagePrompt = imageAnalysis
+                    ? `${imageTitle}\n\nReference image analysis: ${imageAnalysis}`
+                    : imageTitle;
 
                 // Update thinking message to reflect image generation
                 if (thinkingMsgId) {
@@ -366,7 +376,7 @@ const processMessage = async (update) => {
                 }
 
                 try {
-                    responseImage = await generateImage(enrichedPrompt, brandProfile);
+                    responseImage = await generateImage(imagePrompt, brandProfile);
                 } catch (e) {
                     console.warn('[Telegram] Image generation error:', e.message);
                     responseImage = null;
@@ -409,7 +419,8 @@ const processMessage = async (update) => {
 
                 // Also try generating a companion image
                 try {
-                    responseImage = await generateImage(`Social media graphic for: ${topic}`, brandProfile);
+                    const recTitle = await extractImageTitle(topic, brandProfile.name || linked.brandId);
+                    responseImage = await generateImage(recTitle, brandProfile);
                 } catch { /* non-critical */ }
 
                 break;

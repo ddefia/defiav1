@@ -208,7 +208,7 @@ const generateImage = async (prompt, brandProfile) => {
         console.log(`[ContentGenerator] Style analysis done in ${Date.now() - analyzeStart}ms`);
     }
 
-    // Step 3: Build the full branded prompt (mirrors client-side generateWeb3Graphic quality)
+    // Step 3: Build the full branded prompt (mirrors client-side generateWeb3Graphic)
     console.log(`[ContentGenerator] Brand context: name=${brandName}, colors=${colorPalette ? colorPalette.slice(0, 80) + '...' : 'NONE'}, visualIdentity=${visualIdentity ? 'YES (' + visualIdentity.length + ' chars)' : 'NONE'}, refImage=${refImage ? refImage.name : 'NONE'}, styleDesc=${styleDescription ? 'YES (' + styleDescription.length + ' chars)' : 'NONE'}`);
     const QUALITY_SUFFIX = 'High Quality, 8k resolution, photorealistic, sharp focus, highly detailed, crystal clear, cinematic lighting.';
 
@@ -240,10 +240,7 @@ ${visualIdentity}
 4. LOGOS & TYPOGRAPHY (STRICT):
    - LOGOS: If a Logo is visible in the reference, leave space or abstractly represent the logo in the same position.
    - TEXT: If text is required, use the brand name "${brandName}" in a font style that matches the reference image.
-   - CASE SENSITIVITY: Look at the Reference Image.
-     - If the reference uses "Sentence case", you MUST use Sentence case.
-     - If the reference uses "ALL CAPS", you may use ALL CAPS.
-     - DEFAULT TO SENTENCE CASE if unclear. Do NOT use ALL CAPS by default.
+   - CASE SENSITIVITY: DEFAULT TO SENTENCE CASE. Do NOT use ALL CAPS by default.
    - DO NOT use generic or cartoony fonts.
 
 INSTRUCTIONS:
@@ -472,6 +469,40 @@ const tryFlux2 = async (prompt) => {
     }
 };
 
+// ━━━ Title Extraction (for Image Prompts) ━━━
+
+/**
+ * Extract a short visual title/concept from a long tweet or message.
+ * The client-side UI does this via the template selector — the bot needs to do it with LLM.
+ * Returns a 2-5 word title suitable for image generation.
+ */
+const extractImageTitle = async (rawText, brandName = '') => {
+    // If already short enough (under 8 words), use as-is
+    const wordCount = rawText.trim().split(/\s+/).length;
+    if (wordCount <= 8) return rawText.trim();
+
+    try {
+        const result = await generateText({
+            systemPrompt: `You extract short visual titles from tweets/text. Return ONLY the title, nothing else.`,
+            userMessage: `Extract a 2-5 word visual headline from this text. The headline should capture the CORE CONCEPT that a graphic designer would visualize.${brandName ? ` Brand: ${brandName}.` : ''}
+
+Text: "${rawText}"
+
+Return ONLY the 2-5 word title. No quotes, no explanation.`,
+            temperature: 0.1,
+        });
+
+        const title = (result || '').trim().replace(/^["']|["']$/g, '');
+        // Sanity check — if LLM returned something too long, truncate
+        const words = title.split(/\s+/);
+        if (words.length > 8) return words.slice(0, 5).join(' ');
+        return title || rawText.slice(0, 60);
+    } catch (e) {
+        console.warn('[ContentGenerator] Title extraction failed, using first 8 words:', e.message);
+        return rawText.split(/\s+/).slice(0, 8).join(' ');
+    }
+};
+
 // ━━━ Chat Response (AI CMO Mode) ━━━
 
 const generateChatResponse = async (message, chatHistory = [], brandProfile, context = '', enrichment = {}) => {
@@ -667,4 +698,5 @@ export {
     summarizeTrends,
     getRecentRecommendations,
     getLatestBriefing,
+    extractImageTitle,
 };
