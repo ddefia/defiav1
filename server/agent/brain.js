@@ -14,6 +14,14 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
             ? brandProfile.knowledgeBase.slice(0, 5).join('\n')
             : "No additional brand context provided.";
 
+        const mentionsBlock = mentions.length > 0
+            ? mentions.map(m => `- [${m.author}] "${m.text}"`).join('\n')
+            : '- No direct mentions/tags found recently';
+
+        const trendsBlock = pulseTrends.length > 0
+            ? pulseTrends.map(t => `- ${t.headline}: ${t.summary}`).join('\n')
+            : '- No market trends available';
+
         const prompt = `
         You are the Autonomous Marketing Agent for ${brandName}.
         BRAND VOICE: ${voice}
@@ -21,50 +29,38 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         ${knowledgeBase}
 
         CURRENT STATE:
-        ${duneMetrics ? `- On-Chain Volume: $${duneMetrics.totalVolume?.toLocaleString() || 'N/A'}\n        - Active Wallets: ${duneMetrics.activeWallets || 'N/A'}` : '- On-Chain Data: Not available (no Dune integration configured)'}
+        ${duneMetrics ? `- On-Chain Volume: $${duneMetrics.totalVolume?.toLocaleString() || 'N/A'}\n        - Active Wallets: ${duneMetrics.activeWallets || 'N/A'}` : '- On-Chain Data: Not available'}
 
         LATEST SPECIFIC POSTS (DIRECT MENTIONS/TAGS):
-        ${mentions.map(m => `- [${m.author}] "${m.text}"`).join('\n')}
+        ${mentionsBlock}
 
-        MARKET TRENDS (PULSE):
-        ${pulseTrends.map(t => `- ${t.headline}: ${t.summary}`).join('\n')}
-
-        RECENT ACTIVITY (LUNARCRUSH):
-        ${lunarTrends.map(t => `- [${t.sentiment}] "${t.body}" (Interactions: ${t.interactions})`).join('\n')}
+        WEB3 MARKET TRENDS (live news):
+        ${trendsBlock}
 
         TASK:
-        Act as a multi-role agent. Check for these 5 triggers (in priority order):
+        You work FOR ${brandName}. Every recommendation must be specific to ${brandName} — reference its actual products, features, audience, or ecosystem.
 
-        1. COMMUNITY MANAGER (High Priority): Are there any direct questions or FUD in "SPECIFIC POSTS" that need a reply?
-        2. NEWSROOM: Is there a "MARKET TREND" that is highly relevant to our brand that we should "Trend Jack"?
-        3. ANALYST: Is there a notable change in On-Chain metrics that warrants a data-driven tweet?
-        4. CAMPAIGN PLANNER: Is there a strategic opportunity for a multi-day campaign based on current trends, upcoming events, or market momentum?
-        5. CONTENT STRATEGIST: Is there a content gap — a topic our audience cares about that we haven't addressed recently?
+        Check these 5 triggers (priority order):
+        1. COMMUNITY MANAGER: Are there direct questions or FUD in "SPECIFIC POSTS" needing a reply?
+        2. NEWSROOM: Is there a market trend we can "Trend Jack" with a ${brandName}-specific angle?
+        3. ANALYST: Notable on-chain metric change worth a data-driven tweet?
+        4. CAMPAIGN PLANNER: Strategic multi-day campaign opportunity based on current trends?
+        5. CONTENT STRATEGIST: Content gap — topic our audience cares about that we haven't covered?
 
-        IMPORTANT: Do NOT default to REPLY. Consider CAMPAIGN and GAP_FILL equally. Only choose REPLY if there is a genuine question or FUD that demands a direct response.
+        RULES:
+        - Do NOT default to REPLY. Only REPLY if there's a genuine question/FUD.
+        - Every draft must mention ${brandName} by name or reference its specific capabilities.
+        - No generic "web3 is growing" posts. Be specific.
+        - Drafts should be tweet-length (under 280 chars) unless it's a CAMPAIGN brief.
 
-        Generate a JSON response with 3 DIVERSE actions to take. Each action MUST be a DIFFERENT type. Never return multiple actions with the same type.
-
-        FORMAT:
+        Return 3 DIVERSE actions (each a DIFFERENT type) as JSON:
         {
             "actions": [
                 {
                     "action": "REPLY" | "TREND_JACK" | "Tweet" | "CAMPAIGN" | "GAP_FILL",
                     "targetId": "ID of tweet/trend acting upon (or empty string)",
-                    "reason": "Why this is important",
+                    "reason": "1-sentence why (reference specific data)",
                     "draft": "The content to post or campaign brief"
-                },
-                {
-                    "action": "(DIFFERENT type from above)",
-                    "targetId": "",
-                    "reason": "Why this action matters",
-                    "draft": "Content draft or brief"
-                },
-                {
-                    "action": "(DIFFERENT type from both above)",
-                    "targetId": "",
-                    "reason": "Strategic rationale",
-                    "draft": "Content draft or brief"
                 }
             ]
         }

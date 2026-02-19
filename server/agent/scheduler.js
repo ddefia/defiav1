@@ -4,7 +4,7 @@ import { analyzeState } from './brain.js';
 import { generateDailyBriefing } from './generator.js'; // Import Generator
 import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
 import { fetchActiveBrands } from './brandRegistry.js';
-import { scheduledNewsFetch } from '../services/web3News.js';
+import { scheduledNewsFetch, fetchWeb3News } from '../services/web3News.js';
 import { notifyLinkedChats } from '../telegram/notifier.js';
 
 /**
@@ -125,8 +125,21 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
     try {
         // A. Global Context (Fetch Once)
         console.log("   - Scanning global market trends...");
-        const pulse = [];
-        const lunarTrends = [];
+
+        // Fetch web3 news as market context (replaces deprecated LunarCrush/Pulse)
+        let pulseTrends = [];
+        try {
+            const newsResult = await fetchWeb3News(supabase, 'global', { limit: 8 });
+            pulseTrends = (newsResult.items || []).map(item => ({
+                headline: item.headline || item.topic || 'Unknown',
+                summary: item.summary || '',
+                sentiment: item.sentiment || 'Neutral',
+                relevanceScore: item.relevanceScore || 70,
+            }));
+            console.log(`   - Loaded ${pulseTrends.length} market trends from web3 news`);
+        } catch (e) {
+            console.warn("   - Web3 news fetch failed, brain will run without trends:", e.message);
+        }
 
         const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
         let registry = activeBrands.length > 0
@@ -172,7 +185,7 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
             ]);
 
             // 2. Analyze (returns { actions: [...] })
-            const decisionResult = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile);
+            const decisionResult = await analyzeState(dune, [], mentions, pulseTrends, brandProfile);
             const decisions = decisionResult.actions || [decisionResult];
 
             // 3. Act & Save — process all actions
@@ -327,8 +340,17 @@ export const triggerAgentRun = async (brandIdentifier) => {
     const duneKey = process.env.DUNE_API_KEY;
     const apifyKey = process.env.APIFY_API_TOKEN;
 
-    const pulse = [];
-    const lunarTrends = [];
+    // Fetch web3 news as market context
+    let pulseTrends = [];
+    try {
+        const newsResult = await fetchWeb3News(supabase, 'global', { limit: 8 });
+        pulseTrends = (newsResult.items || []).map(item => ({
+            headline: item.headline || item.topic || 'Unknown',
+            summary: item.summary || '',
+            sentiment: item.sentiment || 'Neutral',
+            relevanceScore: item.relevanceScore || 70,
+        }));
+    } catch { /* brain runs without trends */ }
 
     const [dune, mentions] = await Promise.all([
         fetchDuneMetrics(duneKey),
@@ -337,7 +359,7 @@ export const triggerAgentRun = async (brandIdentifier) => {
 
     const rawProfile = await fetchBrandProfile(supabase, target.id);
     const brandProfile = { ...(rawProfile || {}), name: rawProfile?.name || target.name || target.id };
-    const decisionResult = await analyzeState(dune, lunarTrends, mentions, pulse, brandProfile);
+    const decisionResult = await analyzeState(dune, [], mentions, pulseTrends, brandProfile);
     const decisions = decisionResult.actions || [decisionResult];
 
     for (const decision of decisions) {

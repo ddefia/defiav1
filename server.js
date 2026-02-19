@@ -370,6 +370,10 @@ const PUBLIC_API_PATHS = new Set([
     // Image generation — called internally by telegram bot and client-side
     '/api/generate-image',
     '/api/generate-image-flux',
+    // Vercel cron jobs — invoked by Vercel scheduler, no auth headers
+    '/api/agent/run',
+    '/api/agent/briefing',
+    '/api/web3-news/refresh',
 ]);
 
 // Prefixes for dynamic routes that should be public
