@@ -191,6 +191,11 @@ const App: React.FC = () => {
                             updatedAt: Date.now(),
                         }));
 
+                        // If on landing page, skip it and go straight to dashboard
+                        if (window.location.pathname === '/') {
+                            navigate('/dashboard');
+                        }
+
                         // Sync brand assets from Supabase storage (images, etc.)
                         // This runs in background and updates the UI via storage events
                         const brandNameForSync = userBrand?.brandName || user.brandName || user.brandId || '';
@@ -1746,7 +1751,11 @@ const App: React.FC = () => {
     const isOnboardingRoute = route.startsWith('/onboarding');
     // isLegalRoute is defined earlier (before forceDarkRoute) to avoid use-before-declaration
     const isDashboardRoute = !isLanding && !isAuthRoute && !isOnboardingRoute && !isLegalRoute;
-    const shouldShowOnboardingPrompt = isDashboardRoute && !onboardingState.completed && !onboardingState.dismissed;
+    // Derive onboarding completion from BOTH localStorage flag AND live auth state
+    // This prevents flashing the onboarding prompt for returning users due to race conditions
+    const hasBrandDirect = !!(getCurrentUserBrand() || currentUser?.brandId || currentUser?.brandName);
+    const effectiveOnboardingComplete = onboardingState.completed || hasBrandDirect;
+    const shouldShowOnboardingPrompt = isDashboardRoute && !effectiveOnboardingComplete && !onboardingState.dismissed;
 
     // Toggle body scroll: landing + legal pages scroll, dashboard/auth lock scroll
     useEffect(() => {
@@ -1759,16 +1768,21 @@ const App: React.FC = () => {
     }, [isLanding, isLegalRoute]);
 
     // Landing page renders immediately — no auth needed
+    // BUT if user is already logged in with a brand, skip straight to dashboard
     if (isLanding) {
+        if (currentUser) {
+            const userBrand = getCurrentUserBrand();
+            const hasBrandMeta = !!(currentUser.brandId || currentUser.brandName);
+            if (userBrand || hasBrandMeta) {
+                // Returning user — skip landing, go straight to dashboard
+                navigate('/dashboard');
+                return null;
+            }
+        }
         return <LandingPage onOpenDashboard={() => {
             if (currentUser) {
-                // If user has a brand, go to dashboard; otherwise start onboarding
-                const userBrand = getCurrentUserBrand();
-                if (userBrand) {
-                    navigate('/dashboard');
-                } else {
-                    navigate('/onboarding');
-                }
+                // Logged in but no brand yet — start onboarding
+                navigate('/onboarding');
             } else {
                 navigate('/login');
             }
@@ -1866,20 +1880,17 @@ const App: React.FC = () => {
 
     // Redirect back to onboarding if returning from X OAuth callback
     // But ONLY if user genuinely has no brand (don't redirect returning users)
-    if (isDashboardRoute && !onboardingState.completed) {
-        const hasBrand = getCurrentUserBrand() || currentUser?.brandId || currentUser?.brandName;
-        if (hasBrand) {
-            // User has a brand — fix the stale onboarding state
-            setOnboardingState(prev => ({ ...prev, completed: true, updatedAt: Date.now() }));
-        } else {
-            try {
-                const savedOnboarding = sessionStorage.getItem('defia_onboarding_session');
-                if (savedOnboarding) {
-                    navigate('/onboarding');
-                    return null;
-                }
-            } catch {}
-        }
+    if (isDashboardRoute && !effectiveOnboardingComplete) {
+        try {
+            const savedOnboarding = sessionStorage.getItem('defia_onboarding_session');
+            if (savedOnboarding) {
+                navigate('/onboarding');
+                return null;
+            }
+        } catch {}
+    } else if (isDashboardRoute && hasBrandDirect && !onboardingState.completed) {
+        // Sync the localStorage flag so future renders don't re-check
+        setOnboardingState(prev => ({ ...prev, completed: true, updatedAt: Date.now() }));
     }
 
     if (isOnboardingRoute) {
@@ -1944,7 +1955,7 @@ const App: React.FC = () => {
             )}
 
             <main className="flex-1 w-full h-full flex flex-col relative overflow-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
-                {isDashboardRoute && !onboardingState.completed && (
+                {isDashboardRoute && !effectiveOnboardingComplete && (
                     <div className="px-6 pt-6">
                         {shouldShowOnboardingPrompt ? (
                             <OnboardingPrompt
