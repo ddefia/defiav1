@@ -610,13 +610,13 @@ const summarizeTrends = async (brandId, supabase) => {
         }).join('\n');
 
         const summary = await generateText({
-            userMessage: `Summarize these Web3/crypto trends and news in 3-4 bullet points. Be concise:\n\n${newsText}`,
-            temperature: 0.3,
+            userMessage: `You're the marketing lead for ${brandId}. Based on these trends, give a 2-3 sentence take on what matters for us and what we should jump on. Be direct, no fluff, no bullet points — talk like a teammate in a group chat.\n\n${newsText}`,
+            temperature: 0.5,
         });
 
         return {
             summary,
-            trends: combined.slice(0, 8),
+            trends: combined.slice(0, 4),
         };
     } catch (e) {
         console.error('[ContentGenerator] Trend summarization failed:', e.message);

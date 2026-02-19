@@ -26,68 +26,39 @@ const formatDailyBriefing = (report, brandName) => {
     if (!report) return escapeMarkdownV2('No briefing data available.');
 
     const lines = [];
-    lines.push(bold(`Daily Briefing — ${brandName || 'Your Brand'}`));
+    lines.push(`\u2615 ${bold(`Morning Brief — ${brandName || 'Your Brand'}`)}`);
     lines.push('');
 
-    // Key metrics bar (if available from data-driven generator)
+    // Compact metrics bar
     const km = report.keyMetrics;
     if (km) {
         const metricParts = [];
-        if (km.followers && km.followers !== 'N/A') metricParts.push(`Followers: ${km.followers}`);
-        if (km.engagementRate && km.engagementRate !== 'N/A') metricParts.push(`ER: ${km.engagementRate}`);
-        if (km.galaxyScore && km.galaxyScore !== 'N/A') metricParts.push(`Galaxy: ${km.galaxyScore}/100`);
-        if (km.avgInteractions && km.avgInteractions !== 'N/A') metricParts.push(`Avg Int: ${km.avgInteractions}`);
-        if (km.topPostInteractions && km.topPostInteractions !== 'N/A') metricParts.push(`Top Post: ${km.topPostInteractions}`);
+        if (km.followers && km.followers !== 'N/A') metricParts.push(`${km.followers} followers`);
+        if (km.engagementRate && km.engagementRate !== 'N/A') metricParts.push(`${km.engagementRate} ER`);
+        if (km.galaxyScore && km.galaxyScore !== 'N/A') metricParts.push(`Galaxy ${km.galaxyScore}/100`);
         if (metricParts.length > 0) {
-            lines.push(bold('Key Metrics'));
-            lines.push(escapeMarkdownV2(metricParts.join('  |  ')));
+            lines.push(escapeMarkdownV2(metricParts.join(' · ')));
             lines.push('');
         }
     }
 
+    // Executive summary only — skip tactical/strategic walls of text
     if (report.executiveSummary) {
-        lines.push(bold('Executive Summary'));
-        lines.push(escapeMarkdownV2(report.executiveSummary));
+        lines.push(escapeMarkdownV2(report.executiveSummary.slice(0, 400)));
         lines.push('');
     }
 
-    if (report.tacticalPlan) {
-        lines.push(bold('Tactical Plan'));
-        lines.push(escapeMarkdownV2(report.tacticalPlan));
-        lines.push('');
-    }
-
+    // Top 2 strategic moves (if available)
     if (report.strategicPlan && Array.isArray(report.strategicPlan)) {
-        lines.push(bold('Strategic Actions'));
-        for (const item of report.strategicPlan.slice(0, 3)) {
-            const tag = item.action === 'DOUBLE_DOWN' ? 'DOUBLE DOWN'
-                : item.action === 'KILL' ? 'KILL'
-                : item.action === 'OPTIMIZE' ? 'OPTIMIZE'
-                : item.action || 'ACTION';
-            lines.push(`${escapeMarkdownV2('[')}${bold(tag)}${escapeMarkdownV2(']')} ${escapeMarkdownV2(item.subject || '')}`);
-            if (item.reasoning) {
-                lines.push(`  ${italic(item.reasoning)}`);
-            }
-        }
-        lines.push('');
-    }
-
-    // Data sources footer
-    const ds = report.dataSourcesUsed;
-    if (ds) {
-        const sourceParts = [];
-        if (ds.lunarCrush) sourceParts.push('LunarCrush');
-        if (ds.mentions > 0) sourceParts.push(`${ds.mentions} mentions`);
-        if (ds.recentDecisions > 0) sourceParts.push(`${ds.recentDecisions} AI actions`);
-        if (sourceParts.length > 0) {
-            lines.push(escapeMarkdownV2(`Sources: ${sourceParts.join(', ')}`));
+        lines.push(bold('Moves'));
+        for (const item of report.strategicPlan.slice(0, 2)) {
+            const tag = item.action === 'DOUBLE_DOWN' ? '\u{1F525}'
+                : item.action === 'KILL' ? '\u274C'
+                : item.action === 'OPTIMIZE' ? '\u{1F527}'
+                : '\u27A1\uFE0F';
+            lines.push(`${tag} ${escapeMarkdownV2(item.subject || '')}${item.reasoning ? ' — ' + italic(item.reasoning.slice(0, 80)) : ''}`);
         }
     }
-
-    const timestamp = report.lastUpdated
-        ? new Date(report.lastUpdated).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-        : 'Just now';
-    lines.push(escapeMarkdownV2(timestamp));
 
     return lines.join('\n');
 };
@@ -105,23 +76,15 @@ const formatAgentDecision = (decision) => {
         : '\u{1F4AC}';
 
     const lines = [];
-    lines.push(`${icon} ${bold(`New AI Recommendation: ${decision.action}`)}`);
-    lines.push('');
+    lines.push(`${icon} ${bold(decision.action)}`);
 
     if (decision.reason) {
-        lines.push(bold('Why'));
-        lines.push(escapeMarkdownV2(decision.reason));
-        lines.push('');
+        lines.push(escapeMarkdownV2(decision.reason.slice(0, 200)));
     }
 
     if (decision.draft) {
-        lines.push(bold('Draft'));
-        lines.push(codeBlock(decision.draft));
         lines.push('');
-    }
-
-    if (decision.targetId) {
-        lines.push(`${escapeMarkdownV2('Target:')} ${code(decision.targetId)}`);
+        lines.push(codeBlock(decision.draft.slice(0, 280)));
     }
 
     return lines.join('\n');
@@ -147,15 +110,13 @@ const formatTrendSummary = (trends) => {
     }
 
     const lines = [];
-    lines.push(`\u{1F525} ${bold('Trending Topics')}`);
+    lines.push(`\u{1F525} ${bold('What\'s Moving')}`);
     lines.push('');
 
-    for (const trend of trends.slice(0, 8)) {
+    // Keep it tight — max 4 trends, headline only (no summaries)
+    for (const trend of trends.slice(0, 4)) {
         const score = trend.relevanceScore ? ` \\(${escapeMarkdownV2(String(trend.relevanceScore))}%\\)` : '';
-        lines.push(`\u2022 ${bold(trend.headline || trend.topic || 'Unknown')}${score}`);
-        if (trend.summary) {
-            lines.push(`  ${escapeMarkdownV2(trend.summary.slice(0, 120))}`);
-        }
+        lines.push(`\u2022 ${escapeMarkdownV2(trend.headline || trend.topic || 'Unknown')}${score}`);
     }
 
     return lines.join('\n');

@@ -382,9 +382,10 @@ const processMessage = async (update) => {
             case INTENTS.ANALYZE_TRENDS: {
                 const { summary, trends } = await summarizeTrends(linked.brandId, supabase);
                 if (trends.length > 0) {
+                    // Show trend headlines as context, then the AI's brand-specific take
                     responseText = formatTrendSummary(trends) + '\n\n' + formatChatResponse(summary);
                 } else {
-                    responseText = formatChatResponse(summary || 'No trends data available right now.');
+                    responseText = formatChatResponse(summary || 'Nothing major moving right now. I\'ll flag anything relevant.');
                 }
                 break;
             }
