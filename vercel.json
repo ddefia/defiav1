@@ -26,7 +26,11 @@
     "crons": [
         {
             "path": "/api/agent/run",
-            "schedule": "0 8 * * *"
+            "schedule": "0 */6 * * *"
+        },
+        {
+            "path": "/api/agent/briefing",
+            "schedule": "0 6 * * *"
         },
         {
             "path": "/api/web3-news/refresh",

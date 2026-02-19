@@ -354,3 +354,54 @@ export const triggerAgentRun = async (brandIdentifier) => {
 
     return { brand: target, decision: decisions[0] || { action: 'NO_ACTION' } };
 };
+
+/**
+ * Run briefing generation for all active brands.
+ * Called by Vercel cron via /api/agent/briefing endpoint.
+ */
+export const runBriefingCycle = async ({ label = 'Briefing Cycle' } = {}) => {
+    const supabase = getSupabaseClient();
+    console.log(`\n[${new Date().toISOString()}] 🌤️ ${label}: Generating Reports...`);
+
+    try {
+        const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+        const registry = activeBrands.length > 0
+            ? activeBrands
+            : Object.keys(TRACKED_BRANDS).map((brandId) => ({ id: brandId }));
+
+        const results = [];
+        for (const brand of registry) {
+            const brandId = brand.id;
+            if (supabase) {
+                const automation = await fetchAutomationSettings(supabase, brandId);
+                if (!automation.enabled) {
+                    console.log(`   - ⏸️ Automation disabled for ${brandId}. Skipping briefing.`);
+                    results.push({ brandId, skipped: true });
+                    continue;
+                }
+            }
+
+            try {
+                await generateDailyBriefing(brandId);
+
+                // Notify linked Telegram chats
+                try {
+                    await notifyLinkedChats(supabase, brandId, 'briefing');
+                } catch (tgErr) {
+                    console.warn(`   - Telegram briefing notification failed for ${brandId}:`, tgErr.message);
+                }
+
+                results.push({ brandId, success: true });
+            } catch (e) {
+                console.error(`   - Briefing failed for ${brandId}:`, e.message);
+                results.push({ brandId, error: e.message });
+            }
+        }
+
+        console.log(`   - 🌤️ ${label} Complete.`);
+        return { label, processed: registry.length, results };
+    } catch (e) {
+        console.error(`   - ❌ ${label} Failed:`, e.message);
+        return { label, error: e.message };
+    }
+};

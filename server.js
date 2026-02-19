@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { startAgent, triggerAgentRun, runBrainCycle } from './server/agent/scheduler.js';
+import { startAgent, triggerAgentRun, runBrainCycle, runBriefingCycle } from './server/agent/scheduler.js';
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
 import { crawlWebsite, deepCrawlWebsite, fetchTwitterContent, uploadCarouselGraphic, fetchDocumentContent, extractDefiMetrics } from './server/onboarding.js';
 import { fetchWeb3News, scheduledNewsFetch } from './server/services/web3News.js';
@@ -1754,6 +1754,33 @@ app.get('/api/agent/run', async (req, res) => {
     } catch (e) {
         console.error('[AgentRun] Failed:', e);
         return res.status(500).json({ error: 'Agent run failed.' });
+    }
+});
+
+// --- Briefing Generation (Daily Briefing + Telegram Push) ---
+app.get('/api/agent/briefing', async (req, res) => {
+    try {
+        const label = req.query.label || 'Scheduled Briefing';
+        const runPromise = runBriefingCycle({ label });
+        const timeoutMs = 55 * 1000;
+        const timeoutResult = await Promise.race([
+            runPromise,
+            new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), timeoutMs))
+        ]);
+
+        if (timeoutResult && timeoutResult.timeout) {
+            runPromise.catch((err) => console.error('[Briefing] Background run failed:', err));
+            return res.status(202).json({
+                status: 'pending',
+                message: 'Briefing generation still running.',
+                timeoutMs
+            });
+        }
+
+        return res.json(timeoutResult);
+    } catch (e) {
+        console.error('[Briefing] Failed:', e);
+        return res.status(500).json({ error: 'Briefing run failed.' });
     }
 });
 
