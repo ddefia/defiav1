@@ -1043,8 +1043,15 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
         {/* Collapsible Grid */}
         <div className={`grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 transition-all duration-500 overflow-hidden ${!viewingImage && config.referenceImages.length > 15 ? 'max-h-[600px] overflow-y-auto pr-1' : ''}`}>
           {config.referenceImages.slice(0, viewingImage === 'ALL' ? undefined : 15).map(img => (
-            <div key={img.id} className="relative aspect-square rounded bg-gray-100 cursor-pointer overflow-hidden border border-brand-border group shadow-sm transition-transform hover:scale-105" onClick={() => setClassifyingImageId(img.id)}>
+            <div key={img.id} className={`relative aspect-square rounded bg-gray-100 cursor-pointer overflow-hidden border-2 group shadow-sm transition-transform hover:scale-105 ${img.pinned ? 'border-brand-accent ring-1 ring-brand-accent/30' : 'border-brand-border'}`} onClick={() => setClassifyingImageId(img.id)}>
               <img src={img.data || img.url} alt={img.name} className="w-full h-full object-cover" loading="lazy" />
+
+              {/* Pinned indicator — always visible */}
+              {img.pinned && (
+                <div className="absolute top-1.5 left-1.5 bg-brand-accent text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md z-10">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                </div>
+              )}
 
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2">
                 <div className="flex justify-between items-start">
@@ -1058,6 +1065,9 @@ export const BrandKit: React.FC<BrandKitProps> = ({ config, brandName, onChange 
                   </div>
 
                   <div className="flex flex-col gap-1">
+                    <button onClick={(e) => { e.stopPropagation(); onChange({ ...config, referenceImages: config.referenceImages.map(i => i.id === img.id ? { ...i, pinned: !i.pinned } : i) }); }} className={`rounded-full p-1.5 shadow transition-colors ${img.pinned ? 'bg-brand-accent text-white hover:bg-brand-accent/80' : 'bg-white text-amber-500 hover:bg-amber-50'}`} title={img.pinned ? 'Unpin from core templates' : 'Pin as core brand template'}>
+                      <svg className="w-3 h-3" fill={img.pinned ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    </button>
                     <button onClick={(e) => handleLinkImage(e, img.id)} className="bg-white text-indigo-600 rounded-full p-1.5 hover:bg-indigo-50 shadow transition-colors" title="Link to Template">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                     </button>

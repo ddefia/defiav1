@@ -14,7 +14,8 @@ export interface ReferenceImage {
   data?: string; // Base64 string
   url?: string; // Public URL (hosted)
   name: string;
-  category?: string; // New: Grouping (e.g. "Product", "Logo")
+  category?: string; // Grouping (e.g. "Product", "Logo")
+  pinned?: boolean; // Core brand template — prioritized for AI generation
 }
 
 export interface BrandConfig {

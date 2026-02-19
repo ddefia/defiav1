@@ -274,18 +274,20 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
     }
 
     // Case B: Auto Mode (Generic Style Reinforcement) - ONLY if not meme
-    // If we have no references yet, grab random ones to define the "Brand Look"
+    // If we have no references yet, grab from pinned first, then random to define the "Brand Look"
     if (effectiveReferenceImageIds.length === 0 && !isMeme && params.brandConfig.referenceImages && params.brandConfig.referenceImages.length > 0) {
         const allImages = params.brandConfig.referenceImages;
+        const pinnedImages = allImages.filter(img => img.pinned);
+        const pool = pinnedImages.length > 0 ? pinnedImages : allImages;
         // Fisher-Yates Shuffle
-        const shuffled = [...allImages];
+        const shuffled = [...pool];
         for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
         // Pick top 1 (Single Source of Truth) to prevent style clashing/mixing
         effectiveReferenceImageIds = [shuffled[0].id];
-        console.log(`[Auto Mode] Selected 1 random Brand Image for Consistent Style Enforcment`);
+        console.log(`[Auto Mode] Selected 1 ${pinnedImages.length > 0 ? 'PINNED' : 'random'} Brand Image for Consistent Style Enforcement`);
     }
 
     // --- 1.5 ANALYZE STYLE (CRITICAL FIX) ---

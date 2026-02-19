@@ -85,7 +85,9 @@ const pickReferenceImage = async (brandProfile) => {
         (t.referenceImageIds || []).forEach(id => templateLinkedIds.add(id));
     });
 
-    // Priority 1: Template-linked images (the 5-6 branded templates)
+    // Priority 0: Pinned images (user explicitly marked as core brand templates)
+    const pinnedImages = refs.filter(r => r.pinned);
+    // Priority 1: Template-linked images (the curated branded templates)
     const templateImages = refs.filter(r => templateLinkedIds.has(r.id));
     // Priority 2: Manually uploaded (not tweet-scraped, not history)
     const manualImages = refs.filter(r =>
@@ -95,11 +97,16 @@ const pickReferenceImage = async (brandProfile) => {
         !r.name?.startsWith('History:')
     );
 
-    const candidates = templateImages.length > 0 ? templateImages
+    const candidates = pinnedImages.length > 0 ? pinnedImages
+        : templateImages.length > 0 ? templateImages
         : manualImages.length > 0 ? manualImages
         : refs;
 
-    console.log(`[ContentGenerator] Image selection: ${templateImages.length} template-linked, ${manualImages.length} manual, using ${candidates === templateImages ? 'TEMPLATE' : candidates === manualImages ? 'MANUAL' : 'ALL'} pool (${candidates.length})`);
+    const pool = pinnedImages.length > 0 ? 'PINNED'
+        : templateImages.length > 0 ? 'TEMPLATE'
+        : manualImages.length > 0 ? 'MANUAL'
+        : 'ALL';
+    console.log(`[ContentGenerator] Image selection: ${pinnedImages.length} pinned, ${templateImages.length} template-linked, ${manualImages.length} manual, using ${pool} pool (${candidates.length})`);
 
     // Shuffle candidates and pick first one that loads
     const shuffled = [...candidates].sort(() => Math.random() - 0.5);
