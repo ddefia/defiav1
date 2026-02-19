@@ -25,12 +25,19 @@ const classifyMessage = async (text, hasImage, chatHistory = [], brandProfile = 
 Classify the user's message into one intent and extract parameters.
 
 INTENTS:
-- DRAFT_CONTENT: User wants to create/draft a tweet, post, or social media content. Extract the topic.
+- DRAFT_CONTENT: User explicitly wants you to WRITE/CREATE/DRAFT a specific tweet, post, or social media content RIGHT NOW. They want finished copy they can publish. Examples: "write a tweet about X", "draft a post about X", "create a thread about X".
 - GENERATE_IMAGE: User wants to generate a visual/graphic/banner/image. Extract the prompt/description. IMPORTANT: If user says something like "now make a graphic for that" or "create an image for the tweet above" — this IS GENERATE_IMAGE. Use the conversation history to understand what "that" refers to and include it in imagePrompt.
 - ANALYZE_TRENDS: User wants to know what's trending, market analysis, recent news.
 - USE_RECOMMENDATION: User references a specific recommendation number. Extract the number.
 - GET_BRIEFING: User asks for the daily brief, morning report, strategy summary.
-- GENERAL_CHAT: Any other question, conversation, or request.
+- GENERAL_CHAT: Brainstorming, strategy discussion, asking for ideas/suggestions, questions, opinions, or any other conversation. This includes requests like "give me content ideas", "suggest topics", "what should we post about", "brainstorm some angles" — these are GENERAL_CHAT because the user wants IDEAS and DISCUSSION, not a finished draft.
+
+IMPORTANT DISTINCTION:
+- "Write a tweet about X" → DRAFT_CONTENT (user wants finished content)
+- "Give me content ideas about X" → GENERAL_CHAT (user wants brainstorming/suggestions)
+- "What should we post about next week?" → GENERAL_CHAT (user wants strategy advice)
+- "Draft something about X" → DRAFT_CONTENT (user wants finished copy)
+- "Suggest some topics for X" → GENERAL_CHAT (user wants ideas, not finished content)
 
 CRITICAL — CONVERSATION CONTINUITY:
 When the user says "that", "this", "it", "the tweet", "the post", "above", or references something from earlier, YOU MUST look at the conversation history below to understand what they're referring to. Include the referenced content in your extracted params.

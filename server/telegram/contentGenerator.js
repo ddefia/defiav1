@@ -20,37 +20,72 @@ const getGenAI = () => {
 
 const generateTweet = async (topic, brandProfile) => {
     const brandName = brandProfile.name || 'the brand';
-    const voice = brandProfile.voiceGuidelines || 'Professional and insightful';
+    const voice = brandProfile.voiceGuidelines || 'Narrative Authority: Insightful, grounded, and high-signal. Speak to mechanics, not just features.';
     const examples = (brandProfile.tweetExamples || []).length > 0
         ? `STYLE REFERENCE (MIMIC THIS VOICE/PACE/LENGTH):\n${brandProfile.tweetExamples.map(t => `- ${t}`).join('\n')}`
         : '';
+    const avoidExamples = (brandProfile.rejectedStyleExamples || []).length > 0
+        ? `\nAVOID THESE STYLE PATTERNS (DO NOT COPY TONE/STRUCTURE):\n${brandProfile.rejectedStyleExamples.map(t => `- ${t}`).join('\n')}\n`
+        : '';
+
+    const templateExamples = (brandProfile.graphicTemplates || [])
+        .filter(t => t.tweetExample && t.tweetExample.trim().length > 0)
+        .map(t => `[TEMPLATE STYLE: ${t.label}]: "${t.tweetExample}"`)
+        .join('\n');
+    const templateContext = templateExamples.length > 0
+        ? `\nTEMPLATE-SPECIFIC WRITING STYLES (Use these if the output fits the template context):\n${templateExamples}`
+        : '';
+
     const kb = (brandProfile.knowledgeBase || []).length > 0
-        ? `KNOWLEDGE BASE (SOURCE OF TRUTH):\n${brandProfile.knowledgeBase.join('\n\n')}`
+        ? `KNOWLEDGE BASE (THE ABSOLUTE SOURCE OF TRUTH):\n${brandProfile.knowledgeBase.join('\n\n')}`
         : '';
     const banned = (brandProfile.bannedPhrases || []).length > 0
-        ? `BANNED PHRASES: ${brandProfile.bannedPhrases.join(', ')}`
+        ? `STRICTLY BANNED PHRASES: ${brandProfile.bannedPhrases.join(', ')}`
         : 'Avoid lazy AI words (e.g. Delve, Tapestry, Game changer, Unleash).';
 
-    const systemPrompt = `You are an Elite Content Creator for ${brandName}.
+    const systemPrompt = `You are an Elite Crypto Content Creator for ${brandName}.
+You are known for high-signal content that simplifies complex topics without losing nuance.
+
 TASK: Write a single, high-quality tweet about: "${topic}".
 
 TONE: ${voice}
+- BALANCE: Be authoritative but friendly.
+- ACCESSIBILITY: Deep technical understanding, explained simply.
+
 ${examples}
+${avoidExamples}
+${templateContext}
+
 ${kb}
 
 CRITICAL RULES:
-1. PRIORITIZE KNOWLEDGE BASE: If it contains specific facts, use them.
-2. VALUE INFERENCE: If the topic is vague, infer specific benefits.
-3. LENGTH: ~280 chars, but prioritize depth over brevity.
-4. NO HASHTAGS (STRICTLY FORBIDDEN).
-5. Use double line breaks between sections.
+1. PRIORITIZE KNOWLEDGE BASE: If the Knowledge Base contains specific facts, terminology, or goals, you MUST use them.
+2. VALUE INFERENCE: If the topic is vague, logically infer specific benefits (Liquidity, Speed, Yield).
+3. AUTHENTIC PROFESSIONALISM: It is okay to say "We are excited" for major news, but avoid overusing it. Be human.
+4. FORMATTING: Use short paragraphs. Use bullet points (•) if listing benefits.
 
-STRUCTURE:
-1. HOOK: Punchy 1-sentence insight or headline.
-2. BODY: Explain the "Why" in detail.
+INSTRUCTIONS:
+- ${banned}
+- LENGTH: Optimal ~280 chars, but prioritize DEPTH. Do NOT sacrifice detail for brevity.
+
+INTENT RECOGNITION & ADAPTATION:
+- IF ANNOUNCEMENT/PARTNERSHIP:
+  - Start with a strong Hook/Headline (e.g. PARTNERSHIP SECURED).
+  - Use limited emojis (🚨, 🤝) for impact.
+  - CRITICAL: List 2-3 specific benefits. If not provided, infer them from the context of the brands.
+  - STORYTELLING: Do not just announce. Explain the "Journey" that led here.
+- IF INSIGHT/THOUGHT:
+  - Focus on the "Alpha". Why does this matter? What is the mechanic?
+  - DEEP DIVE: Explain the technical nuance. Assume the reader is smart.
+
+STRICT STRUCTURE:
+1. HOOK: A punchy, 1-sentence insight or headline.
+2. BODY: Explain the "Why" in detail. Use bullets if helpful. MAKE IT DENSE.
 3. CTA: Clear directive.
 
-${banned}`;
+FORMATTING REQUIREMENTS:
+- YOU MUST use double line breaks between sections.
+- NO HASHTAGS (STRICTLY FORBIDDEN).`;
 
     return generateText({
         systemPrompt,
@@ -303,7 +338,20 @@ const tryGeminiImageWithRef = async (prompt, refImage) => {
             contents: [{ parts: [
                 // Pass the reference image so Gemini can SEE it
                 { inlineData: { mimeType: refImage.mimeType, data: refImage.base64 } },
-                { text: `${prompt}\n\nThe image above is a STYLE REFERENCE from the brand — it is your MASTER TEMPLATE. Your output MUST look like this reference was opened in Photoshop and only the headline text was swapped. Same background, same layout, same color grading, same typography style, same visual elements. COPY it exactly — do NOT reinterpret or add generic clip art.` },
+                { text: `${prompt}
+
+I have provided 1 reference image above. This is your MASTER TEMPLATE.
+🚨 PIXEL-PERFECT REPLICATION MODE:
+- Your output MUST look like the reference image was opened in Photoshop and ONLY the text was swapped.
+- SAME background (exact colors, gradients, effects).
+- SAME layout (every element in the same position and proportion).
+- SAME typography style (font weight, case, size, color, effects).
+- SAME visual elements (shapes, icons, borders, cards, overlays) in the SAME positions.
+- SAME lighting, atmosphere, and color grading.
+- ONLY CHANGE: Replace the headline text with a SHORT HEADLINE (Max 5 words). 🚨 NEVER paste full text.
+- DO NOT add, remove, or modify any visual elements.
+- DO NOT change colors, lighting, or atmosphere.
+- DO NOT reinterpret or "improve" the design. COPY IT EXACTLY.` },
             ] }],
             config: {
                 imageConfig: {
