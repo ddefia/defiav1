@@ -285,6 +285,12 @@ ${refImage ? `REFERENCE IMAGE UTILIZATION (HIGHEST PRIORITY — OVERRIDES ALL OT
     console.log('[ContentGenerator] Step 6: Gemini failed, trying Imagen 4...');
     const imagenResult = await tryImagen4(basePrompt);
     if (imagenResult) { console.log('[ContentGenerator] ✓ Image generated via Imagen 4'); return imagenResult; }
+
+    // Step 7: Fallback to BFL Flux 2 (external API, no Gemini dependency)
+    console.log('[ContentGenerator] Step 7: All Gemini methods failed, trying Flux 2...');
+    const fluxResult = await tryFlux2(prompt); // Use original prompt, not the huge basePrompt
+    if (fluxResult) { console.log('[ContentGenerator] ✓ Image generated via Flux 2'); return fluxResult; }
+
     console.error('[ContentGenerator] ✗ All image generation methods failed');
     return null;
 };
@@ -381,6 +387,87 @@ const tryImagen4 = async (prompt) => {
         return null;
     } catch (e) {
         console.warn('[ContentGenerator] Imagen 4 call failed:', e.message);
+        return null;
+    }
+};
+
+/**
+ * BFL Flux 2 image generation (text prompt only — async polling API).
+ * Uses FLUX.2 klein-9b model as fallback when Gemini image gen is unavailable.
+ */
+const tryFlux2 = async (prompt) => {
+    const apiKey = process.env.BFL_API_KEY;
+    if (!apiKey) {
+        console.warn('[ContentGenerator] BFL_API_KEY not set, skipping Flux 2 fallback');
+        return null;
+    }
+
+    try {
+        // Step 1: Submit generation request
+        console.log('[ContentGenerator] Flux 2: Submitting generation request...');
+        const submitRes = await fetch('https://api.bfl.ai/v1/flux-2-klein-9b', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-key': apiKey,
+                'accept': 'application/json',
+            },
+            body: JSON.stringify({
+                prompt: prompt.slice(0, 2000), // BFL has prompt length limits
+                width: 1024,
+                height: 1024,
+            }),
+        });
+
+        if (!submitRes.ok) {
+            const errText = await submitRes.text().catch(() => '');
+            console.warn(`[ContentGenerator] Flux 2 submit failed: ${submitRes.status} ${errText.slice(0, 200)}`);
+            return null;
+        }
+
+        const submitData = await submitRes.json();
+        const pollingUrl = submitData.polling_url;
+        if (!pollingUrl) {
+            console.warn('[ContentGenerator] Flux 2: No polling_url returned');
+            return null;
+        }
+
+        // Step 2: Poll for result (max 60s, poll every 2s)
+        const maxPolls = 30;
+        for (let i = 0; i < maxPolls; i++) {
+            await new Promise(r => setTimeout(r, 2000));
+
+            const pollRes = await fetch(pollingUrl, {
+                headers: { 'x-key': apiKey, 'accept': 'application/json' },
+            });
+
+            if (!pollRes.ok) continue;
+
+            const pollData = await pollRes.json();
+            if (pollData.status === 'Ready' && pollData.result?.sample) {
+                // Step 3: Download the image and convert to base64
+                console.log('[ContentGenerator] Flux 2: Image ready, downloading...');
+                const imgRes = await fetch(pollData.result.sample);
+                if (!imgRes.ok) {
+                    console.warn('[ContentGenerator] Flux 2: Failed to download result image');
+                    return null;
+                }
+                const arrayBuffer = await imgRes.arrayBuffer();
+                const base64 = Buffer.from(arrayBuffer).toString('base64');
+                return base64;
+            }
+
+            if (pollData.status === 'Error' || pollData.status === 'Failed') {
+                console.warn(`[ContentGenerator] Flux 2 generation failed: ${pollData.status}`);
+                return null;
+            }
+            // Otherwise status is 'Pending' / 'Processing' — keep polling
+        }
+
+        console.warn('[ContentGenerator] Flux 2: Polling timed out after 60s');
+        return null;
+    } catch (e) {
+        console.warn('[ContentGenerator] Flux 2 call failed:', e.message);
         return null;
     }
 };

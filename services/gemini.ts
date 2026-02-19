@@ -576,11 +576,40 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 
     } catch (error: any) {
         const msg = error?.message || '';
-        // --- QUOTA LIMITS: Fail fast instead of retrying (prevents doubling API calls) ---
-        if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-            console.warn("⚠️ Quota Exceeded for Gemini 3 Pro Image.");
-            dispatchThinking("⚠️ API quota exceeded. Check billing at https://ai.dev/rate-limit");
-            throw new Error("API quota exceeded. Please check your Gemini API billing at https://ai.dev/rate-limit");
+        const isQuota = msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED');
+
+        // --- FALLBACK: Try Flux 2 when Gemini fails ---
+        if (isQuota || msg.includes('timed out') || msg.includes('503')) {
+            console.warn(`⚠️ Gemini image gen failed (${isQuota ? 'quota' : 'error'}), trying Flux 2 fallback...`);
+            dispatchThinking("🔄 Switching to Flux 2 backup...");
+            try {
+                const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || '';
+                const fluxRes = await fetch(`${apiBase}/api/generate-image-flux`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: params.prompt,
+                        width: 1024,
+                        height: params.aspectRatio === '16:9' ? 576 : params.aspectRatio === '4:5' ? 1280 : 1024,
+                    }),
+                });
+                if (fluxRes.ok) {
+                    const fluxData = await fluxRes.json();
+                    if (fluxData.image) {
+                        console.log('✓ Flux 2 fallback succeeded');
+                        dispatchThinking("✓ Generated with Flux 2");
+                        return fluxData.image;
+                    }
+                }
+                console.warn('Flux 2 fallback returned no image');
+            } catch (fluxError: any) {
+                console.warn('Flux 2 fallback failed:', fluxError.message);
+            }
+        }
+
+        if (isQuota) {
+            dispatchThinking("⚠️ All image APIs exhausted. Try again later.");
+            throw new Error("API quota exceeded and Flux 2 fallback unavailable. Please try again later.");
         }
 
         console.error("Gemini generation error:", msg);

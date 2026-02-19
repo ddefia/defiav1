@@ -981,10 +981,14 @@ const App: React.FC = () => {
         const interval = setInterval(runBackgroundScan, getDecisionLoopInterval());
         return () => clearInterval(interval);
 
-    }, [selectedBrand, automationEnabled, profiles, calendarEvents]);
+    }, [selectedBrand, automationEnabled]);
     // NOTE: socialMetrics, strategyTasks, growthReport intentionally excluded —
     // they are OUTPUTS of this effect. Including them caused a re-render loop
     // that burned 80K+ Gemini API calls/day.
+    // NOTE 2: `profiles` and `calendarEvents` also removed — they are READ inside
+    // the effect via fresh loads (loadCalendarEvents, profiles[selectedBrand]).
+    // Including them caused re-triggers on every profile sync, calendar edit,
+    // or asset update, each burning 7 Gemini API calls per re-trigger.
 
     // --- Server Health Check ---
     const [isServerOnline, setIsServerOnline] = useState<boolean>(false);

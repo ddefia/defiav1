@@ -369,6 +369,7 @@ const PUBLIC_API_PATHS = new Set([
     '/api/billing/webhook',
     // Image generation — called internally by telegram bot and client-side
     '/api/generate-image',
+    '/api/generate-image-flux',
 ]);
 
 // Prefixes for dynamic routes that should be public
@@ -2016,6 +2017,81 @@ app.post('/api/generate-image', async (req, res) => {
 
     } catch (error) {
         console.error("[Proxy] Error:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- BFL Flux 2 Image Generation Fallback ---
+
+app.post('/api/generate-image-flux', async (req, res) => {
+    try {
+        const apiKey = process.env.BFL_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({ error: 'BFL_API_KEY not configured' });
+        }
+
+        const { prompt, width, height } = req.body;
+        if (!prompt) {
+            return res.status(400).json({ error: 'prompt is required' });
+        }
+
+        // Step 1: Submit generation request
+        const submitRes = await fetch('https://api.bfl.ai/v1/flux-2-klein-9b', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-key': apiKey,
+                'accept': 'application/json',
+            },
+            body: JSON.stringify({
+                prompt: prompt.slice(0, 2000),
+                width: width || 1024,
+                height: height || 1024,
+            }),
+        });
+
+        if (!submitRes.ok) {
+            const errText = await submitRes.text().catch(() => '');
+            console.error(`[Flux2] Submit failed: ${submitRes.status} ${errText.slice(0, 200)}`);
+            return res.status(submitRes.status).json({ error: `Flux 2 submit failed: ${submitRes.status}` });
+        }
+
+        const submitData = await submitRes.json();
+        const pollingUrl = submitData.polling_url;
+        if (!pollingUrl) {
+            return res.status(500).json({ error: 'No polling_url returned from BFL' });
+        }
+
+        // Step 2: Poll for result (max 60s)
+        for (let i = 0; i < 30; i++) {
+            await new Promise(r => setTimeout(r, 2000));
+
+            const pollRes = await fetch(pollingUrl, {
+                headers: { 'x-key': apiKey, 'accept': 'application/json' },
+            });
+            if (!pollRes.ok) continue;
+
+            const pollData = await pollRes.json();
+            if (pollData.status === 'Ready' && pollData.result?.sample) {
+                // Download image and return as base64
+                const imgRes = await fetch(pollData.result.sample);
+                if (!imgRes.ok) {
+                    return res.status(500).json({ error: 'Failed to download generated image' });
+                }
+                const arrayBuffer = await imgRes.arrayBuffer();
+                const base64 = Buffer.from(arrayBuffer).toString('base64');
+                console.log('[Flux2] Success! Sending image to client.');
+                return res.json({ image: `data:image/png;base64,${base64}` });
+            }
+
+            if (pollData.status === 'Error' || pollData.status === 'Failed') {
+                return res.status(500).json({ error: `Flux 2 generation failed: ${pollData.status}` });
+            }
+        }
+
+        res.status(504).json({ error: 'Flux 2 generation timed out' });
+    } catch (error) {
+        console.error('[Flux2] Error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
