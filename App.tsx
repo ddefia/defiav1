@@ -138,6 +138,7 @@ const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
     const [isAuthLoading, setIsAuthLoading] = useState(true); // Default to dashboard
     const [isKickoffGenerating, setIsKickoffGenerating] = useState(false);
+    const [isBrandSyncing, setIsBrandSyncing] = useState(true); // True until cloud sync has had a chance to run
 
     useEffect(() => {
         const handlePopState = () => setRoute(window.location.pathname);
@@ -221,6 +222,9 @@ const App: React.FC = () => {
             } finally {
                 clearTimeout(authTimeout);
                 setIsAuthLoading(false);
+                // Give cloud sync a few seconds to deliver brand profiles before
+                // showing the empty "Connect Brand" state
+                setTimeout(() => setIsBrandSyncing(false), 4000);
             }
         };
         initAuth();
@@ -516,7 +520,8 @@ const App: React.FC = () => {
                 const stored = localStorage.getItem('ethergraph_brand_profiles_v17');
                 if (stored) {
                     const parsed = JSON.parse(stored);
-                    if (Object.keys(parsed).length > 0) {
+                    const brandKeys = Object.keys(parsed);
+                    if (brandKeys.length > 0) {
                         profilesSyncingRef.current = true;
                         setProfiles(prev => {
                             // Only update if actually different
@@ -527,6 +532,26 @@ const App: React.FC = () => {
                         });
                         // Reset sync flag after a tick
                         setTimeout(() => { profilesSyncingRef.current = false; }, 100);
+
+                        // Cloud sync delivered profiles — clear loading state
+                        setIsBrandSyncing(false);
+
+                        // Auto-select brand if none selected yet (e.g. incognito/fresh browser
+                        // where cloud sync just delivered the profiles)
+                        setSelectedBrand(prev => {
+                            if (prev && parsed[prev]) return prev; // Already have a valid selection
+                            // Try to match by user metadata first
+                            const user = loadUserProfile();
+                            if (user?.brandId && parsed[user.brandId]) return user.brandId;
+                            if (user?.brandName && parsed[user.brandName]) return user.brandName;
+                            // Check by ownerId
+                            for (const [name, config] of Object.entries(parsed)) {
+                                if ((config as any).ownerId === user?.id) return name;
+                            }
+                            // Last resort: pick first non-default brand
+                            const nonDefault = brandKeys.filter(k => !['Default', 'default'].includes(k));
+                            return nonDefault[0] || brandKeys[0];
+                        });
                     }
                 }
             } catch (e) {
@@ -1970,13 +1995,22 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {/* EMPTY STATE */}
+                {/* EMPTY STATE — show loading while cloud sync is fetching brand profiles */}
                 {(!selectedBrand || !profiles[selectedBrand]) && (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-10 animate-fadeIn">
-                        <div className="w-16 h-16 bg-brand-accent/10 text-brand-accent rounded-2xl flex items-center justify-center mb-6 text-3xl">✨</div>
-                        <h2 className="text-2xl font-bold text-brand-text mb-2">Welcome to Defia Studio</h2>
-                        <p className="text-brand-muted mb-8 max-w-md">Connect your brand identity to generate tailored content and strategies.</p>
-                        <Button onClick={handleStartOnboarding} className="shadow-xl shadow-brand-accent/20">+ Connect Brand</Button>
+                        {isBrandSyncing ? (
+                            <>
+                                <div className="w-10 h-10 border-2 border-[#FF5C00] border-t-transparent rounded-full animate-spin mb-6" />
+                                <p className="text-brand-muted">Loading your brand...</p>
+                            </>
+                        ) : (
+                            <>
+                                <div className="w-16 h-16 bg-brand-accent/10 text-brand-accent rounded-2xl flex items-center justify-center mb-6 text-3xl">✨</div>
+                                <h2 className="text-2xl font-bold text-brand-text mb-2">Welcome to Defia Studio</h2>
+                                <p className="text-brand-muted mb-8 max-w-md">Connect your brand identity to generate tailored content and strategies.</p>
+                                <Button onClick={handleStartOnboarding} className="shadow-xl shadow-brand-accent/20">+ Connect Brand</Button>
+                            </>
+                        )}
                     </div>
                 )}
 
