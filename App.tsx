@@ -1834,7 +1834,7 @@ const App: React.FC = () => {
         return (
             <AuthPage
                 mode={route === '/signup' ? 'signup' : 'login'}
-                onSuccess={(hasBrand) => {
+                onSuccess={() => {
                     // Immediately set user and brand from the fresh login
                     const freshUser = loadUserProfile();
                     if (freshUser) setCurrentUser(freshUser);
@@ -1850,20 +1850,18 @@ const App: React.FC = () => {
                         }
                     }
 
-                    // If user already has a brand (demo accounts or returning users), skip onboarding
-                    if (hasBrand || userBrand) {
-                        // Mark onboarding as complete for users with existing brands
-                        setOnboardingState({
-                            dismissed: false,
-                            completed: true,
-                            lastStep: 3,
-                            updatedAt: Date.now(),
-                        });
-                        navigate('/dashboard');
-                    } else {
-                        // New users go through onboarding
-                        navigate('/onboarding');
-                    }
+                    // Always go to dashboard after login.
+                    // Brand profiles load from cloud sync on the dashboard — no need
+                    // to check localStorage here. Only truly new signups (no Supabase
+                    // profile at all) would need onboarding, and that's handled by
+                    // the signup flow separately.
+                    setOnboardingState({
+                        dismissed: false,
+                        completed: true,
+                        lastStep: 3,
+                        updatedAt: Date.now(),
+                    });
+                    navigate('/dashboard');
                 }}
                 onSwitchMode={() => navigate(route === '/login' ? '/signup' : '/login')}
             />
