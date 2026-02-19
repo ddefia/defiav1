@@ -10,6 +10,8 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { startAgent, triggerAgentRun, runBrainCycle, runBriefingCycle } from './server/agent/scheduler.js';
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
+import { updateAllBrands } from './server/agent/ingest.js';
+import { fetchActiveBrands } from './server/agent/brandRegistry.js';
 import { crawlWebsite, deepCrawlWebsite, fetchTwitterContent, uploadCarouselGraphic, fetchDocumentContent, extractDefiMetrics } from './server/onboarding.js';
 import { fetchWeb3News, scheduledNewsFetch } from './server/services/web3News.js';
 import { generateAndCreateQueries, CHAIN_SCHEMAS } from './server/services/dune.js';
@@ -374,6 +376,7 @@ const PUBLIC_API_PATHS = new Set([
     '/api/agent/run',
     '/api/agent/briefing',
     '/api/web3-news/refresh',
+    '/api/social-sync',
 ]);
 
 // Prefixes for dynamic routes that should be public
@@ -1788,6 +1791,37 @@ app.get('/api/agent/briefing', async (req, res) => {
     }
 });
 
+// --- Social Sync (Vercel Cron) ---
+app.get('/api/social-sync', async (req, res) => {
+    try {
+        const apifyKey = process.env.APIFY_API_TOKEN;
+        if (!apifyKey) return res.status(500).json({ error: 'No Apify key' });
+
+        const supabase = getSupabaseClient();
+        const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+        if (activeBrands.length === 0) {
+            return res.json({ success: true, message: 'No active brands' });
+        }
+
+        const runPromise = updateAllBrands(apifyKey, activeBrands);
+        const timeoutMs = 55 * 1000;
+        const timeoutResult = await Promise.race([
+            runPromise.then(() => ({ done: true })),
+            new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), timeoutMs))
+        ]);
+
+        if (timeoutResult?.timeout) {
+            runPromise.catch((err) => console.error('[SocialSync] Background run failed:', err));
+            return res.status(202).json({ status: 'pending', message: 'Social sync still running.' });
+        }
+
+        return res.json({ success: true, brands: activeBrands.length });
+    } catch (e) {
+        console.error('[SocialSync] Failed:', e);
+        return res.status(500).json({ error: 'Social sync failed.' });
+    }
+});
+
 // --- Publishing Run (Scheduled Posts) ---
 app.get('/api/publish/run', async (req, res) => {
     try {
@@ -2333,26 +2367,37 @@ app.post('/api/tweet-oembed', async (req, res) => {
 
 // --- Internal Cache Endpoints ---
 
-app.get('/api/social-metrics/:brand', requireAuth, (req, res) => {
+app.get('/api/social-metrics/:brand', requireAuth, async (req, res) => {
     const { brand } = req.params;
-
-    if (!fs.existsSync(CACHE_FILE)) {
-        return res.json({ error: "Cache not built yet" });
-    }
+    const key = brand.toLowerCase();
 
     try {
-        const cache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
-        const key = brand.toLowerCase();
-        // Try exact match first, then lowercase, then case-insensitive scan
-        const data = cache[brand] || cache[key] || Object.entries(cache).find(([k]) => k.toLowerCase() === key)?.[1];
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data, error } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', 'defia_social_metrics_cache_v1')
+                .maybeSingle();
 
-        if (!data) {
-            return res.json({ error: "Brand not tracked" });
+            if (!error && data?.value) {
+                const metrics = data.value[brand] || data.value[key]
+                    || Object.entries(data.value).find(([k]) => k.toLowerCase() === key)?.[1];
+                if (metrics) return res.json(metrics);
+            }
         }
 
-        res.json(data);
+        // Fallback: try filesystem (local dev)
+        if (fs.existsSync(CACHE_FILE)) {
+            const cache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+            const fileData = cache[brand] || cache[key]
+                || Object.entries(cache).find(([k]) => k.toLowerCase() === key)?.[1];
+            if (fileData) return res.json(fileData);
+        }
+
+        res.json({ error: "Brand not tracked" });
     } catch (e) {
-        res.status(500).json({ error: "Cache read failed" });
+        res.status(500).json({ error: "Metrics read failed" });
     }
 });
 
@@ -2412,7 +2457,19 @@ app.get('/api/action-center/:brand', requireAuth, async (req, res) => {
 
     let socialMetrics = null;
     try {
-        if (fs.existsSync(CACHE_FILE)) {
+        const sbClient = getSupabaseClient();
+        if (sbClient) {
+            const { data: metricsRow } = await sbClient
+                .from('app_storage')
+                .select('value')
+                .eq('key', 'defia_social_metrics_cache_v1')
+                .maybeSingle();
+            if (metricsRow?.value) {
+                socialMetrics = metricsRow.value[brandKey] || null;
+            }
+        }
+        // Fallback: filesystem (local dev)
+        if (!socialMetrics && fs.existsSync(CACHE_FILE)) {
             const cache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
             socialMetrics = cache[brandKey] || null;
         }

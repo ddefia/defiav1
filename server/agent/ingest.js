@@ -2,20 +2,10 @@
 import fetch from 'node-fetch'; // Use built-in fetch in Node 18+, but for safety in older envs/types
 // Note: Node 18+ has global fetch.
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { getSupabaseClient } from './brandContext.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Cache is in ../cache relative to this file (server/agent -> server/cache)
-const CACHE_DIR = path.join(__dirname, '../cache');
-const CACHE_FILE = path.join(CACHE_DIR, 'social_metrics.json');
-
-// Ensure cache directory exists
-if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-}
+const SOCIAL_METRICS_KEY = 'defia_social_metrics_cache_v1';
+const MENTIONS_CACHE_KEY = 'defia_mentions_cache_v1';
 
 /**
  * INGESTION SERVICE (Server-Side)
@@ -39,33 +29,68 @@ export const fetchLunarCrushTrends = async (_apiKey, _symbol = 'ETH') => {
 };
 
 // TTL cache for mentions — avoids redundant Apify calls from overlapping cron/client/bootup triggers
-const MENTIONS_CACHE_FILE = path.join(CACHE_DIR, 'mentions_cache.json');
 const MENTIONS_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
-const getMentionsCache = (brandName) => {
+// In-memory fallback for when Supabase is unavailable
+let mentionsMemCache = {};
+
+const getMentionsCache = async (brandName) => {
+    const key = brandName.toLowerCase();
     try {
-        if (!fs.existsSync(MENTIONS_CACHE_FILE)) return null;
-        const cache = JSON.parse(fs.readFileSync(MENTIONS_CACHE_FILE, 'utf8'));
-        const entry = cache[brandName.toLowerCase()];
-        if (!entry) return null;
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data, error } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', MENTIONS_CACHE_KEY)
+                .maybeSingle();
+            if (!error && data?.value) {
+                const entry = data.value[key];
+                if (entry) {
+                    const age = Date.now() - new Date(entry.fetchedAt).getTime();
+                    if (age <= MENTIONS_TTL_MS) return entry.data;
+                }
+            }
+        }
+    } catch { /* fall through */ }
+
+    // In-memory fallback
+    const entry = mentionsMemCache[key];
+    if (entry) {
         const age = Date.now() - new Date(entry.fetchedAt).getTime();
-        if (age > MENTIONS_TTL_MS) return null; // Expired
-        return entry.data;
-    } catch {
-        return null;
+        if (age <= MENTIONS_TTL_MS) return entry.data;
     }
+    return null;
 };
 
-const setMentionsCache = (brandName, data) => {
+const setMentionsCache = async (brandName, data) => {
+    const key = brandName.toLowerCase();
+    const entry = { fetchedAt: new Date().toISOString(), data };
+
+    // Always update in-memory
+    mentionsMemCache[key] = entry;
+
     try {
-        let cache = {};
-        if (fs.existsSync(MENTIONS_CACHE_FILE)) {
-            cache = JSON.parse(fs.readFileSync(MENTIONS_CACHE_FILE, 'utf8'));
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            // Read existing, merge, write back
+            let cache = {};
+            const { data: existing } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', MENTIONS_CACHE_KEY)
+                .maybeSingle();
+            if (existing?.value) cache = existing.value;
+
+            cache[key] = entry;
+            await supabase.from('app_storage').upsert({
+                key: MENTIONS_CACHE_KEY,
+                value: cache,
+                updated_at: new Date().toISOString()
+            });
         }
-        cache[brandName.toLowerCase()] = { fetchedAt: new Date().toISOString(), data };
-        fs.writeFileSync(MENTIONS_CACHE_FILE, JSON.stringify(cache, null, 2));
     } catch (e) {
-        console.warn("[Agent/Ingest] Failed to write mentions cache:", e.message);
+        console.warn("[Agent/Ingest] Failed to write mentions cache to DB:", e.message);
     }
 };
 
@@ -73,7 +98,7 @@ export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
     if (!apiKey) return [];
 
     // Check TTL cache first — skip Apify if we have fresh data
-    const cached = getMentionsCache(brandName);
+    const cached = await getMentionsCache(brandName);
     if (cached) {
         console.log(`[Agent/Ingest] Using cached mentions for ${brandName} (< 6h old)`);
         return cached;
@@ -124,7 +149,7 @@ export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
         });
 
         // Save to cache
-        setMentionsCache(brandName, result);
+        await setMentionsCache(brandName, result);
         return result;
 
     } catch (e) {
@@ -149,28 +174,20 @@ export const updateAllBrands = async (apiKey, brands = []) => {
 
     console.log("[Agent/Ingest] Starting Daily Social Sync for all brands...");
 
-    // Initialize Supabase (Server-side)
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    const supabase = getSupabaseClient();
 
-    // We try to use supabase if available, otherwise just cache
-    // Dynamic import to avoid issues if sdk is missing in some envs
-    let supabase = null;
-    if (supabaseUrl && supabaseKey) {
-        try {
-            const { createClient } = await import('@supabase/supabase-js');
-            supabase = createClient(supabaseUrl, supabaseKey);
-        } catch (e) {
-            console.warn("[Agent/Ingest] Supabase SDK not found, skipping DB sync.");
-        }
-    }
-
+    // Load existing metrics from Supabase (or start fresh)
     let results = {};
-    if (fs.existsSync(CACHE_FILE)) {
+    if (supabase) {
         try {
-            results = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+            const { data } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', SOCIAL_METRICS_KEY)
+                .maybeSingle();
+            if (data?.value) results = data.value;
         } catch (e) {
-            console.warn("[Agent/Ingest] corrupted cache, starting fresh.");
+            console.warn("[Agent/Ingest] Failed to load existing metrics from DB:", e.message);
         }
     }
 
@@ -311,12 +328,20 @@ export const updateAllBrands = async (apiKey, brands = []) => {
         }
     }
 
-    // Save to Cache
-    try {
-        fs.writeFileSync(CACHE_FILE, JSON.stringify(results, null, 2));
-        console.log("[Agent/Ingest] Daily Sync Complete. Cache updated.");
-    } catch (e) {
-        console.error("[Agent/Ingest] Failed to write cache:", e.message);
+    // Save to Supabase
+    if (supabase) {
+        try {
+            await supabase.from('app_storage').upsert({
+                key: SOCIAL_METRICS_KEY,
+                value: results,
+                updated_at: new Date().toISOString()
+            });
+            console.log("[Agent/Ingest] Daily Sync Complete. Metrics saved to DB.");
+        } catch (e) {
+            console.error("[Agent/Ingest] Failed to save metrics to DB:", e.message);
+        }
+    } else {
+        console.warn("[Agent/Ingest] No Supabase — metrics not persisted.");
     }
 };
 
