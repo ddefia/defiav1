@@ -1818,19 +1818,17 @@ const App: React.FC = () => {
 
     // Auth pages (login/signup)
     if (isAuthRoute) {
-        // If already logged in, redirect to dashboard
+        // If already logged in, always go to dashboard — never send back to onboarding.
+        // The dashboard handles brand loading, cloud sync, etc. on its own.
         if (currentUser) {
-            // Ensure onboarding is marked complete for returning users with a brand
-            const userBrand = getCurrentUserBrand();
-            const hasBrandMeta = !!(currentUser.brandId || currentUser.brandName);
-            if ((userBrand || hasBrandMeta) && !onboardingState.completed) {
+            if (!onboardingState.completed) {
                 setOnboardingState(prev => ({
                     ...prev,
                     completed: true,
                     updatedAt: Date.now(),
                 }));
             }
-            navigate(userBrand || hasBrandMeta ? '/dashboard' : '/onboarding');
+            navigate('/dashboard');
             return null;
         }
         return (
