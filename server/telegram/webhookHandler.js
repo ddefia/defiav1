@@ -140,6 +140,13 @@ const handleTelegramWebhook = async (req, res) => {
         await processMessage(req.body);
     } catch (e) {
         console.error('[Telegram] Webhook processing error:', e.message);
+        // Last-resort: try to send error to the chat
+        try {
+            const chatId = req.body?.message?.chat?.id;
+            if (chatId) {
+                await sendMessage(chatId, `⚠️ Error: ${e.message?.slice(0, 100) || 'Unknown error'}`);
+            }
+        } catch { /* truly nothing we can do */ }
     }
 };
 
@@ -258,6 +265,10 @@ const processMessage = async (update) => {
     const botInfo = await getBotInfo();
     const cleanText = text.replace(new RegExp(`@${botInfo.username}`, 'gi'), '').trim();
 
+    // Wrap ALL processing in try/catch so errors always produce a user-visible message
+    let thinkingMsgId = null;
+
+    try {
     // Resolve brand
     if (!supabase) {
         await safeSend(chatId, formatError('Service temporarily unavailable'));
@@ -284,9 +295,7 @@ const processMessage = async (update) => {
 
     // Send "thinking" indicator
     const thinkingMsg = await safeSend(chatId, formatChatResponse('...'));
-    const thinkingMsgId = thinkingMsg?.message_id;
-
-    try {
+    thinkingMsgId = thinkingMsg?.message_id;
         // Handle image input
         let imageBase64 = null;
         let imageAnalysis = '';
