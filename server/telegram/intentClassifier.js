@@ -6,6 +6,18 @@
 
 import { GoogleGenAI } from '@google/genai';
 
+const GEMINI_TIMEOUT_MS = 15000;
+
+const withTimeout = (promise, ms = GEMINI_TIMEOUT_MS) => {
+    let timer;
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error('AI classification timed out')), ms);
+        }),
+    ]).finally(() => clearTimeout(timer));
+};
+
 const INTENTS = {
     DRAFT_CONTENT: 'DRAFT_CONTENT',       // "Create a tweet about X"
     GENERATE_IMAGE: 'GENERATE_IMAGE',     // "Make a graphic for X" or image + caption
@@ -59,8 +71,8 @@ Respond with ONLY valid JSON (no markdown fences):
 }`;
 
     try {
-        const genAI = new GoogleGenAI({ apiKey });
-        const response = await genAI.models.generateContent({
+        const genAI = new GoogleGenAI({ apiKey, httpOptions: { timeout: GEMINI_TIMEOUT_MS } });
+        const response = await withTimeout(genAI.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: { parts: [{ text: `User message: "${text || '(image only)'}"` }] },
             config: {
@@ -68,7 +80,7 @@ Respond with ONLY valid JSON (no markdown fences):
                 responseMimeType: 'application/json',
                 temperature: 0.1,
             },
-        });
+        }));
 
         const raw = response.text || '{}';
         const parsed = JSON.parse(raw);

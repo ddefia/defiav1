@@ -499,7 +499,14 @@ const processMessage = async (update) => {
 
     } catch (e) {
         console.error('[Telegram] Processing failed:', e.message);
-        const errorMsg = formatError('Something went wrong. Please try again.');
+        const isQuota = e.message?.includes('429') || e.message?.includes('quota') || e.message?.includes('RESOURCE_EXHAUSTED');
+        const isTimeout = e.message?.includes('timed out');
+        const userMsg = isQuota
+            ? 'AI quota hit — try again in a minute.'
+            : isTimeout
+            ? 'AI took too long — try again.'
+            : 'Something went wrong. Try again.';
+        const errorMsg = formatError(userMsg);
         if (thinkingMsgId) {
             try { await safeEdit(chatId, thinkingMsgId, errorMsg); } catch { /* ignore */ }
         } else {

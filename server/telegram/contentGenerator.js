@@ -7,10 +7,27 @@
 import { GoogleGenAI } from '@google/genai';
 import { getSupabaseClient } from '../agent/brandContext.js';
 
+// Vercel serverless functions timeout quickly (10s hobby, 60s pro).
+// Gemini SDK retries 429s twice with exponential backoff (~35s per retry),
+// which can easily exceed the function timeout and silently kill the response.
+// Set a short timeout and disable automatic retries for server-side calls.
+const GEMINI_TIMEOUT_MS = 15000;
+
 const getGenAI = () => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
-    return new GoogleGenAI({ apiKey });
+    return new GoogleGenAI({ apiKey, httpOptions: { timeout: GEMINI_TIMEOUT_MS } });
+};
+
+// Wrap a promise with a hard timeout to prevent Vercel function death
+const withTimeout = (promise, ms = GEMINI_TIMEOUT_MS) => {
+    let timer;
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error('AI request timed out')), ms);
+        }),
+    ]).finally(() => clearTimeout(timer));
 };
 
 // ━━━ Tweet Generation ━━━
@@ -52,13 +69,13 @@ STRUCTURE:
 ${banned}
 `;
 
-    const response = await genAI.models.generateContent({
+    const response = await withTimeout(genAI.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: { parts: [{ text: `Generate a tweet about: "${topic}"` }] },
         config: {
             systemInstruction: { parts: [{ text: systemInstruction }] },
         },
-    });
+    }));
 
     const text = response.text || '';
     return text.trim();
@@ -155,7 +172,7 @@ const analyzeReferenceStyle = async (refImage) => {
     if (!refImage) return '';
     try {
         const genAI = getGenAI();
-        const response = await genAI.models.generateContent({
+        const response = await withTimeout(genAI.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: [{ parts: [
                 { inlineData: { mimeType: refImage.mimeType, data: refImage.base64 } },
@@ -172,7 +189,7 @@ Describe with extreme precision:
 Be forensically precise. A designer reading ONLY your description should recreate this with different text.` }
             ] }],
             config: { temperature: 0.2 },
-        });
+        }));
 
         const resultText = response.candidates?.[0]?.content?.parts?.[0]?.text
             || (typeof response.text === 'function' ? response.text() : response.text)
@@ -301,7 +318,7 @@ ${refImage ? `REFERENCE IMAGE UTILIZATION (HIGHEST PRIORITY — OVERRIDES ALL OT
 const tryGeminiImageWithRef = async (prompt, refImage) => {
     try {
         const genAI = getGenAI();
-        const response = await genAI.models.generateContent({
+        const response = await withTimeout(genAI.models.generateContent({
             model: 'gemini-3-pro-image-preview',
             contents: [{ parts: [
                 // Pass the reference image so Gemini can SEE it
@@ -313,7 +330,7 @@ const tryGeminiImageWithRef = async (prompt, refImage) => {
                     aspectRatio: '1:1',
                 },
             },
-        });
+        }));
 
         const parts = response.candidates?.[0]?.content?.parts || [];
         for (const part of parts) {
@@ -334,7 +351,7 @@ const tryGeminiImageWithRef = async (prompt, refImage) => {
 const tryGeminiImage = async (prompt) => {
     try {
         const genAI = getGenAI();
-        const response = await genAI.models.generateContent({
+        const response = await withTimeout(genAI.models.generateContent({
             model: 'gemini-3-pro-image-preview',
             contents: [{ parts: [{ text: prompt }] }],
             config: {
@@ -342,7 +359,7 @@ const tryGeminiImage = async (prompt) => {
                     aspectRatio: '1:1',
                 },
             },
-        });
+        }));
 
         const parts = response.candidates?.[0]?.content?.parts || [];
         for (const part of parts) {
@@ -446,14 +463,14 @@ CONVERSATION HISTORY (IMPORTANT — this is your memory of the conversation):
 ${historyText || '(New conversation)'}
 `;
 
-    const response = await genAI.models.generateContent({
+    const response = await withTimeout(genAI.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: { parts: [{ text: message }] },
         config: {
             systemInstruction: { parts: [{ text: systemInstruction }] },
             temperature: 0.7,
         },
-    });
+    }));
 
     return (response.text || 'Sorry, I couldn\'t generate a response.').trim();
 };
@@ -477,11 +494,11 @@ const analyzeImage = async (imageBase64, caption = '') => {
         },
     ];
 
-    const response = await genAI.models.generateContent({
+    const response = await withTimeout(genAI.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: { parts },
         config: { temperature: 0.3 },
-    });
+    }));
 
     return (response.text || '').trim();
 };
@@ -537,11 +554,11 @@ const summarizeTrends = async (brandId, supabase) => {
             return `- ${headline} (${source}): ${summary}`;
         }).join('\n');
 
-        const response = await genAI.models.generateContent({
+        const response = await withTimeout(genAI.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: { parts: [{ text: `Summarize these Web3/crypto trends and news in 3-4 bullet points. Be concise:\n\n${newsText}` }] },
             config: { temperature: 0.3 },
-        });
+        }));
 
         return {
             summary: (response.text || '').trim(),
