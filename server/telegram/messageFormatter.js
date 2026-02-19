@@ -29,7 +29,7 @@ const formatDailyBriefing = (report, brandName) => {
     lines.push(`\u2615 ${bold(`Morning Brief — ${brandName || 'Your Brand'}`)}`);
     lines.push('');
 
-    // Compact metrics bar
+    // Compact metrics bar (only show if we actually have real data — hide entirely otherwise)
     const km = report.keyMetrics;
     if (km) {
         const metricParts = [];
@@ -42,9 +42,9 @@ const formatDailyBriefing = (report, brandName) => {
         }
     }
 
-    // Executive summary only — skip tactical/strategic walls of text
+    // Executive summary — keep it tight
     if (report.executiveSummary) {
-        lines.push(escapeMarkdownV2(report.executiveSummary.slice(0, 400)));
+        lines.push(escapeMarkdownV2(report.executiveSummary.slice(0, 300)));
         lines.push('');
     }
 
@@ -70,10 +70,13 @@ const formatAgentDecision = (decision) => {
 
     const icon = decision.action === 'REPLY' ? '\u21A9\uFE0F'
         : decision.action === 'TREND_JACK' ? '\u26A1'
-        : decision.action === 'CAMPAIGN' ? '\u{1F4E2}'
+        : decision.action === 'CAMPAIGN' ? '\u{1F4C1}'
         : decision.action === 'GAP_FILL' ? '\u{1F3AF}'
         : decision.action === 'Tweet' ? '\u{1F426}'
         : '\u{1F4AC}';
+
+    // Strip any hashtags that leaked through
+    const cleanDraft = (decision.draft || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
 
     const lines = [];
     lines.push(`${icon} ${bold(decision.action)}`);
@@ -82,9 +85,9 @@ const formatAgentDecision = (decision) => {
         lines.push(escapeMarkdownV2(decision.reason.slice(0, 200)));
     }
 
-    if (decision.draft) {
+    if (cleanDraft) {
         lines.push('');
-        lines.push(codeBlock(decision.draft.slice(0, 280)));
+        lines.push(codeBlock(cleanDraft.slice(0, 280)));
     }
 
     return lines.join('\n');

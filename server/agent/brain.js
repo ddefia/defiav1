@@ -52,6 +52,14 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         - Every draft must mention ${brandName} by name or reference its specific capabilities.
         - No generic "web3 is growing" posts. Be specific.
         - Drafts should be tweet-length (under 280 chars) unless it's a CAMPAIGN brief.
+        - NEVER use hashtags in drafts. No #anything. This is strictly forbidden.
+        - Space out tweets properly — use double line breaks between sections so they read like real tweets.
+
+        FORMAT RULES BY ACTION TYPE:
+        - TREND_JACK: The "reason" field should explain the trend (what is happening in the market). The "draft" field is the suggested tweet angle for ${brandName}.
+        - Tweet: The "reason" field is a brief why. The "draft" is the ready-to-post tweet.
+        - CAMPAIGN: The "reason" is the opportunity. The "draft" is a brief campaign concept (2-3 sentences max).
+        - REPLY / GAP_FILL: Standard format.
 
         Return 3 DIVERSE actions (each a DIFFERENT type) as JSON:
         {
@@ -74,11 +82,16 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(jsonStr);
 
+        // Strip hashtags from all drafts (LLMs ignore prompt rules sometimes)
+        const stripHashtags = (txt) => (txt || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
+
         // Support both new multi-action format and legacy single-action format
         if (parsed.actions && Array.isArray(parsed.actions)) {
+            parsed.actions.forEach(a => { if (a.draft) a.draft = stripHashtags(a.draft); });
             return parsed; // New format: { actions: [...] }
         }
         // Legacy single action — wrap in array
+        if (parsed.draft) parsed.draft = stripHashtags(parsed.draft);
         return { actions: [parsed] };
 
     } catch (e) {

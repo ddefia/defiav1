@@ -101,7 +101,7 @@ export const generateDailyBriefing = async (brandId) => {
     - Galaxy Score: ${lunarData.creator.galaxy_score || 'N/A'}/100
     - Social Rank: #${formatNumber(lunarData.creator.rank) || 'N/A'}
     - Sentiment: ${lunarData.creator.sentiment || 'N/A'}/5`
-        : 'SOCIAL METRICS: Not available (no LunarCrush data)';
+        : '';
 
     const topPostsSection = lunarData?.posts?.length > 0
         ? `TOP RECENT POSTS (performance data):\n${lunarData.posts.slice(0, 5).map(p =>
@@ -168,7 +168,7 @@ OUTPUT FORMAT (JSON):
 
 RULES:
 - Every claim must be backed by a number from the data.
-- If data is missing, say so — never fabricate metrics.
+- If social metrics data is unavailable, focus the briefing on recent AI actions, trends, and strategic opportunities instead. Do NOT say "no social metrics are available" — just skip metrics and focus on what you DO have.
 - Be direct and specific. "Post more" is useless. "Post a follow-up to X because it got Y interactions" is useful.
 - Strategic actions must reference metrics or trends, not vibes.
 - Max 3 strategic actions. Quality over quantity.

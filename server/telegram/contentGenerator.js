@@ -87,10 +87,12 @@ FORMATTING REQUIREMENTS:
 - YOU MUST use double line breaks between sections.
 - NO HASHTAGS (STRICTLY FORBIDDEN).`;
 
-    return generateText({
+    const raw = await generateText({
         systemPrompt,
         userMessage: `Generate a tweet about: "${topic}"`,
     });
+    // Hard strip any hashtags the LLM snuck in (e.g. #L2 #DeFi)
+    return (raw || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
 };
 
 // ━━━ Reference Image Helpers ━━━
