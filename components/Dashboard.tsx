@@ -952,19 +952,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         >
                             <div
                                 onClick={() => setIsBriefOpen(!isBriefOpen)}
-                                className="px-5 py-4 cursor-pointer hover:bg-[#FFFFFF04] transition-colors"
+                                className="px-5 py-4 cursor-pointer hover:opacity-90 transition-colors"
                             >
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2.5">
                                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center flex-shrink-0">
                                             <span className="material-symbols-sharp text-white text-base" style={{ fontVariationSettings: "'wght' 300" }}>auto_awesome</span>
                                         </div>
-                                        <span className="text-white text-sm font-semibold">Daily Brief</span>
-                                        <span className="text-[10px] text-[#4A4A4E]">{new Date(briefData.timestamp).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Daily Brief</span>
+                                        <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{new Date(briefData.timestamp).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</span>
                                         {(() => {
                                             const hoursAgo = Math.floor((Date.now() - briefData.timestamp) / (1000 * 60 * 60));
                                             if (hoursAgo >= 1) {
-                                                return <span className="text-[10px] text-[#4A4A4E]">· {hoursAgo}h ago</span>;
+                                                return <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>· {hoursAgo}h ago</span>;
                                             }
                                             return (
                                                 <span className="flex items-center gap-1 text-[10px] text-[#22C55E] font-medium">
@@ -979,12 +979,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         <span className="material-symbols-sharp text-sm transition-transform duration-200" style={{ fontVariationSettings: "'wght' 300", transform: isBriefOpen ? 'rotate(90deg)' : 'none' }}>arrow_forward</span>
                                     </div>
                                 </div>
-                                <p className={`text-[13px] text-[#D1D5DB] leading-[1.7] ${isBriefOpen ? '' : 'line-clamp-3'}`}>{renderRichText(briefData.confidence.explanation)}</p>
+                                <p className={`text-[13px] leading-[1.7] ${isBriefOpen ? '' : 'line-clamp-3'}`} style={{ color: 'var(--text-secondary)' }}>{renderRichText(briefData.confidence.explanation)}</p>
                             </div>
 
                             {/* Expanded brief content */}
                             {isBriefOpen && (
-                                <div className="px-5 pb-5 border-t border-[#1F1F2380]">
+                                <div className="px-5 pb-5 border-t" style={{ borderColor: 'var(--border)' }}>
                                     {/* Metrics Snapshot Strip */}
                                     {briefData.metricsSnapshot && briefData.metricsSnapshot.length > 0 && (
                                         <div className="flex gap-3 pt-4 pb-3 overflow-x-auto">
@@ -1189,9 +1189,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div
                         onClick={() => onNavigate('recommendations')}
                         className="rounded-xl border border-[#FF5C0044] overflow-hidden mb-7 cursor-pointer hover:border-[#FF5C0088] transition-all group"
-                        style={{ background: 'linear-gradient(135deg, #111113 0%, #1A120D 100%)' }}
+                        style={{ background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-secondary) 100%)' }}
                     >
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-[#FF5C0033]">
+                        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
                             <div className="flex items-center gap-2.5">
                                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center">
                                     <span className="material-symbols-sharp text-white text-[16px]">auto_awesome</span>
