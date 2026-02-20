@@ -15,20 +15,41 @@ import { generateText } from '../telegram/llm.js';
 
 const fetchLunarCrushData = async (xHandle) => {
     const apiKey = process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
-    if (!apiKey || !xHandle) return null;
+    if (!apiKey) {
+        console.warn('[Generator] LunarCrush: No API key found (set LUNARCRUSH_API_KEY or VITE_LUNARCRUSH_API_KEY in Vercel env vars)');
+        return null;
+    }
+    if (!xHandle) {
+        console.warn('[Generator] LunarCrush: No X handle provided');
+        return null;
+    }
+
+    // LunarCrush expects handle without @ prefix
+    const cleanHandle = xHandle.replace(/^@/, '');
+    console.log(`[Generator] LunarCrush: Fetching data for @${cleanHandle}...`);
 
     try {
         const [creatorRes, postsRes] = await Promise.all([
-            fetch(`https://lunarcrush.com/api4/public/creator/twitter/${xHandle}/v1`, {
+            fetch(`https://lunarcrush.com/api4/public/creator/twitter/${cleanHandle}/v1`, {
                 headers: { 'Authorization': `Bearer ${apiKey}` },
             }),
-            fetch(`https://lunarcrush.com/api4/public/creator/twitter/${xHandle}/posts/v1`, {
+            fetch(`https://lunarcrush.com/api4/public/creator/twitter/${cleanHandle}/posts/v1`, {
                 headers: { 'Authorization': `Bearer ${apiKey}` },
             }),
         ]);
 
+        if (!creatorRes.ok) {
+            console.warn(`[Generator] LunarCrush creator endpoint: ${creatorRes.status} for @${cleanHandle}`);
+        }
+        if (!postsRes.ok) {
+            console.warn(`[Generator] LunarCrush posts endpoint: ${postsRes.status} for @${cleanHandle}`);
+        }
+
         const creator = creatorRes.ok ? await creatorRes.json() : null;
         const posts = postsRes.ok ? await postsRes.json() : null;
+
+        const hasData = !!creator?.data;
+        console.log(`[Generator] LunarCrush result for @${cleanHandle}: creator=${hasData}, posts=${posts?.data?.length || 0}`);
 
         return { creator: creator?.data, posts: posts?.data?.slice(0, 10) };
     } catch (e) {

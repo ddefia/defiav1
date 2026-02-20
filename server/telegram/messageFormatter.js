@@ -87,7 +87,8 @@ const formatAgentDecision = (decision) => {
 
     if (cleanDraft) {
         lines.push('');
-        lines.push(codeBlock(cleanDraft.slice(0, 280)));
+        // Render draft as italic quoted text — not a code block
+        lines.push(italic(cleanDraft.slice(0, 280)));
     }
 
     return lines.join('\n');
@@ -96,11 +97,13 @@ const formatAgentDecision = (decision) => {
 // ━━━ Tweet Draft ━━━
 
 const formatTweetDraft = (text, reasoning) => {
+    // Strip hashtags from tweet text
+    const clean = (text || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
     const lines = [];
-    lines.push(codeBlock(text));
+    lines.push(italic(clean));
     if (reasoning) {
         lines.push('');
-        lines.push(`${italic(reasoning)}`);
+        lines.push(escapeMarkdownV2(reasoning));
     }
     return lines.join('\n');
 };
