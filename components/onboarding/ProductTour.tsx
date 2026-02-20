@@ -11,7 +11,7 @@ interface ProductTourProps {
     onSkip: () => void;
 }
 
-type SlideVisualType = 'welcome' | 'ai' | 'dashboard' | 'studio' | 'theme' | 'pricing' | 'trial' | 'complete';
+type SlideVisualType = 'welcome' | 'ai' | 'dashboard' | 'studio' | 'telegram' | 'theme' | 'pricing' | 'trial' | 'complete';
 
 interface Slide {
     icon: string;
@@ -55,6 +55,13 @@ const SLIDES: Slide[] = [
         description: 'Generate tweets, threads, and on-brand graphics in seconds. AI-matched to your voice, style, and strategy.',
         accent: '#8B5CF6',
         visual: 'studio',
+    },
+    {
+        icon: 'send',
+        title: 'Telegram Assistant',
+        description: 'Add our bot to your Telegram group. Get daily briefings, draft tweets, generate graphics, and chat with your AI CMO \u2014 without leaving Telegram.',
+        accent: '#0088CC',
+        visual: 'telegram',
     },
     {
         icon: 'palette',
@@ -221,6 +228,42 @@ const StudioVisual: React.FC<{ draft?: string }> = ({ draft }) => {
         </div>
     );
 };
+
+const TelegramVisual: React.FC = () => (
+    <div className="space-y-2.5">
+        {[
+            { text: 'What should we post about today?', isUser: true },
+            { text: 'ETH L2 fees just hit all-time lows. Great angle for a thread on why your users should care.', isBot: true },
+            { text: 'I drafted a tweet and a graphic. Want me to adjust the tone?', isBot: true },
+        ].map((msg, i) => (
+            <div key={i} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
+                <div
+                    className="rounded-xl px-3.5 py-2 max-w-[85%]"
+                    style={{
+                        backgroundColor: msg.isUser ? 'rgba(0, 136, 204, 0.15)' : 'var(--bg-tertiary)',
+                        border: msg.isUser ? '1px solid rgba(0, 136, 204, 0.2)' : '1px solid var(--border)',
+                    }}
+                >
+                    {msg.isBot && (
+                        <div className="text-[10px] font-semibold mb-1" style={{ color: '#0088CC' }}>Defia Bot</div>
+                    )}
+                    <p className="text-xs leading-relaxed m-0" style={{ color: 'var(--text-secondary)' }}>{msg.text}</p>
+                </div>
+            </div>
+        ))}
+        <div className="flex gap-1.5 justify-center pt-1">
+            {['Daily Briefs', 'Tweet Drafts', 'AI Graphics', 'Trend Alerts'].map((f) => (
+                <span
+                    key={f}
+                    className="text-[9px] font-medium px-2 py-1 rounded-full"
+                    style={{ backgroundColor: 'rgba(0, 136, 204, 0.08)', color: '#0088CC', border: '1px solid rgba(0, 136, 204, 0.15)' }}
+                >
+                    {f}
+                </span>
+            ))}
+        </div>
+    </div>
+);
 
 const ThemeVisual: React.FC<{ currentTheme?: 'dark' | 'light'; onThemeChange?: (t: 'dark' | 'light') => void }> = ({ currentTheme = 'dark', onThemeChange }) => (
     <div className="flex items-center justify-center gap-5">
@@ -474,6 +517,8 @@ export const ProductTour: React.FC<ProductTourProps> = ({
                 return <DashboardVisual metrics={socialMetrics} />;
             case 'studio':
                 return <StudioVisual draft={sampleDraft} />;
+            case 'telegram':
+                return <TelegramVisual />;
             case 'theme':
                 return <ThemeVisual currentTheme={currentTheme} onThemeChange={onThemeChange} />;
             case 'pricing':

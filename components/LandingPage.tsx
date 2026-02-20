@@ -933,8 +933,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           ))}
         </div>
 
-        {/* Bottom row — 3 compact feature cards */}
-        <div className="lp-features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '16px' }}>
+        {/* Bottom row — 4 compact feature cards */}
+        <div className="lp-features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginTop: '16px' }}>
           {[
             {
               icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
@@ -953,6 +953,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
               color: '#F59E0B',
               title: 'News Intelligence',
               desc: 'AI monitors crypto news and market events to surface timely content opportunities.',
+            },
+            {
+              icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0088CC" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>,
+              color: '#0088CC',
+              title: 'Telegram Assistant',
+              desc: 'An AI co-pilot in your group chat. Daily briefings, tweet drafts, graphics, and trend alerts — all via natural conversation.',
             },
           ].map((f, i) => (
             <div
@@ -1021,7 +1027,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           {[
             { num: '01', title: 'Connect Your Brand', desc: 'Link your Twitter account and upload your brand kit. The AI learns your voice, tone, and audience in minutes.', visual: 'connect', accentColor: '#FF5C00' },
             { num: '02', title: 'Get AI Recommendations', desc: 'Your AI CMO analyzes trends and suggests campaigns, tweets, and strategies. Review and customize as needed.', visual: 'recommend', accentColor: '#3B82F6' },
-            { num: '03', title: 'Watch It Execute', desc: 'Content gets posted automatically on your schedule. Track performance in real-time from your dashboard.', visual: 'execute', accentColor: '#22C55E' }
+            { num: '03', title: 'Watch It Execute', desc: 'Content gets posted on your schedule. Get daily briefings and AI recommendations delivered straight to your Telegram group.', visual: 'execute', accentColor: '#22C55E' }
           ].map((step, i) => (
             <div
               key={i}
@@ -1102,6 +1108,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
                       ))}
                     </div>
                     <span style={{ fontSize: '11px', color: '#22C55E', fontWeight: 500 }}>Auto-posting in progress...</span>
+                    <div className="flex items-center" style={{ gap: '6px', marginTop: '2px' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0088CC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+                      <span style={{ fontSize: '11px', color: '#0088CC', fontWeight: 500 }}>Briefing sent to Telegram</span>
+                    </div>
                   </div>
                 )}
               </div>
