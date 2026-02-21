@@ -11,6 +11,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
   const [showMobileModal, setShowMobileModal] = useState(false);
   const [heroWordIndex, setHeroWordIndex] = useState(0);
+  const [showDemo, setShowDemo] = useState(false);
+  const demoRef = useRef<HTMLVideoElement>(null);
   const [statsAnimated, setStatsAnimated] = useState(false);
   const [statValues, setStatValues] = useState({ projects: 0, tweets: 0, engagement: 0 });
   const [barsVisible, setBarsVisible] = useState(false);
@@ -703,23 +705,47 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           </button>
           <button
             className="flex items-center"
-            style={{ gap: '10px', padding: '18px 36px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', transition: 'all 0.3s ease', backdropFilter: 'blur(10px)', position: 'relative' }}
+            style={{ gap: '10px', padding: '18px 36px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${showDemo ? '#FF5C00' : 'rgba(255,255,255,0.1)'}`, cursor: 'pointer', transition: 'all 0.3s ease', backdropFilter: 'blur(10px)', position: 'relative' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FF5C00'; e.currentTarget.style.backgroundColor = 'rgba(255,92,0,0.05)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
+            onMouseLeave={(e) => { if (!showDemo) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; } e.currentTarget.style.backgroundColor = showDemo ? 'rgba(255,92,0,0.03)' : 'rgba(255,255,255,0.04)'; }}
             onClick={() => {
-              const btn = document.getElementById('demo-toast');
-              if (btn) { btn.style.opacity = '1'; btn.style.transform = 'translateY(0)'; setTimeout(() => { btn.style.opacity = '0'; btn.style.transform = 'translateY(8px)'; }, 2000); }
+              setShowDemo(prev => {
+                if (!prev && demoRef.current) {
+                  setTimeout(() => demoRef.current?.play(), 100);
+                } else if (prev && demoRef.current) {
+                  demoRef.current.pause();
+                }
+                return !prev;
+              });
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="#FFFFFF"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            <span style={{ fontSize: '16px', fontWeight: 500, color: '#FFFFFF' }}>Watch Demo</span>
-            <span
-              id="demo-toast"
-              style={{ position: 'absolute', top: '110%', left: '50%', transform: 'translateX(-50%) translateY(8px)', whiteSpace: 'nowrap', fontSize: '12px', color: '#FF5C00', background: '#1A1A1E', border: '1px solid #2E2E2E', borderRadius: '8px', padding: '6px 14px', opacity: 0, transition: 'all 0.3s ease', pointerEvents: 'none' }}
-            >
-              Coming soon
-            </span>
+            <span style={{ fontSize: '16px', fontWeight: 500, color: '#FFFFFF' }}>{showDemo ? 'Hide Demo' : 'Watch Demo'}</span>
           </button>
+        </div>
+
+        {/* Demo Video */}
+        <div
+          style={{
+            maxWidth: '1100px',
+            width: '100%',
+            overflow: 'hidden',
+            borderRadius: '20px',
+            border: showDemo ? '1px solid rgba(255,92,0,0.2)' : '1px solid transparent',
+            boxShadow: showDemo ? '0 40px 120px rgba(255,92,0,0.1)' : 'none',
+            maxHeight: showDemo ? '800px' : '0',
+            opacity: showDemo ? 1 : 0,
+            transition: 'max-height 0.5s ease, opacity 0.4s ease, border-color 0.3s ease, box-shadow 0.3s ease',
+          }}
+        >
+          <video
+            ref={demoRef}
+            src="/demo.mp4"
+            controls
+            playsInline
+            preload="metadata"
+            style={{ width: '100%', display: 'block', borderRadius: '20px' }}
+          />
         </div>
 
         {/* Product Mockup with glowing rotating border */}

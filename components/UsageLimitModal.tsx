@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { PlanTier, PlanLimits } from '../types';
 import { PLAN_LIMITS, PLAN_NAMES, PLAN_PRICES } from '../services/subscription';
 
-export type LimitType = 'content' | 'image' | 'campaign' | 'knowledgeBase' | 'competitor';
+export type LimitType = 'content' | 'image' | 'campaign' | 'knowledgeBase' | 'competitor' | 'trial_expired';
 
 interface UsageLimitModalProps {
     isOpen: boolean;
@@ -20,11 +20,12 @@ const LIMIT_CONFIG: Record<LimitType, {
     unit: string;
     limitKey: keyof PlanLimits;
 }> = {
-    content:       { label: 'Content Pieces', icon: 'edit_note', unit: '/mo',  limitKey: 'contentPerMonth' },
-    image:         { label: 'AI Images',      icon: 'image',     unit: '/mo',  limitKey: 'imagesPerMonth' },
-    campaign:      { label: 'Campaigns',      icon: 'campaign',  unit: '',     limitKey: 'maxCampaigns' },
-    knowledgeBase: { label: 'Knowledge Docs', icon: 'menu_book', unit: '',     limitKey: 'maxKnowledgeDocs' },
-    competitor:    { label: 'Competitors',    icon: 'swords',    unit: '',     limitKey: 'maxCompetitors' },
+    content:        { label: 'Content Pieces', icon: 'edit_note',     unit: '/mo',  limitKey: 'contentPerMonth' },
+    image:          { label: 'AI Images',      icon: 'image',         unit: '/mo',  limitKey: 'imagesPerMonth' },
+    campaign:       { label: 'Campaigns',      icon: 'campaign',      unit: '',     limitKey: 'maxCampaigns' },
+    knowledgeBase:  { label: 'Knowledge Docs', icon: 'menu_book',     unit: '',     limitKey: 'maxKnowledgeDocs' },
+    competitor:     { label: 'Competitors',    icon: 'swords',        unit: '',     limitKey: 'maxCompetitors' },
+    trial_expired:  { label: 'Free Trial',     icon: 'timer_off',     unit: '',     limitKey: 'contentPerMonth' },
 };
 
 const TIER_ORDER: PlanTier[] = ['starter', 'growth', 'enterprise'];
@@ -123,7 +124,7 @@ export const UsageLimitModal: React.FC<UsageLimitModalProps> = ({
                         className="text-xl font-bold text-center mb-2"
                         style={{ color: 'var(--text-primary)' }}
                     >
-                        You've hit your limit
+                        {limitType === 'trial_expired' ? 'Your free trial has ended' : "You've hit your limit"}
                     </h2>
 
                     {/* Description */}
@@ -131,12 +132,21 @@ export const UsageLimitModal: React.FC<UsageLimitModalProps> = ({
                         className="text-sm text-center mb-6 leading-relaxed"
                         style={{ color: 'var(--text-muted)' }}
                     >
-                        You've used all {max} {config.label.toLowerCase()} on your{' '}
-                        <span style={{ color: 'var(--text-primary)' }} className="font-medium">{currentTierName}</span>{' '}
-                        plan{config.unit === '/mo' ? ' this month' : ''}.
+                        {limitType === 'trial_expired' ? (
+                            <>
+                                Upgrade to a paid plan to keep creating content, generating images, and running your AI marketing engine.
+                            </>
+                        ) : (
+                            <>
+                                You've used all {max} {config.label.toLowerCase()} on your{' '}
+                                <span style={{ color: 'var(--text-primary)' }} className="font-medium">{currentTierName}</span>{' '}
+                                plan{config.unit === '/mo' ? ' this month' : ''}.
+                            </>
+                        )}
                     </p>
 
-                    {/* Usage bar */}
+                    {/* Usage bar — hide for trial expired */}
+                    {limitType !== 'trial_expired' && (
                     <div className="mb-6">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
@@ -156,6 +166,7 @@ export const UsageLimitModal: React.FC<UsageLimitModalProps> = ({
                             />
                         </div>
                     </div>
+                    )}
 
                     {/* Plan comparison */}
                     {nextTier && nextTierLimit !== null && (

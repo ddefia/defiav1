@@ -91,6 +91,7 @@ export interface BrandSubscription {
   limits: PlanLimits;
   usage: PlanUsage;
   trialEndsAt?: number;         // timestamp
+  stripeSubscriptionId?: string; // set by Stripe webhook — distinguishes paid from trial
   billingPeriod: 'monthly' | 'annual';
 }
 

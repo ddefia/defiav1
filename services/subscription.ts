@@ -88,6 +88,19 @@ export const getResetUsage = (usage: PlanUsage): PlanUsage => {
     return usage;
 };
 
+// ─── Trial Expiration ────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the user's free trial has expired and they have NOT upgraded
+ * via Stripe. Paid subscribers (with a stripeSubscriptionId) are never expired.
+ */
+export const isTrialExpired = (subscription?: BrandSubscription): boolean => {
+    if (!subscription) return false;              // No sub = legacy/dev mode, allow
+    if (!subscription.trialEndsAt) return false;  // No trial set (e.g. imported data)
+    if (subscription.stripeSubscriptionId) return false; // Paid user — never expired
+    return Date.now() > subscription.trialEndsAt;
+};
+
 // ─── Limit Checking ──────────────────────────────────────────────────────────
 
 export interface LimitCheckResult {
@@ -95,6 +108,7 @@ export interface LimitCheckResult {
     current: number;
     max: number;
     label: string;
+    trialExpired?: boolean; // true when blocked specifically by trial expiration
 }
 
 type UsageLimitKey = 'contentPerMonth' | 'imagesPerMonth';
@@ -106,7 +120,7 @@ const USAGE_LABELS: Record<UsageLimitKey, string> = {
 
 /**
  * Checks whether a usage-based action (content generation or image generation)
- * is within the plan limit. Handles unlimited (-1) and monthly resets.
+ * is within the plan limit. Also blocks if the free trial has expired.
  */
 export const checkUsageLimit = (
     subscription: BrandSubscription | undefined,
@@ -115,6 +129,11 @@ export const checkUsageLimit = (
     if (!subscription) {
         // No subscription = unlimited (legacy/dev mode)
         return { allowed: true, current: 0, max: -1, label: USAGE_LABELS[limitKey] };
+    }
+
+    // Block if free trial expired and no Stripe subscription
+    if (isTrialExpired(subscription)) {
+        return { allowed: false, current: 0, max: 0, label: USAGE_LABELS[limitKey], trialExpired: true };
     }
 
     const max = subscription.limits[limitKey];
@@ -135,6 +154,7 @@ export const checkUsageLimit = (
 
 /**
  * Checks a static limit (campaigns, competitors, knowledge docs) against a current count.
+ * Also blocks if the free trial has expired.
  */
 export const checkCountLimit = (
     subscription: BrandSubscription | undefined,
@@ -149,6 +169,11 @@ export const checkCountLimit = (
 
     if (!subscription) {
         return { allowed: true, current: currentCount, max: -1, label: labels[limitKey] };
+    }
+
+    // Block if free trial expired and no Stripe subscription
+    if (isTrialExpired(subscription)) {
+        return { allowed: false, current: currentCount, max: 0, label: labels[limitKey], trialExpired: true };
     }
 
     const max = subscription.limits[limitKey];

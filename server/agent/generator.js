@@ -202,6 +202,7 @@ RULES:
             userMessage: "Generate the daily marketing briefing based on the live data provided.",
             temperature: 0.3,
             jsonMode: true,
+            _source: 'agent-cron', _endpoint: 'generator.dailyBriefing',
         });
 
         const parsed = JSON.parse(text || '{}');

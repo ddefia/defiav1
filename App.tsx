@@ -33,6 +33,7 @@ import { TermsOfService } from './components/TermsOfService';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { OnboardingPrompt } from './components/onboarding/OnboardingPrompt';
 import { ProductTour } from './components/onboarding/ProductTour';
+import { AdminDashboard } from './components/AdminDashboard';
 import { RecommendationDetail } from './components/RecommendationDetail';
 import { RecommendationsPage, generateSupplementalRecs } from './components/RecommendationsPage';
 import { NewsArticleDetail } from './components/NewsArticleDetail';
@@ -118,6 +119,7 @@ const sectionRoutes: Record<string, string> = {
     news: '/web3-news',
     'recommendation-detail': '/recommendation-detail',
     'news-article': '/news-article',
+    admin: '/admin',
 };
 
 const getSectionFromPath = (path: string) => {
@@ -2265,6 +2267,11 @@ const App: React.FC = () => {
                         agentDecisions={agentDecisions}
                         onNavigate={handleNavigate}
                     />
+                )}
+
+                {/* SECTION: ADMIN DASHBOARD */}
+                {appSection === 'admin' && (
+                    <AdminDashboard onNavigate={handleNavigate} />
                 )}
 
 

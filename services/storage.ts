@@ -214,8 +214,12 @@ export const loadBrandProfiles = (): Record<string, BrandConfig> => {
                     if (cCount > 20 && lCount < 20) cloudHasMoreImages = true;
                 });
 
-                if (cloudTs > localTs || cloudHasMoreImages) {
-                    console.log("Cloud data found (Newer or More Complete). Updating local cache.");
+                // FIX: If local only has default/empty profiles, always trust cloud
+                const localBrandKeys = Object.keys(localData).filter(k => !['Default', 'default'].includes(k));
+                const localIsEmpty = localBrandKeys.length === 0;
+
+                if (cloudTs > localTs || cloudHasMoreImages || localIsEmpty) {
+                    console.log("Cloud data found (Newer or More Complete or Local Empty). Updating local cache.");
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(result.value));
                     setLocalTimestamp(STORAGE_KEY, cloudTs);
 

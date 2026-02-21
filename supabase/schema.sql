@@ -290,3 +290,25 @@ create table if not exists telegram_links (
 create unique index if not exists telegram_links_brand_chat_unique on telegram_links (brand_id, chat_id);
 create index if not exists telegram_links_brand_idx on telegram_links (brand_id);
 create index if not exists telegram_links_chat_idx on telegram_links (chat_id);
+
+-- API usage logs for cost tracking
+create table if not exists api_usage_logs (
+  id bigserial primary key,
+  provider text not null,            -- 'gemini' | 'apify' | 'lunarcrush' | 'dune' | 'imagen' | 'flux' | 'groq'
+  model text,                        -- 'gemini-2.0-flash', 'text-embedding-004', etc.
+  endpoint text not null,            -- '/api/gemini/generate', 'generateText', etc.
+  tokens_in integer,
+  tokens_out integer,
+  estimated_cost_usd numeric(10,6),
+  brand_id uuid,
+  user_id uuid,
+  source text not null,              -- 'client-proxy' | 'telegram-bot' | 'agent-cron' | 'image-gen'
+  status_code integer,
+  duration_ms integer,
+  created_at timestamptz default now()
+);
+
+create index if not exists api_usage_logs_provider_idx on api_usage_logs (provider);
+create index if not exists api_usage_logs_created_idx on api_usage_logs (created_at);
+create index if not exists api_usage_logs_brand_idx on api_usage_logs (brand_id);
+create index if not exists api_usage_logs_source_idx on api_usage_logs (source);

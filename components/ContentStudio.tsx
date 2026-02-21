@@ -225,10 +225,10 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
     const handleGenerateTweet = async () => {
         if (!tweetTopic.trim()) return;
-        // Enforce content usage limit
+        // Enforce content usage limit (also blocks expired trials)
         const contentCheck = checkUsageLimit(brandConfig.subscription, 'contentPerMonth');
         if (!contentCheck.allowed) {
-            setLimitModal({ limitType: 'content', current: contentCheck.current, max: contentCheck.max });
+            setLimitModal({ limitType: contentCheck.trialExpired ? 'trial_expired' : 'content', current: contentCheck.current, max: contentCheck.max });
             return;
         }
         setIsGeneratingTweet(true);
@@ -313,10 +313,10 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     };
 
     const handleAIWrite = async () => {
-        // Enforce content usage limit
+        // Enforce content usage limit (also blocks expired trials)
         const contentCheck = checkUsageLimit(brandConfig.subscription, 'contentPerMonth');
         if (!contentCheck.allowed) {
-            setLimitModal({ limitType: 'content', current: contentCheck.current, max: contentCheck.max });
+            setLimitModal({ limitType: contentCheck.trialExpired ? 'trial_expired' : 'content', current: contentCheck.current, max: contentCheck.max });
             return;
         }
         setIsWritingTweet(true);
@@ -354,10 +354,10 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
     const handleGenerateSingle = async () => {
         if (!tweetText && !visualPrompt && !selectedTemplate) return;
-        // Enforce image usage limit
+        // Enforce image usage limit (also blocks expired trials)
         const imageCheck = checkUsageLimit(brandConfig.subscription, 'imagesPerMonth');
         if (!imageCheck.allowed) {
-            setLimitModal({ limitType: 'image', current: imageCheck.current, max: imageCheck.max });
+            setLimitModal({ limitType: imageCheck.trialExpired ? 'trial_expired' : 'image', current: imageCheck.current, max: imageCheck.max });
             return;
         }
         setIsGenerating(true);
@@ -409,10 +409,10 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
     const handleGeneratePreviewImage = async () => {
         if (!generatedTweetPreview) return;
-        // Enforce image usage limit
+        // Enforce image usage limit (also blocks expired trials)
         const imageCheck = checkUsageLimit(brandConfig.subscription, 'imagesPerMonth');
         if (!imageCheck.allowed) {
-            setLimitModal({ limitType: 'image', current: imageCheck.current, max: imageCheck.max });
+            setLimitModal({ limitType: imageCheck.trialExpired ? 'trial_expired' : 'image', current: imageCheck.current, max: imageCheck.max });
             return;
         }
         setIsGenerating(true);

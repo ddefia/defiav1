@@ -38,7 +38,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 }) => {
     // View State: 'list' | 'wizard'
     const [viewMode, setViewMode] = useState<'list' | 'wizard'>('list');
-    const [limitModal, setLimitModal] = useState<{ current: number; max: number } | null>(null);
+    const [limitModal, setLimitModal] = useState<{ current: number; max: number; limitType?: 'campaign' | 'trial_expired' } | null>(null);
     const { showToast } = useToast();
     const [promptProvenance, setPromptProvenance] = useState<string>('Manual Creation');
     const [showBrief, setShowBrief] = useState<boolean>(false);
@@ -248,7 +248,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const tryStartCampaign = () => {
         const campCheck = checkCountLimit(brandConfig.subscription, 'maxCampaigns', getActiveCampaigns().length);
         if (!campCheck.allowed) {
-            setLimitModal({ current: campCheck.current, max: campCheck.max });
+            setLimitModal({ current: campCheck.current, max: campCheck.max, limitType: campCheck.trialExpired ? 'trial_expired' : 'campaign' });
             return false;
         }
         return true;
@@ -2435,7 +2435,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                 {limitModal && (
                     <UsageLimitModal
                         isOpen={true}
-                        limitType="campaign"
+                        limitType={limitModal.limitType || 'campaign'}
                         current={limitModal.current}
                         max={limitModal.max}
                         currentPlan={brandConfig.subscription?.plan || 'starter'}

@@ -612,8 +612,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             )}
 
-            {/* Trial Countdown Banner */}
-            {trialEndsAt && !trialBannerDismissed && trialTimeLeft && (
+            {/* Trial Countdown Banner — always show when expired (non-dismissible), otherwise respect dismiss */}
+            {trialEndsAt && trialTimeLeft && (trialTimeLeft === 'expired' || !trialBannerDismissed) && (
                 <div
                     className="rounded-xl p-4 flex items-center justify-between"
                     style={{

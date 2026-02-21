@@ -76,6 +76,8 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
 
         const text = await generateText({
             userMessage: prompt,
+            _source: 'agent-cron', _endpoint: 'brain.analyzeState',
+            _brandId: brandProfile.brandId || null,
         });
 
         // SimpleJSON cleanup

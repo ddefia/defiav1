@@ -43,6 +43,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'twitter-feed', label: 'Twitter Feed', icon: 'tag' },
     ];
 
+    // Admin nav — only visible to admin emails
+    const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean);
+    const isAdmin = !!(userProfile?.email && adminEmails.includes(userProfile.email.toLowerCase()));
+
     const handleSignOut = async () => {
         await signOut();
     };
@@ -211,6 +215,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     })}
                 </div>
             </div>
+
+            {/* ADMIN Section — hidden unless admin */}
+            {isAdmin && (
+                <div className={`${isCollapsed ? 'px-2' : 'px-4'} pb-2`}>
+                    {!isCollapsed && <div className="px-4 py-3 text-sm font-normal" style={{ color: 'var(--text-muted)' }}>ADMIN</div>}
+                    {isCollapsed && <div className="py-2 my-2" style={{ borderTop: '1px solid var(--border)' }} />}
+                    <button
+                        onClick={() => onNavigate('admin')}
+                        title={isCollapsed ? 'Admin' : undefined}
+                        className={`w-full flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-4 px-4 py-3'} rounded-full transition-colors`}
+                        style={{
+                            backgroundColor: currentSection === 'admin' ? 'var(--hover-bg)' : undefined,
+                            color: currentSection === 'admin' ? 'var(--text-primary)' : 'var(--text-muted)',
+                        }}
+                    >
+                        <span
+                            className="material-symbols-sharp text-2xl flex-shrink-0"
+                            style={{
+                                color: currentSection === 'admin' ? 'var(--text-primary)' : 'var(--text-muted)',
+                                fontVariationSettings: "'wght' 100"
+                            }}
+                        >
+                            admin_panel_settings
+                        </span>
+                        {!isCollapsed && <span className="text-base">Admin</span>}
+                    </button>
+                </div>
+            )}
 
             {/* Collapse Toggle */}
             <div className={`${isCollapsed ? 'px-2' : 'px-4'} py-2`}>

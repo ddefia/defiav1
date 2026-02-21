@@ -9,6 +9,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
+import { logApiUsage, estimateCost } from '../services/usageLogger.js';
 
 const TIMEOUT_MS = 15000;
 
@@ -98,15 +99,30 @@ const callGroq = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode
  * @param {string} opts.userMessage - User/input message (required)
  * @param {number} opts.temperature - 0.0-1.0 (default 0.5)
  * @param {boolean} opts.jsonMode - Request JSON output (default false)
+ * @param {string} [opts._source] - Log source tag (e.g. 'agent-cron', 'telegram-bot')
+ * @param {string} [opts._endpoint] - Log endpoint label (e.g. 'brain.analyzeState')
+ * @param {string} [opts._brandId] - Brand UUID for attribution
  * @returns {Promise<string>} Generated text
  */
 const generateText = async (opts) => {
     let geminiError;
+    const start = Date.now();
 
     // Try Gemini first
     try {
         const result = await callGemini(opts);
-        if (result) return result;
+        if (result) {
+            // Log successful Gemini call
+            logApiUsage({
+                provider: 'gemini', model: 'gemini-2.0-flash',
+                endpoint: opts._endpoint || 'generateText',
+                source: opts._source || 'server-llm',
+                brand_id: opts._brandId || null,
+                status_code: 200, duration_ms: Date.now() - start,
+                estimated_cost_usd: estimateCost('gemini-2.0-flash', 500, 300), // rough estimate
+            });
+            return result;
+        }
     } catch (e) {
         geminiError = e;
         const isRetryable = e.message?.includes('429')
@@ -117,6 +133,13 @@ const generateText = async (opts) => {
             || e.message?.includes('overloaded');
         if (!isRetryable) throw e; // Non-retryable errors (bad prompt, auth, etc.) — don't fallback
         console.warn(`[LLM] Gemini failed (${e.message?.slice(0, 80)}), trying Groq fallback...`);
+        logApiUsage({
+            provider: 'gemini', model: 'gemini-2.0-flash',
+            endpoint: opts._endpoint || 'generateText',
+            source: opts._source || 'server-llm',
+            brand_id: opts._brandId || null,
+            status_code: 429, duration_ms: Date.now() - start, estimated_cost_usd: 0,
+        });
     }
 
     // Fallback to Groq
@@ -124,6 +147,13 @@ const generateText = async (opts) => {
         const result = await callGroq(opts);
         if (result) {
             console.log('[LLM] Groq fallback succeeded');
+            logApiUsage({
+                provider: 'groq', model: 'llama-3.3-70b-versatile',
+                endpoint: opts._endpoint || 'generateText-fallback',
+                source: opts._source || 'server-llm',
+                brand_id: opts._brandId || null,
+                status_code: 200, duration_ms: Date.now() - start, estimated_cost_usd: 0,
+            });
             return result;
         }
     } catch (e) {

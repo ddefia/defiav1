@@ -39,7 +39,7 @@ interface CompetitorItem {
 
 export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, onChange, onBack, onNavigate }) => {
     const [isSaving, setIsSaving] = useState(false);
-    const [limitModal, setLimitModal] = useState<{ current: number; max: number } | null>(null);
+    const [limitModal, setLimitModal] = useState<{ current: number; max: number; limitType?: 'knowledgeBase' | 'trial_expired' } | null>(null);
     const { showToast } = useToast();
     const [isUploadingKB, setIsUploadingKB] = useState(false);
     const [isAnalyzingKit, setIsAnalyzingKit] = useState(false);
@@ -98,7 +98,7 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
         // Enforce knowledge base document limit
         const kbCheck = checkCountLimit(config.subscription, 'maxKnowledgeDocs', (config.knowledgeBase || []).length);
         if (!kbCheck.allowed) {
-            setLimitModal({ current: kbCheck.current, max: kbCheck.max });
+            setLimitModal({ current: kbCheck.current, max: kbCheck.max, limitType: kbCheck.trialExpired ? 'trial_expired' : 'knowledgeBase' });
             if (kbFileInputRef.current) kbFileInputRef.current.value = '';
             return;
         }
@@ -661,7 +661,7 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
             {limitModal && (
                 <UsageLimitModal
                     isOpen={true}
-                    limitType="knowledgeBase"
+                    limitType={limitModal.limitType || 'knowledgeBase'}
                     current={limitModal.current}
                     max={limitModal.max}
                     currentPlan={config.subscription?.plan || 'starter'}

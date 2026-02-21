@@ -19,6 +19,7 @@ import Stripe from 'stripe';
 import { handleTelegramWebhook } from './server/telegram/webhookHandler.js';
 import { generateLinkCode, getLinkedChats } from './server/telegram/linkManager.js';
 import { sendMessage as sendTelegramMessage, setWebhook as setTelegramWebhook, deleteWebhook as deleteTelegramWebhook, getMe as getTelegramMe, isConfigured as isTelegramConfigured } from './server/telegram/telegramClient.js';
+import { logApiUsage, estimateCost } from './server/services/usageLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -609,6 +610,7 @@ import { GoogleGenAI } from "@google/genai";
 const getGeminiApiKey = () => process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
 
 app.post('/api/gemini/generate', async (req, res) => {
+    const start = Date.now();
     try {
         const apiKey = getGeminiApiKey();
         if (!apiKey) return res.status(500).json({ error: 'Gemini API key not configured on server' });
@@ -628,15 +630,35 @@ app.post('/api/gemini/generate', async (req, res) => {
             .filter(p => p.inlineData?.mimeType?.startsWith('image/'))
             .map(p => ({ mimeType: p.inlineData.mimeType, data: p.inlineData.data }));
 
+        // Log API usage
+        const tokensIn = result.usageMetadata?.promptTokenCount || 0;
+        const tokensOut = result.usageMetadata?.candidatesTokenCount || 0;
+        const imageCount = images.length;
+        logApiUsage({
+            provider: 'gemini', model, endpoint: '/api/gemini/generate',
+            tokens_in: tokensIn, tokens_out: tokensOut,
+            estimated_cost_usd: imageCount > 0
+                ? estimateCost(model, tokensIn, imageCount)
+                : estimateCost(model, tokensIn, tokensOut),
+            user_id: req.authUser?.id || null, source: 'client-proxy',
+            status_code: 200, duration_ms: Date.now() - start,
+        });
+
         res.json({ text, images, raw: { candidates: result.candidates } });
     } catch (err) {
         console.error('[Gemini Proxy] Error:', err.message || err);
         const status = err.status || err.httpStatusCode || 500;
+        logApiUsage({
+            provider: 'gemini', model: req.body?.model, endpoint: '/api/gemini/generate',
+            source: 'client-proxy', status_code: status, duration_ms: Date.now() - start,
+            estimated_cost_usd: 0,
+        });
         res.status(status).json({ error: err.message || 'Gemini API call failed' });
     }
 });
 
 app.post('/api/gemini/embed', async (req, res) => {
+    const start = Date.now();
     try {
         const apiKey = getGeminiApiKey();
         if (!apiKey) return res.status(500).json({ error: 'Gemini API key not configured on server' });
@@ -647,9 +669,22 @@ app.post('/api/gemini/embed', async (req, res) => {
         const ai = new GoogleGenAI({ apiKey });
         const result = await ai.models.embedContent({ model, contents });
 
+        logApiUsage({
+            provider: 'gemini', model, endpoint: '/api/gemini/embed',
+            tokens_in: 0, tokens_out: 0,
+            estimated_cost_usd: estimateCost(model || 'text-embedding-004', 500, 0), // rough estimate
+            user_id: req.authUser?.id || null, source: 'client-proxy',
+            status_code: 200, duration_ms: Date.now() - start,
+        });
+
         res.json({ embeddings: result.embeddings });
     } catch (err) {
         console.error('[Gemini Embed Proxy] Error:', err.message || err);
+        logApiUsage({
+            provider: 'gemini', model: req.body?.model, endpoint: '/api/gemini/embed',
+            source: 'client-proxy', status_code: 500, duration_ms: Date.now() - start,
+            estimated_cost_usd: 0,
+        });
         res.status(500).json({ error: err.message || 'Gemini embed call failed' });
     }
 });
@@ -2006,6 +2041,7 @@ if (!getCredentials()) {
 }
 
 app.post('/api/generate-image', async (req, res) => {
+    const start = Date.now();
     try {
         const creds = getCredentials();
         if (!creds) {
@@ -2078,10 +2114,21 @@ app.post('/api/generate-image', async (req, res) => {
         const base64Image = `data:image/png;base64,${predictions[0].bytesBase64Encoded}`;
 
         console.log("[Proxy] Success! Sending image to client.");
+        logApiUsage({
+            provider: 'imagen', model: 'imagen-4.0-generate-001', endpoint: '/api/generate-image',
+            tokens_in: 0, tokens_out: 1, estimated_cost_usd: 0.04,
+            user_id: req.authUser?.id || null, source: 'image-gen',
+            status_code: 200, duration_ms: Date.now() - start,
+        });
         res.json({ image: base64Image });
 
     } catch (error) {
         console.error("[Proxy] Error:", error.message);
+        logApiUsage({
+            provider: 'imagen', model: 'imagen-4.0-generate-001', endpoint: '/api/generate-image',
+            source: 'image-gen', status_code: 500, duration_ms: Date.now() - start,
+            estimated_cost_usd: 0,
+        });
         res.status(500).json({ error: error.message });
     }
 });
@@ -2089,6 +2136,7 @@ app.post('/api/generate-image', async (req, res) => {
 // --- BFL Flux 2 Image Generation Fallback ---
 
 app.post('/api/generate-image-flux', async (req, res) => {
+    const start = Date.now();
     try {
         const apiKey = process.env.BFL_API_KEY;
         if (!apiKey) {
@@ -2146,6 +2194,12 @@ app.post('/api/generate-image-flux', async (req, res) => {
                 const arrayBuffer = await imgRes.arrayBuffer();
                 const base64 = Buffer.from(arrayBuffer).toString('base64');
                 console.log('[Flux2] Success! Sending image to client.');
+                logApiUsage({
+                    provider: 'flux', model: 'flux-2-klein-9b', endpoint: '/api/generate-image-flux',
+                    tokens_in: 0, tokens_out: 1, estimated_cost_usd: 0.04,
+                    user_id: req.authUser?.id || null, source: 'image-gen',
+                    status_code: 200, duration_ms: Date.now() - start,
+                });
                 return res.json({ image: `data:image/png;base64,${base64}` });
             }
 
@@ -2168,6 +2222,7 @@ const getLunarKey = () => process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUN
 app.get('/api/lunarcrush/creator/:screen_name', async (req, res) => {
     const { screen_name } = req.params;
     const apiKey = getLunarKey();
+    const start = Date.now();
 
     if (!apiKey) return res.status(500).json({ error: "Server missing LunarCrush API Key" });
 
@@ -2180,10 +2235,12 @@ app.get('/api/lunarcrush/creator/:screen_name', async (req, res) => {
         if (!response.ok) {
             const txt = await response.text();
             console.warn(`[Proxy] LC Error: ${response.status} - ${txt}`);
+            logApiUsage({ provider: 'lunarcrush', endpoint: `/api/lunarcrush/creator/${screen_name}`, source: 'client-proxy', status_code: response.status, duration_ms: Date.now() - start, estimated_cost_usd: 0 });
             return res.status(response.status).json({ error: txt });
         }
 
         const data = await response.json();
+        logApiUsage({ provider: 'lunarcrush', endpoint: `/api/lunarcrush/creator/${screen_name}`, source: 'client-proxy', status_code: 200, duration_ms: Date.now() - start, estimated_cost_usd: 0 });
         res.json(data);
     } catch (e) {
         console.error("[Proxy] LC Exception:", e.message);
@@ -2746,6 +2803,217 @@ app.post('/api/telegram/setup-webhook', requireAuth, async (req, res) => {
         const result = await setTelegramWebhook(webhookUrl);
         res.json({ success: true, webhookUrl, result });
     } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ━━━ Admin Dashboard Endpoints ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
+const requireAdmin = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Authentication required' });
+    }
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) return res.status(500).json({ error: 'Auth service unavailable' });
+        const { data: { user }, error } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+        if (error || !user) return res.status(401).json({ error: 'Invalid token' });
+        if (!ADMIN_EMAILS.includes(user.email?.toLowerCase())) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        req.authUser = { id: user.id, email: user.email };
+        return next();
+    } catch (e) {
+        return res.status(401).json({ error: 'Authentication failed' });
+    }
+};
+
+// GET /api/admin/overview — all brands with owner, subscription, trial status
+app.get('/api/admin/overview', requireAdmin, async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const [brandsRes, subsRes, configsRes] = await Promise.all([
+            supabase.from('brands').select('id, name, slug, owner_id, created_at').order('created_at', { ascending: false }),
+            supabase.from('subscriptions').select('id, user_id, brand_id, plan_tier, status, current_period_end, created_at'),
+            supabase.from('brand_configs').select('brand_id, config').order('created_at', { ascending: false }),
+        ]);
+
+        // Build config map (latest per brand)
+        const configMap = {};
+        for (const bc of configsRes.data || []) {
+            if (!configMap[bc.brand_id]) configMap[bc.brand_id] = bc.config;
+        }
+
+        // Build subscription map by brand_id
+        const subMap = {};
+        for (const s of subsRes.data || []) {
+            if (s.brand_id && !subMap[s.brand_id]) subMap[s.brand_id] = s;
+        }
+
+        // Fetch auth users via admin API
+        let userMap = {};
+        try {
+            const serviceUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+            const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            if (serviceUrl && serviceKey) {
+                const adminClient = createClient(serviceUrl, serviceKey);
+                const { data: { users } } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+                for (const u of users || []) {
+                    userMap[u.id] = { email: u.email, createdAt: u.created_at };
+                }
+            }
+        } catch (e) {
+            console.warn('[Admin] Could not fetch auth users:', e.message?.slice(0, 80));
+        }
+
+        const now = Date.now();
+        const result = (brandsRes.data || []).map(brand => {
+            const sub = subMap[brand.id];
+            const cfg = configMap[brand.id];
+            const trialEndsAt = cfg?.subscription?.trialEndsAt || null;
+            const usage = cfg?.subscription?.usage || {};
+
+            return {
+                brandId: brand.id,
+                brandName: brand.name,
+                ownerId: brand.owner_id,
+                ownerEmail: userMap[brand.owner_id]?.email || null,
+                createdAt: brand.created_at,
+                subscription: {
+                    status: sub?.status || (trialEndsAt && trialEndsAt > now ? 'trialing' : trialEndsAt ? 'expired' : 'none'),
+                    planTier: sub?.plan_tier || cfg?.subscription?.plan || 'starter',
+                    periodEnd: sub?.current_period_end || null,
+                    stripeSubId: sub?.id || null,
+                },
+                trial: {
+                    endsAt: trialEndsAt,
+                    hoursLeft: trialEndsAt ? Math.max(0, Math.round((trialEndsAt - now) / 3_600_000)) : null,
+                    isExpired: trialEndsAt ? trialEndsAt < now : false,
+                },
+                usage: {
+                    contentThisMonth: usage.contentThisMonth || 0,
+                    imagesThisMonth: usage.imagesThisMonth || 0,
+                },
+            };
+        });
+
+        res.json({ users: result, total: result.length });
+    } catch (e) {
+        console.error('[Admin] Overview error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /api/admin/api-usage — usage stats from api_usage_logs
+app.get('/api/admin/api-usage', requireAdmin, async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const { from, to } = req.query;
+        const toDate = to ? new Date(to) : new Date();
+        const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86_400_000);
+
+        const { data: logs, error } = await supabase
+            .from('api_usage_logs')
+            .select('provider, model, endpoint, tokens_in, tokens_out, estimated_cost_usd, brand_id, source, created_at, status_code, duration_ms')
+            .gte('created_at', fromDate.toISOString())
+            .lte('created_at', toDate.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(10000);
+
+        if (error) return res.status(500).json({ error: error.message });
+
+        // Aggregate
+        const dailyMap = {};
+        const providerMap = {};
+        const modelMap = {};
+        let totalCost = 0;
+
+        for (const log of logs || []) {
+            const cost = Number(log.estimated_cost_usd) || 0;
+            totalCost += cost;
+
+            const day = log.created_at.slice(0, 10);
+            if (!dailyMap[day]) dailyMap[day] = { date: day, totalCost: 0, callCount: 0 };
+            dailyMap[day].totalCost += cost;
+            dailyMap[day].callCount += 1;
+
+            const p = log.provider;
+            if (!providerMap[p]) providerMap[p] = { provider: p, totalCost: 0, callCount: 0 };
+            providerMap[p].totalCost += cost;
+            providerMap[p].callCount += 1;
+
+            if (log.model) {
+                if (!modelMap[log.model]) modelMap[log.model] = { model: log.model, totalCost: 0, callCount: 0, totalTokensIn: 0, totalTokensOut: 0 };
+                modelMap[log.model].totalCost += cost;
+                modelMap[log.model].callCount += 1;
+                modelMap[log.model].totalTokensIn += log.tokens_in || 0;
+                modelMap[log.model].totalTokensOut += log.tokens_out || 0;
+            }
+        }
+
+        const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+        const days = daily.length || 1;
+
+        res.json({
+            summary: { totalCost, totalCalls: (logs || []).length, avgCostPerDay: totalCost / days, from: fromDate.toISOString(), to: toDate.toISOString() },
+            daily,
+            byProvider: Object.values(providerMap),
+            byModel: Object.values(modelMap),
+        });
+    } catch (e) {
+        console.error('[Admin] API usage error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /api/admin/billing — subscription/revenue summary
+app.get('/api/admin/billing', requireAdmin, async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const { data: subs } = await supabase
+            .from('subscriptions')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        const PLAN_MRR = { starter: 299, growth: 499, enterprise: 0 };
+        const activeSubs = (subs || []).filter(s => s.status === 'active');
+        const trialingSubs = (subs || []).filter(s => s.status === 'trialing');
+        const canceledSubs = (subs || []).filter(s => s.status === 'canceled');
+        const pastDueSubs = (subs || []).filter(s => s.status === 'past_due');
+
+        const mrr = activeSubs.reduce((sum, s) => sum + (PLAN_MRR[s.plan_tier] || 0), 0);
+
+        const convertedIds = new Set(activeSubs.map(s => s.user_id).filter(Boolean));
+        const allTrialIds = new Set([...trialingSubs, ...canceledSubs].map(s => s.user_id).filter(Boolean));
+        const conversionRate = (convertedIds.size + allTrialIds.size) > 0
+            ? Math.round((convertedIds.size / (convertedIds.size + allTrialIds.size)) * 100)
+            : 0;
+
+        res.json({
+            mrr,
+            totalActive: activeSubs.length,
+            totalTrialing: trialingSubs.length,
+            totalCanceled: canceledSubs.length,
+            totalPastDue: pastDueSubs.length,
+            conversionRate,
+            byTier: {
+                starter: activeSubs.filter(s => s.plan_tier === 'starter').length,
+                growth: activeSubs.filter(s => s.plan_tier === 'growth').length,
+                enterprise: activeSubs.filter(s => s.plan_tier === 'enterprise').length,
+            },
+            subscriptions: subs || [],
+        });
+    } catch (e) {
+        console.error('[Admin] Billing error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });

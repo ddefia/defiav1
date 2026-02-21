@@ -90,6 +90,7 @@ FORMATTING REQUIREMENTS:
     const raw = await generateText({
         systemPrompt,
         userMessage: `Generate a tweet about: "${topic}"`,
+        _source: 'telegram-bot', _endpoint: 'contentGen.generateTweet',
     });
     // Hard strip any hashtags the LLM snuck in (e.g. #L2 #DeFi)
     return (raw || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
@@ -534,6 +535,7 @@ const extractImageTitle = async (rawText, brandName = '') => {
     try {
         const result = await generateText({
             systemPrompt: `You extract short visual titles from tweets/text. Return ONLY the title, nothing else.`,
+            _source: 'telegram-bot', _endpoint: 'contentGen.extractImageTitle',
             userMessage: `Extract a 2-5 word visual headline from this text. The headline should capture the CORE CONCEPT that a graphic designer would visualize.${brandName ? ` Brand: ${brandName}.` : ''}
 
 Text: "${rawText}"
@@ -609,6 +611,7 @@ ${historyText || '(New conversation)'}`;
         systemPrompt,
         userMessage: message,
         temperature: 0.7,
+        _source: 'telegram-bot', _endpoint: 'contentGen.chatResponse',
     });
 };
 
@@ -693,6 +696,7 @@ const summarizeTrends = async (brandId, supabase) => {
         const summary = await generateText({
             userMessage: `You're the marketing lead for ${brandId}. Based on these trends, give a 2-3 sentence take on what matters for us and what we should jump on. Be direct, no fluff, no bullet points — talk like a teammate in a group chat.\n\n${newsText}`,
             temperature: 0.5,
+            _source: 'telegram-bot', _endpoint: 'contentGen.summarizeTrends',
         });
 
         return {
