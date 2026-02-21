@@ -2458,6 +2458,36 @@ app.get('/api/social-metrics/:brand', requireAuth, async (req, res) => {
     }
 });
 
+// --- Content Logs (Published content history) ---
+
+app.get('/api/content-logs/:brandId', requireAuth, async (req, res) => {
+    const { brandId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
+
+    try {
+        const supabase = getSupabaseClient();
+        if (!supabase) return res.json({ logs: [] });
+
+        const { data, error } = await supabase
+            .from('content_logs')
+            .select('*')
+            .eq('brand_id', brandId)
+            .order('posted_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (error) {
+            console.warn('[ContentLogs] Query error:', error.message);
+            return res.json({ logs: [], error: error.message });
+        }
+
+        res.json({ logs: data || [] });
+    } catch (e) {
+        console.error('[ContentLogs] Failed:', e.message);
+        res.status(500).json({ logs: [], error: 'Failed to fetch content logs' });
+    }
+});
+
 // --- Action Center (Server Brain Output) ---
 
 app.get('/api/action-center/:brand', requireAuth, async (req, res) => {
