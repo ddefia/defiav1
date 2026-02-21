@@ -61,9 +61,10 @@ export const generateSupplementalRecs = (
     chainMetrics?: ComputedMetrics | null,
     campaignLogs?: CampaignLog[],
 ): any[] => {
+    if (!brandConfig) return [];
     const recs: any[] = [];
-    const topics = socialSignals.trendingTopics || [];
-    const narratives = socialSignals.activeNarratives || [];
+    const topics = socialSignals?.trendingTopics || [];
+    const narratives = socialSignals?.activeNarratives || [];
     const keywords = brandConfig.keywords || [];
     const knowledgeBase = brandConfig.knowledgeBase || [];
     const engagementRate = socialMetrics?.engagementRate || 0;

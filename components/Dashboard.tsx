@@ -300,7 +300,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
 
         // Supplement with data-driven recs if primary count is below 3
-        if (primary.length < 3) {
+        if (primary.length < 3 && brandConfig) {
             const supplemental = generateSupplementalRecs(brandName, socialSignals, socialMetrics, brandConfig, chainMetrics, loadCampaignLogs(brandName));
             return [...primary, ...supplemental].slice(0, 6);
         }
