@@ -381,6 +381,8 @@ const PUBLIC_API_PATHS = new Set([
 ]);
 
 // Prefixes for dynamic routes that should be public
+// These routes either have their own auth (requireAuth / requireAdmin / own key checks)
+// or are legitimately public. The DEFIA_API_KEYS middleware is for external programmatic access only.
 const PUBLIC_API_PREFIXES = [
     '/api/social-metrics/',
     '/api/action-center/',
@@ -389,6 +391,16 @@ const PUBLIC_API_PREFIXES = [
     '/api/x/metrics/',
     '/api/onboarding/',
     '/api/telegram/',
+    '/api/gemini/',       // Gemini proxy — has own API key check via getGeminiApiKey()
+    '/api/brands/',       // Brand ops — protected by requireAuth
+    '/api/billing/',      // Billing — protected by requireAuth + Stripe signatures
+    '/api/content-logs/', // Analytics content logs — protected by requireAuth
+    '/api/admin/',        // Admin dashboard — protected by requireAdmin
+    '/api/assets/',       // Asset uploads — protected by requireAuth
+    '/api/agent/',        // Agent trigger/run/briefing — protected by requireAuth or Vercel cron
+    '/api/dune/',         // Dune queries — protected by requireAuth
+    '/api/publish/',      // Publish cron
+    '/api/debug/',        // Debug endpoints
 ];
 
 const parseApiKeys = () => {
