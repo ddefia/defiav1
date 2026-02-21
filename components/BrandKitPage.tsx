@@ -47,12 +47,23 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
     const kbFileInputRef = useRef<HTMLInputElement>(null);
     const kitFileInputRef = useRef<HTMLInputElement>(null);
 
-    // Editable fields state
+    // ━━━ Editable State ━━━
+
     const [toneGuidelines, setToneGuidelines] = useState(config.toneGuidelines || '');
+    const [voiceGuidelines, setVoiceGuidelines] = useState(config.voiceGuidelines || '');
+
+    // Tweet examples (the "gold standard" the AI mimics)
+    const [tweetExamples, setTweetExamples] = useState<string[]>(config.tweetExamples || []);
+    const [showAddExample, setShowAddExample] = useState(false);
+    const [newExample, setNewExample] = useState('');
+
+    // Banned phrases
+    const [bannedPhrases, setBannedPhrases] = useState<string[]>(config.bannedPhrases || []);
+    const [showAddBanned, setShowAddBanned] = useState(false);
+    const [newBannedPhrase, setNewBannedPhrase] = useState('');
 
     // Competitors - editable list, starts empty (from config or [])
     const [competitors, setCompetitors] = useState<CompetitorItem[]>(() => {
-        // Try to load from config if previously saved
         if ((config as any).competitors && Array.isArray((config as any).competitors)) {
             return (config as any).competitors;
         }
@@ -77,18 +88,49 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
 
     // Get values from config or use defaults
     const brandColors = config.colors?.length > 0 ? config.colors : DEFAULT_COLORS;
-    const voiceTags = config.voiceGuidelines?.split(',').map(s => s.trim()).filter(Boolean) || ['Professional', 'Innovative', 'Technical'];
 
     const handleSave = async () => {
         setIsSaving(true);
         onChange({
             ...config,
             toneGuidelines,
+            voiceGuidelines,
+            tweetExamples,
+            bannedPhrases,
             competitors: competitors as any,
             audiences: audiences as any,
         });
         await new Promise(resolve => setTimeout(resolve, 300));
         setIsSaving(false);
+        showToast('Brand kit saved', 'success');
+    };
+
+    // ━━━ Tweet Example Helpers ━━━
+
+    const addTweetExample = () => {
+        const trimmed = newExample.trim();
+        if (!trimmed) return;
+        setTweetExamples(prev => [...prev, trimmed]);
+        setNewExample('');
+        setShowAddExample(false);
+    };
+
+    const removeTweetExample = (index: number) => {
+        setTweetExamples(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // ━━━ Banned Phrase Helpers ━━━
+
+    const addBannedPhrase = () => {
+        const trimmed = newBannedPhrase.trim();
+        if (!trimmed) return;
+        setBannedPhrases(prev => [...prev, trimmed]);
+        setNewBannedPhrase('');
+        setShowAddBanned(false);
+    };
+
+    const removeBannedPhrase = (index: number) => {
+        setBannedPhrases(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleKBUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -288,6 +330,84 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                                 className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-sm text-white outline-none"
                             />
                         </div>
+                    </div>
+
+                    {/* ━━━ Content Style Examples (Tweet Examples) ━━━ */}
+                    <div
+                        className="rounded-[14px] p-6 border border-[#8B5CF644]"
+                        style={{ background: 'linear-gradient(180deg, #111113 0%, #13111A 100%)' }}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2.5">
+                                <span className="material-symbols-sharp text-[#8B5CF6] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>edit_note</span>
+                                <span className="text-[#8B5CF6] text-base font-semibold">Content Style Examples</span>
+                            </div>
+                            <span className="px-2.5 py-1 bg-[#8B5CF622] rounded-full text-[#8B5CF6] text-[11px] font-medium">AI Mimics These</span>
+                        </div>
+
+                        <p className="text-[#9A9A9A] text-[13px] mb-5">
+                            These are the "gold standard" posts the AI uses to match your voice, pacing, length, and style. Add your best-performing tweets or posts here.
+                        </p>
+
+                        {tweetExamples.length > 0 && (
+                            <div className="flex flex-col gap-2.5 mb-5 max-h-[400px] overflow-y-auto">
+                                {tweetExamples.map((example, i) => (
+                                    <div key={i} className="p-3.5 bg-[#1A1A1D] rounded-lg group relative">
+                                        <p className="text-[#C5C5C7] text-[13px] leading-relaxed whitespace-pre-wrap pr-8">{example}</p>
+                                        <button
+                                            onClick={() => removeTweetExample(i)}
+                                            className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-[#EF444422] text-[#6B6B70] hover:text-[#EF4444] transition-all"
+                                        >
+                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {tweetExamples.length === 0 && !showAddExample && (
+                            <div className="flex flex-col items-center justify-center py-8 text-center mb-4">
+                                <span className="material-symbols-sharp text-[#2E2E2E] text-4xl mb-3" style={{ fontVariationSettings: "'wght' 300" }}>edit_note</span>
+                                <p className="text-[#6B6B70] text-sm">No style examples yet</p>
+                                <p className="text-[#4A4A4A] text-xs mt-1">Add tweets that represent your ideal style — the AI will mimic them</p>
+                            </div>
+                        )}
+
+                        {showAddExample ? (
+                            <div className="p-4 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg flex flex-col gap-3">
+                                <textarea
+                                    placeholder="Paste a tweet or post that represents your ideal style..."
+                                    value={newExample}
+                                    onChange={(e) => setNewExample(e.target.value)}
+                                    rows={4}
+                                    className="bg-[#111113] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#8B5CF6] transition-colors resize-none"
+                                    autoFocus
+                                />
+                                <div className="flex gap-2 justify-end">
+                                    <button
+                                        onClick={() => { setShowAddExample(false); setNewExample(''); }}
+                                        className="px-3 py-1.5 text-[#6B6B70] text-xs hover:text-white transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={addTweetExample}
+                                        disabled={!newExample.trim()}
+                                        className="px-4 py-1.5 bg-[#8B5CF6] rounded-md text-white text-xs font-medium disabled:opacity-40 hover:bg-[#7C3AED] transition-colors"
+                                    >
+                                        Add Example
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowAddExample(true)}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-dashed border-[#8B5CF666] rounded-lg text-[#8B5CF6] text-sm font-medium hover:bg-[#8B5CF611] transition-colors"
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
+                                Add Style Example
+                            </button>
+                        )}
                     </div>
 
                     {/* Company Knowledge Base */}
@@ -505,31 +625,106 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                         </div>
                     </div>
 
-                    {/* Brand Voice & Tone */}
+                    {/* ━━━ Brand Voice & Tone (Now Editable) ━━━ */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
                         <div className="flex items-center gap-2.5 mb-5">
                             <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>mic</span>
                             <span className="text-white text-base font-semibold">Brand Voice & Tone</span>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 mb-5">
-                            {voiceTags.map((tag, i) => (
-                                <span key={i} className="px-3 py-1.5 bg-[#FF5C0022] border border-[#FF5C0044] rounded-full text-[#FF5C00] text-xs font-medium">
-                                    {tag}
-                                </span>
-                            ))}
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-white text-[13px] font-medium">Voice Guidelines</label>
+                                <p className="text-[#6B6B70] text-[11px] -mt-1">How should the AI sound? This controls the personality of all generated content.</p>
+                                <textarea
+                                    rows={4}
+                                    placeholder="e.g. Narrative Authority: Insightful, grounded, and high-signal. Speak to mechanics, not just features. Be authoritative but approachable..."
+                                    className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#FF5C00] transition-colors resize-none"
+                                    value={voiceGuidelines}
+                                    onChange={(e) => setVoiceGuidelines(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-white text-[13px] font-medium">Additional Tone Notes</label>
+                                <textarea
+                                    rows={2}
+                                    placeholder="Any extra tone guidance (e.g. 'casual in DMs, formal in announcements')..."
+                                    className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#FF5C00] transition-colors resize-none"
+                                    value={toneGuidelines}
+                                    onChange={(e) => setToneGuidelines(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ━━━ Banned Phrases ━━━ */}
+                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2.5">
+                                <span className="material-symbols-sharp text-[#EF4444] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>block</span>
+                                <span className="text-white text-base font-semibold">Banned Phrases</span>
+                            </div>
+                            <button
+                                onClick={() => setShowAddBanned(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 border border-[#2E2E2E] rounded-md text-[#6B6B70] text-xs hover:text-white hover:border-[#3E3E3E] transition-colors"
+                            >
+                                <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>add</span>
+                                Add
+                            </button>
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label className="text-white text-[13px] font-medium">Tone Guidelines</label>
-                            <textarea
-                                rows={3}
-                                placeholder="Confident and knowledgeable, yet approachable..."
-                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#FF5C00] transition-colors resize-none"
-                                value={toneGuidelines}
-                                onChange={(e) => setToneGuidelines(e.target.value)}
-                            />
-                        </div>
+                        <p className="text-[#6B6B70] text-[11px] mb-4">Words or phrases the AI will never use in generated content.</p>
+
+                        {bannedPhrases.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 mb-3">
+                                {bannedPhrases.map((phrase, i) => (
+                                    <span
+                                        key={i}
+                                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#EF444415] border border-[#EF444433] rounded-lg text-[#EF4444] text-xs group cursor-default"
+                                    >
+                                        {phrase}
+                                        <button
+                                            onClick={() => removeBannedPhrase(i)}
+                                            className="opacity-0 group-hover:opacity-100 hover:text-white transition-all"
+                                        >
+                                            <span className="material-symbols-sharp text-xs" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        ) : !showAddBanned ? (
+                            <div className="flex flex-col items-center justify-center py-4 text-center mb-2">
+                                <p className="text-[#4A4A4A] text-xs">No banned phrases — defaults: "Delve", "Tapestry", "Game changer", "Unleash"</p>
+                            </div>
+                        ) : null}
+
+                        {showAddBanned && (
+                            <div className="flex gap-2 mt-2">
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Revolutionary"
+                                    value={newBannedPhrase}
+                                    onChange={(e) => setNewBannedPhrase(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') addBannedPhrase(); }}
+                                    className="flex-1 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#EF4444] transition-colors"
+                                    autoFocus
+                                />
+                                <button
+                                    onClick={addBannedPhrase}
+                                    disabled={!newBannedPhrase.trim()}
+                                    className="px-3 py-2 bg-[#EF4444] rounded-lg text-white text-xs font-medium disabled:opacity-40 hover:bg-[#DC2626] transition-colors"
+                                >
+                                    Add
+                                </button>
+                                <button
+                                    onClick={() => { setShowAddBanned(false); setNewBannedPhrase(''); }}
+                                    className="px-2 py-2 text-[#6B6B70] text-xs hover:text-white transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Reference Images */}

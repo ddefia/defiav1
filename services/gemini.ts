@@ -777,6 +777,11 @@ export const generateTweet = async (
 
     // --- ENTERPRISE PROTOCOL ENFORCEMENT ---
     const voice = brandConfig.voiceGuidelines || "Narrative Authority: Insightful, grounded, and high-signal. Speak to mechanics, not just features.";
+    const toneNotes = brandConfig.toneGuidelines ? `\nADDITIONAL TONE NOTES: ${brandConfig.toneGuidelines}` : '';
+    const audienceList = ((brandConfig as any).audiences || []);
+    const audienceContext = audienceList.length > 0
+        ? `\nTARGET AUDIENCE: ${audienceList.map((a: any) => typeof a === 'string' ? a : a.title || a.name || a.label).join(', ')}`
+        : (brandConfig.targetAudience ? `\nTARGET AUDIENCE: ${brandConfig.targetAudience}` : '');
     const defaultBanned = ["Delve", "Tapestry", "Game changer", "Unleash"]; // Removed "Excited", "Thrilled"
     const banned = brandConfig.bannedPhrases && brandConfig.bannedPhrases.length > 0
         ? `STRICTLY BANNED PHRASES: ${brandConfig.bannedPhrases.join(', ')} `
@@ -792,7 +797,7 @@ export const generateTweet = async (
 
     ${countInstruction}
     
-    TONE: ${tone} (Guideline: ${voice})
+    TONE: ${tone} (Guideline: ${voice})${toneNotes}${audienceContext}
     - **BALANCE**: Be authoritative but friendly.
     - **ACCESSIBILITY**: Deep technical understanding, explained simply.
     

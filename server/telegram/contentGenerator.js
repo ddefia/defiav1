@@ -43,12 +43,18 @@ const generateTweet = async (topic, brandProfile) => {
         ? `STRICTLY BANNED PHRASES: ${brandProfile.bannedPhrases.join(', ')}`
         : 'Avoid lazy AI words (e.g. Delve, Tapestry, Game changer, Unleash).';
 
+    const toneNotes = brandProfile.toneGuidelines ? `\nADDITIONAL TONE NOTES: ${brandProfile.toneGuidelines}` : '';
+    const audienceList = brandProfile.audiences || [];
+    const audienceContext = audienceList.length > 0
+        ? `\nTARGET AUDIENCE: ${audienceList.map(a => typeof a === 'string' ? a : a.title || a.name || a.label || '').filter(Boolean).join(', ')}`
+        : (brandProfile.targetAudience ? `\nTARGET AUDIENCE: ${brandProfile.targetAudience}` : '');
+
     const systemPrompt = `You are an Elite Crypto Content Creator for ${brandName}.
 You are known for high-signal content that simplifies complex topics without losing nuance.
 
 TASK: Write a single, high-quality tweet about: "${topic}".
 
-TONE: ${voice}
+TONE: ${voice}${toneNotes}${audienceContext}
 - BALANCE: Be authoritative but friendly.
 - ACCESSIBILITY: Deep technical understanding, explained simply.
 
@@ -880,6 +886,8 @@ const generateQuoteRetweet = async (originalTweet, brandProfile) => {
         ? `STRICTLY BANNED PHRASES: ${brandProfile.bannedPhrases.join(', ')}`
         : 'Avoid lazy AI words (e.g. Delve, Tapestry, Game changer, Unleash).';
 
+    const qrtToneNotes = brandProfile.toneGuidelines ? `\nADDITIONAL TONE NOTES: ${brandProfile.toneGuidelines}` : '';
+
     const authorCredit = originalTweet.authorHandle
         ? ` by @${originalTweet.authorHandle}`
         : originalTweet.authorName
@@ -894,7 +902,7 @@ ORIGINAL TWEET${authorCredit}:
 
 TASK: Write a sharp, high-quality quote retweet that adds ${brandName}'s perspective on this tweet.
 
-TONE: ${voice}
+TONE: ${voice}${qrtToneNotes}
 - BALANCE: Be authoritative but friendly.
 - ACCESSIBILITY: Deep technical understanding, explained simply.
 
