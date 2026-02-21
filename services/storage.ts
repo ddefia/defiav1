@@ -214,19 +214,26 @@ export const loadBrandProfiles = (): Record<string, BrandConfig> => {
                     if (cCount > 20 && lCount < 20) cloudHasMoreImages = true;
                 });
 
-                // FIX: If local only has default/empty profiles, always trust cloud
+                // FIX: Always trust cloud when local is missing the user's actual brand
                 const localBrandKeys = Object.keys(localData).filter(k => !['Default', 'default'].includes(k));
                 const localIsEmpty = localBrandKeys.length === 0;
 
-                if (cloudTs > localTs || cloudHasMoreImages || localIsEmpty) {
-                    console.log("Cloud data found (Newer or More Complete or Local Empty). Updating local cache.");
+                // Check if the user's brand (from Supabase metadata) is missing locally
+                const user = loadUserProfile();
+                const userBrandKey = user?.brandName || user?.brandId || '';
+                const cloudBrandKeys = Object.keys(cloudProfiles).filter(k => !['Default', 'default'].includes(k));
+                const localMissingUserBrand = !!(userBrandKey && !localData[userBrandKey] && cloudProfiles[userBrandKey]);
+                const cloudHasRealBrands = cloudBrandKeys.length > 0;
+
+                if (cloudTs > localTs || cloudHasMoreImages || localIsEmpty || localMissingUserBrand || (cloudHasRealBrands && !localBrandKeys.length)) {
+                    console.log("Cloud data accepted.", { reason: cloudTs > localTs ? 'newer' : cloudHasMoreImages ? 'moreImages' : localIsEmpty ? 'localEmpty' : localMissingUserBrand ? 'missingBrand' : 'cloudHasBrands' });
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(result.value));
                     setLocalTimestamp(STORAGE_KEY, cloudTs);
 
                     // Dispatch event to force UI reload immediately
                     dispatchStorageEvent(STORAGE_EVENTS.BRAND_UPDATE, {});
                 } else {
-                    console.log("Cloud data found but stale/older. Ignoring.");
+                    console.log("Cloud data found but stale/older. Ignoring.", { cloudTs, localTs, localBrandKeys, cloudBrandKeys });
                 }
             } else {
                 // If cloud is empty but we have local, push to cloud

@@ -1808,8 +1808,10 @@ const App: React.FC = () => {
         }
         return <LandingPage onOpenDashboard={() => {
             if (currentUser) {
-                // Logged in but no brand yet — start onboarding
-                navigate('/onboarding');
+                // Logged in — go to dashboard (cloud sync will load brand data)
+                // Only start onboarding if truly new user with no brand
+                const hasBrand = !!(currentUser.brandId || currentUser.brandName || getCurrentUserBrand());
+                navigate(hasBrand ? '/dashboard' : '/onboarding');
             } else {
                 navigate('/login');
             }
@@ -1901,9 +1903,10 @@ const App: React.FC = () => {
         return null;
     }
 
-    // Redirect back to onboarding if returning from X OAuth callback
-    // But ONLY if user genuinely has no brand (don't redirect returning users)
-    if (isDashboardRoute && !effectiveOnboardingComplete) {
+    // Redirect back to onboarding ONLY if genuinely mid-onboarding (OAuth callback)
+    // Never redirect if the user has brand metadata — they're a returning user
+    const userHasBrandMeta = !!(currentUser?.brandId || currentUser?.brandName);
+    if (isDashboardRoute && !effectiveOnboardingComplete && !userHasBrandMeta) {
         try {
             const savedOnboarding = sessionStorage.getItem('defia_onboarding_session');
             if (savedOnboarding) {
@@ -1911,7 +1914,7 @@ const App: React.FC = () => {
                 return null;
             }
         } catch {}
-    } else if (isDashboardRoute && hasBrandDirect && !onboardingState.completed) {
+    } else if (isDashboardRoute && (hasBrandDirect || userHasBrandMeta) && !onboardingState.completed) {
         // Sync the localStorage flag so future renders don't re-check
         setOnboardingState(prev => ({ ...prev, completed: true, updatedAt: Date.now() }));
     }
@@ -1998,23 +2001,46 @@ const App: React.FC = () => {
                 )}
 
                 {/* EMPTY STATE — show loading while cloud sync is fetching brand profiles */}
-                {(!selectedBrand || !profiles[selectedBrand]) && (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-10 animate-fadeIn">
-                        {isBrandSyncing ? (
-                            <>
-                                <div className="w-10 h-10 border-2 border-[#FF5C00] border-t-transparent rounded-full animate-spin mb-6" />
-                                <p className="text-brand-muted">Loading your brand...</p>
-                            </>
-                        ) : (
-                            <>
-                                <div className="w-16 h-16 bg-brand-accent/10 text-brand-accent rounded-2xl flex items-center justify-center mb-6 text-3xl">✨</div>
-                                <h2 className="text-2xl font-bold text-brand-text mb-2">Welcome to Defia Studio</h2>
-                                <p className="text-brand-muted mb-8 max-w-md">Connect your brand identity to generate tailored content and strategies.</p>
-                                <Button onClick={handleStartOnboarding} className="shadow-xl shadow-brand-accent/20">+ Connect Brand</Button>
-                            </>
-                        )}
-                    </div>
-                )}
+                {(!selectedBrand || !profiles[selectedBrand]) && (() => {
+                    // Returning user with brand in metadata — keep showing spinner + retry
+                    const waitingForSync = isBrandSyncing || !!(currentUser && (currentUser.brandId || currentUser.brandName));
+                    return (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center p-10 animate-fadeIn">
+                            {waitingForSync ? (
+                                <>
+                                    <div className="w-10 h-10 border-2 border-[#FF5C00] border-t-transparent rounded-full animate-spin mb-6" />
+                                    <p className="text-brand-muted">Loading your brand...</p>
+                                    {!isBrandSyncing && (
+                                        <button
+                                            onClick={() => {
+                                                // Force re-trigger cloud sync by reloading profiles
+                                                const freshProfiles = loadBrandProfiles();
+                                                if (Object.keys(freshProfiles).filter(k => !['Default', 'default'].includes(k)).length > 0) {
+                                                    profilesSyncingRef.current = true;
+                                                    setProfiles(freshProfiles);
+                                                    setTimeout(() => { profilesSyncingRef.current = false; }, 100);
+                                                    const brandKey = currentUser?.brandName || currentUser?.brandId || Object.keys(freshProfiles).find(k => k !== 'Default') || '';
+                                                    if (brandKey) setSelectedBrand(brandKey);
+                                                }
+                                            }}
+                                            className="mt-4 text-sm underline"
+                                            style={{ color: 'var(--text-muted)' }}
+                                        >
+                                            Taking too long? Click to retry
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-16 h-16 bg-brand-accent/10 text-brand-accent rounded-2xl flex items-center justify-center mb-6 text-3xl">✨</div>
+                                    <h2 className="text-2xl font-bold text-brand-text mb-2">Welcome to Defia Studio</h2>
+                                    <p className="text-brand-muted mb-8 max-w-md">Connect your brand identity to generate tailored content and strategies.</p>
+                                    <Button onClick={handleStartOnboarding} className="shadow-xl shadow-brand-accent/20">+ Connect Brand</Button>
+                                </>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* SECTION: DASHBOARD */}
                 {appSection === 'dashboard' && selectedBrand && (
