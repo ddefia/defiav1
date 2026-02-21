@@ -744,6 +744,198 @@ const getLatestBriefing = async (brandId, supabase) => {
     return data.value;
 };
 
+// ━━━ Tweet URL Helpers ━━━
+
+/** Regex to match X/Twitter tweet URLs */
+const TWEET_URL_REGEX = /https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/i;
+
+/**
+ * Extract a tweet URL from a message string.
+ * Returns { url, username, tweetId } or null.
+ */
+const extractTweetUrl = (text) => {
+    if (!text) return null;
+    const match = text.match(TWEET_URL_REGEX);
+    if (!match) return null;
+    return { url: match[0], username: match[1], tweetId: match[2] };
+};
+
+/**
+ * Fetch the original tweet content from a tweet URL.
+ * Uses Twitter's syndication API (no auth required) as primary,
+ * falls back to oEmbed API.
+ */
+const fetchTweetContent = async (tweetId) => {
+    // Method 1: Twitter syndication API (returns full tweet JSON, no auth needed)
+    try {
+        const syndicationUrl = `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en&token=0`;
+        const res = await fetch(syndicationUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; Defia/1.0)',
+                'Accept': 'application/json',
+            },
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            const text = data.text || '';
+            const authorName = data.user?.name || '';
+            const authorHandle = data.user?.screen_name || '';
+            if (text) {
+                return {
+                    text,
+                    authorName,
+                    authorHandle,
+                    source: 'syndication',
+                };
+            }
+        }
+    } catch (e) {
+        console.warn('[ContentGenerator] Syndication API failed:', e.message);
+    }
+
+    // Method 2: oEmbed API (returns HTML snippet, we extract text)
+    try {
+        const oembedUrl = `https://publish.twitter.com/oembed?url=https://twitter.com/i/status/${tweetId}&omit_script=true`;
+        const res = await fetch(oembedUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Defia/1.0)' },
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            // Extract text from the HTML blockquote
+            const html = data.html || '';
+            const textMatch = html.match(/<p[^>]*>([\s\S]*?)<\/p>/);
+            const rawText = textMatch ? textMatch[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim() : '';
+            const authorName = data.author_name || '';
+            const authorHandle = data.author_url?.split('/').pop() || '';
+
+            if (rawText) {
+                return {
+                    text: rawText,
+                    authorName,
+                    authorHandle,
+                    source: 'oembed',
+                };
+            }
+        }
+    } catch (e) {
+        console.warn('[ContentGenerator] oEmbed API failed:', e.message);
+    }
+
+    // Method 3: Use Apify if available
+    const apifyToken = process.env.APIFY_API_TOKEN;
+    if (apifyToken) {
+        try {
+            console.log('[ContentGenerator] Trying Apify tweet scraper...');
+            const res = await fetch('https://api.apify.com/v2/acts/apidojo~tweet-scraper/run-sync-get-dataset-items?token=' + apifyToken, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tweetIDs: [tweetId],
+                    maxItems: 1,
+                }),
+            });
+
+            if (res.ok) {
+                const items = await res.json();
+                if (items?.[0]?.full_text || items?.[0]?.text) {
+                    return {
+                        text: items[0].full_text || items[0].text,
+                        authorName: items[0].user?.name || '',
+                        authorHandle: items[0].user?.screen_name || '',
+                        source: 'apify',
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn('[ContentGenerator] Apify tweet fetch failed:', e.message);
+        }
+    }
+
+    return null;
+};
+
+// ━━━ Quote Retweet Generation ━━━
+
+/**
+ * Generate a quote retweet in the brand's voice.
+ * Takes the original tweet text + brand profile and generates a QRT draft.
+ * Uses the exact same model, voice, knowledge base, and style as generateTweet.
+ */
+const generateQuoteRetweet = async (originalTweet, brandProfile) => {
+    const brandName = brandProfile.name || 'the brand';
+    const voice = brandProfile.voiceGuidelines || 'Narrative Authority: Insightful, grounded, and high-signal. Speak to mechanics, not just features.';
+    const examples = (brandProfile.tweetExamples || []).length > 0
+        ? `STYLE REFERENCE (MIMIC THIS VOICE/PACE/LENGTH):\n${brandProfile.tweetExamples.map(t => `- ${t}`).join('\n')}`
+        : '';
+    const avoidExamples = (brandProfile.rejectedStyleExamples || []).length > 0
+        ? `\nAVOID THESE STYLE PATTERNS (DO NOT COPY TONE/STRUCTURE):\n${brandProfile.rejectedStyleExamples.map(t => `- ${t}`).join('\n')}\n`
+        : '';
+
+    const kb = (brandProfile.knowledgeBase || []).length > 0
+        ? `KNOWLEDGE BASE (THE ABSOLUTE SOURCE OF TRUTH):\n${brandProfile.knowledgeBase.join('\n\n')}`
+        : '';
+    const banned = (brandProfile.bannedPhrases || []).length > 0
+        ? `STRICTLY BANNED PHRASES: ${brandProfile.bannedPhrases.join(', ')}`
+        : 'Avoid lazy AI words (e.g. Delve, Tapestry, Game changer, Unleash).';
+
+    const authorCredit = originalTweet.authorHandle
+        ? ` by @${originalTweet.authorHandle}`
+        : originalTweet.authorName
+        ? ` by ${originalTweet.authorName}`
+        : '';
+
+    const systemPrompt = `You are an Elite Crypto Content Creator for ${brandName}.
+You are writing a QUOTE RETWEET — a response that adds value on top of an existing tweet.
+
+ORIGINAL TWEET${authorCredit}:
+"${originalTweet.text}"
+
+TASK: Write a sharp, high-quality quote retweet that adds ${brandName}'s perspective on this tweet.
+
+TONE: ${voice}
+- BALANCE: Be authoritative but friendly.
+- ACCESSIBILITY: Deep technical understanding, explained simply.
+
+${examples}
+${avoidExamples}
+
+${kb}
+
+QUOTE RETWEET STRATEGY:
+1. NEVER just agree or parrot the original tweet. ADD something new.
+2. Options (pick the best fit):
+   a. ADD CONTEXT: Share specific data, insight, or alpha that the original missed
+   b. PERSONAL ANGLE: Connect it to what ${brandName} is building or has shipped
+   c. HOT TAKE: Respectfully agree OR push back with a unique angle
+   d. AMPLIFY: If the original mentions ${brandName}, celebrate it with substance (not just "thanks!")
+   e. BRIDGE: Connect the tweet's topic to something ${brandName} solves or enables
+3. The QRT should make people want to follow ${brandName} — show expertise, not just engagement.
+
+CRITICAL RULES:
+1. PRIORITIZE KNOWLEDGE BASE: If the Knowledge Base contains relevant facts, USE them.
+2. Be conversational and authentic — this is a QRT, not a blog post.
+3. Keep it punchy: 1-3 sentences max. This is the addition ON TOP of the original tweet.
+4. If the original tweet is about a topic ${brandName} has expertise in, SHOW that expertise.
+
+INSTRUCTIONS:
+- ${banned}
+- LENGTH: Short and impactful. 1-3 sentences. The original tweet provides the context — your QRT adds the edge.
+- NO HASHTAGS (STRICTLY FORBIDDEN).
+- Do NOT start with "Great point" or "Love this" or "This is so true" — these are filler. Start with substance.
+- Do NOT quote or repeat what the original tweet says — the reader can already see it.`;
+
+    const raw = await generateText({
+        systemPrompt,
+        userMessage: `Write a quote retweet for this tweet: "${originalTweet.text}"`,
+        _source: 'telegram-bot', _endpoint: 'contentGen.generateQuoteRetweet',
+    });
+
+    // Hard strip any hashtags the LLM snuck in
+    return (raw || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
+};
+
 export {
     generateTweet,
     generateImage,
@@ -753,4 +945,7 @@ export {
     getRecentRecommendations,
     getLatestBriefing,
     extractImageTitle,
+    extractTweetUrl,
+    fetchTweetContent,
+    generateQuoteRetweet,
 };

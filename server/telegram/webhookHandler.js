@@ -16,11 +16,15 @@ import {
     getRecentRecommendations,
     getLatestBriefing,
     extractImageTitle,
+    extractTweetUrl,
+    fetchTweetContent,
+    generateQuoteRetweet,
 } from './contentGenerator.js';
 import {
     formatDailyBriefing,
     formatAgentDecision,
     formatTweetDraft,
+    formatQuoteRetweet,
     formatTrendSummary,
     formatWelcome,
     formatHelp,
@@ -413,6 +417,75 @@ const processMessage = async (update) => {
     // Send "thinking" indicator
     const thinkingMsg = await safeSend(chatId, formatChatResponse('...'));
     thinkingMsgId = thinkingMsg?.message_id;
+
+        // ━━━ Tweet URL Auto-Detection (Quote Retweet) ━━━
+        const tweetUrlMatch = extractTweetUrl(cleanText);
+        if (tweetUrlMatch) {
+            console.log(`[Telegram] Tweet URL detected: ${tweetUrlMatch.url} (ID: ${tweetUrlMatch.tweetId})`);
+
+            try {
+                // Update thinking message
+                if (thinkingMsgId) {
+                    try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('fetching tweet...')); } catch { /* ignore */ }
+                }
+
+                // Fetch original tweet content
+                const originalTweet = await fetchTweetContent(tweetUrlMatch.tweetId);
+
+                if (!originalTweet || !originalTweet.text) {
+                    // Couldn't fetch the tweet — tell user
+                    const errMsg = formatChatResponse("Couldn't fetch that tweet. The account might be private, or X is blocking the request. Try pasting the tweet text directly and I'll write a QRT for it.");
+                    if (thinkingMsgId) {
+                        try { await safeEdit(chatId, thinkingMsgId, errMsg); } catch { await safeSend(chatId, errMsg); }
+                    } else {
+                        await safeSend(chatId, errMsg);
+                    }
+                    // Save to history
+                    const failHistory = await loadChatHistory(supabase, chatId);
+                    failHistory.push({ role: 'user', text: cleanText, timestamp: Date.now() });
+                    failHistory.push({ role: 'assistant', text: '(failed to fetch tweet for QRT)', timestamp: Date.now() });
+                    await saveChatHistory(supabase, chatId, failHistory);
+                    return;
+                }
+
+                console.log(`[Telegram] Fetched tweet by @${originalTweet.authorHandle}: "${originalTweet.text.slice(0, 80)}..."`);
+
+                // Update thinking message
+                if (thinkingMsgId) {
+                    try { await safeEdit(chatId, thinkingMsgId, formatChatResponse('writing quote retweet...')); } catch { /* ignore */ }
+                }
+
+                // Generate the QRT
+                const qrtText = await generateQuoteRetweet(originalTweet, brandProfile);
+                const responseText = formatQuoteRetweet(qrtText, originalTweet, tweetUrlMatch.url);
+
+                // Send the QRT
+                if (thinkingMsgId) {
+                    try { await safeEdit(chatId, thinkingMsgId, responseText); } catch {
+                        await safeSend(chatId, responseText);
+                    }
+                } else {
+                    await safeSend(chatId, responseText);
+                }
+
+                // Save to chat history
+                const chatHistoryLoaded = await loadChatHistory(supabase, chatId);
+                chatHistoryLoaded.push({ role: 'user', text: `[Shared tweet by @${originalTweet.authorHandle}]: "${originalTweet.text.slice(0, 200)}"`, timestamp: Date.now() });
+                chatHistoryLoaded.push({ role: 'assistant', text: `[Generated QRT]: ${qrtText}`, timestamp: Date.now() });
+                await saveChatHistory(supabase, chatId, chatHistoryLoaded);
+                return;
+            } catch (e) {
+                console.error('[Telegram] QRT generation failed:', e.message);
+                const errMsg = formatError(`QRT failed: ${e.message?.slice(0, 60) || 'Unknown error'}`);
+                if (thinkingMsgId) {
+                    try { await safeEdit(chatId, thinkingMsgId, errMsg); } catch { /* ignore */ }
+                } else {
+                    try { await safeSend(chatId, errMsg); } catch { /* ignore */ }
+                }
+                return;
+            }
+        }
+
         // Handle image input
         let imageBase64 = null;
         let imageAnalysis = '';

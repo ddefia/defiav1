@@ -157,7 +157,7 @@ const formatHelp = () => {
     lines.push(escapeMarkdownV2('In groups: @defiaxyzbot or reply to my messages'));
     lines.push(escapeMarkdownV2('In DMs: just type'));
     lines.push('');
-    lines.push(escapeMarkdownV2('I can write tweets, make graphics, analyze trends, pull briefings. I remember the conversation so you can say "now make a graphic for that" after I draft a tweet.'));
+    lines.push(escapeMarkdownV2('I can write tweets, make graphics, analyze trends, pull briefings, and generate quote retweets. Drop a tweet link and I\'ll draft a QRT in your brand voice. I remember the conversation so you can say "now make a graphic for that" after I draft a tweet.'));
     return lines.join('\n');
 };
 
@@ -166,6 +166,41 @@ const formatHelp = () => {
 const formatChatResponse = (text) => {
     // For general chat responses, escape the whole thing
     return escapeMarkdownV2(text);
+};
+
+// ━━━ Quote Retweet Draft ━━━
+
+const formatQuoteRetweet = (qrtText, originalTweet, tweetUrl) => {
+    const lines = [];
+    lines.push(`\u{1F501} ${bold('Quote Retweet Draft')}`);
+    lines.push('');
+
+    // Show the original tweet context (truncated)
+    if (originalTweet?.authorHandle) {
+        lines.push(`${italic(`Re: @${originalTweet.authorHandle}`)}`);
+    } else if (originalTweet?.authorName) {
+        lines.push(`${italic(`Re: ${originalTweet.authorName}`)}`);
+    }
+    if (originalTweet?.text) {
+        const preview = originalTweet.text.slice(0, 120);
+        lines.push(escapeMarkdownV2(`"${preview}${originalTweet.text.length > 120 ? '...' : ''}"`));
+    }
+    lines.push('');
+
+    // The actual QRT content
+    const clean = (qrtText || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
+    lines.push(bold('Your QRT:'));
+    lines.push(italic(clean));
+
+    // Link to original tweet
+    if (tweetUrl) {
+        lines.push('');
+        const escaped = escapeMarkdownV2(tweetUrl);
+        lines.push(escapeMarkdownV2('Copy the text above and quote retweet:'));
+        lines.push(escaped);
+    }
+
+    return lines.join('\n');
 };
 
 // ━━━ Error ━━━
@@ -179,6 +214,7 @@ export {
     formatDailyBriefing,
     formatAgentDecision,
     formatTweetDraft,
+    formatQuoteRetweet,
     formatTrendSummary,
     formatWelcome,
     formatHelp,
