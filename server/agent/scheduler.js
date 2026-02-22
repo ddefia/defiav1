@@ -129,7 +129,7 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
         // Fetch web3 news as market context (replaces deprecated LunarCrush/Pulse)
         let pulseTrends = [];
         try {
-            const newsResult = await fetchWeb3News(supabase, 'global', { limit: 8 });
+            const newsResult = await fetchWeb3News(supabase, 'global', { limit: 8, cacheDurationMs: 6 * 60 * 60 * 1000 });
             pulseTrends = (newsResult.items || []).map(item => ({
                 headline: item.headline || item.topic || 'Unknown',
                 summary: item.summary || '',
@@ -184,8 +184,33 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
                 fetchMentions(apifyKey, handle)
             ]);
 
+            // 1b. Fetch brand-specific news and merge with global trends
+            let brandTrends = [...pulseTrends];
+            try {
+                const brandNewsResult = await fetchWeb3News(supabase, brandProfile.name || brandId, {
+                    searchQuery: `${brandProfile.name || brandId},${handle}`,
+                    limit: 5,
+                    cacheDurationMs: 6 * 60 * 60 * 1000 // 6h cache for brand-specific
+                });
+                const brandSpecific = (brandNewsResult.items || []).map(item => ({
+                    headline: item.headline || item.topic || 'Unknown',
+                    summary: item.summary || '',
+                    sentiment: item.sentiment || 'Neutral',
+                    relevanceScore: Math.min(99, (item.relevanceScore || 80) + 10), // Boost brand-specific relevance
+                }));
+                if (brandSpecific.length > 0) {
+                    console.log(`     - Loaded ${brandSpecific.length} brand-specific news items for ${brandId}`);
+                    // Merge: brand-specific first, then global, dedupe by headline
+                    const seen = new Set(brandSpecific.map(t => t.headline.toLowerCase()));
+                    const globalDeduped = pulseTrends.filter(t => !seen.has(t.headline.toLowerCase()));
+                    brandTrends = [...brandSpecific, ...globalDeduped].slice(0, 10);
+                }
+            } catch (e) {
+                console.warn(`     - Brand-specific news fetch failed for ${brandId}:`, e.message);
+            }
+
             // 2. Analyze (returns { actions: [...] })
-            const decisionResult = await analyzeState(dune, [], mentions, pulseTrends, brandProfile);
+            const decisionResult = await analyzeState(dune, [], mentions, brandTrends, brandProfile);
             const decisions = decisionResult.actions || [decisionResult];
 
             // 3. Act & Save — process all actions
@@ -352,14 +377,37 @@ export const triggerAgentRun = async (brandIdentifier) => {
         }));
     } catch { /* brain runs without trends */ }
 
+    const handle = target.xHandle || target.name || target.id;
     const [dune, mentions] = await Promise.all([
         fetchDuneMetrics(duneKey),
-        fetchMentions(apifyKey, target.xHandle || target.name || target.id)
+        fetchMentions(apifyKey, handle)
     ]);
 
     const rawProfile = await fetchBrandProfile(supabase, target.id);
     const brandProfile = { ...(rawProfile || {}), name: rawProfile?.name || target.name || target.id };
-    const decisionResult = await analyzeState(dune, [], mentions, pulseTrends, brandProfile);
+
+    // Fetch brand-specific news and merge with global trends
+    let brandTrends = [...pulseTrends];
+    try {
+        const brandNewsResult = await fetchWeb3News(supabase, brandProfile.name || target.id, {
+            searchQuery: `${brandProfile.name || target.id},${handle}`,
+            limit: 5,
+            cacheDurationMs: 6 * 60 * 60 * 1000
+        });
+        const brandSpecific = (brandNewsResult.items || []).map(item => ({
+            headline: item.headline || item.topic || 'Unknown',
+            summary: item.summary || '',
+            sentiment: item.sentiment || 'Neutral',
+            relevanceScore: Math.min(99, (item.relevanceScore || 80) + 10),
+        }));
+        if (brandSpecific.length > 0) {
+            const seen = new Set(brandSpecific.map(t => t.headline.toLowerCase()));
+            const globalDeduped = pulseTrends.filter(t => !seen.has(t.headline.toLowerCase()));
+            brandTrends = [...brandSpecific, ...globalDeduped].slice(0, 10);
+        }
+    } catch { /* use global trends as fallback */ }
+
+    const decisionResult = await analyzeState(dune, [], mentions, brandTrends, brandProfile);
     const decisions = decisionResult.actions || [decisionResult];
 
     for (const decision of decisions) {
