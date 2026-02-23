@@ -116,14 +116,25 @@ const dedupeStrings = (items: string[]) => {
 
 const buildKnowledgeFallback = (content: string, docs: string[]) => {
   const items: string[] = [];
+
+  // Group sentences into meaningful paragraphs (3-5 sentences each) instead of single-line entries
   const sentences = content
     .replace(/\s+/g, ' ')
     .split(/[.!?]\s+/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 60);
+    .filter((s) => s.length > 40);
 
-  sentences.slice(0, 8).forEach((s) => items.push(`Website: ${s}`));
-  docs.slice(0, 5).forEach((doc) => items.push(`Document: ${doc}`));
+  // Build paragraphs of ~3-5 sentences for richer context
+  const chunkSize = Math.min(4, Math.max(3, Math.floor(sentences.length / 5)));
+  for (let i = 0; i < sentences.length && items.length < 8; i += chunkSize) {
+    const chunk = sentences.slice(i, i + chunkSize);
+    const paragraph = chunk.map(s => s.endsWith('.') || s.endsWith('!') || s.endsWith('?') ? s : s + '.').join(' ');
+    if (paragraph.length > 80) {
+      items.push(paragraph);
+    }
+  }
+
+  docs.slice(0, 5).forEach((doc) => items.push(`[DOCUMENT] ${doc}`));
   return items;
 };
 

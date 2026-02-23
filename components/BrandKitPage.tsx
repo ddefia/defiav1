@@ -3,7 +3,7 @@ import { BrandConfig } from '../types';
 import { getBrandRegistryEntry } from '../services/storage';
 import { parseDocumentFile } from '../services/documentParser';
 // @ts-ignore
-import { analyzeBrandKit } from '../services/gemini';
+import { analyzeBrandKit, researchBrandIdentity } from '../services/gemini';
 import { ingestContext } from '../services/rag';
 import { checkCountLimit } from '../services/subscription';
 import { UsageLimitModal } from './UsageLimitModal';
@@ -43,9 +43,77 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
     const { showToast } = useToast();
     const [isUploadingKB, setIsUploadingKB] = useState(false);
     const [isAnalyzingKit, setIsAnalyzingKit] = useState(false);
+    const [isRefreshingKB, setIsRefreshingKB] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const kbFileInputRef = useRef<HTMLInputElement>(null);
     const kitFileInputRef = useRef<HTMLInputElement>(null);
+
+    // --- Refresh Knowledge Base ---
+    const handleRefreshKB = async () => {
+        if (isRefreshingKB) return;
+        setIsRefreshingKB(true);
+        showToast('Re-analyzing brand website for fresh knowledge...', 'info');
+
+        try {
+            const registry = getBrandRegistryEntry(brandName);
+            const domains = registry?.domains || config.brandCollectorProfile?.domains || [];
+            const url = domains[0] || `https://${brandName.toLowerCase().replace(/\s+/g, '')}.com`;
+
+            // Try to deep crawl the site first
+            const baseUrl = (import.meta as any).env?.VITE_API_URL || window.location.origin;
+            let crawlContent = '';
+            try {
+                const crawlRes = await fetch(`${baseUrl}/api/onboarding/deep-crawl`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, maxPages: 10 })
+                });
+                if (crawlRes.ok) {
+                    const data = await crawlRes.json();
+                    crawlContent = data.content || '';
+                }
+            } catch {
+                // Fallback to simple crawl
+                try {
+                    const simpleCrawlRes = await fetch(`${baseUrl}/api/onboarding/crawl`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url })
+                    });
+                    if (simpleCrawlRes.ok) {
+                        const data = await simpleCrawlRes.json();
+                        crawlContent = data.content || '';
+                    }
+                } catch {}
+            }
+
+            // Get existing tweet examples to send as context
+            const tweetExamples = config.tweetExamples || [];
+
+            // Re-run brand research with fresh crawl data
+            const result = await researchBrandIdentity(brandName, url, {
+                siteContent: crawlContent,
+                tweetExamples,
+            });
+
+            if (result.knowledgeBase && result.knowledgeBase.length > 0) {
+                // Preserve user-uploaded docs (start with [INDEXED DOCUMENT] or [DOCUMENT])
+                const userDocs = (config.knowledgeBase || []).filter(
+                    (entry: string) => entry.startsWith('[INDEXED DOCUMENT]') || entry.startsWith('[DOCUMENT]')
+                );
+                const newKB = [...result.knowledgeBase, ...userDocs];
+                onChange({ ...config, knowledgeBase: newKB });
+                showToast(`Knowledge refreshed — ${result.knowledgeBase.length} entries updated`, 'success');
+            } else {
+                showToast('Refresh completed but no new entries found', 'info');
+            }
+        } catch (e: any) {
+            console.error('[BrandKit] KB refresh failed:', e);
+            showToast(`Refresh failed: ${e.message || 'Unknown error'}`, 'error');
+        } finally {
+            setIsRefreshingKB(false);
+        }
+    };
 
     // ━━━ Editable State ━━━
 
@@ -420,7 +488,19 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                                 <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>menu_book</span>
                                 <span className="text-[#FF5C00] text-base font-semibold">Knowledge Base</span>
                             </div>
-                            <span className="px-2.5 py-1 bg-[#FF5C0022] rounded-full text-[#FF5C00] text-[11px] font-medium">AI Training Data</span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleRefreshKB}
+                                    disabled={isRefreshingKB}
+                                    className="flex items-center gap-1.5 px-3 py-1 bg-[#1F1F23] rounded-full text-[#ADADB0] text-[11px] font-medium hover:text-white hover:bg-[#2E2E2E] transition-colors disabled:opacity-50"
+                                >
+                                    <span className={`material-symbols-sharp text-sm ${isRefreshingKB ? 'animate-spin' : ''}`} style={{ fontVariationSettings: "'wght' 300" }}>
+                                        {isRefreshingKB ? 'progress_activity' : 'refresh'}
+                                    </span>
+                                    {isRefreshingKB ? 'Refreshing...' : 'Refresh'}
+                                </button>
+                                <span className="px-2.5 py-1 bg-[#FF5C0022] rounded-full text-[#FF5C00] text-[11px] font-medium">AI Training Data</span>
+                            </div>
                         </div>
 
                         <p className="text-[#9A9A9A] text-[13px] mb-5">

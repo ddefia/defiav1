@@ -20,7 +20,7 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
             return true;
         });
         const knowledgeBase = filteredKB.length > 0
-            ? filteredKB.slice(0, 8).join('\n')
+            ? filteredKB.slice(0, 12).join('\n')
             : "No additional brand context provided.";
 
         // Pull in the full brand kit — tweet examples, tone, audiences, banned phrases

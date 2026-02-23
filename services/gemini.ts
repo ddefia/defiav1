@@ -1955,14 +1955,20 @@ RULES:
 
 CRITICAL REQUIREMENTS:
 
-1. **knowledgeBase** — Extract information from the website content. Write 5-15 entries, each a full paragraph (3-6 sentences). Cover:
-   - What the project is and what problem it solves
-   - Products, features, and how they work
-   - Technology and architecture (if mentioned)
-   - Tokenomics (only if explicitly stated in sources)
-   - Partnerships and integrations (only if mentioned)
-   - Any other facts directly stated on the website
-   If source content is very thin, extract whatever you can — even 2-3 entries from a homepage is fine.
+1. **knowledgeBase** — This is the MOST IMPORTANT field. A marketing team will use this as their primary reference for ALL content creation. Each entry MUST be a DETAILED paragraph of 50-150 words (NOT a single sentence). Write 8-15 entries covering:
+   - What the project is, what problem it solves, and why it matters (2-3 sentences minimum)
+   - Each major product/feature: describe what it does, how it works, and why users care (one entry per feature)
+   - Technology and architecture details: explain the technical approach in marketing-friendly language
+   - Competitive positioning: what makes this different from alternatives
+   - Tokenomics and token utility (only if explicitly stated in sources)
+   - Partnerships, integrations, and ecosystem (only if mentioned)
+   - Community and governance model (if mentioned)
+   - Recent milestones and roadmap (with dates if available)
+
+   BAD EXAMPLE (too thin): "Metis is a Smart Layer 2 Rollup on Ethereum."
+   GOOD EXAMPLE: "Metis is a Smart Layer 2 Rollup built on Ethereum that focuses on providing low-cost, high-speed transactions for decentralized applications. What sets Metis apart from other L2s is its decentralized sequencer — it was the first Ethereum L2 to successfully decentralize this critical component, eliminating single points of failure and censorship risk. The network uses an optimistic rollup architecture with a unique Hybrid Rollup design that combines the security of Ethereum with the performance needed for real-world applications."
+
+   If source content is thin, still write the fullest entries you can — expand on what's available rather than just restating headlines.
 
 2. **voiceGuidelines** — Analyze the writing style of the website and tweets. Describe: overall tone (professional, casual, technical, community-driven), technical depth level, and community engagement style. If sources are thin, write: "Professional and technically-grounded web3 voice. Balances technical credibility with approachable communication. Focuses on educating and engaging the crypto community."
 
@@ -2857,7 +2863,8 @@ export const orchestrateMarketingDecision = async (
     const competitorBlock = buildCompetitorBlock((context.brand as any).competitors);
     const brandName = context.brand.name || 'Brand';
     const positioning = (context.brand as any).brandCollectorProfile?.positioning?.oneLiner || context.brand.voiceGuidelines || '';
-    const knowledgeSummary = context.brand.knowledgeBase?.slice(0, 5).map(k => `- ${k.slice(0, 100)}`).join('\n') || 'No knowledge base.';
+    // Send full KB entries (not truncated) — richer context = better recommendations
+    const knowledgeSummary = context.brand.knowledgeBase?.slice(0, 10).map(k => `- ${k.slice(0, 500)}`).join('\n') || 'No knowledge base.';
 
     // Shared context header for all agents — gives them the full picture
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
