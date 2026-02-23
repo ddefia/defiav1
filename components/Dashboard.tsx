@@ -69,8 +69,8 @@ const transformMetricsToKPIs = (
         {
             label: 'TOTAL ENGAGEMENTS',
             value: metrics ? formatEngagements(metrics) : '--',
-            delta: 0,
-            trend: 'flat' as const,
+            delta: metrics?.comparison?.engagementChange || 0,
+            trend: getTrend(metrics?.comparison?.engagementChange || 0),
             confidence: metrics ? 'High' : 'Low',
             statusLabel: metrics ? 'Active' : 'Weak',
             sparklineData: history.map((h: any) => h.engagements || 0)
@@ -87,8 +87,8 @@ const transformMetricsToKPIs = (
         {
             label: 'ENGAGEMENT RATE',
             value: metrics ? `${engagementRateVal.toFixed(2)}%` : '--',
-            delta: 0,
-            trend: getTrend(0),
+            delta: metrics?.comparison?.engagementChange || 0,
+            trend: getTrend(metrics?.comparison?.engagementChange || 0),
             confidence: metrics ? 'High' : 'Low',
             statusLabel: metrics ? (engagementRateVal >= 2 ? 'Strong' : 'Watch') : 'Weak',
             sparklineData: engagementSpark
@@ -217,8 +217,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const integrationKeys = useMemo(() => loadIntegrationKeys(brandName), [brandName]);
     const missingSetup = useMemo(() => {
         const items: { label: string; key: string }[] = [];
-        if (xConnected === false) items.push({ label: 'Connect X/Twitter account', key: 'x-auth' });
-        if (!integrationKeys.apify && !integrationKeys.xHandle) items.push({ label: 'Add X handle in Settings', key: 'x-handle' });
+        // Only show X setup prompts if OAuth is NOT connected AND no manual handle is set
+        if (xConnected === false && !integrationKeys.apify && !integrationKeys.xHandle) {
+            items.push({ label: 'Add X handle in Settings', key: 'x-handle' });
+        }
         return items;
     }, [xConnected, integrationKeys]);
 
@@ -1392,8 +1394,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="rounded-xl overflow-hidden mb-7" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                         <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
                             <div className="flex items-center gap-2.5">
-                                <span className="text-white text-sm font-semibold">Campaigns Overview</span>
-                                <span className="px-2 py-1 rounded-full bg-[#22C55E18] text-[#22C55E] text-xs font-medium">All Performing Well</span>
+                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Campaigns Overview</span>
+                                {campaigns.length > 0 && (
+                                    <span className="px-2 py-1 rounded-full bg-[#22C55E18] text-[#22C55E] text-xs font-medium">All Performing Well</span>
+                                )}
                             </div>
                             <div className="flex items-center p-1 rounded-full bg-[#1A1A1D]">
                                 {['All', 'Active', 'Completed'].map((tab) => (

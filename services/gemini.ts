@@ -2754,7 +2754,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
 
     MANDATORY RULES:
     1. Generate EXACTLY 5 actions. Never fewer, never more.
-    2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET. The remaining 2 can be any type.
+    2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET. The remaining 2 can be any type (REPLY, TREND_JACK, GAP_FILL). Actions must use DIFFERENT angles — never repeat the same topic/theme across actions.
     3. SPECIFICITY (CRITICAL): Every action must be hyper-specific and immediately executable. BAD: "Post about our technology". GOOD: "Thread breaking down how our decentralized sequencer prevents MEV extraction — use the recent Flashbots controversy as the hook".
     4. KNOWLEDGE: Every action MUST leverage specific brand knowledge base entries. Quote specific technical features, partnerships, or differentiators.
     5. TIMELINESS: Each reasoning MUST explain WHY NOW (today is ${today}). Reference a specific trend, market event, competitor move, or calendar date. If no fresh trend data is available, reference evergreen market narratives the brand can own. NEVER recommend posting about past events (product launches, milestones, etc.) that have already happened — only forward-looking content.
@@ -2763,19 +2763,21 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     8. CONTENT IDEAS: Each action needs 3 specific, creative content ideas — not restatements of the topic. Think headlines, angles, contrarian takes.
     9. AVOID GENERIC: Never output actions like "General brand update", "Community engagement post", or "Thought leadership thread" without specific substance. Every action must pass the test: "Could this ONLY apply to THIS brand?"
     10. TONE: Write reasoning as if you're a sharp CMO pitching to the CEO. Confident, data-aware, no fluff.
+    11. SOURCE ATTRIBUTION (CRITICAL): For each action, specify which data source triggered it. Was it a specific trending news headline? A competitor gap? Performance data showing what works? A knowledge base entry revealing unexploited positioning? The user needs to see WHY this rec exists and WHERE the signal came from.
 
     OUTPUT JSON:
     {
         "actions": [
             {
-                "type": "TWEET" | "THREAD" | "CAMPAIGN" | "REPLY" | "GAP_FILL",
+                "type": "TWEET" | "THREAD" | "CAMPAIGN" | "REPLY" | "TREND_JACK" | "GAP_FILL",
                 "topic": "Specific topic grounded in data",
                 "goal": "Measurable outcome this action achieves",
                 "instructions": "Specific constraints for execution (format, tone, length, CTA)",
                 "reasoning": "Data-backed rationale citing specific metrics/trends/competitor gaps (2-3 sentences)",
                 "hook": "Bold internal code name (e.g. 'Operation Phantom Growth', 'The Liquidity Vampire')",
                 "strategicAlignment": "Aligns with [specific brand value/knowledge entry] because...",
-                "contentIdeas": ["Specific headline 1", "Specific angle 2", "Specific creative idea 3"]
+                "contentIdeas": ["Specific headline 1", "Specific angle 2", "Specific creative idea 3"],
+                "dataSource": "The specific signal that triggered this action (e.g. 'Trending: AI agents narrative surging', 'Performance: threads get 3x engagement', 'Competitor gap: Optimism ignoring DePIN', 'KB: DAT technology underexploited in content')"
             }
         ]
     }
@@ -3379,6 +3381,7 @@ export const generateDailyBrief = async (
     - Use precise, professional language. Be specific with numbers when available.
     - If on-chain analytics data is provided, reference wallet growth, volume trends, retention rates, and campaign ROI in your analysis. Include on-chain metrics in the metricsSnapshot (e.g., "New Wallets", "On-Chain Volume", "Wallet Retention").
     - If input data is sparse, still generate a thorough brief with strategic recommendations, market context, and actionable steps. The brief should NEVER feel empty.
+    - IMPORTANT: When data is limited or the brand is new, adopt an optimistic "getting started" tone. Frame it as an exciting launch phase, NOT as a problem. Never use phrases like "data scarcity", "static operational landscape", "insufficient data", or "lack of metrics". Instead, focus on opportunities, recommended first moves, and market context that's relevant to their brand.
     - Never say "AI summary failure" or "Generation Error".
     `;
 

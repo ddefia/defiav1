@@ -376,6 +376,7 @@ const PUBLIC_API_PATHS = new Set([
     // Vercel cron jobs — invoked by Vercel scheduler, no auth headers
     '/api/agent/run',
     '/api/agent/briefing',
+    '/api/agent/recommendations',
     '/api/web3-news/refresh',
     '/api/social-sync',
 ]);
@@ -399,6 +400,7 @@ const PUBLIC_API_PREFIXES = [
     '/api/assets/',       // Asset uploads — protected by requireAuth
     '/api/agent/',        // Agent trigger/run/briefing — protected by requireAuth or Vercel cron
     '/api/dune/',         // Dune queries — protected by requireAuth
+    '/api/teams/',        // Team members — protected by requireAuth
     '/api/publish/',      // Publish cron
     '/api/debug/',        // Debug endpoints
 ];
@@ -1811,6 +1813,95 @@ app.get('/api/agent/run', async (req, res) => {
     }
 });
 
+// --- Recommendations Cron (Cache brain analysis for all brands) ---
+app.get('/api/agent/recommendations', async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const activeBrands = await fetchActiveBrands(supabase);
+        if (!activeBrands || activeBrands.length === 0) {
+            return res.json({ status: 'ok', message: 'No active brands', processed: 0 });
+        }
+
+        const results = [];
+        for (const brand of activeBrands) {
+            try {
+                const brandId = brand.id;
+                const ownerPrefix = brand.owner_id ? brand.owner_id.slice(0, 8) : null;
+                if (!ownerPrefix) {
+                    results.push({ brandId, skipped: true, reason: 'No owner' });
+                    continue;
+                }
+
+                // Check if cached recommendations are still fresh (< 20h)
+                const cacheKey = `${ownerPrefix}:defia_recommendations_cache_v1_${(brand.name || brandId).toLowerCase()}`;
+                const { data: existing } = await supabase
+                    .from('app_storage')
+                    .select('updated_at')
+                    .eq('key', cacheKey)
+                    .maybeSingle();
+                if (existing?.updated_at) {
+                    const age = Date.now() - new Date(existing.updated_at).getTime();
+                    if (age < 20 * 60 * 60 * 1000) { // < 20 hours
+                        results.push({ brandId, skipped: true, reason: 'Cache still fresh' });
+                        continue;
+                    }
+                }
+
+                // Run the brain analysis (1 Gemini call) — same as runBrainCycle but we cache the output
+                const { analyzeState } = await import('./server/agent/brain.js');
+                const { fetchBrandProfile, fetchAutomationSettings } = await import('./server/agent/brandContext.js');
+                const { fetchWeb3News: fetchNews } = await import('./server/services/web3News.js');
+
+                // Check automation enabled
+                const automation = await fetchAutomationSettings(supabase, brandId);
+                if (!automation.enabled) {
+                    results.push({ brandId, skipped: true, reason: 'Automation disabled' });
+                    continue;
+                }
+
+                const brandProfile = await fetchBrandProfile(supabase, brandId);
+                const handle = brand.xHandle || brand.name;
+
+                // Fetch news context
+                let trends = [];
+                try {
+                    const newsResult = await fetchNews(supabase, 'global', { limit: 8, cacheDurationMs: 6 * 60 * 60 * 1000 });
+                    trends = (newsResult.items || []).map(item => ({
+                        headline: item.headline || item.topic || 'Unknown',
+                        summary: item.summary || '',
+                        sentiment: item.sentiment || 'Neutral',
+                        relevanceScore: item.relevanceScore || 70,
+                    }));
+                } catch { /* non-critical */ }
+
+                // Run brain
+                const decisionResult = await analyzeState(null, [], [], trends, { ...brandProfile, name: brand.name || brandId });
+                const actions = decisionResult?.actions || [decisionResult];
+
+                // Cache to app_storage
+                await supabase.from('app_storage').upsert({
+                    key: cacheKey,
+                    value: { actions, generatedAt: new Date().toISOString() },
+                    updated_at: new Date().toISOString(),
+                });
+
+                results.push({ brandId, cached: true, actionCount: actions.length });
+                console.log(`[Recs] Cached ${actions.length} recommendations for ${brandId}`);
+            } catch (brandErr) {
+                console.error(`[Recs] Failed for brand ${brand.id}:`, brandErr.message);
+                results.push({ brandId: brand.id, error: brandErr.message });
+            }
+        }
+
+        return res.json({ status: 'ok', processed: results.length, results });
+    } catch (e) {
+        console.error('[Recommendations] Failed:', e);
+        return res.status(500).json({ error: 'Recommendations cron failed.' });
+    }
+});
+
 // --- Briefing Generation (Daily Briefing + Telegram Push) ---
 app.get('/api/agent/briefing', async (req, res) => {
     try {
@@ -2844,6 +2935,180 @@ app.post('/api/telegram/setup-webhook', requireAuth, async (req, res) => {
     try {
         const result = await setTelegramWebhook(webhookUrl);
         res.json({ success: true, webhookUrl, result });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ━━━ Team Members Endpoints ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// POST /api/teams/invite — invite a team member by email
+app.post('/api/teams/invite', requireAuth, async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const { brandId, email, role } = req.body;
+        if (!brandId || !email) return res.status(400).json({ error: 'brandId and email are required' });
+
+        // Verify caller owns the brand
+        const ownership = await ensureBrandOwnership(supabase, brandId, req.authUser.id);
+        if (ownership.status !== 200) return res.status(ownership.status).json({ error: ownership.error });
+
+        // Can't invite yourself
+        if (email.toLowerCase() === req.authUser.email.toLowerCase()) {
+            return res.status(400).json({ error: 'You cannot invite yourself' });
+        }
+
+        // Check if already invited
+        const { data: existing } = await supabase
+            .from('team_members')
+            .select('id')
+            .eq('brand_id', brandId)
+            .ilike('email', email.trim())
+            .maybeSingle();
+        if (existing) return res.status(409).json({ error: 'This person is already a team member' });
+
+        const { data, error } = await supabase
+            .from('team_members')
+            .insert({
+                brand_id: brandId,
+                email: email.toLowerCase().trim(),
+                role: role || 'editor',
+                invited_by: req.authUser.id,
+                status: 'pending',
+            })
+            .select()
+            .single();
+
+        if (error) return res.status(500).json({ error: error.message });
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /api/teams/:brandId/members — list team members
+app.get('/api/teams/:brandId/members', requireAuth, async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const { brandId } = req.params;
+
+        // Verify caller is owner OR active team member
+        const { data: brand } = await supabase.from('brands').select('id, owner_id').eq('id', brandId).maybeSingle();
+        if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+        const isOwner = brand.owner_id === req.authUser.id;
+        if (!isOwner) {
+            const { data: membership } = await supabase
+                .from('team_members')
+                .select('id')
+                .eq('brand_id', brandId)
+                .ilike('email', req.authUser.email)
+                .eq('status', 'active')
+                .maybeSingle();
+            if (!membership) return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const { data, error } = await supabase
+            .from('team_members')
+            .select('*')
+            .eq('brand_id', brandId)
+            .order('created_at', { ascending: true });
+
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ members: data || [], owner_id: brand.owner_id });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// DELETE /api/teams/:brandId/members/:memberId — remove a team member
+app.delete('/api/teams/:brandId/members/:memberId', requireAuth, async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const { brandId, memberId } = req.params;
+
+        // Verify caller owns the brand
+        const ownership = await ensureBrandOwnership(supabase, brandId, req.authUser.id);
+        if (ownership.status !== 200) return res.status(ownership.status).json({ error: ownership.error });
+
+        const { error } = await supabase.from('team_members').delete().eq('id', memberId).eq('brand_id', brandId);
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /api/teams/my-memberships — get all team memberships for the current user
+app.get('/api/teams/my-memberships', requireAuth, async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        // Find all team_members rows where email matches
+        const { data: memberships, error } = await supabase
+            .from('team_members')
+            .select('*, brands:brand_id(id, name, owner_id, website_url)')
+            .ilike('email', req.authUser.email);
+
+        if (error) return res.status(500).json({ error: error.message });
+        if (!memberships || memberships.length === 0) return res.json({ memberships: [] });
+
+        // Auto-activate pending memberships
+        const pending = memberships.filter(m => m.status === 'pending');
+        if (pending.length > 0) {
+            const pendingIds = pending.map(m => m.id);
+            await supabase
+                .from('team_members')
+                .update({ status: 'active', user_id: req.authUser.id })
+                .in('id', pendingIds);
+            // Update local objects
+            pending.forEach(m => { m.status = 'active'; m.user_id = req.authUser.id; });
+        }
+
+        // For each membership, fetch the brand config from app_storage
+        const enriched = await Promise.all(memberships.map(async (m) => {
+            const brand = m.brands;
+            if (!brand) return { ...m, brandConfig: null };
+
+            // Try to find brand config stored by the owner
+            // Look for cloud keys matching the owner's brand profiles
+            const ownerPrefix = brand.owner_id ? brand.owner_id.slice(0, 8) : null;
+            let brandConfig = null;
+
+            if (ownerPrefix) {
+                const { data: storageRow } = await supabase
+                    .from('app_storage')
+                    .select('value')
+                    .eq('key', `${ownerPrefix}:ethergraph_brand_profiles_v17`)
+                    .maybeSingle();
+
+                if (storageRow?.value) {
+                    // Find the brand config by name
+                    const allProfiles = storageRow.value;
+                    brandConfig = allProfiles[brand.name] || null;
+                }
+            }
+
+            return {
+                id: m.id,
+                brand_id: m.brand_id,
+                email: m.email,
+                role: m.role,
+                status: m.status,
+                owner_id: brand.owner_id,
+                brandName: brand.name,
+                brandConfig,
+            };
+        }));
+
+        res.json({ memberships: enriched });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

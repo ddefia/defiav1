@@ -147,8 +147,8 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
                 sourceName: item.source === 'Twitter' ? 'X / Twitter' : (item.source || 'Web3 News'),
                 category: item.topic?.toLowerCase() || 'defi',
                 relevanceBadge: item.relevanceScore > 80 ? `High relevance to ${brandName}` :
-                               item.relevanceScore > 60 ? 'Direct competitor analysis' :
-                               'May affect compliance strategy'
+                               item.relevanceScore > 60 ? 'Market intelligence' :
+                               'Industry news'
             }));
     };
 

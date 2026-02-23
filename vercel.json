@@ -39,6 +39,10 @@
         {
             "path": "/api/social-sync",
             "schedule": "30 */12 * * *"
+        },
+        {
+            "path": "/api/agent/recommendations",
+            "schedule": "0 7 * * *"
         }
     ],
     "functions": {

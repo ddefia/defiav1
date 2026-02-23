@@ -11,7 +11,7 @@ interface ProductTourProps {
     onSkip: () => void;
 }
 
-type SlideVisualType = 'welcome' | 'ai' | 'dashboard' | 'studio' | 'telegram' | 'theme' | 'pricing' | 'trial' | 'complete';
+type SlideVisualType = 'welcome' | 'ai' | 'dashboard' | 'studio' | 'telegram' | 'team' | 'theme' | 'pricing' | 'trial' | 'complete';
 
 interface Slide {
     icon: string;
@@ -62,6 +62,13 @@ const SLIDES: Slide[] = [
         description: 'Add our bot to your Telegram group. Get daily briefings, draft tweets, generate graphics, and chat with your AI CMO \u2014 without leaving Telegram.',
         accent: '#0088CC',
         visual: 'telegram',
+    },
+    {
+        icon: 'group',
+        title: 'Invite Your Team',
+        description: 'Collaborate with your marketing team. Invite members to view dashboards, edit content, and manage campaigns together.',
+        accent: '#10B981',
+        visual: 'team',
     },
     {
         icon: 'palette',
@@ -257,6 +264,52 @@ const TelegramVisual: React.FC = () => (
                     key={f}
                     className="text-[9px] font-medium px-2 py-1 rounded-full"
                     style={{ backgroundColor: 'rgba(0, 136, 204, 0.08)', color: '#0088CC', border: '1px solid rgba(0, 136, 204, 0.15)' }}
+                >
+                    {f}
+                </span>
+            ))}
+        </div>
+    </div>
+);
+
+const TeamVisual: React.FC = () => (
+    <div className="space-y-3">
+        {/* Team member mockup rows */}
+        {[
+            { initials: 'You', role: 'Owner', color: '#FF5C00', active: true },
+            { initials: 'JD', role: 'Editor', color: '#10B981', active: true },
+            { initials: 'SK', role: 'Viewer', color: '#3B82F6', active: false },
+        ].map((member, i) => (
+            <div
+                key={i}
+                className="flex items-center gap-3 px-5 py-3 rounded-xl"
+                style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}
+            >
+                <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${member.color}20`, border: `1px solid ${member.color}30` }}
+                >
+                    <span className="text-xs font-bold" style={{ color: member.color }}>{member.initials}</span>
+                </div>
+                <div className="flex-1">
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {member.initials === 'You' ? 'You' : `Team Member ${i}`}
+                    </span>
+                </div>
+                <span
+                    className="text-[10px] font-medium uppercase px-2 py-1 rounded"
+                    style={{ backgroundColor: `${member.color}15`, color: member.color }}
+                >
+                    {member.role}
+                </span>
+            </div>
+        ))}
+        <div className="flex gap-2 justify-center pt-1">
+            {['Share Dashboards', 'Edit Content', 'Manage Campaigns', 'View Analytics'].map((f) => (
+                <span
+                    key={f}
+                    className="text-[9px] font-medium px-2 py-1 rounded-full"
+                    style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.15)' }}
                 >
                     {f}
                 </span>
@@ -519,6 +572,8 @@ export const ProductTour: React.FC<ProductTourProps> = ({
                 return <StudioVisual draft={sampleDraft} />;
             case 'telegram':
                 return <TelegramVisual />;
+            case 'team':
+                return <TeamVisual />;
             case 'theme':
                 return <ThemeVisual currentTheme={currentTheme} onThemeChange={onThemeChange} />;
             case 'pricing':

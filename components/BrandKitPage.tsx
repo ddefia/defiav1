@@ -774,8 +774,16 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                                 ))}
                             </div>
                         ) : !showAddBanned ? (
-                            <div className="flex flex-col items-center justify-center py-4 text-center mb-2">
-                                <p className="text-[#4A4A4A] text-xs">No banned phrases — defaults: "Delve", "Tapestry", "Game changer", "Unleash"</p>
+                            <div className="py-3 mb-2">
+                                <p className="text-[#6B6B70] text-xs mb-3">The AI automatically avoids these common filler words:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {['Delve', 'Tapestry', 'Game changer', 'Unleash'].map(p => (
+                                        <span key={p} className="px-2.5 py-1.5 bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg text-[#8E8E93] text-xs">
+                                            {p}
+                                        </span>
+                                    ))}
+                                </div>
+                                <p className="text-[#4A4A4A] text-[11px] mt-2">Add your own with the + button above.</p>
                             </div>
                         ) : null}
 

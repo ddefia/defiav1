@@ -124,8 +124,11 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
 
     // AI Insight
     const aiTopic = hasData ? `#${brandName.replace(/\s+/g, '')}` : '';
+    const avgLikes = brandMentions.length > 0
+        ? Math.round(brandMentions.reduce((sum, m) => sum + (m.likes || 0), 0) / brandMentions.length)
+        : 0;
     const aiInsight = hasData
-        ? `Your engagement rate is ${engagementRate}%${engagementChange !== 0 ? ` (${engagementChange > 0 ? '+' : ''}${engagementChange}% vs last week)` : ''}. ${brandMentions.length > 0 ? `Recent posts are getting ${brandMentions[0]?.likes || 0} likes on average.` : ''} Consider posting during peak hours for maximum reach.`
+        ? `Your engagement rate is ${engagementRate}%${engagementChange !== 0 ? ` (${engagementChange > 0 ? '+' : ''}${engagementChange}% vs last week)` : ''}. ${brandMentions.length > 0 ? `Recent posts are getting ${avgLikes} likes on average.` : ''} Consider posting during peak hours for maximum reach.`
         : 'Connect your Twitter/X account in Settings to see AI-powered insights and real-time feed data.';
 
     const handleCreatePost = () => {

@@ -162,8 +162,8 @@ export const NewsArticleDetail: React.FC<NewsArticleDetailProps> = ({
                         </p>
 
                         {/* Quote Block */}
-                        <div className="bg-[#111113] rounded-xl p-5 pl-6 border-l-[3px] border-[#FF5C00]">
-                            <p className="text-[#E5E5E5] text-[15px] italic leading-[1.6]">
+                        <div className="rounded-xl p-5 pl-6 border-l-[3px] border-[#FF5C00]" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                            <p className="text-[15px] italic leading-[1.6]" style={{ color: 'var(--text-primary)' }}>
                                 "{article.quote || `We're seeing unprecedented interest in Solana DeFi. The combination of speed, low costs, and innovative protocols is creating a perfect storm for growth.`}"
                             </p>
                         </div>

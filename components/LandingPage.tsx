@@ -11,7 +11,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
   const sectionRefs = useRef<{ [key: string]: HTMLElement | null }>({});
   const [showMobileModal, setShowMobileModal] = useState(false);
   const [heroWordIndex, setHeroWordIndex] = useState(0);
-  const [showDemo, setShowDemo] = useState(false);
+  const [showDemo, setShowDemo] = useState(true);
   const demoRef = useRef<HTMLVideoElement>(null);
   const [statsAnimated, setStatsAnimated] = useState(false);
   const [statValues, setStatValues] = useState({ projects: 0, tweets: 0, engagement: 0 });

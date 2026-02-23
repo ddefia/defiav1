@@ -103,7 +103,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             const isKickoffOnly = nonKickoffItems.length === 0 && saved.viewMode === 'wizard' && saved.campaignStep === 3;
 
             if (!isKickoffOnly) {
-                if (saved.viewMode) setViewMode(saved.viewMode);
+                // Don't restore viewMode — always start on list view to avoid wizard auto-opening
                 if (saved.campaignStep) setCampaignStep(saved.campaignStep);
                 if (saved.campaignType) setCampaignType(saved.campaignType);
                 if (saved.campaignTheme) setCampaignTheme(saved.campaignTheme);

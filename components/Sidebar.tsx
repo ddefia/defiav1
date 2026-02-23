@@ -20,9 +20,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onConnect
 }) => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isBrandMenuOpen, setIsBrandMenuOpen] = useState(false);
     const [isStudioOpen, setIsStudioOpen] = useState(currentSection === 'studio' || currentSection === 'image-editor');
     const [isCollapsed, setIsCollapsed] = useState(false);
     const userProfile = loadUserProfile();
+
+    // Compute brand list (non-default brands)
+    const brandKeys = Object.keys(profiles).filter(k => !['Default', 'default'].includes(k));
+    const hasMultipleBrands = brandKeys.length > 1;
 
     // Nav items with nested children support
     type NavItem = { id: string; label: string; icon: string; isAccent?: boolean; isSub?: boolean; children?: NavItem[] };
@@ -52,6 +57,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         await signOut();
     };
 
+    // Determine role for a brand
+    const getBrandRole = (key: string): string => {
+        const config = profiles[key] as any;
+        if (config?._teamBrand) return config._teamRole === 'viewer' ? 'Viewer' : 'Editor';
+        return 'Owner';
+    };
+
     return (
         <div className={`${isCollapsed ? 'w-[68px]' : 'w-[280px]'} h-full flex flex-col shrink-0 transition-all duration-200`} style={{ backgroundColor: 'var(--bg-secondary)', borderRight: '1px solid var(--border)' }}>
             {/* Header / Logo */}
@@ -64,10 +76,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {!isCollapsed && <span className="text-[#FF5C00] font-bold text-lg tracking-wide">DEFIA</span>}
             </div>
 
-            {/* Brand Display (Single Brand) */}
+            {/* Brand Display / Selector */}
             {brandName && (
-                <div className={`${isCollapsed ? 'px-3 py-4' : 'px-6 py-4'}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+                <div className={`${isCollapsed ? 'px-3 py-4' : 'px-6 py-4'} relative`} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <div
+                        className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} ${hasMultipleBrands && !isCollapsed ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                        onClick={() => {
+                            if (hasMultipleBrands && !isCollapsed) setIsBrandMenuOpen(!isBrandMenuOpen);
+                        }}
+                    >
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF5C00]/20 to-[#FF5C00]/10 flex items-center justify-center border border-[#FF5C00]/20 flex-shrink-0">
                             <span className="text-[#FF5C00] font-bold text-sm">
                                 {brandName.charAt(0).toUpperCase()}
@@ -77,22 +94,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <>
                                 <div className="flex-1 min-w-0">
                                     <p className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>{brandName}</p>
-                                    <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>Active Brand</p>
+                                    <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                                        {getBrandRole(brandName)}{hasMultipleBrands ? ` · ${brandKeys.length} brands` : ''}
+                                    </p>
                                 </div>
-                                <button
-                                    onClick={() => onNavigate('settings')}
-                                    className="p-2 hover:bg-[#1F1F23] rounded-lg transition-colors"
-                                >
+                                {hasMultipleBrands ? (
                                     <span
-                                        className="material-symbols-sharp text-lg text-[#6B6B70]"
-                                        style={{ fontVariationSettings: "'wght' 100" }}
+                                        className="material-symbols-sharp text-lg text-[#6B6B70] transition-transform duration-200"
+                                        style={{ fontVariationSettings: "'wght' 100", transform: isBrandMenuOpen ? 'rotate(180deg)' : 'none' }}
                                     >
-                                        settings
+                                        unfold_more
                                     </span>
-                                </button>
+                                ) : (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onNavigate('settings'); }}
+                                        className="p-2 hover:bg-[#1F1F23] rounded-lg transition-colors"
+                                    >
+                                        <span
+                                            className="material-symbols-sharp text-lg text-[#6B6B70]"
+                                            style={{ fontVariationSettings: "'wght' 100" }}
+                                        >
+                                            settings
+                                        </span>
+                                    </button>
+                                )}
                             </>
                         )}
                     </div>
+
+                    {/* Brand Dropdown */}
+                    {isBrandMenuOpen && !isCollapsed && hasMultipleBrands && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsBrandMenuOpen(false)}></div>
+                            <div
+                                className="absolute left-4 right-4 top-full mt-1 rounded-xl shadow-xl p-2 z-20 max-h-[280px] overflow-y-auto"
+                                style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}
+                            >
+                                {brandKeys.map(key => {
+                                    const isActive = key === brandName;
+                                    const role = getBrandRole(key);
+                                    return (
+                                        <button
+                                            key={key}
+                                            onClick={() => { onSelectBrand(key); setIsBrandMenuOpen(false); }}
+                                            className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${
+                                                isActive ? 'bg-[#FF5C00]/10' : 'hover:bg-[#2A2A2D]'
+                                            }`}
+                                        >
+                                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF5C00]/20 to-[#FF5C00]/10 flex items-center justify-center border border-[#FF5C00]/20 flex-shrink-0">
+                                                <span className="text-[#FF5C00] font-bold text-xs">
+                                                    {key.charAt(0).toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="truncate" style={{ color: isActive ? '#FF5C00' : 'var(--text-primary)' }}>{key}</p>
+                                                <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{role}</p>
+                                            </div>
+                                            {isActive && (
+                                                <span className="material-symbols-sharp text-[#FF5C00] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>check</span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
 

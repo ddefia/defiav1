@@ -1006,10 +1006,10 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                 />
                                 <div className="flex flex-col gap-0.5">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-[15px] font-semibold text-white">Web3 Project</span>
+                                        <span className="text-[15px] font-semibold text-white">{brandName}</span>
                                         <span className="material-symbols-sharp text-[#1DA1F2] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>verified</span>
                                     </div>
-                                    <span className="text-sm text-[#64748B]">@web3project · Now</span>
+                                    <span className="text-sm text-[#64748B]">@{brandName.toLowerCase().replace(/\s+/g, '')} · Now</span>
                                 </div>
                             </div>
 
@@ -1531,10 +1531,10 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                     />
                                     <div className="flex flex-col">
                                         <div className="flex items-center gap-1">
-                                            <span className="text-sm font-semibold text-white">Web3 Project</span>
+                                            <span className="text-sm font-semibold text-white">{brandName}</span>
                                             <span className="material-symbols-sharp text-[#1DA1F2] text-sm" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>verified</span>
                                         </div>
-                                        <span className="text-xs text-[#64748B]">@web3project</span>
+                                        <span className="text-xs text-[#64748B]">@{brandName.toLowerCase().replace(/\s+/g, '')}</span>
                                     </div>
                                 </div>
                                 <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap">

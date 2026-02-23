@@ -82,7 +82,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
     const totalFollowers = metrics?.totalFollowers || 0;
     const engagementRate = metrics?.engagementRate || 0;
     const impressions = metrics?.weeklyImpressions || 0;
-    const totalEngagements = impressions > 0 ? Math.round(impressions * (engagementRate / 100)) : 0;
+    const totalEngagements = (metrics?.recentPosts || []).reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.comments || 0), 0);
 
     const followersChange = metrics?.comparison?.followersChange || 0;
     const impressionsChange = metrics?.comparison?.impressionsChange || 0;

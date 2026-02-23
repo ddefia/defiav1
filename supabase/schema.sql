@@ -312,3 +312,19 @@ create index if not exists api_usage_logs_provider_idx on api_usage_logs (provid
 create index if not exists api_usage_logs_created_idx on api_usage_logs (created_at);
 create index if not exists api_usage_logs_brand_idx on api_usage_logs (brand_id);
 create index if not exists api_usage_logs_source_idx on api_usage_logs (source);
+
+-- Team members for multi-user brand access
+create table if not exists team_members (
+  id uuid primary key default gen_random_uuid(),
+  brand_id text references brands(id) on delete cascade,
+  email text not null,
+  user_id text,                     -- set when invite accepted (Supabase auth user ID)
+  role text default 'editor',       -- 'editor' or 'viewer'
+  status text default 'pending',    -- 'pending' or 'active'
+  invited_by text,                  -- user ID of the person who invited
+  created_at timestamptz default now()
+);
+
+create index if not exists team_members_email_idx on team_members (lower(email));
+create index if not exists team_members_brand_idx on team_members (brand_id);
+create unique index if not exists team_members_unique on team_members (brand_id, lower(email));

@@ -29,6 +29,22 @@ const getUserPrefix = (): string => {
 // Reset cached prefix on auth change (call after login/logout)
 export const resetUserPrefix = () => { _cachedUserPrefix = null; };
 
+// --- TEAM BRAND PREFIX ROUTING ---
+// When viewing a team brand, route cloud storage to the owner's prefix
+// so all team members share the same data (calendar, content, notes, etc.)
+let _activeBrandProfile: any = null;
+
+export const setActiveBrandProfile = (profile: any) => {
+    _activeBrandProfile = profile;
+};
+
+const getEffectivePrefix = (): string => {
+    if (_activeBrandProfile?._teamBrand && _activeBrandProfile?._ownerPrefix) {
+        return _activeBrandProfile._ownerPrefix;
+    }
+    return getUserPrefix();
+};
+
 const userKey = (base: string) => `${getUserPrefix()}_${base}`;
 
 const STORAGE_KEY_BASE = 'ethergraph_brand_profiles_v17';
@@ -117,8 +133,8 @@ const setLocalTimestamp = (key: string, ts: number) => {
 
 const fetchFromCloud = async (key: string): Promise<{ value: any, updated_at: string } | null> => {
     try {
-        // User-scope cloud storage keys to prevent cross-user data leakage
-        const scopedKey = `${getUserPrefix()}:${key}`;
+        // Use effective prefix: routes to owner's storage for team brands
+        const scopedKey = `${getEffectivePrefix()}:${key}`;
         const { data, error } = await supabase
             .from('app_storage')
             .select('value, updated_at')
@@ -145,9 +161,13 @@ const fetchFromCloud = async (key: string): Promise<{ value: any, updated_at: st
 };
 
 const saveToCloud = async (key: string, value: any) => {
+    // Viewers on team brands: read-only, skip writes
+    if (_activeBrandProfile?._teamBrand && _activeBrandProfile?._teamRole === 'viewer') {
+        return;
+    }
     try {
-        // User-scope cloud storage keys
-        const scopedKey = `${getUserPrefix()}:${key}`;
+        // Use effective prefix: routes to owner's storage for team brands
+        const scopedKey = `${getEffectivePrefix()}:${key}`;
         const { error } = await supabase
             .from('app_storage')
             .upsert({ key: scopedKey, value, updated_at: new Date().toISOString() });
@@ -1460,5 +1480,150 @@ export const saveContentPlannerNotes = (brandName: string, notes: any[]): void =
         dispatchStorageEvent(STORAGE_EVENTS.CONTENT_PLANNER_UPDATE, { brandName });
     } catch (e) {
         console.error("Failed to save content planner notes", e);
+    }
+};
+
+// --- CACHED RECOMMENDATIONS (from server-side cron) ---
+
+export const fetchCachedRecommendations = async (brandName: string): Promise<{ actions: any[]; generatedAt: string } | null> => {
+    try {
+        const key = `defia_recommendations_cache_v1_${brandName.toLowerCase()}`;
+        const result = await fetchFromCloud(key);
+        if (!result?.value) return null;
+
+        // Check freshness (< 24h)
+        const age = Date.now() - new Date(result.updated_at).getTime();
+        if (age > 24 * 60 * 60 * 1000) return null;
+
+        return result.value;
+    } catch (e) {
+        console.warn('Failed to fetch cached recommendations:', e);
+        return null;
+    }
+};
+
+// --- TEAM MEMBERSHIPS ---
+
+export interface TeamMembership {
+    id: string;
+    brand_id: string;
+    email: string;
+    role: 'editor' | 'viewer';
+    status: 'pending' | 'active';
+    owner_id: string;
+    brandName: string;
+    brandConfig: BrandConfig | null;
+}
+
+/**
+ * Fetch all team memberships for the current user from the server.
+ * Auto-activates pending invites.
+ */
+export const fetchTeamMemberships = async (): Promise<TeamMembership[]> => {
+    try {
+        const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+        // Get auth token from Supabase session
+        const keys = Object.keys(localStorage);
+        const authKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        let token = '';
+        if (authKey) {
+            const session = JSON.parse(localStorage.getItem(authKey) || '{}');
+            token = session?.access_token || '';
+        }
+        if (!token) return [];
+
+        const response = await fetch(`${baseUrl}/api/teams/my-memberships`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.memberships || [];
+    } catch (e) {
+        console.warn('Failed to fetch team memberships:', e);
+        return [];
+    }
+};
+
+/**
+ * Invite a team member to a brand.
+ */
+export const inviteTeamMember = async (brandId: string, email: string, role: string = 'editor'): Promise<{ success: boolean; error?: string; member?: any }> => {
+    try {
+        const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+        const keys = Object.keys(localStorage);
+        const authKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        let token = '';
+        if (authKey) {
+            const session = JSON.parse(localStorage.getItem(authKey) || '{}');
+            token = session?.access_token || '';
+        }
+        if (!token) return { success: false, error: 'Not authenticated' };
+
+        const response = await fetch(`${baseUrl}/api/teams/invite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ brandId, email, role }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return { success: false, error: data?.error || 'Failed to invite' };
+        return { success: true, member: data };
+    } catch (e: any) {
+        return { success: false, error: e?.message || 'Failed to invite' };
+    }
+};
+
+/**
+ * Fetch team members for a brand.
+ */
+export const fetchTeamMembers = async (brandId: string): Promise<{ members: any[]; owner_id: string }> => {
+    try {
+        const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+        const keys = Object.keys(localStorage);
+        const authKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        let token = '';
+        if (authKey) {
+            const session = JSON.parse(localStorage.getItem(authKey) || '{}');
+            token = session?.access_token || '';
+        }
+        if (!token) return { members: [], owner_id: '' };
+
+        const response = await fetch(`${baseUrl}/api/teams/${brandId}/members`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!response.ok) return { members: [], owner_id: '' };
+        const data = await response.json();
+        return { members: data.members || [], owner_id: data.owner_id || '' };
+    } catch (e) {
+        console.warn('Failed to fetch team members:', e);
+        return { members: [], owner_id: '' };
+    }
+};
+
+/**
+ * Remove a team member from a brand.
+ */
+export const removeTeamMember = async (brandId: string, memberId: string): Promise<boolean> => {
+    try {
+        const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+        const keys = Object.keys(localStorage);
+        const authKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        let token = '';
+        if (authKey) {
+            const session = JSON.parse(localStorage.getItem(authKey) || '{}');
+            token = session?.access_token || '';
+        }
+        if (!token) return false;
+
+        const response = await fetch(`${baseUrl}/api/teams/${brandId}/members/${memberId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` },
+        });
+        return response.ok;
+    } catch (e) {
+        console.warn('Failed to remove team member:', e);
+        return false;
     }
 };

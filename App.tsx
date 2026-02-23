@@ -5,7 +5,7 @@ import { fetchMentions, computeSocialSignals, fetchSocialMetrics, computeGrowthM
 import { runMarketScan } from './services/ingestion';
 import { searchContext, buildContextBlock } from './services/rag';
 import { fetchActionCenter } from './services/actionCenter';
-import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, loadCampaignState, saveCampaignState, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage, loadIntegrationKeys, saveIntegrationKeys, loadDecisionLoopLastRun, saveDecisionLoopLastRun, loadCampaignLogs, loadContentItems, saveContentItems } from './services/storage';
+import { loadBrandProfiles, saveBrandProfiles, loadCalendarEvents, saveCalendarEvents, loadStrategyTasks, saveStrategyTasks, loadCampaignState, saveCampaignState, STORAGE_EVENTS, loadBrainLogs, saveBrainLog, fetchBrainHistoryEvents, importHistoryToReferences, loadGrowthReport, saveGrowthReport, fetchGrowthReportFromCloud, loadStrategicPosture, saveStrategicPosture, loadAutomationSettings, saveBrandRegistryEntry, getBrandRegistryEntry, getCurrentUserBrand, syncBrandAssetsFromStorage, loadIntegrationKeys, saveIntegrationKeys, loadDecisionLoopLastRun, saveDecisionLoopLastRun, loadCampaignLogs, loadContentItems, saveContentItems, fetchTeamMemberships, setActiveBrandProfile, fetchCachedRecommendations } from './services/storage';
 import { migrateToCloud } from './services/migration'; // Import migration
 import { getCurrentUser, onAuthStateChange, loadUserProfile, UserProfile, getAuthToken } from './services/auth'; // Import auth
 import { Button } from './components/Button';
@@ -230,6 +230,29 @@ const App: React.FC = () => {
                             console.warn('Brand asset sync failed (non-critical):', err);
                         });
                     }
+
+                    // Load team memberships (shared brands from other owners)
+                    fetchTeamMemberships().then(memberships => {
+                        if (memberships.length > 0) {
+                            setProfiles(prev => {
+                                const updated = { ...prev };
+                                memberships.forEach(m => {
+                                    if (m.brandConfig && m.brandName && !updated[m.brandName]) {
+                                        updated[m.brandName] = {
+                                            ...m.brandConfig,
+                                            _teamBrand: true,
+                                            _teamRole: m.role,
+                                            _teamBrandId: m.brand_id,
+                                            _ownerPrefix: m.owner_id?.slice(0, 8) || null,
+                                        } as any;
+                                    }
+                                });
+                                return updated;
+                            });
+                        }
+                    }).catch(err => {
+                        console.warn('Team membership fetch failed (non-critical):', err);
+                    });
                 }
             } catch (e) {
                 console.warn('Auth init failed', e);
@@ -411,6 +434,9 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!selectedBrand) return;
 
+        // Set active brand profile for storage prefix routing (team data sharing)
+        setActiveBrandProfile(profiles[selectedBrand] || null);
+
         setCalendarEvents(loadCalendarEvents(selectedBrand));
         setAutomationEnabled(loadAutomationSettings(selectedBrand).enabled);
 
@@ -449,6 +475,23 @@ const App: React.FC = () => {
             !t.title.startsWith("Autopilot:") // Catch-all
         );
         setStrategyTasks(CLEAN_TASKS);
+
+        // If no local strategy tasks, try loading server-cached recommendations
+        if (CLEAN_TASKS.length === 0) {
+            fetchCachedRecommendations(selectedBrand).then(cached => {
+                if (cached?.actions?.length) {
+                    const mappedFromCache = cached.actions
+                        .filter((a: any) => a.action && a.action !== 'NO_ACTION' && a.action !== 'ERROR')
+                        .map((a: any) => mapDecisionToTask(a))
+                        .slice(0, 5);
+                    if (mappedFromCache.length > 0) {
+                        setStrategyTasks(mappedFromCache);
+                        saveStrategyTasks(selectedBrand, mappedFromCache);
+                        console.log(`[Recs] Loaded ${mappedFromCache.length} cached recommendations for ${selectedBrand}`);
+                    }
+                }
+            }).catch(() => { /* non-critical */ });
+        }
 
         const loadedReport = loadGrowthReport(selectedBrand);
         if (loadedReport) {
@@ -1486,13 +1529,20 @@ const App: React.FC = () => {
                 const style = getRecStyle(action.type);
                 const baseImpact = action.type === 'TREND_JACK' ? 92 : action.type === 'REPLY' ? 78 : action.type === 'CAMPAIGN' ? 88 : action.type === 'GAP_FILL' ? 75 : 80;
                 const impactScore = Math.min(99, baseImpact + (mentions.length > 3 ? 5 : 0) + ((socialSignals.trendingTopics?.length || 0) > 2 ? 3 : 0));
-                const dataSignal = action.type === 'TREND_JACK'
+                // Prefer LLM-provided dataSource, fall back to type-based defaults
+                const dataSignal = action.dataSource
+                    ? action.dataSource
+                    : action.type === 'TREND_JACK'
                     ? `Trending: ${(socialSignals.trendingTopics || [])[0]?.headline || action.topic}`
                     : action.type === 'REPLY'
                     ? `${mentions.length} recent mentions detected`
                     : action.type === 'CAMPAIGN'
                     ? `Market shift: ${strategicAngle.slice(0, 60) || action.topic}`
-                    : `Content gap in ${action.topic || 'market'}`;
+                    : action.type === 'THREAD'
+                    ? `Performance: Thread format for deeper engagement`
+                    : action.type === 'GAP_FILL'
+                    ? `Content gap: ${action.topic?.slice(0, 50) || 'market'}`
+                    : `Strategy: ${action.topic?.slice(0, 50) || 'opportunity'}`;
                 return {
                     ...style,
                     title: action.hook || `${style.type}: ${action.topic}`,
