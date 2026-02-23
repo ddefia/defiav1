@@ -221,7 +221,7 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                            <span className="material-symbols-rounded text-[#FF5C00]" style={{ fontSize: 24 }}>event_note</span>
+                            <span className="material-symbols-sharp text-[#FF5C00]" style={{ fontSize: 24 }}>event_note</span>
                             Content Planner
                         </h1>
                         <p className="text-xs text-[#6B6B70] mt-1">Plan your weekly content and store marketing ideas</p>
@@ -229,7 +229,7 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                     <div className="flex items-center gap-3">
                         {/* Search */}
                         <div className="relative">
-                            <span className="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-[#3E3E45]" style={{ fontSize: 16 }}>search</span>
+                            <span className="material-symbols-sharp absolute left-3 top-1/2 -translate-y-1/2 text-[#3E3E45]" style={{ fontSize: 16 }}>search</span>
                             <input
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
@@ -252,11 +252,11 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                 {/* Week Navigator */}
                 <div className="flex items-center gap-3">
                     <button onClick={() => setCurrentWeekOffset(o => o - 1)} className="p-1.5 rounded-lg hover:bg-[#1F1F23] transition-colors">
-                        <span className="material-symbols-rounded text-[#6B6B70]" style={{ fontSize: 20 }}>chevron_left</span>
+                        <span className="material-symbols-sharp text-[#6B6B70]" style={{ fontSize: 20 }}>chevron_left</span>
                     </button>
                     <span className="text-sm font-medium text-white min-w-[200px] text-center">{weekInfo.label}</span>
                     <button onClick={() => setCurrentWeekOffset(o => o + 1)} className="p-1.5 rounded-lg hover:bg-[#1F1F23] transition-colors">
-                        <span className="material-symbols-rounded text-[#6B6B70]" style={{ fontSize: 20 }}>chevron_right</span>
+                        <span className="material-symbols-sharp text-[#6B6B70]" style={{ fontSize: 20 }}>chevron_right</span>
                     </button>
                     {currentWeekOffset !== 0 && (
                         <button onClick={() => setCurrentWeekOffset(0)} className="px-3 py-1 rounded-lg text-xs font-medium text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors">
@@ -311,7 +311,7 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                            <span className="material-symbols-rounded text-[#6B6B70]" style={{ fontSize: 18 }}>lightbulb</span>
+                            <span className="material-symbols-sharp text-[#6B6B70]" style={{ fontSize: 18 }}>lightbulb</span>
                             <h2 className="text-sm font-semibold text-white">Ideas Backlog</h2>
                             {backlogNotes.length > 0 && (
                                 <span className="px-2 py-0.5 rounded-full bg-[#1F1F23] text-[#6B6B70] text-[10px] font-medium">{backlogNotes.length}</span>
@@ -321,13 +321,13 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                             onClick={() => addNote(null)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors"
                         >
-                            <span className="material-symbols-rounded" style={{ fontSize: 14 }}>add</span>
+                            <span className="material-symbols-sharp" style={{ fontSize: 14 }}>add</span>
                             Add Idea
                         </button>
                     </div>
                     {backlogNotes.length === 0 ? (
                         <div className="bg-[#13131A] rounded-xl border border-[#1E1E26] p-8 text-center">
-                            <span className="material-symbols-rounded text-[#2E2E2E] mb-2" style={{ fontSize: 32 }}>note_add</span>
+                            <span className="material-symbols-sharp text-[#2E2E2E] mb-2" style={{ fontSize: 32 }}>note_add</span>
                             <p className="text-sm text-[#6B6B70]">No ideas yet. Add your first brainstorm note.</p>
                         </div>
                     ) : (
