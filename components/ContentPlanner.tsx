@@ -23,7 +23,7 @@ const TAG_COLORS: Record<PlannerTag, string> = {
     announcement: 'bg-amber-500/20 text-amber-400',
     engagement: 'bg-green-500/20 text-green-400',
     campaign: 'bg-[#FF5C00]/20 text-[#FF5C00]',
-    idea: 'bg-[#2E2E2E] text-[#6B6B70]',
+    idea: 'bg-[#1F1F23] text-[#6B6B70]',
 };
 
 const STATUS_COLORS: Record<PlannerStatus, string> = {
@@ -215,60 +215,71 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
     // --- Render ---
 
     return (
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* Header */}
-            <div className="px-6 pt-6 pb-4 border-b border-[#1E1E26] flex-shrink-0">
-                <div className="flex items-center justify-between mb-4">
+        <div className="flex-1 h-full overflow-y-auto bg-[#0A0A0B]">
+            <div className="p-8 lg:px-10 space-y-7">
+                {/* Header */}
+                <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                            <span className="material-symbols-sharp text-[#FF5C00]" style={{ fontSize: 24 }}>event_note</span>
+                        <h1 className="text-[28px] font-semibold text-white flex items-center gap-3">
+                            <span className="material-symbols-sharp text-[#FF5C00]" style={{ fontSize: 28, fontVariationSettings: "'wght' 300" }}>event_note</span>
                             Content Planner
                         </h1>
-                        <p className="text-xs text-[#6B6B70] mt-1">Plan your weekly content and store marketing ideas</p>
+                        <p className="text-sm text-[#6B6B70] mt-1">Plan your weekly content and store marketing ideas</p>
                     </div>
                     <div className="flex items-center gap-3">
                         {/* Search */}
-                        <div className="relative">
-                            <span className="material-symbols-sharp absolute left-3 top-1/2 -translate-y-1/2 text-[#3E3E45]" style={{ fontSize: 16 }}>search</span>
+                        <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-[#111113] border border-[#1F1F23]">
+                            <span className="material-symbols-sharp text-[#6B6B70] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>search</span>
                             <input
+                                type="text"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 placeholder="Search notes..."
-                                className="bg-[#13131A] border border-[#1E1E26] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-[#3E3E45] focus:outline-none focus:border-[#FF5C00]/50 w-48"
+                                className="bg-transparent border-none text-white placeholder-[#6B6B70] text-sm focus:outline-none w-40"
                             />
                         </div>
                         {/* Tag filter */}
                         <select
                             value={filterTag}
                             onChange={e => setFilterTag(e.target.value as PlannerTag | 'all')}
-                            className="bg-[#13131A] border border-[#1E1E26] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF5C00]/50"
+                            className="px-3.5 py-2.5 rounded-lg bg-[#111113] border border-[#1F1F23] text-white text-sm font-medium focus:outline-none focus:border-[#FF5C00]/50 appearance-none cursor-pointer"
                         >
                             <option value="all">All Tags</option>
-                            {ALL_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
+                            {ALL_TAGS.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                         </select>
+                        {/* Add Note */}
+                        <button
+                            onClick={() => addNote(null)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"
+                        >
+                            <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 400" }}>add</span>
+                            New Note
+                        </button>
                     </div>
                 </div>
 
                 {/* Week Navigator */}
-                <div className="flex items-center gap-3">
-                    <button onClick={() => setCurrentWeekOffset(o => o - 1)} className="p-1.5 rounded-lg hover:bg-[#1F1F23] transition-colors">
-                        <span className="material-symbols-sharp text-[#6B6B70]" style={{ fontSize: 20 }}>chevron_left</span>
-                    </button>
-                    <span className="text-sm font-medium text-white min-w-[200px] text-center">{weekInfo.label}</span>
-                    <button onClick={() => setCurrentWeekOffset(o => o + 1)} className="p-1.5 rounded-lg hover:bg-[#1F1F23] transition-colors">
-                        <span className="material-symbols-sharp text-[#6B6B70]" style={{ fontSize: 20 }}>chevron_right</span>
-                    </button>
-                    {currentWeekOffset !== 0 && (
-                        <button onClick={() => setCurrentWeekOffset(0)} className="px-3 py-1 rounded-lg text-xs font-medium text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors">
-                            Today
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setCurrentWeekOffset(o => o - 1)} className="w-7 h-7 flex items-center justify-center rounded-md bg-[#1F1F23] text-[#ADADB0] hover:text-white transition-colors">
+                            <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>chevron_left</span>
                         </button>
-                    )}
-                    <span className="text-xs text-[#3E3E45] ml-auto">{weekNotes.length} scheduled · {backlogNotes.length} ideas</span>
+                        <span className="text-sm font-semibold text-white min-w-[200px] text-center">{weekInfo.label}</span>
+                        <button onClick={() => setCurrentWeekOffset(o => o + 1)} className="w-7 h-7 flex items-center justify-center rounded-md bg-[#1F1F23] text-[#ADADB0] hover:text-white transition-colors">
+                            <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>chevron_right</span>
+                        </button>
+                        {currentWeekOffset !== 0 && (
+                            <button onClick={() => setCurrentWeekOffset(0)} className="px-3 py-1 rounded-md bg-[#1F1F23] text-[#ADADB0] text-[11px] font-medium hover:text-white transition-colors">
+                                Today
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className="px-2.5 py-1 rounded-md bg-[#FF5C0018] text-[#FF5C00] text-[11px] font-medium">{weekNotes.length} scheduled</span>
+                        <span className="px-2.5 py-1 rounded-md bg-[#3B82F618] text-[#3B82F6] text-[11px] font-medium">{backlogNotes.length} ideas</span>
+                    </div>
                 </div>
-            </div>
 
-            {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
                 {/* Weekly Board */}
                 <div className="grid grid-cols-7 gap-3">
                     {DAYS.map(day => {
@@ -277,12 +288,14 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                         const isToday = currentWeekOffset === 0 && new Date().toDateString() === dayDate.toDateString();
 
                         return (
-                            <div key={day} className={`rounded-xl border p-3 min-h-[200px] flex flex-col ${isToday ? 'bg-[#13131A] border-[#FF5C00]/30' : 'bg-[#13131A] border-[#1E1E26]'}`}>
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className={`text-xs font-semibold uppercase ${isToday ? 'text-[#FF5C00]' : 'text-[#6B6B70]'}`}>{DAY_LABELS[day]}</span>
-                                    <span className={`text-[10px] ${isToday ? 'text-[#FF5C00]/60' : 'text-[#3E3E45]'}`}>{dayDate.getDate()}</span>
+                            <div key={day} className={`rounded-xl border min-h-[220px] flex flex-col ${isToday ? 'bg-[#111113] border-[#FF5C00]/30' : 'bg-[#111113] border-[#1F1F23]'}`}>
+                                {/* Day Header */}
+                                <div className={`flex items-center justify-between px-3.5 py-2.5 border-b ${isToday ? 'border-[#FF5C00]/20' : 'border-[#1F1F23]'}`}>
+                                    <span className={`text-xs font-semibold uppercase tracking-wider ${isToday ? 'text-[#FF5C00]' : 'text-[#6B6B70]'}`}>{DAY_LABELS[day]}</span>
+                                    <span className={`text-xs tabular-nums ${isToday ? 'text-[#FF5C00]/70' : 'text-[#4A4A4E]'}`}>{dayDate.getDate()}</span>
                                 </div>
-                                <div className="space-y-2 flex-1">
+                                {/* Cards */}
+                                <div className="p-2 space-y-2 flex-1">
                                     {dayNotes.map(note => (
                                         <NoteCard
                                             key={note.id}
@@ -298,7 +311,7 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                                 </div>
                                 <button
                                     onClick={() => addNote(day)}
-                                    className="w-full mt-2 py-2 rounded-lg border border-dashed border-[#2E2E2E] text-[#6B6B70] text-xs hover:border-[#FF5C00]/40 hover:text-[#FF5C00] transition-colors"
+                                    className="mx-2 mb-2 py-2 rounded-lg border border-dashed border-[#2E2E2E] text-[#4A4A4E] text-xs hover:border-[#FF5C00]/40 hover:text-[#FF5C00] transition-colors"
                                 >
                                     +
                                 </button>
@@ -309,29 +322,29 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
 
                 {/* Ideas Backlog */}
                 <div>
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <span className="material-symbols-sharp text-[#6B6B70]" style={{ fontSize: 18 }}>lightbulb</span>
-                            <h2 className="text-sm font-semibold text-white">Ideas Backlog</h2>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <span className="material-symbols-sharp text-[#6B6B70]" style={{ fontSize: 20, fontVariationSettings: "'wght' 300" }}>lightbulb</span>
+                            <h2 className="text-lg font-semibold text-white">Ideas Backlog</h2>
                             {backlogNotes.length > 0 && (
-                                <span className="px-2 py-0.5 rounded-full bg-[#1F1F23] text-[#6B6B70] text-[10px] font-medium">{backlogNotes.length}</span>
+                                <span className="px-2.5 py-0.5 rounded-md bg-[#1F1F23] text-[#6B6B70] text-xs font-medium">{backlogNotes.length}</span>
                             )}
                         </div>
                         <button
                             onClick={() => addNote(null)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors"
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors border border-[#FF5C00]/20"
                         >
-                            <span className="material-symbols-sharp" style={{ fontSize: 14 }}>add</span>
+                            <span className="material-symbols-sharp" style={{ fontSize: 16, fontVariationSettings: "'wght' 400" }}>add</span>
                             Add Idea
                         </button>
                     </div>
                     {backlogNotes.length === 0 ? (
-                        <div className="bg-[#13131A] rounded-xl border border-[#1E1E26] p-8 text-center">
-                            <span className="material-symbols-sharp text-[#2E2E2E] mb-2" style={{ fontSize: 32 }}>note_add</span>
-                            <p className="text-sm text-[#6B6B70]">No ideas yet. Add your first brainstorm note.</p>
+                        <div className="bg-[#111113] rounded-xl border border-[#1F1F23] p-10 text-center">
+                            <span className="material-symbols-sharp text-[#2E2E2E] mb-2 block" style={{ fontSize: 36, fontVariationSettings: "'wght' 200" }}>note_add</span>
+                            <p className="text-sm text-[#6B6B70] mt-2">No ideas yet. Add your first brainstorm note.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {backlogNotes.map(note => (
                                 <NoteCard
                                     key={note.id}
@@ -380,7 +393,7 @@ const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDraftAI, onMoveTogg
         <div className="relative">
             <div
                 onClick={onEdit}
-                className={`bg-[#0A0A0F] rounded-lg border border-[#1E1E26] cursor-pointer hover:border-[#FF5C00]/30 transition-colors group ${compact ? 'p-2.5' : 'p-3'}`}
+                className={`bg-[#0A0A0B] rounded-lg border border-[#1F1F23] cursor-pointer hover:border-[#FF5C00]/30 transition-colors group ${compact ? 'p-2.5' : 'p-4'}`}
             >
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                     <h4 className={`font-medium text-white truncate ${compact ? 'text-xs' : 'text-sm'}`}>{note.title || 'Untitled'}</h4>
@@ -392,10 +405,10 @@ const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDraftAI, onMoveTogg
                     </span>
                 )}
                 {note.body && !compact && (
-                    <p className="text-xs text-[#6B6B70] mt-1.5 line-clamp-2">{note.body}</p>
+                    <p className="text-xs text-[#6B6B70] mt-2 line-clamp-2">{note.body}</p>
                 )}
                 {note.body && compact && (
-                    <p className="text-[10px] text-[#3E3E45] mt-1 line-clamp-1">{note.body}</p>
+                    <p className="text-[10px] text-[#4A4A4E] mt-1 line-clamp-1">{note.body}</p>
                 )}
                 {/* Action row — visible on hover */}
                 <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -416,14 +429,14 @@ const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDraftAI, onMoveTogg
 
             {/* Move dropdown */}
             {showMoveDropdown && (
-                <div className="absolute z-40 top-full left-0 mt-1 bg-[#1A1A22] border border-[#2E2E2E] rounded-lg shadow-xl py-1 min-w-[120px]">
+                <div className="absolute z-40 top-full left-0 mt-1 bg-[#111113] border border-[#1F1F23] rounded-lg shadow-xl py-1 min-w-[130px]">
                     {DAYS.map(d => (
-                        <button key={d} onClick={() => onMove(d)} className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[#FF5C00]/10 hover:text-[#FF5C00] transition-colors ${note.day === d ? 'text-[#FF5C00]' : 'text-[#9B9BA0]'}`}>
+                        <button key={d} onClick={() => onMove(d)} className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[#FF5C00]/10 hover:text-[#FF5C00] transition-colors ${note.day === d ? 'text-[#FF5C00]' : 'text-[#ADADB0]'}`}>
                             {DAY_LABELS_FULL[d]}
                         </button>
                     ))}
-                    <div className="border-t border-[#2E2E2E] my-1" />
-                    <button onClick={() => onMove(null)} className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[#FF5C00]/10 hover:text-[#FF5C00] transition-colors ${note.day === null ? 'text-[#FF5C00]' : 'text-[#9B9BA0]'}`}>
+                    <div className="border-t border-[#1F1F23] my-1" />
+                    <button onClick={() => onMove(null)} className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[#FF5C00]/10 hover:text-[#FF5C00] transition-colors ${note.day === null ? 'text-[#FF5C00]' : 'text-[#ADADB0]'}`}>
                         Backlog
                     </button>
                 </div>
@@ -448,7 +461,7 @@ const NoteEditModal: React.FC<NoteEditModalProps> = ({ note, onChange, onSave, o
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div onClick={e => e.stopPropagation()} className="bg-[#13131A] rounded-2xl border border-[#1E1E26] w-full max-w-lg p-6 shadow-2xl mx-4">
+            <div onClick={e => e.stopPropagation()} className="bg-[#111113] rounded-2xl border border-[#1F1F23] w-full max-w-lg p-6 shadow-2xl mx-4">
                 <h3 className="text-lg font-bold text-white mb-4">{isNew ? 'New Note' : 'Edit Note'}</h3>
 
                 {/* Title */}
@@ -457,7 +470,7 @@ const NoteEditModal: React.FC<NoteEditModalProps> = ({ note, onChange, onSave, o
                     onChange={e => onChange({ ...note, title: e.target.value })}
                     placeholder="Title / Topic"
                     autoFocus
-                    className="w-full bg-[#0A0A0F] border border-[#1E1E26] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#3E3E45] focus:outline-none focus:border-[#FF5C00] mb-3"
+                    className="w-full bg-[#0A0A0B] border border-[#1F1F23] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#6B6B70] focus:outline-none focus:border-[#FF5C00] mb-3"
                 />
 
                 {/* Body */}
@@ -466,7 +479,7 @@ const NoteEditModal: React.FC<NoteEditModalProps> = ({ note, onChange, onSave, o
                     onChange={e => onChange({ ...note, body: e.target.value })}
                     placeholder="Describe the content idea, talking points, context..."
                     rows={5}
-                    className="w-full bg-[#0A0A0F] border border-[#1E1E26] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#3E3E45] focus:outline-none focus:border-[#FF5C00] mb-3 resize-none"
+                    className="w-full bg-[#0A0A0B] border border-[#1F1F23] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#6B6B70] focus:outline-none focus:border-[#FF5C00] mb-3 resize-none"
                 />
 
                 {/* Tags */}
@@ -507,12 +520,12 @@ const NoteEditModal: React.FC<NoteEditModalProps> = ({ note, onChange, onSave, o
                 </div>
 
                 {/* Day assignment */}
-                <div className="mb-4">
+                <div className="mb-5">
                     <label className="text-[10px] text-[#6B6B70] uppercase tracking-wider mb-1.5 block">Schedule</label>
                     <select
                         value={note.day || ''}
                         onChange={e => onChange({ ...note, day: (e.target.value || null) as PlannerDay | null, weekId: e.target.value ? currentWeekId : note.weekId })}
-                        className="w-full bg-[#0A0A0F] border border-[#1E1E26] rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF5C00]"
+                        className="w-full bg-[#0A0A0B] border border-[#1F1F23] rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF5C00] appearance-none cursor-pointer"
                     >
                         <option value="">Backlog (unscheduled)</option>
                         {DAYS.map(d => <option key={d} value={d}>{DAY_LABELS_FULL[d]}</option>)}
@@ -529,10 +542,10 @@ const NoteEditModal: React.FC<NoteEditModalProps> = ({ note, onChange, onSave, o
                         <div />
                     )}
                     <div className="flex gap-2">
-                        <button onClick={onClose} className="px-4 py-2 text-sm text-[#6B6B70] hover:text-white rounded-lg transition-colors">
+                        <button onClick={onClose} className="px-4 py-2.5 text-sm text-[#6B6B70] hover:text-white rounded-lg transition-colors">
                             Cancel
                         </button>
-                        <button onClick={onSave} className="px-5 py-2 text-sm font-medium text-white bg-[#FF5C00] hover:bg-[#FF5C00]/90 rounded-lg transition-colors">
+                        <button onClick={onSave} className="px-5 py-2.5 text-sm font-medium text-white bg-[#FF5C00] hover:bg-[#FF6B1A] rounded-lg transition-colors">
                             Save
                         </button>
                     </div>
