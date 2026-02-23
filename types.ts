@@ -599,3 +599,23 @@ export interface DailyBrief {
   metricsSnapshot?: { label: string; value: string; trend: 'up' | 'down' | 'flat' }[];
   timestamp: number;
 }
+
+// --- CONTENT PLANNER TYPES ---
+
+export type PlannerDay = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export type PlannerTag = 'tweet' | 'thread' | 'announcement' | 'engagement' | 'campaign' | 'idea';
+
+export type PlannerStatus = 'idea' | 'planned' | 'drafted' | 'ready' | 'posted';
+
+export interface PlannerNote {
+  id: string;
+  title: string;
+  body: string;
+  day?: PlannerDay | null;
+  weekId: string;
+  tag?: PlannerTag;
+  status: PlannerStatus;
+  createdAt: string;
+  updatedAt: string;
+}

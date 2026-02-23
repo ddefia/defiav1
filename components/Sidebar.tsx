@@ -36,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { id: 'image-editor', label: 'Image Studio', icon: 'image' },
         ]},
         { id: 'calendar', label: 'Content Calendar', icon: 'calendar_month' },
+        { id: 'content-planner', label: 'Content Planner', icon: 'event_note' },
     ];
 
     const feedsNavItems: NavItem[] = [

@@ -14,6 +14,7 @@ import { BrandKit } from './components/BrandKit';
 import { BrandKitPage } from './components/BrandKitPage';
 import { PulseEngine } from './components/PulseEngine'; // Import Pulse
 import { ContentCalendar } from './components/ContentCalendar';
+import { ContentPlanner } from './components/ContentPlanner';
 import { Dashboard } from './components/Dashboard'; // Import Dashboard
 import { AnalyticsPage } from './components/AnalyticsPage'; // Import Analytics
 import { Campaigns } from './components/Campaigns'; // Import Campaigns
@@ -120,6 +121,7 @@ const sectionRoutes: Record<string, string> = {
     'recommendation-detail': '/recommendation-detail',
     'news-article': '/news-article',
     admin: '/admin',
+    'content-planner': '/content-planner',
 };
 
 const getSectionFromPath = (path: string) => {
@@ -2159,6 +2161,15 @@ const App: React.FC = () => {
                             }}
                         />
                     </div>
+                )}
+
+                {/* SECTION: CONTENT PLANNER */}
+                {appSection === 'content-planner' && selectedBrand && profiles[selectedBrand] && (
+                    <ContentPlanner
+                        brandName={selectedBrand}
+                        brandConfig={profiles[selectedBrand]}
+                        onNavigate={handleNavigate}
+                    />
                 )}
 
                 {/* SECTION: SOCIAL MEDIA */}

@@ -169,6 +169,7 @@ export const STORAGE_EVENTS = {
     INTEGRATIONS_UPDATE: 'defia_integrations_update',
     CAMPAIGN_LOG_UPDATE: 'defia_campaign_log_update',
     CONTENT_ITEMS_UPDATE: 'defia_content_items_update',
+    CONTENT_PLANNER_UPDATE: 'defia_content_planner_update',
 };
 
 const dispatchStorageEvent = (eventName: string, detail: any) => {
@@ -1427,4 +1428,37 @@ export const importHistoryToReferences = async (brandName: string) => {
     // 3. Posted/published
     // This prevents referenceImages from bloating with every historical tweet
     return;
+};
+
+// --- CONTENT PLANNER PERSISTENCE ---
+
+const CONTENT_PLANNER_KEY = 'defia_content_planner_v1';
+
+export const loadContentPlannerNotes = (brandName: string): any[] => {
+    try {
+        const key = `${CONTENT_PLANNER_KEY}_${brandName.toLowerCase()}`;
+        const stored = localStorage.getItem(key);
+        fetchFromCloud(key).then(res => {
+            if (res && res.value && JSON.stringify(res.value) !== stored) {
+                console.log("Cloud content planner found via fetchFromCloud");
+                localStorage.setItem(key, JSON.stringify(res.value));
+                dispatchStorageEvent(STORAGE_EVENTS.CONTENT_PLANNER_UPDATE, { brandName });
+            }
+        }).catch(() => {});
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error("Failed to load content planner notes", e);
+        return [];
+    }
+};
+
+export const saveContentPlannerNotes = (brandName: string, notes: any[]): void => {
+    try {
+        const key = `${CONTENT_PLANNER_KEY}_${brandName.toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(notes));
+        saveToCloud(key, notes);
+        dispatchStorageEvent(STORAGE_EVENTS.CONTENT_PLANNER_UPDATE, { brandName });
+    } catch (e) {
+        console.error("Failed to save content planner notes", e);
+    }
 };
