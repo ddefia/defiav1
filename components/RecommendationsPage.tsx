@@ -486,7 +486,12 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[#9CA3AF] text-[11px]">{dataSourceCount} data sources</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[#9CA3AF] text-[11px]">{dataSourceCount} data sources</span>
+                                                {rec.generatedAt && (
+                                                    <span className="text-[#6B6B70] text-[10px]">· {timeAgo(rec.generatedAt)}</span>
+                                                )}
+                                            </div>
                                             <span className="material-symbols-sharp text-[14px] text-[#9CA3AF]">chevron_right</span>
                                         </div>
                                     </button>
@@ -536,6 +541,22 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         Open in Studio
                                     </button>
                                 </div>
+                            </div>
+
+                            {/* Timestamps */}
+                            <div className="flex items-center gap-4 mb-4 text-[11px]">
+                                {selectedRec.generatedAt && (
+                                    <span className="flex items-center gap-1.5 text-[#9CA3AF]">
+                                        <span className="material-symbols-sharp text-[13px]" style={{ fontVariationSettings: "'wght' 300" }}>schedule</span>
+                                        Generated {timeAgo(selectedRec.generatedAt)}
+                                    </span>
+                                )}
+                                {regenLastRun > 0 && (
+                                    <span className="flex items-center gap-1.5 text-[#9CA3AF]">
+                                        <span className="material-symbols-sharp text-[13px]" style={{ fontVariationSettings: "'wght' 300" }}>database</span>
+                                        Data from {new Date(regenLastRun).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {new Date(regenLastRun).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                                    </span>
+                                )}
                             </div>
 
                             {/* Title */}

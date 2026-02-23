@@ -1556,6 +1556,7 @@ const App: React.FC = () => {
                     topic: action.topic, goal: action.goal,
                     knowledgeConnection: !!brandKnowledgeBlock,
                     proof: (action as any).proof,
+                    generatedAt: now,
                 };
             });
 

@@ -38,13 +38,6 @@ export const setActiveBrandProfile = (profile: any) => {
     _activeBrandProfile = profile;
 };
 
-const getEffectivePrefix = (): string => {
-    if (_activeBrandProfile?._teamBrand && _activeBrandProfile?._ownerPrefix) {
-        return _activeBrandProfile._ownerPrefix;
-    }
-    return getUserPrefix();
-};
-
 const userKey = (base: string) => `${getUserPrefix()}_${base}`;
 
 const STORAGE_KEY_BASE = 'ethergraph_brand_profiles_v17';
@@ -131,10 +124,21 @@ const setLocalTimestamp = (key: string, ts: number) => {
 
 // --- HELPER: App Storage Table Interaction ---
 
+// For team brands, swap the current user's prefix with the owner's prefix in the key
+const rerouteKeyForTeam = (key: string): string => {
+    const ownerPrefix = _activeBrandProfile?._ownerPrefix;
+    if (!_activeBrandProfile?._teamBrand || !ownerPrefix) return key;
+    const myPrefix = getUserPrefix();
+    // Keys are formatted as "{prefix}_{base}" — swap current user's prefix with owner's
+    if (key.startsWith(myPrefix + '_')) {
+        return ownerPrefix + '_' + key.slice(myPrefix.length + 1);
+    }
+    return key;
+};
+
 const fetchFromCloud = async (key: string): Promise<{ value: any, updated_at: string } | null> => {
     try {
-        // Use effective prefix: routes to owner's storage for team brands
-        const scopedKey = `${getEffectivePrefix()}:${key}`;
+        const scopedKey = rerouteKeyForTeam(key);
         const { data, error } = await supabase
             .from('app_storage')
             .select('value, updated_at')
@@ -166,8 +170,7 @@ const saveToCloud = async (key: string, value: any) => {
         return;
     }
     try {
-        // Use effective prefix: routes to owner's storage for team brands
-        const scopedKey = `${getEffectivePrefix()}:${key}`;
+        const scopedKey = rerouteKeyForTeam(key);
         const { error } = await supabase
             .from('app_storage')
             .upsert({ key: scopedKey, value, updated_at: new Date().toISOString() });
@@ -1487,7 +1490,7 @@ export const saveContentPlannerNotes = (brandName: string, notes: any[]): void =
 
 export const fetchCachedRecommendations = async (brandName: string): Promise<{ actions: any[]; generatedAt: string } | null> => {
     try {
-        const key = `defia_recommendations_cache_v1_${brandName.toLowerCase()}`;
+        const key = userKey(`defia_recommendations_cache_v1_${brandName.toLowerCase()}`);
         const result = await fetchFromCloud(key);
         if (!result?.value) return null;
 

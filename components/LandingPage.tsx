@@ -15,8 +15,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
   const demoRef = useRef<HTMLVideoElement>(null);
   const [statsAnimated, setStatsAnimated] = useState(false);
   const [statValues, setStatValues] = useState({ projects: 0, tweets: 0, engagement: 0 });
-  const [barsVisible, setBarsVisible] = useState(false);
-
   const heroWords = ['Never Sleeps', 'Thinks Ahead', 'Drives Growth', 'Creates Content'];
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
@@ -27,12 +25,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
       setHeroWordIndex(prev => (prev + 1) % heroWords.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Trigger bar chart animation after page load
-  useEffect(() => {
-    const timer = setTimeout(() => setBarsVisible(true), 1200);
-    return () => clearTimeout(timer);
   }, []);
 
   // Animated stats counter
@@ -746,102 +738,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
             preload="metadata"
             style={{ width: '100%', display: 'block', borderRadius: '20px' }}
           />
-        </div>
-
-        {/* Product Mockup with glowing rotating border */}
-        <div
-          className="lp-product-mockup lp-glow-border"
-          style={{
-            width: '1100px',
-            borderRadius: '20px',
-            border: '1px solid rgba(255,92,0,0.15)',
-            backgroundColor: '#111113',
-            overflow: 'hidden',
-            boxShadow: '0 40px 120px rgba(255,92,0,0.15), 0 0 0 1px rgba(255,92,0,0.05)',
-            transform: `translateY(${scrollY * 0.03}px)`,
-            transition: 'transform 0.1s ease-out, box-shadow 0.3s ease',
-          }}
-        >
-          {/* Browser Chrome */}
-          <div className="flex items-center justify-between" style={{ padding: '14px 18px', backgroundColor: '#0A0A0B', borderBottom: '1px solid #1F1F23' }}>
-            <div className="flex items-center" style={{ gap: '8px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#FF5F57' }} />
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#FEBC2E' }} />
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#28C840' }} />
-            </div>
-            <div style={{ padding: '4px 16px', borderRadius: '6px', backgroundColor: '#1A1A1D', border: '1px solid #2E2E2E' }}>
-              <span style={{ fontFamily: 'DM Mono', fontSize: '11px', color: '#6B6B70' }}>app.defia.io/dashboard</span>
-            </div>
-            <div style={{ width: '68px' }} />
-          </div>
-          {/* Dashboard Mockup */}
-          <div className="flex" style={{ height: '500px', backgroundColor: '#0A0A0B' }}>
-            {/* Sidebar */}
-            <div style={{ width: '200px', padding: '16px 12px', borderRight: '1px solid #1F1F23', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div className="flex items-center" style={{ gap: '8px', padding: '0 8px 16px' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'linear-gradient(135deg, #FF5C00, #FF8A4C)' }} />
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Defia</span>
-              </div>
-              {[
-                { name: 'Dashboard', icon: '⊞', active: true },
-                { name: 'Campaigns', icon: '📋' },
-                { name: 'Content Studio', icon: '✏️' },
-                { name: 'AI CMO', icon: '🤖' },
-                { name: 'Analytics', icon: '📊' }
-              ].map((item) => (
-                <div key={item.name} className="flex items-center" style={{ gap: '10px', padding: '8px 10px', borderRadius: '8px', backgroundColor: item.active ? '#FF5C0015' : 'transparent' }}>
-                  <span style={{ fontSize: '14px' }}>{item.icon}</span>
-                  <span style={{ fontSize: '13px', fontWeight: 500, color: item.active ? '#FF5C00' : '#6B6B70' }}>{item.name}</span>
-                </div>
-              ))}
-            </div>
-            {/* Main Content */}
-            <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div className="flex items-center justify-between">
-                <span style={{ fontSize: '18px', fontWeight: 600, color: '#FFFFFF' }}>Dashboard Overview</span>
-                <div className="flex items-center" style={{ gap: '8px', padding: '6px 12px', borderRadius: '8px', backgroundColor: '#1F1F23' }}>
-                  <span style={{ fontSize: '12px', color: '#9CA3AF' }}>Last 7 days</span>
-                </div>
-              </div>
-              {/* Stats */}
-              <div className="flex" style={{ gap: '12px' }}>
-                {[
-                  { label: 'Total Impressions', value: '2.4M', change: '+23.5%', color: '#FF5C00' },
-                  { label: 'Engagement Rate', value: '8.7%', change: '+4.2%', color: '#3B82F6' },
-                  { label: 'New Followers', value: '12.8K', change: '+18.9%', color: '#22C55E' },
-                  { label: 'Posts Generated', value: '147', change: 'This week', color: '#8B5CF6' }
-                ].map((stat) => (
-                  <div key={stat.label} style={{ flex: 1, padding: '14px', borderRadius: '12px', backgroundColor: '#111113', border: '1px solid #1F1F23' }}>
-                    <div style={{ fontSize: '11px', color: '#6B6B70', marginBottom: '6px' }}>{stat.label}</div>
-                    <div style={{ fontFamily: 'DM Mono', fontSize: '24px', fontWeight: 500, color: stat.color, letterSpacing: '-1px' }}>{stat.value}</div>
-                    <div style={{ fontSize: '11px', color: '#22C55E', marginTop: '4px' }}>{stat.change}</div>
-                  </div>
-                ))}
-              </div>
-              {/* Chart */}
-              <div style={{ flex: 1, padding: '16px', borderRadius: '12px', backgroundColor: '#111113', border: '1px solid #1F1F23' }}>
-                <div className="flex items-center justify-between" style={{ marginBottom: '16px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Performance</span>
-                  <div className="flex items-center" style={{ gap: '16px' }}>
-                    {[{ color: '#FF5C00', label: 'Impressions' }, { color: '#22C55E', label: 'Engagement' }].map(l => (
-                      <div key={l.label} className="flex items-center" style={{ gap: '6px' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: l.color }} />
-                        <span style={{ fontSize: '11px', color: '#6B6B70' }}>{l.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-end" style={{ gap: '10px', height: '180px' }}>
-                  {[35, 45, 40, 55, 50, 65, 60, 75, 70, 85, 80, 95].map((h, i) => (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'stretch' }}>
-                      <div className="lp-bar-green-animated" style={{ height: barsVisible ? `${h * 0.4}%` : '0%', borderRadius: '3px 3px 0 0', backgroundColor: '#22C55E30', transitionDelay: `${i * 0.06 + 0.1}s` }} />
-                      <div className="lp-bar-animated" style={{ height: barsVisible ? `${h}%` : '0%', borderRadius: '3px 3px 0 0', background: 'linear-gradient(180deg, #FF8A4C 0%, #FF5C00 100%)', opacity: 0.9, transitionDelay: `${i * 0.06}s` }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Trust Logos */}

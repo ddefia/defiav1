@@ -1835,7 +1835,7 @@ app.get('/api/agent/recommendations', async (req, res) => {
                 }
 
                 // Check if cached recommendations are still fresh (< 20h)
-                const cacheKey = `${ownerPrefix}:defia_recommendations_cache_v1_${(brand.name || brandId).toLowerCase()}`;
+                const cacheKey = `${ownerPrefix}_defia_recommendations_cache_v1_${(brand.name || brandId).toLowerCase()}`;
                 const { data: existing } = await supabase
                     .from('app_storage')
                     .select('updated_at')
@@ -3086,7 +3086,7 @@ app.get('/api/teams/my-memberships', requireAuth, async (req, res) => {
                 const { data: storageRow } = await supabase
                     .from('app_storage')
                     .select('value')
-                    .eq('key', `${ownerPrefix}:ethergraph_brand_profiles_v17`)
+                    .eq('key', `${ownerPrefix}_ethergraph_brand_profiles_v17`)
                     .maybeSingle();
 
                 if (storageRow?.value) {
