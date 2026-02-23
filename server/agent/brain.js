@@ -10,8 +10,17 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
     try {
         const brandName = brandProfile.name || brandProfile.brandName || "Web3 Protocol";
         const voice = brandProfile.voiceGuidelines || "Professional";
-        const knowledgeBase = Array.isArray(brandProfile.knowledgeBase)
-            ? brandProfile.knowledgeBase.slice(0, 8).join('\n')
+        // Filter out stale KB entries about past events (e.g. "launched Q4 2025")
+        const currentYear = new Date().getFullYear();
+        const pastEventRe = /\b(launched|went live|announced|completed|shipped|released|achieved|hit milestone)\b.*\b(20[0-2][0-9])\b/i;
+        const rawKB = Array.isArray(brandProfile.knowledgeBase) ? brandProfile.knowledgeBase : [];
+        const filteredKB = rawKB.filter(entry => {
+            const yearMatch = entry.match(/\b(20[0-2][0-9])\b/);
+            if (yearMatch && parseInt(yearMatch[1]) < currentYear && pastEventRe.test(entry)) return false;
+            return true;
+        });
+        const knowledgeBase = filteredKB.length > 0
+            ? filteredKB.slice(0, 8).join('\n')
             : "No additional brand context provided.";
 
         // Pull in the full brand kit — tweet examples, tone, audiences, banned phrases
@@ -37,8 +46,11 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
             ? pulseTrends.map(t => `- ${t.headline}: ${t.summary}`).join('\n')
             : '- No market trends available';
 
+        const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
         const prompt = `
         You are the Autonomous Marketing Agent for ${brandName}.
+        TODAY'S DATE: ${today}
 
         BRAND VOICE: ${voice}
         ${toneGuidelines ? `TONE GUIDELINES: ${toneGuidelines}` : ''}
@@ -71,6 +83,7 @@ ${tweetExamples}` : ''}
         5. CONTENT STRATEGIST: Content gap — topic our audience cares about that we haven't covered?
 
         CRITICAL RULES:
+        - TODAY IS ${today}. NEVER recommend posting about past events, launches, or milestones that already happened. Only forward-looking, timely content.
         - TREND_JACK requires a REAL, SPECIFIC trend from the TRENDS list. Name the exact trend in the reason. Do NOT invent trends or use generic market commentary.
         - Every draft must be specific to ${brandName} — reference actual products, features, or ecosystem.
         - No generic "web3 is growing" or "crypto is evolving" filler. Be specific or skip the action.

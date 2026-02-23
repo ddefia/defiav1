@@ -805,7 +805,7 @@ const App: React.FC = () => {
 
                 setSystemLogs(prev => [`GAIA: Verifying Briefing Freshness (Age: ${hoursOld}h)...`, ...prev]);
 
-                const isStale = !reportAge || reportAge > 6 * 60 * 60 * 1000; // 6 Hours (4x per day)
+                const isStale = !reportAge || reportAge > 3 * 60 * 60 * 1000; // 3 Hours (8x per day)
 
                 if (!currentReport || isStale) {
                     setSystemLogs(prev => ["GAIA: Report is stale or missing. Generating Daily Briefing...", ...prev]);
@@ -1400,8 +1400,33 @@ const App: React.FC = () => {
             const deepContext = await getBrainContext(registry?.brandId);
             const brainLogs = loadBrainLogs(selectedBrand).slice(0, 5);
             const brainLogSignals = brainLogs.map(log => `[${log.type}] ${log.context}`).join('\n');
-            const knowledgeBase = bc?.knowledgeBase?.length
-                ? `BRAND KNOWLEDGE:\n${bc.knowledgeBase.slice(0, 20).map(entry => `- ${entry}`).join('\n')}` : '';
+            // Filter KB: deprioritize stale entries about past events
+            const today = new Date();
+            const todayStr = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const pastEventPatterns = /\b(launched|went live|announced|completed|shipped|released|achieved|hit milestone)\b.*\b(20[0-2][0-9])\b/i;
+            const filteredKB = bc?.knowledgeBase?.length
+                ? bc.knowledgeBase.filter((entry: string) => {
+                    // Check if entry references a past year event
+                    const match = entry.match(/\b(Q[1-4]\s*20[0-2][0-9]|20[0-2][0-9])\b/);
+                    if (match) {
+                        const yearMatch = entry.match(/\b(20[0-2][0-9])\b/);
+                        const qMatch = entry.match(/Q([1-4])\s*(20[0-2][0-9])/);
+                        if (qMatch) {
+                            const q = parseInt(qMatch[1]);
+                            const y = parseInt(qMatch[2]);
+                            const qEndMonth = q * 3;
+                            const qEnd = new Date(y, qEndMonth, 0);
+                            if (qEnd < today && pastEventPatterns.test(entry)) return false;
+                        } else if (yearMatch) {
+                            const y = parseInt(yearMatch[1]);
+                            if (y < today.getFullYear() && pastEventPatterns.test(entry)) return false;
+                        }
+                    }
+                    return true;
+                })
+                : [];
+            const knowledgeBase = filteredKB.length
+                ? `BRAND KNOWLEDGE (as of ${todayStr} — focus on current/future relevance):\n${filteredKB.slice(0, 20).map((entry: string) => `- ${entry}`).join('\n')}` : '';
             const positioning = bc?.brandCollectorProfile?.positioning?.oneLiner
                 ? `POSITIONING:\n${bc.brandCollectorProfile.positioning.oneLiner}` : '';
             const voiceGuidelines = bc?.voiceGuidelines ? `VOICE GUIDELINES:\n${bc.voiceGuidelines}` : '';
@@ -1560,7 +1585,7 @@ const App: React.FC = () => {
         if (!selectedBrand || regenFiredRef.current || regenLoading) return;
         const hasRecs = llmRecommendations.length > 0;
         const hasFallback = agentDecisions && agentDecisions.length > 0;
-        const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 6 * 60 * 60 * 1000);
+        const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 2 * 60 * 60 * 1000); // 2 hours — CMO never sleeps
         if (!hasRecs && !hasFallback || isStale) {
             const hasTrends = !!(socialSignals.trendingTopics && socialSignals.trendingTopics.length > 0);
             const delay = hasTrends ? 3000 : 12000;

@@ -2644,8 +2644,11 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
     const competitorBlock = buildCompetitorBlock((context.brand as any).competitors);
     const brandName = context.brand.name || 'Brand';
 
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
     const prompt = `
     ROLE: Chief Marketing Analyst for ${brandName}.
+    TODAY'S DATE: ${today}
 
     INPUT DATA:
     - OBJECTIVE: "${context.userObjective}"
@@ -2660,7 +2663,8 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
     BRAND INTELLIGENCE:
     ${context.memory.ragDocs.join('\n')}
 
-    TASK: Perform a sharp, brand-specific market analysis for ${brandName}.
+    TASK: Perform a sharp, brand-specific market analysis for ${brandName} as of ${today}.
+    IMPORTANT: Ignore any knowledge base entries about past events (e.g. launches, milestones) that have already occurred. Focus only on what is actionable NOW and FORWARD-LOOKING.
     1. Market Vibe: Bearish/Bullish/Hype/Quiet — cite specific data points.
     2. Narrative Insertion: Where is ${brandName}'s SPECIFIC expertise (from the knowledge base above) most relevant to current conversations? Be precise — name the exact brand capability that maps to the opportunity.
     3. Competitive Gaps: Where can ${brandName} differentiate? If no competitor data, identify the general competitive landscape for this brand's category.
@@ -2713,8 +2717,11 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
         ? `ON-CHAIN SIGNALS:\nNew Wallets: ${cm.netNewWallets} | Active: ${cm.activeWallets} | Volume: $${cm.totalVolume.toLocaleString()} | Retention: ${(cm.retentionRate * 100).toFixed(1)}%${cm.campaignPerformance.length > 0 ? `\nCampaign Performance: ${cm.campaignPerformance.map(c => `${c.campaignId}: ${c.roi.toFixed(1)}x ROI, ${(c.retention * 100).toFixed(0)}% retention, ${c.whalesAcquired} whales, $${c.cpa.toFixed(2)} CPA`).join('; ')}` : ''}`
         : '';
 
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
     const prompt = `
     ROLE: Chief Marketing Strategist for ${brandName}.
+    TODAY'S DATE: ${today}
 
     MARKET ANALYSIS:
     ${analysis.summary}
@@ -2744,7 +2751,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET. The remaining 2 can be any type.
     3. SPECIFICITY (CRITICAL): Every action must be hyper-specific and immediately executable. BAD: "Post about our technology". GOOD: "Thread breaking down how our decentralized sequencer prevents MEV extraction — use the recent Flashbots controversy as the hook".
     4. KNOWLEDGE: Every action MUST leverage specific brand knowledge base entries. Quote specific technical features, partnerships, or differentiators.
-    5. TIMELINESS: Each reasoning MUST explain WHY NOW. Reference a specific trend, market event, competitor move, or calendar date. If no fresh trend data is available, reference evergreen market narratives the brand can own.
+    5. TIMELINESS: Each reasoning MUST explain WHY NOW (today is ${today}). Reference a specific trend, market event, competitor move, or calendar date. If no fresh trend data is available, reference evergreen market narratives the brand can own. NEVER recommend posting about past events (product launches, milestones, etc.) that have already happened — only forward-looking content.
     6. FRESHNESS: Do NOT repeat past strategies. If past strategies are listed, propose completely different angles.
     7. HOOKS: Each hook should be a punchy 2-4 word internal code name (e.g. "Sequencer Supremacy", "The MEV Shield").
     8. CONTENT IDEAS: Each action needs 3 specific, creative content ideas — not restatements of the topic. Think headlines, angles, contrarian takes.
@@ -2853,9 +2860,11 @@ export const orchestrateMarketingDecision = async (
     const knowledgeSummary = context.brand.knowledgeBase?.slice(0, 5).map(k => `- ${k.slice(0, 100)}`).join('\n') || 'No knowledge base.';
 
     // Shared context header for all agents — gives them the full picture
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const sharedContext = `
+TODAY'S DATE: ${today}
 BRAND: ${brandName}${positioning ? ` — ${positioning}` : ''}
-KNOWLEDGE BASE (key entries):\n${knowledgeSummary}
+KNOWLEDGE BASE (key entries — ignore any past events/launches that have already occurred):\n${knowledgeSummary}
 COMPETITORS:\n${competitorBlock}
 MARKET TRENDS: ${trendPreview || 'None detected.'}
 ${chainPreview ? `ON-CHAIN: ${chainPreview}` : ''}
