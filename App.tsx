@@ -182,13 +182,23 @@ const App: React.FC = () => {
                     const userBrand = getCurrentUserBrand();
                     // Also check Supabase user metadata — profiles may not be in localStorage yet
                     const hasBrandInMetadata = !!(user.brandId || user.brandName);
+                    // Fallback: if localStorage has brand profiles but user metadata doesn't match,
+                    // pick the first non-default brand. This handles returning users on new browsers
+                    // where cloud sync delivered profiles but user metadata is incomplete.
+                    const allProfiles = loadBrandProfiles();
+                    const localBrandKeys = Object.keys(allProfiles).filter(k => !['Default', 'default'].includes(k));
+                    const hasLocalBrands = localBrandKeys.length > 0;
+
                     if (userBrand) {
                         setSelectedBrand(userBrand.brandName);
                     } else if (hasBrandInMetadata) {
                         // Brand exists in Supabase but profiles not yet synced to localStorage
                         setSelectedBrand(user.brandName || user.brandId || '');
+                    } else if (hasLocalBrands) {
+                        // Profiles exist in localStorage but user metadata doesn't link to them
+                        setSelectedBrand(localBrandKeys[0]);
                     }
-                    if (userBrand || hasBrandInMetadata) {
+                    if (userBrand || hasBrandInMetadata || hasLocalBrands) {
                         // Mark onboarding as complete for users with existing brands
                         setOnboardingState(prev => ({
                             ...prev,
@@ -1922,6 +1932,18 @@ const App: React.FC = () => {
     }
 
     if (isOnboardingRoute) {
+        // Guard: if user already has brand profiles, skip onboarding and go to dashboard
+        // This handles the case where a returning user on a new browser gets routed here
+        // before cloud sync has delivered their profiles to localStorage
+        const existingProfiles = loadBrandProfiles();
+        const hasAnyBrand = Object.keys(existingProfiles).length > 0;
+        if (currentUser && (hasAnyBrand || currentUser.brandId || currentUser.brandName)) {
+            if (!onboardingState.completed) {
+                setOnboardingState(prev => ({ ...prev, completed: true, updatedAt: Date.now() }));
+            }
+            navigate('/dashboard');
+            return null;
+        }
         return (
             <OnboardingFlow
                 onExit={() => navigate('/dashboard')}
