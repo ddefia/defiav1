@@ -119,6 +119,7 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
 
     const [toneGuidelines, setToneGuidelines] = useState(config.toneGuidelines || '');
     const [voiceGuidelines, setVoiceGuidelines] = useState(config.voiceGuidelines || '');
+    const [marketingDirectives, setMarketingDirectives] = useState(config.marketingDirectives || '');
 
     // Tweet examples (the "gold standard" the AI mimics)
     const [tweetExamples, setTweetExamples] = useState<string[]>(config.tweetExamples || []);
@@ -163,6 +164,7 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
             ...config,
             toneGuidelines,
             voiceGuidelines,
+            marketingDirectives,
             tweetExamples,
             bannedPhrases,
             competitors: competitors as any,
@@ -735,6 +737,34 @@ export const BrandKitPage: React.FC<BrandKitPageProps> = ({ brandName, config, o
                                     onChange={(e) => setToneGuidelines(e.target.value)}
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* ━━━ Strategic Directives ━━━ */}
+                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-6">
+                        <div className="flex items-center gap-2.5 mb-5">
+                            <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>neurology</span>
+                            <span className="text-white text-base font-semibold">Strategic Directives</span>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-white text-[13px] font-medium">Brain Instructions</label>
+                            <p className="text-[#6B6B70] text-[11px] -mt-1">Guide the AI brain's strategic thinking. These shape what topics, narratives, and content types the AI prioritizes in all recommendations and campaigns.</p>
+                            <textarea
+                                rows={4}
+                                placeholder="e.g. Focus on DePIN narrative this quarter. Avoid meme content. Prioritize thought leadership threads over quick tweets. Push the staking narrative — we launch staking v2 in March."
+                                className="bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-3.5 py-3 text-[13px] text-white outline-none focus:border-[#FF5C00] transition-colors resize-none"
+                                value={marketingDirectives}
+                                onChange={(e) => setMarketingDirectives(e.target.value)}
+                            />
+                            {marketingDirectives && (
+                                <button
+                                    onClick={() => setMarketingDirectives('')}
+                                    className="self-end flex items-center gap-1 text-[11px] text-[#6B6B70] hover:text-[#EF4444] transition-colors mt-1"
+                                >
+                                    <span className="material-symbols-sharp text-xs" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                    Clear directives
+                                </button>
+                            )}
                         </div>
                     </div>
 

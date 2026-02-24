@@ -158,6 +158,123 @@ export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
     }
 };
 
+// ━━━ Competitor Tweet Monitoring ━━━
+
+const COMPETITOR_TWEETS_CACHE_KEY = 'defia_competitor_tweets_v1';
+const competitorMemCache = {};
+
+const getCompetitorTweetsCache = async (brandName, competitorHandle) => {
+    const key = `${brandName.toLowerCase()}_${competitorHandle.toLowerCase().replace('@', '')}`;
+
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', COMPETITOR_TWEETS_CACHE_KEY)
+                .maybeSingle();
+            if (data?.value) {
+                const entry = data.value[key];
+                if (entry) {
+                    const age = Date.now() - new Date(entry.fetchedAt).getTime();
+                    if (age <= MENTIONS_TTL_MS) return entry.data;
+                }
+            }
+        }
+    } catch { /* fall through */ }
+
+    const entry = competitorMemCache[key];
+    if (entry) {
+        const age = Date.now() - new Date(entry.fetchedAt).getTime();
+        if (age <= MENTIONS_TTL_MS) return entry.data;
+    }
+    return null;
+};
+
+const setCompetitorTweetsCache = async (brandName, competitorHandle, data) => {
+    const key = `${brandName.toLowerCase()}_${competitorHandle.toLowerCase().replace('@', '')}`;
+    const entry = { fetchedAt: new Date().toISOString(), data };
+
+    competitorMemCache[key] = entry;
+
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            let cache = {};
+            const { data: existing } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', COMPETITOR_TWEETS_CACHE_KEY)
+                .maybeSingle();
+            if (existing?.value) cache = existing.value;
+
+            cache[key] = entry;
+            await supabase.from('app_storage').upsert({
+                key: COMPETITOR_TWEETS_CACHE_KEY,
+                value: cache,
+                updated_at: new Date().toISOString()
+            });
+        }
+    } catch (e) {
+        console.warn("[Agent/Ingest] Failed to write competitor tweets cache:", e.message);
+    }
+};
+
+export const fetchCompetitorTweets = async (apiKey, brandName, competitorHandle) => {
+    if (!apiKey || !competitorHandle) return [];
+
+    const cleanHandle = competitorHandle.replace('@', '');
+    const cached = await getCompetitorTweetsCache(brandName, cleanHandle);
+    if (cached) {
+        console.log(`[Agent/Ingest] Using cached competitor tweets for @${cleanHandle} (< 6h old)`);
+        return cached;
+    }
+
+    try {
+        const ACTOR_ID = 'VsTreSuczsXhhRIqa';
+        console.log(`[Agent/Ingest] Fetching competitor tweets for @${cleanHandle}...`);
+
+        const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${apiKey}&waitForFinish=90`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                "handles": [cleanHandle],
+                "tweetsDesired": 3,
+                "profilesDesired": 0,
+                "withReplies": false,
+                "includeUserInfo": false,
+                "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
+            })
+        });
+
+        const runData = await runRes.json();
+        if (!runData.data || runData.data.status !== 'SUCCEEDED') {
+            throw new Error(`Run Status: ${runData.data?.status}`);
+        }
+
+        const datasetId = runData.data.defaultDatasetId;
+        const itemsRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}`);
+        const items = await itemsRes.json();
+
+        const result = items.map(item => ({
+            id: item.id,
+            competitor: cleanHandle,
+            text: item.text || "",
+            timestamp: item.timestamp || new Date().toISOString(),
+            likes: item.likes || 0,
+            retweets: item.retweets || 0,
+        }));
+
+        await setCompetitorTweetsCache(brandName, cleanHandle, result);
+        console.log(`[Agent/Ingest] Cached ${result.length} competitor tweets for @${cleanHandle}`);
+        return result;
+    } catch (e) {
+        console.error(`[Agent/Ingest] Competitor tweets fetch error (@${competitorHandle}):`, e.message);
+        return [];
+    }
+};
+
 export const TRACKED_BRANDS = {
     'enki': 'ENKIProtocol',
     'netswap': 'netswapofficial',
@@ -196,7 +313,7 @@ export const updateAllBrands = async (apiKey, brands = []) => {
     // Only sync brands that are actually registered in the DB.
     // The hardcoded TRACKED_BRANDS fallback was syncing 5 demo brands even when the user only has 1 real brand.
     const registry = brands.length > 0
-        ? brands.map((brand) => ({ key: brand.id.toLowerCase(), handle: brand.xHandle || brand.name, originalId: brand.id }))
+        ? brands.map((brand) => ({ key: brand.id.toLowerCase(), handle: brand.xHandle || brand.name, originalId: brand.id, config: brand.config }))
         : [];
 
     if (registry.length === 0) {
@@ -204,7 +321,7 @@ export const updateAllBrands = async (apiKey, brands = []) => {
         return;
     }
 
-    for (const { key, handle } of registry) {
+    for (const { key, handle, config: brandConfig } of registry) {
         try {
             console.log(`[Agent/Ingest] Syncing ${key} (@${handle})...`);
 
@@ -322,6 +439,21 @@ export const updateAllBrands = async (apiKey, brands = []) => {
 
             // Nice delay to not hit rate limits
             await new Promise(r => setTimeout(r, 2000));
+
+            // ━━━ Competitor Tweet Monitoring ━━━
+            const competitors = brandConfig?.competitors || [];
+            const competitorHandles = competitors.map(c => c.handle).filter(Boolean);
+            if (competitorHandles.length > 0) {
+                console.log(`   > Fetching tweets for ${competitorHandles.length} competitor(s) of ${key}...`);
+                for (const compHandle of competitorHandles) {
+                    try {
+                        await fetchCompetitorTweets(apiKey, key, compHandle);
+                    } catch (e) {
+                        console.warn(`   > Competitor tweet fetch failed for @${compHandle}:`, e.message);
+                    }
+                    await new Promise(r => setTimeout(r, 1500)); // Rate limit courtesy
+                }
+            }
 
         } catch (e) {
             console.error(`[Agent/Ingest] Error syncing ${key}:`, e.message);

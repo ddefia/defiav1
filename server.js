@@ -258,7 +258,7 @@ app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), asyn
     res.json({ received: true });
 });
 
-app.use(express.json({ limit: '10mb' })); // Increased limit for base64 image uploads
+app.use(express.json({ limit: '50mb' })); // Large limit for base64 image editing (2048x2048 images can exceed 10mb)
 
 // Basic rate limiting for API endpoints
 const rateLimitMap = new Map();

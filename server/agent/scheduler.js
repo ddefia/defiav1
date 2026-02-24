@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { fetchDuneMetrics, fetchMentions, updateAllBrands, TRACKED_BRANDS } from './ingest.js';
+import { fetchDuneMetrics, fetchMentions, fetchCompetitorTweets, updateAllBrands, TRACKED_BRANDS } from './ingest.js';
 import { analyzeState } from './brain.js';
 import { generateDailyBriefing } from './generator.js'; // Import Generator
 import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
@@ -209,8 +209,23 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
                 console.warn(`     - Brand-specific news fetch failed for ${brandId}:`, e.message);
             }
 
+            // 1c. Fetch cached competitor tweets (populated by updateAllBrands social sync)
+            const competitorTweets = [];
+            const competitors = brandProfile.competitors || [];
+            for (const comp of competitors) {
+                if (comp.handle) {
+                    try {
+                        const cached = await fetchCompetitorTweets(apifyKey, brandId, comp.handle);
+                        competitorTweets.push(...cached.map(t => ({ ...t, competitorName: comp.name })));
+                    } catch { /* non-critical — brain works without competitor tweets */ }
+                }
+            }
+            if (competitorTweets.length > 0) {
+                console.log(`     - Loaded ${competitorTweets.length} competitor tweets from ${competitors.filter(c => c.handle).length} competitor(s)`);
+            }
+
             // 2. Analyze (returns { actions: [...] })
-            const decisionResult = await analyzeState(dune, [], mentions, brandTrends, brandProfile);
+            const decisionResult = await analyzeState(dune, [], mentions, brandTrends, brandProfile, competitorTweets);
             const decisions = decisionResult.actions || [decisionResult];
 
             // 3. Act & Save — process all actions

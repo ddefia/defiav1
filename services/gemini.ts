@@ -273,21 +273,14 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
         }
     }
 
-    // Case B: Auto Mode (Generic Style Reinforcement) - ONLY if not meme
-    // If we have no references yet, grab from pinned first, then random to define the "Brand Look"
-    if (effectiveReferenceImageIds.length === 0 && !isMeme && params.brandConfig.referenceImages && params.brandConfig.referenceImages.length > 0) {
-        const allImages = params.brandConfig.referenceImages;
-        const pinnedImages = allImages.filter(img => img.pinned);
-        const pool = pinnedImages.length > 0 ? pinnedImages : allImages;
-        // Fisher-Yates Shuffle
-        const shuffled = [...pool];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-        // Pick top 1 (Single Source of Truth) to prevent style clashing/mixing
-        effectiveReferenceImageIds = [shuffled[0].id];
-        console.log(`[Auto Mode] Selected 1 ${pinnedImages.length > 0 ? 'PINNED' : 'random'} Brand Image for Consistent Style Enforcement`);
+    // Case B: Auto Mode — DISABLED
+    // Previously auto-picked a random brand image when user didn't select one.
+    // This caused the reference image prompt to override tweet content entirely,
+    // generating images that looked nothing like the tweet.
+    // Now: if no references were explicitly selected (user or template), we rely on
+    // brand colors, visual identity guidelines, and the tweet content to drive the visual.
+    if (effectiveReferenceImageIds.length === 0 && !isMeme) {
+        console.log(`[Auto Mode] No reference images selected — generation will be driven by tweet content + brand colors`);
     }
 
     // --- 1.5 ANALYZE STYLE (CRITICAL FIX) ---
@@ -412,20 +405,18 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
           - ✅ Use text SPARINGLY (Title/Stat only).
         
         ${effectiveReferenceImageIds.length > 0 ? `
-           REFERENCE IMAGE UTILIZATION (HIGHEST PRIORITY — OVERRIDES ALL OTHER INSTRUCTIONS):
-           - I have provided ${effectiveReferenceImageIds.length} reference image(s). This is your MASTER TEMPLATE.
-           - 🚨 PIXEL-PERFECT REPLICATION MODE:
-             - Your output MUST look like the reference image was opened in Photoshop and ONLY the text was swapped.
-             - SAME background (exact colors, gradients, effects).
-             - SAME layout (every element in the same position and proportion).
-             - SAME typography style (font weight, case, size, color, effects).
-             - SAME visual elements (shapes, icons, borders, cards, overlays) in the SAME positions.
-             - SAME lighting, atmosphere, and color grading.
-           - ONLY CHANGE: Replace the headline text with a SHORT HEADLINE (Max 5 words) from: "${params.prompt}". 🚨 NEVER paste the full tweet.
-           - DO NOT add, remove, or modify any visual elements.
-           - DO NOT change colors, lighting, or atmosphere.
-           - DO NOT reinterpret or "improve" the design. COPY IT EXACTLY.
-           - ${analyzedStyleDescription || "Match the reference style exactly."}
+           REFERENCE IMAGE STYLE GUIDE:
+           - I have provided ${effectiveReferenceImageIds.length} reference image(s) for STYLE INSPIRATION.
+           - 🎨 STYLE EXTRACTION — Learn from the reference image:
+             - Match the COLOR GRADING, LIGHTING, and ATMOSPHERE (neon glow, soft gradients, etc.)
+             - Match the MATERIAL QUALITY and TEXTURE (glass, metal, holographic, etc.)
+             - Match the overall PREMIUM FEEL and VISUAL SOPHISTICATION.
+             - Match TYPOGRAPHY STYLE if text is included (font weight, color, effects).
+           - 🚨 CRITICAL: The TWEET CONTENT is the PRIMARY creative driver, NOT the reference image.
+             - Create an ORIGINAL composition that visually represents the TWEET TOPIC: "${params.prompt}"
+             - The graphic should feel like it belongs to the same brand/visual family as the reference, but depict the tweet's actual subject matter.
+             - DO NOT simply copy the reference layout or swap text — create a fresh visual concept.
+           - ${analyzedStyleDescription || "Use the reference to inform the visual aesthetic."}
         ` : ''}
     `;
     }
@@ -618,6 +609,46 @@ export const generateWeb3Graphic = async (params: GenerateImageParams): Promise<
 };
 
 /**
+ * Compress a base64 image to fit within proxy payload limits.
+ * Resizes to max 1536px on longest side and converts to JPEG at 0.85 quality.
+ * This keeps payloads well under Vercel's body size limit while preserving enough
+ * detail for the Gemini model to understand and edit the image.
+ */
+const compressImageForProxy = (imageBase64: string, maxDim: number = 1536): Promise<string> => {
+    return new Promise((resolve) => {
+        // If we're on the server, skip compression (no canvas available)
+        if (typeof window === 'undefined') {
+            resolve(imageBase64);
+            return;
+        }
+        const img = new Image();
+        img.onload = () => {
+            let { width, height } = img;
+            // Only resize if larger than maxDim
+            if (width > maxDim || height > maxDim) {
+                const scale = maxDim / Math.max(width, height);
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { resolve(imageBase64); return; }
+            ctx.drawImage(img, 0, 0, width, height);
+            // Convert to JPEG at 85% quality — much smaller than PNG
+            const compressed = canvas.toDataURL('image/jpeg', 0.85);
+            const originalSize = imageBase64.length;
+            const newSize = compressed.length;
+            console.log(`[Image Compress] ${Math.round(originalSize/1024)}KB → ${Math.round(newSize/1024)}KB (${Math.round(newSize/originalSize*100)}%), ${width}x${height}`);
+            resolve(compressed);
+        };
+        img.onerror = () => resolve(imageBase64); // Fallback to original on error
+        img.src = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
+    });
+};
+
+/**
  * EDIT Image using Multimodal Prompting (Image + Text -> New Image)
  */
 export const editWeb3Graphic = async (
@@ -629,10 +660,13 @@ export const editWeb3Graphic = async (
 ): Promise<string> => {
     const ai = getAI();
 
+    // Compress image before sending through proxy to avoid 413 Payload Too Large
+    const compressedImage = await compressImageForProxy(imageBase64);
+
     // Prepare Image Part
-    const mimeMatch = imageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-    const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-    const cleanBase64 = imageBase64.split(',')[1] || imageBase64;
+    const mimeMatch = compressedImage.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const cleanBase64 = compressedImage.split(',')[1] || compressedImage;
 
     const imagePart = {
         inlineData: {
@@ -2669,6 +2703,8 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
     BRAND INTELLIGENCE:
     ${context.memory.ragDocs.join('\n')}
 
+    ${(context.brand as any).marketingDirectives ? `STRATEGIC DIRECTIVES (from the brand owner — prioritize these):\n    ${(context.brand as any).marketingDirectives}` : ''}
+
     TASK: Perform a sharp, brand-specific market analysis for ${brandName} as of ${today}.
     IMPORTANT: Ignore any knowledge base entries about past events (e.g. launches, milestones) that have already occurred. Focus only on what is actionable NOW and FORWARD-LOOKING.
     1. Market Vibe: Bearish/Bullish/Hype/Quiet — cite specific data points.
@@ -2738,6 +2774,8 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     STRATEGIC ANGLE: ${analysis.strategicAngle}
     OBJECTIVE: ${context.userObjective}
 
+    ${(context.brand as any).marketingDirectives ? `STRATEGIC DIRECTIVES (from the brand owner — prioritize these in action selection):\n    ${(context.brand as any).marketingDirectives}` : ''}
+
     BRAND INTELLIGENCE (use this to ground every recommendation):
     ${context.memory.ragDocs.join('\n')}
 
@@ -2801,6 +2839,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
 interface OrchestrationInputs {
     calendarEvents: CalendarEvent[];
     mentions: Mention[];
+    competitorTweets?: { competitor: string; competitorName?: string; text: string; likes?: number }[];
 }
 
 /** Build a structured analysis of past content performance for AI context */
@@ -2870,11 +2909,17 @@ export const orchestrateMarketingDecision = async (
 
     // Shared context header for all agents — gives them the full picture
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const marketingDirectives = (context.brand as any).marketingDirectives || '';
+    const competitorTweetsPreview = inputs.competitorTweets?.length
+        ? inputs.competitorTweets.slice(0, 10).map(t => `- @${t.competitor}${t.competitorName ? ` (${t.competitorName})` : ''}: "${t.text}" (${t.likes || 0} likes)`).join('\n')
+        : '';
     const sharedContext = `
 TODAY'S DATE: ${today}
 BRAND: ${brandName}${positioning ? ` — ${positioning}` : ''}
 KNOWLEDGE BASE (key entries — ignore any past events/launches that have already occurred):\n${knowledgeSummary}
+${marketingDirectives ? `STRATEGIC DIRECTIVES (from the brand owner — prioritize these in all recommendations):\n${marketingDirectives}` : ''}
 COMPETITORS:\n${competitorBlock}
+${competitorTweetsPreview ? `COMPETITOR RECENT TWEETS (what competitors are posting right now):\n${competitorTweetsPreview}` : ''}
 MARKET TRENDS: ${trendPreview || 'None detected.'}
 ${chainPreview ? `ON-CHAIN: ${chainPreview}` : ''}
 ${performanceBlock}`.trim();
@@ -2888,6 +2933,7 @@ YOUR ROLE: Social Listener Agent — the brand's ears in the market.
 YOUR FOCUS DATA:
 - Trending Topics: ${trendPreview || 'None.'}
 - Brand Mentions: ${mentionPreview || 'No recent mentions.'}
+${competitorTweetsPreview ? `- Competitor Activity:\n${competitorTweetsPreview}` : ''}
 
 YOUR TASK:
 1. Summarize the top 2-3 narrative shifts happening in the market right now.

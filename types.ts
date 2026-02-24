@@ -38,6 +38,7 @@ export interface BrandConfig {
   founded?: string; // Year founded
   headquarters?: string; // HQ location
   toneGuidelines?: string; // Detailed tone guidelines
+  marketingDirectives?: string; // Strategic directives for the AI brain (e.g. "Focus on DePIN narrative", "Avoid meme content")
   tagline?: string; // Brand tagline
   brandDescription?: string; // Full brand description
   keywords?: string[]; // Keywords/topics for AI focus

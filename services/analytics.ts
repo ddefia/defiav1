@@ -670,6 +670,55 @@ export const fetchMentions = async (brandName: string, apiKey?: string): Promise
     }
 };
 
+export interface CompetitorTweet {
+    competitor: string;
+    competitorName?: string;
+    text: string;
+    timestamp?: string;
+    likes?: number;
+    retweets?: number;
+}
+
+export const fetchCompetitorTweets = async (
+    competitorHandles: string[],
+    apiKey?: string
+): Promise<CompetitorTweet[]> => {
+    const token = apiKey || DEFAULT_APIFY_TOKEN;
+    if (!token || competitorHandles.length === 0) return [];
+
+    try {
+        const cleanHandles = competitorHandles.map(h => h.replace('@', ''));
+        console.log(`[Apify] Fetching competitor tweets for: ${cleanHandles.join(', ')}...`);
+
+        // Single actor run with all competitor handles — efficient
+        const items = await runApifyActor(ACTOR_TWITTER, {
+            "handles": cleanHandles,
+            "tweetsDesired": 3,
+            "profilesDesired": 0,
+            "withReplies": false,
+            "includeUserInfo": false,
+            "proxyConfig": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
+        }, token);
+
+        if (!items || items.length === 0) return [];
+
+        return items.map((item: any) => {
+            const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
+            const author = urlMatch?.[1] || "Unknown";
+            return {
+                competitor: author,
+                text: item.text || "",
+                timestamp: item.timestamp || new Date().toISOString(),
+                likes: item.likes || 0,
+                retweets: item.retweets || 0,
+            };
+        });
+    } catch (e) {
+        console.warn("[Apify] Competitor tweets fetch failed:", e);
+        return [];
+    }
+};
+
 export const computeSocialSignals = (trends: TrendItem[], mentions: Mention[], socialMetrics?: SocialMetrics): SocialSignals => {
     // 1. Calculate Sentiment
     // Simple heuristic: Trend Sentiment (Positive=80, Neutral=50, Negative=20) + Engagement Bonus

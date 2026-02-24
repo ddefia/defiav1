@@ -6,7 +6,7 @@ import { generateText } from '../telegram/llm.js';
  * "The Intelligence"
  */
 
-export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends, brandProfile = {}) => {
+export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends, brandProfile = {}, competitorTweets = []) => {
     try {
         const brandName = brandProfile.name || brandProfile.brandName || "Web3 Protocol";
         const voice = brandProfile.voiceGuidelines || "Professional";
@@ -31,6 +31,7 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         const bannedPhrases = Array.isArray(brandProfile.bannedPhrases) && brandProfile.bannedPhrases.length > 0
             ? brandProfile.bannedPhrases.join(', ')
             : '';
+        const marketingDirectives = brandProfile.marketingDirectives || '';
         const audienceList = Array.isArray(brandProfile.audiences)
             ? brandProfile.audiences.map(a => typeof a === 'string' ? a : a.title || a.name || a.label || '').filter(Boolean)
             : [];
@@ -46,6 +47,10 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
             ? pulseTrends.map(t => `- ${t.headline}: ${t.summary}`).join('\n')
             : '- No market trends available';
 
+        const competitorTweetsBlock = competitorTweets.length > 0
+            ? competitorTweets.slice(0, 10).map(t => `- @${t.competitor}${t.competitorName ? ` (${t.competitorName})` : ''}: "${t.text}" (${t.likes || 0} likes)`).join('\n')
+            : '';
+
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
         const prompt = `
@@ -56,6 +61,7 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         ${toneGuidelines ? `TONE GUIDELINES: ${toneGuidelines}` : ''}
         ${targetAudience ? `TARGET AUDIENCE: ${targetAudience}` : ''}
         ${bannedPhrases ? `BANNED PHRASES (never use these): ${bannedPhrases}` : ''}
+        ${marketingDirectives ? `STRATEGIC DIRECTIVES (from the brand owner — prioritize these in all decisions):\n        ${marketingDirectives}` : ''}
 
         BRAND KNOWLEDGE BASE:
         ${knowledgeBase}
@@ -71,6 +77,8 @@ ${tweetExamples}` : ''}
 
         WEB3 MARKET TRENDS (live news):
         ${trendsBlock}
+
+        ${competitorTweetsBlock ? `COMPETITOR RECENT TWEETS (what competitors are posting):\n        ${competitorTweetsBlock}` : ''}
 
         TASK:
         You work FOR ${brandName}. Produce 3 actionable marketing recommendations.
