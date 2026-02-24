@@ -1529,27 +1529,45 @@ const App: React.FC = () => {
                 const style = getRecStyle(action.type);
                 const baseImpact = action.type === 'TREND_JACK' ? 92 : action.type === 'REPLY' ? 78 : action.type === 'CAMPAIGN' ? 88 : action.type === 'GAP_FILL' ? 75 : 80;
                 const impactScore = Math.min(99, baseImpact + (mentions.length > 3 ? 5 : 0) + ((socialSignals.trendingTopics?.length || 0) > 2 ? 3 : 0));
-                // Prefer LLM-provided dataSource, fall back to type-based defaults
+                // Prefer LLM-provided dataSource, fall back to type-based defaults with real values
+                const trendHeadline = (socialSignals.trendingTopics || [])[0]?.headline;
+                const trendScore = (socialSignals.trendingTopics || [])[0]?.relevanceScore;
+                const engRate = socialMetrics?.engagementRate;
+                const postCount = socialMetrics?.recentPosts?.length || 0;
                 const dataSignal = action.dataSource
                     ? action.dataSource
                     : action.type === 'TREND_JACK'
-                    ? `Trending: ${(socialSignals.trendingTopics || [])[0]?.headline || action.topic}`
+                    ? `Trending: "${trendHeadline || action.topic}"${trendScore ? ` (${trendScore}% relevance)` : ''}`
                     : action.type === 'REPLY'
-                    ? `${mentions.length} recent mentions detected`
+                    ? `${mentions.length} brand mention${mentions.length !== 1 ? 's' : ''} detected${mentions[0]?.text ? ` — latest: "${mentions[0].text.slice(0, 60)}…"` : ''}`
                     : action.type === 'CAMPAIGN'
-                    ? `Market shift: ${strategicAngle.slice(0, 60) || action.topic}`
+                    ? `Market shift: ${strategicAngle.slice(0, 80) || action.topic}`
                     : action.type === 'THREAD'
-                    ? `Performance: Thread format for deeper engagement`
+                    ? `Performance: ${engRate ? `${engRate.toFixed(1)}% engagement rate` : 'Thread format'} — threads drive deeper engagement`
                     : action.type === 'GAP_FILL'
-                    ? `Content gap: ${action.topic?.slice(0, 50) || 'market'}`
-                    : `Strategy: ${action.topic?.slice(0, 50) || 'opportunity'}`;
+                    ? `Content cadence: ${postCount} recent posts${postCount < 3 ? ' (below target)' : ''} — ${action.topic?.slice(0, 50) || 'opportunity to fill gap'}`
+                    : `Strategy: ${action.topic?.slice(0, 60) || 'opportunity detected'}`;
+
+                // Build source tags from actual data provenance
+                const sourceTags: string[] = [];
+                const ds = (action.dataSource || '').toLowerCase();
+                const aType = (action.type || '').toUpperCase();
+                if (ds.includes('trending') || ds.includes('news') || aType === 'TREND_JACK') sourceTags.push('Web3 News');
+                if (ds.includes('performance') || ds.includes('engagement') || ds.includes('analytics') || postCount > 0) sourceTags.push('X Analytics');
+                if (ds.includes('kb:') || ds.includes('knowledge') || !!brandKnowledgeBlock) sourceTags.push('Knowledge Base');
+                if (ds.includes('competitor') || ds.includes('gap')) sourceTags.push('Competitive Intel');
+                if (ds.includes('mention') || aType === 'REPLY' || mentions.length > 0) sourceTags.push('Brand Mentions');
+                if (ds.includes('calendar') || ds.includes('cadence') || aType === 'GAP_FILL') sourceTags.push('Content Calendar');
+                if (chainMetrics && (chainMetrics.totalVolume > 0 || chainMetrics.activeWallets > 0)) sourceTags.push('On-Chain Data');
+                if (!sourceTags.length) sourceTags.push('AI Analysis');
+
                 return {
                     ...style,
                     title: action.hook || `${style.type}: ${action.topic}`,
                     reasoning: action.reasoning || `Strategic opportunity based on ${action.goal}`,
                     contentIdeas: Array.isArray(action.contentIdeas) ? action.contentIdeas.slice(0, 3) : [],
                     strategicAlignment: action.strategicAlignment || strategicAngle,
-                    dataSignal, impactScore,
+                    dataSignal, impactScore, sourceTags,
                     fullDraft: action.instructions || action.reasoning || '',
                     fullReason: action.reasoning || action.topic || '',
                     targetId: action.targetId || null,

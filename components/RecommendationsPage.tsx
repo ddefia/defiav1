@@ -50,6 +50,33 @@ const getPriorityLabel = (score: number) => score >= 85 ? 'High' : score >= 70 ?
 const getPriorityColor = (score: number) => score >= 85 ? '#22C55E' : score >= 70 ? '#F59E0B' : '#6B6B70';
 const cleanTitle = (title: string) => (title || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA|TWEET|THREAD)\s*:\s*/i, '').trim() || title;
 
+// Source tag styling
+const SOURCE_TAG_STYLES: Record<string, { color: string; icon: string }> = {
+    'Web3 News': { color: '#8B5CF6', icon: 'newspaper' },
+    'X Analytics': { color: '#1DA1F2', icon: 'analytics' },
+    'Knowledge Base': { color: '#22C55E', icon: 'menu_book' },
+    'Competitive Intel': { color: '#EF4444', icon: 'compare_arrows' },
+    'Brand Mentions': { color: '#EC4899', icon: 'alternate_email' },
+    'Content Calendar': { color: '#F59E0B', icon: 'edit_calendar' },
+    'On-Chain Data': { color: '#06B6D4', icon: 'token' },
+    'AI Analysis': { color: '#FF5C00', icon: 'psychology' },
+};
+
+// Agent relevance by rec type
+const getRelevantAgents = (recType: string): string[] => {
+    const map: Record<string, string[]> = {
+        'Trend': ['Social Listener', 'Knowledge Curator'],
+        'Engagement': ['Social Listener'],
+        'Campaign': ['Social Listener', 'Performance Analyst', 'Content Planner', 'Knowledge Curator'],
+        'Content': ['Content Planner', 'Performance Analyst'],
+        'Tweet': ['Content Planner', 'Social Listener'],
+        'Thread': ['Performance Analyst', 'Content Planner'],
+        'Community': ['Social Listener', 'Knowledge Curator'],
+        'Optimization': ['Performance Analyst'],
+    };
+    return map[recType] || ['Social Listener', 'Performance Analyst'];
+};
+
 // Generate supplemental recommendations from available data signals (no API calls)
 // Only used to fill gaps when primary recs (LLM or agent decisions) are insufficient
 // Exported for reuse in Dashboard.tsx
@@ -85,9 +112,11 @@ export const generateSupplementalRecs = (
             fullDraft: `${trend.headline} is reshaping the landscape — and ${brandName} is built for exactly this.\n\nHere's what most people miss about ${trend.headline.toLowerCase()}:\n\n${brandName} has been focused on ${expertise} since day one. The trend is catching up to the vision.\n\nThread incoming on why this matters.`,
             contentIdeas: [`Thread on ${brandName}'s approach to ${trend.headline}`, `Quote-tweet a key voice discussing ${trend.headline}`],
             strategicAlignment: `Jumping on "${trend.headline}" while it has peak attention maximizes impression potential and positions ${brandName} as culturally aware.`,
-            dataSignal: `Trending: ${trend.headline} (${trend.relevanceScore}% relevance)`,
+            dataSignal: `Trending: "${trend.headline}" (${trend.relevanceScore}% relevance)`,
             impactScore: Math.min(92, 78 + Math.floor(trend.relevanceScore / 10)),
             source: 'supplemental',
+            sourceTags: ['Web3 News', ...(matchingKeyword ? ['Knowledge Base'] : [])],
+            generatedAt: Date.now(),
         });
     }
 
@@ -105,6 +134,8 @@ export const generateSupplementalRecs = (
             dataSignal: `Engagement: ${engagementRate.toFixed(1)}% · ${recentPostCount} recent posts`,
             impactScore: 76,
             source: 'supplemental',
+            sourceTags: ['X Analytics', 'Brand Mentions'],
+            generatedAt: Date.now(),
         });
     }
 
@@ -122,6 +153,8 @@ export const generateSupplementalRecs = (
             dataSignal: `Content cadence: ${recentPostCount} recent posts (below target)`,
             impactScore: 74,
             source: 'supplemental',
+            sourceTags: ['Content Calendar', 'X Analytics'],
+            generatedAt: Date.now(),
         });
     }
 
@@ -146,6 +179,8 @@ export const generateSupplementalRecs = (
                     dataSignal: `Brand expertise "${overlap}" × Trending "${trend.headline}"`,
                     impactScore: 84,
                     source: 'supplemental',
+                    sourceTags: ['Web3 News', 'Knowledge Base'],
+                    generatedAt: Date.now(),
                 });
                 break; // Only one campaign idea
             }
@@ -173,6 +208,8 @@ export const generateSupplementalRecs = (
                     dataSignal: `ROI: ${perf.roi.toFixed(1)}x · Retention: ${retPct}% · CPA: $${perf.cpa.toFixed(2)}`,
                     impactScore: Math.min(96, 85 + Math.round(perf.roi)),
                     source: 'supplemental',
+                    sourceTags: ['On-Chain Data', 'X Analytics'],
+                    generatedAt: Date.now(),
                 });
             }
 
@@ -189,6 +226,8 @@ export const generateSupplementalRecs = (
                     dataSignal: `ROI: ${perf.roi.toFixed(1)}x · Retention: ${retPct}% · CPA: $${perf.cpa.toFixed(2)}`,
                     impactScore: 82,
                     source: 'supplemental',
+                    sourceTags: ['On-Chain Data', 'X Analytics'],
+                    generatedAt: Date.now(),
                 });
             }
 
@@ -207,6 +246,8 @@ export const generateSupplementalRecs = (
                         dataSignal: `${perf.whalesAcquired} whales · ${perf.lift.toFixed(1)}x lift · Campaign: ${log.name}`,
                         impactScore: 88,
                         source: 'supplemental',
+                        sourceTags: ['On-Chain Data'],
+                        generatedAt: Date.now(),
                     });
                 }
             }
@@ -486,10 +527,18 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[#9CA3AF] text-[11px]">{dataSourceCount} data sources</span>
+                                            <div className="flex items-center gap-1.5 flex-wrap flex-1 mr-2">
+                                                {(rec.sourceTags || []).slice(0, 3).map((tag: string, tIdx: number) => {
+                                                    const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
+                                                    return (
+                                                        <span key={tIdx} className="flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: `${style.color}15`, color: style.color }}>
+                                                            <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
+                                                            {tag}
+                                                        </span>
+                                                    );
+                                                })}
                                                 {rec.generatedAt && (
-                                                    <span className="text-[#6B6B70] text-[10px]">· {timeAgo(rec.generatedAt)}</span>
+                                                    <span className="text-[#6B6B70] text-[9px] ml-auto">{timeAgo(rec.generatedAt)}</span>
                                                 )}
                                             </div>
                                             <span className="material-symbols-sharp text-[14px] text-[#9CA3AF]">chevron_right</span>
@@ -559,6 +608,49 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 )}
                             </div>
 
+                            {/* Thinking Chain */}
+                            {selectedRec.dataSignal && (() => {
+                                const relevantAgentNames = getRelevantAgents(selectedRec.type);
+                                const relevantInsights = (decisionSummary?.agentInsights || []).filter((a: any) => relevantAgentNames.includes(a.agent));
+                                const agentSummary = relevantInsights.length > 0
+                                    ? relevantInsights.map((a: any) => a.agent).join(' + ') + ' analysis'
+                                    : relevantAgentNames.join(' + ');
+                                const steps = [
+                                    { label: 'Signal', icon: 'sensors', color: '#3B82F6', text: selectedRec.dataSignal.length > 70 ? selectedRec.dataSignal.slice(0, 67) + '…' : selectedRec.dataSignal },
+                                    { label: 'Agents', icon: 'groups', color: '#8B5CF6', text: agentSummary },
+                                    { label: 'Strategy', icon: 'hub', color: '#FF5C00', text: selectedRec.strategicAlignment ? (selectedRec.strategicAlignment.length > 70 ? selectedRec.strategicAlignment.slice(0, 67) + '…' : selectedRec.strategicAlignment) : 'Brain synthesis' },
+                                    { label: 'Action', icon: 'bolt', color: '#22C55E', text: `${selectedRec.type}: ${cleanTitle(selectedRec.title).slice(0, 50)}` },
+                                ];
+                                return (
+                                    <div className="rounded-xl bg-[#111113] border border-[#1F1F23] p-4 mb-6">
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                            <span className="material-symbols-sharp text-[14px] text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>route</span>
+                                            <span className="text-[10px] font-bold text-[#FF5C00] tracking-wider uppercase">Reasoning Chain</span>
+                                        </div>
+                                        <div className="flex items-stretch gap-0">
+                                            {steps.map((s, i) => (
+                                                <div key={i} className="flex items-stretch flex-1 min-w-0">
+                                                    <div className="flex flex-col items-center flex-1 min-w-0 relative">
+                                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                                            <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${s.color}22` }}>
+                                                                <span className="material-symbols-sharp text-[12px]" style={{ color: s.color, fontVariationSettings: "'wght' 300" }}>{s.icon}</span>
+                                                            </span>
+                                                            <span className="text-[9px] font-bold tracking-wider uppercase" style={{ color: s.color }}>{s.label}</span>
+                                                        </div>
+                                                        <p className="text-[10px] text-[#ADADB0] leading-relaxed text-center px-1 line-clamp-2">{s.text}</p>
+                                                    </div>
+                                                    {i < steps.length - 1 && (
+                                                        <div className="flex items-center px-1 pt-1 self-start">
+                                                            <span className="material-symbols-sharp text-[12px] text-[#3E3E3E]">chevron_right</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             {/* Title */}
                             <h2 className="text-white text-2xl font-bold mb-3 leading-snug" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
                                 {cleanTitle(selectedRec.fullReason || selectedRec.reasoning || selectedRec.title)}
@@ -621,45 +713,59 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             </div>
                                         )}
 
-                                        {/* Agent Council Insights */}
-                                        {decisionSummary?.agentInsights && decisionSummary.agentInsights.length > 0 && (
-                                            <div className="pt-4 mt-4 border-t border-[#1F1F23]">
-                                                <span className="text-[#9CA3AF] text-xs font-medium mb-3 block">Agent Council Breakdown</span>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    {decisionSummary.agentInsights.map((insight: any, idx: number) => {
-                                                        const colors: Record<string, string> = {
-                                                            'Social Listener': '#3B82F6', 'Performance Analyst': '#22C55E',
-                                                            'Content Planner': '#F59E0B', 'Knowledge Curator': '#8B5CF6',
-                                                        };
-                                                        const icons: Record<string, string> = {
-                                                            'Social Listener': 'visibility', 'Performance Analyst': 'analytics',
-                                                            'Content Planner': 'edit_calendar', 'Knowledge Curator': 'menu_book',
-                                                        };
-                                                        const color = colors[insight.agent] || '#FF5C00';
-                                                        return (
-                                                            <div key={idx} className="rounded-lg bg-[#0A0A0B] border border-[#1F1F23] p-3">
-                                                                <div className="flex items-center gap-1.5 mb-1.5">
-                                                                    <span className="material-symbols-sharp text-[14px]" style={{ color }}>{icons[insight.agent] || 'smart_toy'}</span>
-                                                                    <span className="text-[10px] font-semibold" style={{ color }}>{insight.agent}</span>
-                                                                </div>
-                                                                <p className="text-[#D1D5DB] text-[11px] leading-relaxed mb-1.5">
-                                                                    {insight.summary ? (insight.summary.length > 120 ? insight.summary.slice(0, 120) + '...' : insight.summary) : insight.focus}
-                                                                </p>
-                                                                {insight.keySignals?.length > 0 && (
-                                                                    <div className="flex flex-wrap gap-1">
-                                                                        {insight.keySignals.slice(0, 2).map((signal: string, sIdx: number) => (
-                                                                            <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#ADADB0]">
-                                                                                {signal.length > 35 ? signal.slice(0, 35) + '…' : signal}
-                                                                            </span>
-                                                                        ))}
+                                        {/* Agent Council Insights — filtered to relevant agents for this rec */}
+                                        {decisionSummary?.agentInsights && decisionSummary.agentInsights.length > 0 && (() => {
+                                            const relevantNames = getRelevantAgents(selectedRec.type);
+                                            const colors: Record<string, string> = {
+                                                'Social Listener': '#3B82F6', 'Performance Analyst': '#22C55E',
+                                                'Content Planner': '#F59E0B', 'Knowledge Curator': '#8B5CF6',
+                                            };
+                                            const icons: Record<string, string> = {
+                                                'Social Listener': 'visibility', 'Performance Analyst': 'analytics',
+                                                'Content Planner': 'edit_calendar', 'Knowledge Curator': 'menu_book',
+                                            };
+                                            // Show relevant agents first (highlighted), then others dimmed
+                                            const sorted = [...decisionSummary.agentInsights].sort((a: any, b: any) => {
+                                                const aRel = relevantNames.includes(a.agent) ? 0 : 1;
+                                                const bRel = relevantNames.includes(b.agent) ? 0 : 1;
+                                                return aRel - bRel;
+                                            });
+                                            return (
+                                                <div className="pt-4 mt-4 border-t border-[#1F1F23]">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <span className="text-[#9CA3AF] text-xs font-medium">Agent Council</span>
+                                                        <span className="text-[#6B6B70] text-[10px]">· {relevantNames.length} agent{relevantNames.length !== 1 ? 's' : ''} contributed</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        {sorted.map((insight: any, idx: number) => {
+                                                            const isRelevant = relevantNames.includes(insight.agent);
+                                                            const color = colors[insight.agent] || '#FF5C00';
+                                                            return (
+                                                                <div key={idx} className={`rounded-lg p-3 transition-all ${isRelevant ? 'bg-[#0A0A0B] border border-[#1F1F23]' : 'bg-[#0A0A0B]/50 border border-[#1F1F23]/50 opacity-50'}`}>
+                                                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                                                        <span className="material-symbols-sharp text-[14px]" style={{ color }}>{icons[insight.agent] || 'smart_toy'}</span>
+                                                                        <span className="text-[10px] font-semibold" style={{ color }}>{insight.agent}</span>
+                                                                        {isRelevant && <span className="ml-auto text-[8px] px-1.5 py-0.5 rounded-full bg-[#FF5C0015] text-[#FF5C00] font-medium">KEY</span>}
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
+                                                                    <p className="text-[#D1D5DB] text-[11px] leading-relaxed mb-1.5">
+                                                                        {insight.summary ? (insight.summary.length > 120 ? insight.summary.slice(0, 120) + '...' : insight.summary) : insight.focus}
+                                                                    </p>
+                                                                    {insight.keySignals?.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {insight.keySignals.slice(0, 3).map((signal: string, sIdx: number) => (
+                                                                                <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#ADADB0]">
+                                                                                    {signal.length > 40 ? signal.slice(0, 37) + '…' : signal}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
                                     </div>
                                 </div>
 
@@ -683,47 +789,45 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         </div>
                                     )}
 
-                                    {/* Data Sources */}
+                                    {/* Intelligence Sources — per-rec */}
                                     <div className="rounded-2xl bg-[#111113] border border-[#1F1F23] p-5">
                                         <div className="flex items-center gap-2 mb-4">
                                             <span className="material-symbols-sharp text-[16px] text-[#9CA3AF]">database</span>
-                                            <span className="text-white text-sm font-semibold">Data Sources</span>
+                                            <span className="text-white text-sm font-semibold">Intelligence Sources</span>
+                                            <span className="text-[#6B6B70] text-[10px] ml-auto">{(selectedRec.sourceTags || []).length} active</span>
                                         </div>
-                                        <div className="space-y-2.5">
-                                            {socialMetrics?.recentPosts?.length ? (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-[#3B82F6]"></span>
-                                                    <span className="text-[#E5E7EB] text-sm">X/Twitter (Apify)</span>
-                                                    {decisionSummary?.inputCoverage?.recentPosts > 0 && (
-                                                        <span className="text-[#9CA3AF] text-[10px] ml-auto">{decisionSummary.inputCoverage.recentPosts} posts</span>
-                                                    )}
-                                                </div>
-                                            ) : null}
-                                            {socialSignals.trendingTopics?.length ? (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-[#8B5CF6]"></span>
-                                                    <span className="text-[#E5E7EB] text-sm">Web3 News Feed</span>
-                                                    <span className="text-[#9CA3AF] text-[10px] ml-auto">{socialSignals.trendingTopics.length} trends</span>
-                                                </div>
-                                            ) : null}
-                                            {brandConfig?.knowledgeBase?.length ? (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-[#22C55E]"></span>
-                                                    <span className="text-[#E5E7EB] text-sm">Brand Knowledge Base</span>
-                                                    <span className="text-[#9CA3AF] text-[10px] ml-auto">{brandConfig.knowledgeBase.length} docs</span>
-                                                </div>
-                                            ) : null}
-                                            <div className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-[#F59E0B]"></span>
-                                                <span className="text-[#E5E7EB] text-sm">AI Sentiment Analysis</span>
-                                            </div>
-                                            {decisionSummary?.inputCoverage?.mentions > 0 && (
-                                                <div className="flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-[#EC4899]"></span>
-                                                    <span className="text-[#E5E7EB] text-sm">Mentions Scanned</span>
-                                                    <span className="text-[#9CA3AF] text-[10px] ml-auto">{decisionSummary.inputCoverage.mentions}</span>
-                                                </div>
-                                            )}
+                                        <div className="space-y-2">
+                                            {(selectedRec.sourceTags || ['AI Analysis']).map((tag: string, tIdx: number) => {
+                                                const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
+                                                // Generate contextual evidence per source
+                                                const evidence =
+                                                    tag === 'Web3 News' && socialSignals.trendingTopics?.length
+                                                        ? `${socialSignals.trendingTopics.length} trending topics · Top: "${(socialSignals.trendingTopics[0]?.headline || '').slice(0, 40)}"`
+                                                    : tag === 'X Analytics' && socialMetrics?.recentPosts?.length
+                                                        ? `${socialMetrics.recentPosts.length} posts analyzed · ${socialMetrics.engagementRate?.toFixed(1) || '0'}% engagement`
+                                                    : tag === 'Knowledge Base' && brandConfig?.knowledgeBase?.length
+                                                        ? `${brandConfig.knowledgeBase.length} entries · Brand positioning + voice guidelines`
+                                                    : tag === 'Brand Mentions' && decisionSummary?.inputCoverage?.mentions
+                                                        ? `${decisionSummary.inputCoverage.mentions} mention${decisionSummary.inputCoverage.mentions !== 1 ? 's' : ''} scanned`
+                                                    : tag === 'Content Calendar' && decisionSummary?.inputCoverage?.calendarItems
+                                                        ? `${decisionSummary.inputCoverage.calendarItems} scheduled items reviewed`
+                                                    : tag === 'On-Chain Data'
+                                                        ? 'Wallet growth, retention, campaign ROI'
+                                                    : tag === 'Competitive Intel'
+                                                        ? 'Competitor positioning gaps identified'
+                                                    : '4-agent council synthesis';
+                                                return (
+                                                    <div key={tIdx} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                                        <span className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: `${style.color}15` }}>
+                                                            <span className="material-symbols-sharp text-[14px]" style={{ color: style.color, fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
+                                                        </span>
+                                                        <div className="min-w-0">
+                                                            <span className="text-[#E5E7EB] text-xs font-medium">{tag}</span>
+                                                            <p className="text-[#9CA3AF] text-[10px] leading-relaxed mt-0.5">{evidence}</p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
