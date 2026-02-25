@@ -1596,7 +1596,25 @@ const App: React.FC = () => {
                     topic: action.topic, goal: action.goal,
                     knowledgeConnection: !!brandKnowledgeBlock,
                     proof: (action as any).proof,
-                    originalTweet: action.originalTweet || null,
+                    originalTweet: (() => {
+                        const ot = action.originalTweet;
+                        if (!ot) return null;
+                        // Enrich with images/url from actual source data (mentions or competitor tweets)
+                        const authorClean = (ot.author || '').replace('@', '').toLowerCase();
+                        const sourceMention = mentions.find((m: any) => (m.author || '').toLowerCase() === authorClean);
+                        const sourceCompTweet = (compTweets || competitorTweets || []).find((t: any) => (t.competitor || '').toLowerCase() === authorClean);
+                        const source = sourceMention || sourceCompTweet;
+                        return {
+                            ...ot,
+                            images: ot.images || (source as any)?.images || [],
+                            tweetUrl: ot.tweetUrl || (source as any)?.tweetUrl || null,
+                        };
+                    })(),
+                    // Attach source tweet images for mention-based recs (REPLY, QRT)
+                    sourceTweetImages: (() => {
+                        if (action.type === 'REPLY' && mentions[0]?.images?.length) return mentions[0].images;
+                        return [];
+                    })(),
                     generatedAt: now,
                 };
             });

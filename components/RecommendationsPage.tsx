@@ -693,13 +693,42 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="material-symbols-sharp text-[16px] text-[#06B6D4]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
                                         <span className="text-[#06B6D4] text-xs font-semibold uppercase tracking-wider">Tweet to Quote</span>
+                                        {selectedRec.originalTweet.tweetUrl && (
+                                            <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
+                                                className="ml-auto text-[#06B6D4] text-xs hover:underline flex items-center gap-1">
+                                                <span className="material-symbols-sharp text-xs" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                                View on X
+                                            </a>
+                                        )}
                                     </div>
                                     <p className="text-white text-[14px] leading-relaxed italic">
                                         "{selectedRec.originalTweet.text}"
                                     </p>
+                                    {selectedRec.originalTweet.images?.length > 0 && (
+                                        <div className="flex gap-2 mt-3 overflow-x-auto">
+                                            {selectedRec.originalTweet.images.slice(0, 4).map((img: string, i: number) => (
+                                                <img key={i} src={img} alt={`Tweet media ${i + 1}`}
+                                                    className="rounded-lg max-h-[160px] object-cover border border-[#1F1F23]"
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                     <p className="text-[#9CA3AF] text-xs mt-2">
                                         — {selectedRec.originalTweet.author}
                                     </p>
+                                </div>
+                            )}
+
+                            {/* Source Tweet Images (for mention-based recs like REPLY) */}
+                            {selectedRec.sourceTweetImages?.length > 0 && selectedRec.type !== 'QRT' && (
+                                <div className="flex gap-2 mb-6 overflow-x-auto">
+                                    {selectedRec.sourceTweetImages.slice(0, 4).map((img: string, i: number) => (
+                                        <img key={i} src={img} alt={`Source tweet media ${i + 1}`}
+                                            className="rounded-lg max-h-[140px] object-cover border border-[#1F1F23]"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    ))}
                                 </div>
                             )}
 

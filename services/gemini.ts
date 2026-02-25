@@ -2841,7 +2841,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
 interface OrchestrationInputs {
     calendarEvents: CalendarEvent[];
     mentions: Mention[];
-    competitorTweets?: { competitor: string; competitorName?: string; text: string; likes?: number }[];
+    competitorTweets?: { competitor: string; competitorName?: string; text: string; likes?: number; images?: string[]; tweetUrl?: string }[];
 }
 
 /** Build a structured analysis of past content performance for AI context */

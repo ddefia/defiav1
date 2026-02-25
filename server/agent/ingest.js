@@ -144,7 +144,9 @@ export const fetchMentions = async (apiKey, brandName = 'ENKI') => {
                 id: item.id,
                 author: author,
                 text: item.text || "",
-                timestamp: item.timestamp || new Date().toISOString()
+                timestamp: item.timestamp || new Date().toISOString(),
+                images: item.images || [],
+                tweetUrl: item.url || null,
             };
         });
 
@@ -264,6 +266,8 @@ export const fetchCompetitorTweets = async (apiKey, brandName, competitorHandle)
             timestamp: item.timestamp || new Date().toISOString(),
             likes: item.likes || 0,
             retweets: item.retweets || 0,
+            images: item.images || [],
+            tweetUrl: item.url || null,
         }));
 
         await setCompetitorTweetsCache(brandName, cleanHandle, result);
