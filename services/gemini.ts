@@ -2792,7 +2792,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
 
     MANDATORY RULES:
     1. Generate EXACTLY 5 actions. Never fewer, never more.
-    2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET. The remaining 2 can be any type (REPLY, TREND_JACK, GAP_FILL). Actions must use DIFFERENT angles — never repeat the same topic/theme across actions.
+    2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET. The remaining 2 can be any type (REPLY, TREND_JACK, GAP_FILL, QRT). Actions must use DIFFERENT angles — never repeat the same topic/theme across actions.
     3. SPECIFICITY (CRITICAL): Every action must be hyper-specific and immediately executable. BAD: "Post about our technology". GOOD: "Thread breaking down how our decentralized sequencer prevents MEV extraction — use the recent Flashbots controversy as the hook".
     4. KNOWLEDGE: Every action MUST leverage specific brand knowledge base entries. Quote specific technical features, partnerships, or differentiators.
     5. TIMELINESS: Each reasoning MUST explain WHY NOW (today is ${today}). Reference a specific trend, market event, competitor move, or calendar date. If no fresh trend data is available, reference evergreen market narratives the brand can own. NEVER recommend posting about past events (product launches, milestones, etc.) that have already happened — only forward-looking content.
@@ -2802,12 +2802,13 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     9. AVOID GENERIC: Never output actions like "General brand update", "Community engagement post", or "Thought leadership thread" without specific substance. Every action must pass the test: "Could this ONLY apply to THIS brand?"
     10. TONE: Write reasoning as if you're a sharp CMO pitching to the CEO. Confident, data-aware, no fluff.
     11. SOURCE ATTRIBUTION (CRITICAL): For each action, specify which data source triggered it. Was it a specific trending news headline? A competitor gap? Performance data showing what works? A knowledge base entry revealing unexploited positioning? The user needs to see WHY this rec exists and WHERE the signal came from.
+    12. QRT OPPORTUNITIES: If any brand mentions or competitor tweets contain a high-signal statement that the brand should quote-retweet (e.g. an influencer/KOL posting about a topic the brand has authority on, a competitor making a claim the brand can counter, or a trending conversation the brand can add value to), output a QRT action. The QRT must add genuine insight — not just "great take!" — and connect back to the brand's knowledge base or unique positioning. Include "originalTweet" with the author handle and text being quoted. Only output QRT if a genuinely high-signal tweet exists in the data — do NOT manufacture QRT opportunities.
 
     OUTPUT JSON:
     {
         "actions": [
             {
-                "type": "TWEET" | "THREAD" | "CAMPAIGN" | "REPLY" | "TREND_JACK" | "GAP_FILL",
+                "type": "TWEET" | "THREAD" | "CAMPAIGN" | "REPLY" | "TREND_JACK" | "GAP_FILL" | "QRT",
                 "topic": "Specific topic grounded in data",
                 "goal": "Measurable outcome this action achieves",
                 "instructions": "Specific constraints for execution (format, tone, length, CTA)",
@@ -2815,7 +2816,8 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
                 "hook": "Bold internal code name (e.g. 'Operation Phantom Growth', 'The Liquidity Vampire')",
                 "strategicAlignment": "Aligns with [specific brand value/knowledge entry] because...",
                 "contentIdeas": ["Specific headline 1", "Specific angle 2", "Specific creative idea 3"],
-                "dataSource": "The specific signal that triggered this action (e.g. 'Trending: AI agents narrative surging', 'Performance: threads get 3x engagement', 'Competitor gap: Optimism ignoring DePIN', 'KB: DAT technology underexploited in content')"
+                "dataSource": "The specific signal that triggered this action (e.g. 'Trending: AI agents narrative surging', 'Performance: threads get 3x engagement', 'Competitor gap: Optimism ignoring DePIN', 'KB: DAT technology underexploited in content')",
+                "originalTweet": "(QRT only) { \"author\": \"@handle\", \"text\": \"the tweet being quoted\" } — omit for non-QRT actions"
             }
         ]
     }
@@ -2940,6 +2942,7 @@ YOUR TASK:
 2. Identify high-signal conversations the brand should enter or respond to.
 3. Compare the brand's narrative positioning vs competitors — where are competitors dominating the conversation? Where are we winning?
 4. Flag any emerging narratives that align with the brand's knowledge base.
+5. QRT SCAN: Check mentions and competitor tweets for any high-signal statement worth quote-retweeting. Look for: influencers/KOLs posting about topics the brand has authority on, competitors making claims the brand can counter, or anyone sparking a conversation the brand can add genuine value to. Flag the specific tweet author + text in your keySignals if found.
 
 OUTPUT JSON:
 {"agent":"Social Listener","focus":"Narratives + Mentions + Competitive Gaps","summary":"2-3 sentence analysis","keySignals":["signal1","signal2","signal3"]}`,

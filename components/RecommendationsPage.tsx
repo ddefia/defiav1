@@ -72,6 +72,7 @@ const getRelevantAgents = (recType: string): string[] => {
         'Tweet': ['Content Planner', 'Social Listener'],
         'Thread': ['Performance Analyst', 'Content Planner'],
         'Community': ['Social Listener', 'Knowledge Curator'],
+        'QRT': ['Social Listener', 'Knowledge Curator'],
         'Optimization': ['Performance Analyst'],
     };
     return map[recType] || ['Social Listener', 'Performance Analyst'];
@@ -680,10 +681,27 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             : selectedRec.type === 'Community' ? 'Strengthen community bonds with targeted interaction.'
                                             : selectedRec.type === 'Tweet' ? 'Publish timely content to maintain audience presence.'
                                             : selectedRec.type === 'Thread' ? 'Create a multi-part thread for deeper engagement.'
+                                            : selectedRec.type === 'QRT' ? 'Quote-retweet a high-signal tweet to insert your brand into the conversation.'
                                             : 'Optimize your content strategy based on current signals.'}
                                     </p>
                                 </div>
                             </div>
+
+                            {/* Original Tweet Quote (QRT only) */}
+                            {selectedRec.type === 'QRT' && selectedRec.originalTweet && (
+                                <div className="rounded-xl border border-[#06B6D4]/30 bg-[#06B6D4]/5 p-4 mb-6">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="material-symbols-sharp text-[16px] text-[#06B6D4]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                        <span className="text-[#06B6D4] text-xs font-semibold uppercase tracking-wider">Tweet to Quote</span>
+                                    </div>
+                                    <p className="text-white text-[14px] leading-relaxed italic">
+                                        "{selectedRec.originalTweet.text}"
+                                    </p>
+                                    <p className="text-[#9CA3AF] text-xs mt-2">
+                                        — {selectedRec.originalTweet.author}
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Two column: Reasoning + Right cards */}
                             <div className="flex gap-6">

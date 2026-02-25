@@ -83,12 +83,13 @@ ${tweetExamples}` : ''}
         TASK:
         You work FOR ${brandName}. Produce 3 actionable marketing recommendations.
 
-        Check these 5 triggers (priority order):
+        Check these 6 triggers (priority order):
         1. COMMUNITY MANAGER: Are there direct questions or FUD in "SPECIFIC POSTS" needing a reply?
         2. NEWSROOM: Is there a SPECIFIC market trend we can "Trend Jack"? The trend must be clearly identified from the TRENDS list above — name it explicitly.
-        3. ANALYST: Notable on-chain metric change worth a data-driven tweet?
-        4. CAMPAIGN PLANNER: Strategic multi-day campaign opportunity based on a SPECIFIC current trend?
-        5. CONTENT STRATEGIST: Content gap — topic our audience cares about that we haven't covered?
+        3. QRT SCANNER: Is there a high-signal tweet from mentions or competitor tweets worth quote-retweeting? (An influencer posting about a topic we have authority on, a competitor making a claim we can counter, or a conversation we can add genuine value to.) Only flag if a real tweet exists in the data — do NOT manufacture QRT opportunities.
+        4. ANALYST: Notable on-chain metric change worth a data-driven tweet?
+        5. CAMPAIGN PLANNER: Strategic multi-day campaign opportunity based on a SPECIFIC current trend?
+        6. CONTENT STRATEGIST: Content gap — topic our audience cares about that we haven't covered?
 
         CRITICAL RULES:
         - TODAY IS ${today}. NEVER recommend posting about past events, launches, or milestones that already happened. Only forward-looking, timely content.
@@ -106,16 +107,19 @@ ${tweetExamples}` : ''}
         - TREND_JACK: "reason" = explain the SPECIFIC trend (what is happening, cite the headline). "draft" = the tweet angle connecting ${brandName} to that trend.
         - Tweet: "reason" = brief why. "draft" = ready-to-post tweet.
         - CAMPAIGN: "reason" = the opportunity (cite specific trend/data). "draft" = campaign concept (2-3 sentences max).
+        - QRT: "reason" = why this tweet is worth quoting (who said it, why it matters). "draft" = the quote-retweet text (adds brand insight, NOT just "great take!"). "originalAuthor" = @handle of the tweet being quoted. "originalText" = the tweet text being quoted. Only use QRT if a genuinely high-signal tweet exists in mentions or competitor tweets.
         - REPLY / GAP_FILL: Standard format.
 
         Return 3 DIVERSE actions (each a DIFFERENT type) as JSON:
         {
             "actions": [
                 {
-                    "action": "REPLY" | "TREND_JACK" | "Tweet" | "CAMPAIGN" | "GAP_FILL",
+                    "action": "REPLY" | "TREND_JACK" | "Tweet" | "CAMPAIGN" | "GAP_FILL" | "QRT",
                     "targetId": "ID of tweet/trend acting upon (or empty string)",
                     "reason": "1-sentence why (reference specific data or trend headline)",
-                    "draft": "The content to post or campaign brief"
+                    "draft": "The content to post or campaign brief",
+                    "originalAuthor": "(QRT only) @handle of tweet being quoted",
+                    "originalText": "(QRT only) text of tweet being quoted"
                 }
             ]
         }

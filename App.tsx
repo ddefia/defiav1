@@ -988,6 +988,8 @@ const App: React.FC = () => {
                             return 'REPLY';
                         case 'THREAD':
                             return 'TREND_JACK';
+                        case 'QRT':
+                            return 'TREND_JACK'; // QRT maps to Trend type for strategy tasks
                         default:
                             return 'EVERGREEN';
                     }
@@ -1537,6 +1539,7 @@ const App: React.FC = () => {
                     case 'COMMUNITY': return { type: 'Community', typeBg: '#F59E0B', icon: 'groups', actionLabel: 'Engage', borderColor: '#F59E0B44' };
                     case 'TWEET': return { type: 'Tweet', typeBg: '#1DA1F2', icon: 'chat_bubble', actionLabel: 'Draft Tweet', borderColor: '#1DA1F244' };
                     case 'THREAD': return { type: 'Thread', typeBg: '#A855F7', icon: 'segment', actionLabel: 'Write Thread', borderColor: '#A855F744' };
+                    case 'QRT': return { type: 'QRT', typeBg: '#06B6D4', icon: 'format_quote', actionLabel: 'Draft QRT', borderColor: '#06B6D444' };
                     default: return { type: 'Optimization', typeBg: '#F59E0B', icon: 'tune', actionLabel: 'Optimize', borderColor: '#F59E0B44' };
                 }
             };
@@ -1563,6 +1566,8 @@ const App: React.FC = () => {
                     ? `Performance: ${engRate ? `${engRate.toFixed(1)}% engagement rate` : 'Thread format'} — threads drive deeper engagement`
                     : action.type === 'GAP_FILL'
                     ? `Content cadence: ${postCount} recent posts${postCount < 3 ? ' (below target)' : ''} — ${action.topic?.slice(0, 50) || 'opportunity to fill gap'}`
+                    : action.type === 'QRT'
+                    ? `QRT opportunity: ${action.originalTweet?.author || 'notable account'} — "${(action.originalTweet?.text || action.topic || '').slice(0, 60)}…"`
                     : `Strategy: ${action.topic?.slice(0, 60) || 'opportunity detected'}`;
 
                 // Build source tags from actual data provenance
@@ -1573,7 +1578,7 @@ const App: React.FC = () => {
                 if (ds.includes('performance') || ds.includes('engagement') || ds.includes('analytics') || postCount > 0) sourceTags.push('X Analytics');
                 if (ds.includes('kb:') || ds.includes('knowledge') || !!brandKnowledgeBlock) sourceTags.push('Knowledge Base');
                 if (ds.includes('competitor') || ds.includes('gap')) sourceTags.push('Competitive Intel');
-                if (ds.includes('mention') || aType === 'REPLY' || mentions.length > 0) sourceTags.push('Brand Mentions');
+                if (ds.includes('mention') || aType === 'REPLY' || aType === 'QRT' || mentions.length > 0) sourceTags.push('Brand Mentions');
                 if (ds.includes('calendar') || ds.includes('cadence') || aType === 'GAP_FILL') sourceTags.push('Content Calendar');
                 if (chainMetrics && (chainMetrics.totalVolume > 0 || chainMetrics.activeWallets > 0)) sourceTags.push('On-Chain Data');
                 if (!sourceTags.length) sourceTags.push('AI Analysis');
@@ -1591,6 +1596,7 @@ const App: React.FC = () => {
                     topic: action.topic, goal: action.goal,
                     knowledgeConnection: !!brandKnowledgeBlock,
                     proof: (action as any).proof,
+                    originalTweet: action.originalTweet || null,
                     generatedAt: now,
                 };
             });
