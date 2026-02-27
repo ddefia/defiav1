@@ -203,6 +203,39 @@ const formatQuoteRetweet = (qrtText, originalTweet, tweetUrl) => {
     return lines.join('\n');
 };
 
+// ━━━ Recommendations Batch (single compact message for all actions) ━━━
+
+const ACTION_ICONS = {
+    REPLY: '\u21A9\uFE0F',
+    TREND_JACK: '\u26A1',
+    CAMPAIGN: '\u{1F4E2}',
+    GAP_FILL: '\u{1F3AF}',
+    Tweet: '\u{1F426}',
+    QRT: '\u{1F501}',
+};
+
+const formatRecommendationsBatch = (actions, brandName, siteUrl) => {
+    if (!actions || actions.length === 0) return '';
+
+    const lines = [];
+    lines.push(`\u{1F9E0} ${bold(`AI CMO — ${brandName || 'Your Brand'}`)}`);
+    lines.push('');
+
+    for (const a of actions) {
+        if (!a.action || a.action === 'NO_ACTION' || a.action === 'ERROR') continue;
+        const icon = ACTION_ICONS[a.action] || '\u{1F4AC}';
+        const reason = (a.reason || '').replace(/\n/g, ' ').slice(0, 120);
+        lines.push(`\u2022 ${icon} ${bold(a.action)} ${escapeMarkdownV2('—')} ${escapeMarkdownV2(reason)}`);
+    }
+
+    if (siteUrl) {
+        lines.push('');
+        lines.push(`\u27A1\uFE0F ${escapeMarkdownV2('View & act:')} ${escapeMarkdownV2(siteUrl)}`);
+    }
+
+    return lines.join('\n');
+};
+
 // ━━━ Error ━━━
 
 const formatError = (message) => {
@@ -213,6 +246,7 @@ export {
     escapeMarkdownV2,
     formatDailyBriefing,
     formatAgentDecision,
+    formatRecommendationsBatch,
     formatTweetDraft,
     formatQuoteRetweet,
     formatTrendSummary,

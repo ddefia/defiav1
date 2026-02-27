@@ -6,7 +6,7 @@
 
 import { sendMessage, isConfigured } from './telegramClient.js';
 import { getLinkedChats } from './linkManager.js';
-import { formatDailyBriefing, formatAgentDecision } from './messageFormatter.js';
+import { formatDailyBriefing, formatAgentDecision, formatRecommendationsBatch } from './messageFormatter.js';
 
 // ━━━ Main Notify Function ━━━
 
@@ -68,6 +68,16 @@ const notifyLinkedChats = async (supabase, brandId, type, payload = null) => {
                 return; // Don't notify for non-actions
             }
             message = formatAgentDecision(payload);
+            break;
+        }
+
+        case 'recommendations': {
+            // Batch notification — payload is array of actions
+            if (!payload || !Array.isArray(payload) || payload.length === 0) return;
+            const validActions = payload.filter(a => a.action && a.action !== 'NO_ACTION' && a.action !== 'ERROR');
+            if (validActions.length === 0) return;
+            const siteUrl = process.env.FRONTEND_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+            message = formatRecommendationsBatch(validActions, brandName, siteUrl);
             break;
         }
 

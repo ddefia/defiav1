@@ -239,19 +239,20 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
                     saveDecisionToFile(record);
                     await saveDecisionToDb(supabase, decision, brandId);
 
-                    // Notify linked Telegram chats about new decision
-                    try {
-                        await notifyLinkedChats(supabase, brandId, 'decision', decision);
-                    } catch (tgErr) {
-                        console.warn(`     - Telegram decision notification failed:`, tgErr.message);
-                    }
-
                     if (!savedAny) {
                         results.push({ brandId, decision });
                         savedAny = true;
                     }
                 }
             }
+
+            // Send ONE consolidated Telegram notification for all recommendations
+            try {
+                await notifyLinkedChats(supabase, brandId, 'recommendations', decisions);
+            } catch (tgErr) {
+                console.warn(`     - Telegram recommendations notification failed:`, tgErr.message);
+            }
+
             if (!savedAny) {
                 results.push({ brandId, decision: decisions[0] || { action: 'NO_ACTION' }, skipped: true });
             }
@@ -430,14 +431,14 @@ export const triggerAgentRun = async (brandIdentifier) => {
             const record = { ...decision, brandId: target.id };
             saveDecisionToFile(record);
             await saveDecisionToDb(supabase, decision, target.id);
-
-            // Notify linked Telegram chats about new decision
-            try {
-                await notifyLinkedChats(supabase, target.id, 'decision', decision);
-            } catch (tgErr) {
-                console.warn(`     - Telegram notification failed:`, tgErr.message);
-            }
         }
+    }
+
+    // Send ONE consolidated Telegram notification
+    try {
+        await notifyLinkedChats(supabase, target.id, 'recommendations', decisions);
+    } catch (tgErr) {
+        console.warn(`     - Telegram notification failed:`, tgErr.message);
     }
 
     return { brand: target, decision: decisions[0] || { action: 'NO_ACTION' } };
