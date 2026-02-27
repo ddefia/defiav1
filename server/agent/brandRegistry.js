@@ -19,7 +19,7 @@ export const fetchActiveBrands = async (supabase) => {
         // The brands table has id (brand name), config (JSON), and updated_at
         const { data: brands, error } = await supabase
             .from('brands')
-            .select('id, config');
+            .select('id, config, owner_id');
 
         if (error || !brands) {
             console.warn('[BrandRegistry] Failed to load brands:', error?.message);
@@ -71,7 +71,8 @@ export const fetchActiveBrands = async (supabase) => {
                 name: brand.id, // id is the brand name
                 xHandle,
                 lunarSymbol: integration?.lunarcrush || null,
-                config // Include config for additional context
+                config, // Include config for additional context
+                owner_id: brand.owner_id || null,
             };
         });
     } catch (e) {

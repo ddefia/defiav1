@@ -11,7 +11,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { logApiUsage, estimateCost } from '../services/usageLogger.js';
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 30000;
 
 // ━━━ Timeout Helper ━━━
 

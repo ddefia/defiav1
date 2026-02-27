@@ -40,13 +40,23 @@ const notifyLinkedChats = async (supabase, brandId, type, payload = null) => {
             const storageKey = `defia_growth_report_v1_${brandId.toLowerCase()}`;
             const { data, error } = await supabase
                 .from('app_storage')
-                .select('value')
+                .select('value, updated_at')
                 .eq('key', storageKey)
                 .maybeSingle();
 
             if (error || !data?.value) {
                 console.warn(`[Telegram Notifier] No briefing found for ${brandId}`);
                 return;
+            }
+
+            // Don't re-send stale briefings — only notify if updated within last 4 hours
+            // This prevents sending the same old briefing when generation fails
+            if (data.updated_at) {
+                const age = Date.now() - new Date(data.updated_at).getTime();
+                if (age > 4 * 60 * 60 * 1000) {
+                    console.warn(`[Telegram Notifier] Briefing for ${brandId} is ${Math.round(age / 3600000)}h old — skipping stale notification`);
+                    return;
+                }
             }
 
             message = formatDailyBriefing(data.value, brandName);

@@ -10,7 +10,9 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { startAgent, triggerAgentRun, runBrainCycle, runBriefingCycle } from './server/agent/scheduler.js';
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
-import { updateAllBrands } from './server/agent/ingest.js';
+import { updateAllBrands, fetchMentions, fetchCompetitorTweets } from './server/agent/ingest.js';
+import { analyzeState } from './server/agent/brain.js';
+import { fetchBrandProfile, fetchAutomationSettings } from './server/agent/brandContext.js';
 import { fetchActiveBrands } from './server/agent/brandRegistry.js';
 import { crawlWebsite, deepCrawlWebsite, fetchTwitterContent, uploadCarouselGraphic, fetchDocumentContent, extractDefiMetrics } from './server/onboarding.js';
 import { fetchWeb3News, scheduledNewsFetch } from './server/services/web3News.js';
@@ -1819,6 +1821,7 @@ app.get('/api/agent/recommendations', async (req, res) => {
         const supabase = getSupabaseAdminClient();
         if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
 
+        const apifyKey = process.env.APIFY_API_TOKEN;
         const activeBrands = await fetchActiveBrands(supabase);
         if (!activeBrands || activeBrands.length === 0) {
             return res.json({ status: 'ok', message: 'No active brands', processed: 0 });
@@ -1830,6 +1833,7 @@ app.get('/api/agent/recommendations', async (req, res) => {
                 const brandId = brand.id;
                 const ownerPrefix = brand.owner_id ? brand.owner_id.slice(0, 8) : null;
                 if (!ownerPrefix) {
+                    console.warn(`[Recs] Brand ${brandId} has no owner_id — skipping`);
                     results.push({ brandId, skipped: true, reason: 'No owner' });
                     continue;
                 }
@@ -1849,11 +1853,6 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     }
                 }
 
-                // Run the brain analysis (1 Gemini call) — same as runBrainCycle but we cache the output
-                const { analyzeState } = await import('./server/agent/brain.js');
-                const { fetchBrandProfile, fetchAutomationSettings } = await import('./server/agent/brandContext.js');
-                const { fetchWeb3News: fetchNews } = await import('./server/services/web3News.js');
-
                 // Check automation enabled
                 const automation = await fetchAutomationSettings(supabase, brandId);
                 if (!automation.enabled) {
@@ -1867,7 +1866,7 @@ app.get('/api/agent/recommendations', async (req, res) => {
                 // Fetch news context
                 let trends = [];
                 try {
-                    const newsResult = await fetchNews(supabase, 'global', { limit: 8, cacheDurationMs: 6 * 60 * 60 * 1000 });
+                    const newsResult = await fetchWeb3News(supabase, 'global', { limit: 8, cacheDurationMs: 6 * 60 * 60 * 1000 });
                     trends = (newsResult.items || []).map(item => ({
                         headline: item.headline || item.topic || 'Unknown',
                         summary: item.summary || '',
@@ -1876,9 +1875,40 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     }));
                 } catch { /* non-critical */ }
 
-                // Run brain
-                const decisionResult = await analyzeState(null, [], [], trends, { ...brandProfile, name: brand.name || brandId });
-                const actions = decisionResult?.actions || [decisionResult];
+                // Fetch mentions from cache (no new Apify calls — uses existing 6h cached data)
+                let mentions = [];
+                try {
+                    if (apifyKey && handle) {
+                        mentions = await fetchMentions(apifyKey, handle);
+                    }
+                } catch { /* non-critical */ }
+
+                // Fetch competitor tweets from cache
+                const competitorTweets = [];
+                const competitors = brandProfile?.competitors || brand.config?.competitors || [];
+                for (const comp of competitors) {
+                    if (comp.handle && apifyKey) {
+                        try {
+                            const cached = await fetchCompetitorTweets(apifyKey, brandId, comp.handle);
+                            competitorTweets.push(...cached.map(t => ({ ...t, competitorName: comp.name })));
+                        } catch { /* non-critical */ }
+                    }
+                }
+
+                // Run brain with full context (mentions + competitor tweets + trends)
+                const decisionResult = await analyzeState(
+                    null, [], mentions, trends,
+                    { ...brandProfile, name: brand.name || brandId },
+                    competitorTweets
+                );
+
+                // Validate: don't cache error responses
+                const actions = decisionResult?.actions || [];
+                if (actions.length === 0 || (actions.length === 1 && actions[0]?.action === 'ERROR')) {
+                    console.warn(`[Recs] Brain returned error/empty for ${brandId}:`, decisionResult?.reason || 'no actions');
+                    results.push({ brandId, error: decisionResult?.reason || 'Brain returned no actions' });
+                    continue;
+                }
 
                 // Cache to app_storage
                 await supabase.from('app_storage').upsert({
