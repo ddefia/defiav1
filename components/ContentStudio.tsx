@@ -966,7 +966,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                         <span className={`text-xs font-mono ${manualTweetText.length > 280 ? 'text-red-400' : 'text-[#4A4A4E]'}`}>
                                             {manualTweetText.length}/280
                                         </span>
-                                        <span className="text-xs text-[#4A4A4E]">Tip: paste multiple tweets separated by blank lines</span>
+                                        <span className="text-xs text-[#4A4A4E]">Paste your full tweet — line breaks are preserved</span>
                                     </div>
                                 </div>
 
@@ -1008,26 +1008,19 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                 {/* Save Button */}
                                 <button
                                     onClick={() => {
-                                        if (!manualTweetText.trim()) return;
-                                        // Split by double newlines to detect multiple tweets
-                                        const chunks = manualTweetText.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
-                                        for (let i = 0; i < chunks.length; i++) {
-                                            // Attach image to first tweet only
-                                            handleSaveDraft(chunks[i], i === 0 ? (manualTweetImage || undefined) : undefined, 'twitter');
-                                        }
+                                        const text = manualTweetText.trim();
+                                        if (!text) return;
+                                        handleSaveDraft(text, manualTweetImage || undefined, 'twitter');
+                                        setGeneratedTweetPreview(text);
+                                        if (manualTweetImage) setPreviewImage(manualTweetImage);
                                         setManualTweetText('');
                                         setManualTweetImage(null);
-                                        if (chunks.length === 1) {
-                                            // Stay in create view with preview
-                                            setGeneratedTweetPreview(chunks[0]);
-                                            if (manualTweetImage) setPreviewImage(manualTweetImage);
-                                        }
                                     }}
                                     disabled={!manualTweetText.trim()}
                                     className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-500"
                                 >
                                     <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>save</span>
-                                    {manualTweetText.includes('\n\n') ? 'Save All Tweets' : 'Save Tweet'}
+                                    Save Tweet
                                 </button>
                             </>
                         ) : (
