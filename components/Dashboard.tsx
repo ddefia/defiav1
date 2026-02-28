@@ -5,7 +5,7 @@ import { generateDailyBrief as generateBriefService } from '../services/gemini';
 import { loadCampaignState, loadCampaignLogs, loadIntegrationKeys, loadContentItems } from '../services/storage';
 import { SkeletonKPICard, SkeletonBriefCard, SkeletonNewsItem } from './Skeleton';
 import { generateSupplementalRecs } from './RecommendationsPage';
-import { PLAN_NAMES, getResetUsage } from '../services/subscription';
+import { PLAN_NAMES, getResetUsage, isTrialExpired } from '../services/subscription';
 import { useToast } from './Toast';
 import { getAuthToken } from '../services/auth';
 
@@ -194,10 +194,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
     const [gettingStartedCollapsed, setGettingStartedCollapsed] = useState(false);
 
-    // Trial countdown timer
+    // Trial countdown timer (paid/granted users never see the banner)
     const trialEndsAt = brandConfig?.subscription?.trialEndsAt;
+    const hasPaidAccess = !!brandConfig?.subscription?.stripeSubscriptionId;
     useEffect(() => {
-        if (!trialEndsAt) return;
+        if (!trialEndsAt || hasPaidAccess) { setTrialTimeLeft(''); return; }
         const update = () => {
             const remaining = trialEndsAt - Date.now();
             if (remaining <= 0) {
@@ -211,7 +212,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         update();
         const interval = setInterval(update, 60_000);
         return () => clearInterval(interval);
-    }, [trialEndsAt]);
+    }, [trialEndsAt, hasPaidAccess]);
 
     // Check for missing setup items
     const integrationKeys = useMemo(() => loadIntegrationKeys(brandName), [brandName]);

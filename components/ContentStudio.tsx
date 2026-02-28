@@ -73,6 +73,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     const [activeTab, setActiveTab] = useState<ContentType>('all');
     const [showCreateDropdown, setShowCreateDropdown] = useState(false);
     const [contentItems, setContentItems] = useState<ContentItem[]>(sampleContent);
+    const [seedTweetInput, setSeedTweetInput] = useState('');
 
     // Create Tweet State
     const [tweetTopic, setTweetTopic] = useState('');
@@ -224,19 +225,20 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     };
 
     const handleGenerateTweet = async () => {
-        if (!tweetTopic.trim()) return;
-        // Enforce content usage limit (also blocks expired trials)
-        const contentCheck = checkUsageLimit(brandConfig.subscription, 'contentPerMonth');
-        if (!contentCheck.allowed) {
-            setLimitModal({ limitType: contentCheck.trialExpired ? 'trial_expired' : 'content', current: contentCheck.current, max: contentCheck.max });
-            return;
-        }
+        if (!tweetTopic.trim()) { setError('Enter a topic first.'); return; }
         setIsGeneratingTweet(true);
         setError(null);
-        setGeneratedThreadPreview([]);
-        setCurrentThreadIndex(0);
-        setPreviewImage(null);
         try {
+            // Enforce content usage limit (also blocks expired trials)
+            const contentCheck = checkUsageLimit(brandConfig.subscription, 'contentPerMonth');
+            if (!contentCheck.allowed) {
+                setLimitModal({ limitType: contentCheck.trialExpired ? 'trial_expired' : 'content', current: contentCheck.current, max: contentCheck.max });
+                setIsGeneratingTweet(false);
+                return;
+            }
+            setGeneratedThreadPreview([]);
+            setCurrentThreadIndex(0);
+            setPreviewImage(null);
             // Map content type to tone
             const toneMap: Record<TweetContentType, string> = {
                 announcement: 'Professional',
@@ -353,17 +355,18 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     };
 
     const handleGenerateSingle = async () => {
-        if (!tweetText && !visualPrompt && !selectedTemplate) return;
-        // Enforce image usage limit (also blocks expired trials)
-        const imageCheck = checkUsageLimit(brandConfig.subscription, 'imagesPerMonth');
-        if (!imageCheck.allowed) {
-            setLimitModal({ limitType: imageCheck.trialExpired ? 'trial_expired' : 'image', current: imageCheck.current, max: imageCheck.max });
-            return;
-        }
+        if (!tweetText && !visualPrompt && !selectedTemplate) { setError('Enter tweet text or a visual prompt first.'); return; }
         setIsGenerating(true);
         setError(null);
         setGeneratedImages([]);
         try {
+            // Enforce image usage limit (also blocks expired trials)
+            const imageCheck = checkUsageLimit(brandConfig.subscription, 'imagesPerMonth');
+            if (!imageCheck.allowed) {
+                setLimitModal({ limitType: imageCheck.trialExpired ? 'trial_expired' : 'image', current: imageCheck.current, max: imageCheck.max });
+                setIsGenerating(false);
+                return;
+            }
             const count = parseInt(variationCount);
             const promises = Array(count).fill(0).map(() =>
                 generateWeb3Graphic({
@@ -736,8 +739,13 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         setCurrentView('create-tweet');
     };
 
-    // Filter content by tab
+    // Seed tweets: draft twitter items shown separately
+    const seedTweets = contentItems.filter(i => (i.type === 'twitter' || i.type === 'thread') && i.status === 'draft');
+    const seedTweetIds = new Set(seedTweets.map(i => i.id));
+
+    // Filter content by tab (excluding seed tweets shown in the dedicated row)
     const filteredContent = contentItems.filter(item => {
+        if (seedTweetIds.has(item.id)) return false;
         if (activeTab === 'all') return true;
         if (activeTab === 'twitter') return item.type === 'twitter' || item.type === 'thread';
         if (activeTab === 'discord') return item.type === 'discord';
@@ -857,6 +865,21 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         };
         setContentItems(prev => [newItem, ...prev.filter(i => i.id !== newItem.id)]);
         setCurrentView('library');
+    };
+
+    const handleQuickAddSeedTweet = () => {
+        const text = seedTweetInput.trim();
+        if (!text) return;
+        const newItem: ContentItem = {
+            id: `studio-draft-${Date.now()}`,
+            type: 'twitter',
+            title: text.slice(0, 80) + (text.length > 80 ? '...' : ''),
+            description: text,
+            status: 'draft',
+            date: new Date().toISOString().split('T')[0],
+        };
+        setContentItems(prev => [newItem, ...prev]);
+        setSeedTweetInput('');
     };
 
     // Distribute content into 3 columns (masonry-style)
@@ -2125,6 +2148,64 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
             {/* Content Grid */}
             <div className="flex-1 overflow-y-auto p-8">
+                {/* Seed Tweets Section */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <span className="material-symbols-sharp text-blue-400" style={{ fontSize: 18, fontVariationSettings: "'wght' 300" }}>edit_note</span>
+                            <h3 className="text-sm font-semibold text-white">Seed Tweets</h3>
+                            {seedTweets.length > 0 && (
+                                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[11px] font-medium">{seedTweets.length}</span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+                        {seedTweets.map(item => (
+                            <div
+                                key={item.id}
+                                onClick={() => handleContentCardClick(item)}
+                                className="flex-shrink-0 w-[260px] bg-[#111113] border border-[#1F1F23] rounded-xl p-4 cursor-pointer hover:border-blue-500/30 transition-colors group"
+                            >
+                                <p className="text-sm text-[#ADADB0] leading-relaxed line-clamp-3 mb-3">{item.description || item.title}</p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] text-[#4A4A4E]">{item.date}</span>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setTweetTopic(item.description || item.title); setCurrentView('create-tweet'); }}
+                                        className="px-2 py-0.5 rounded text-[10px] font-medium text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors opacity-0 group-hover:opacity-100"
+                                    >
+                                        Generate
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {/* Quick-add card */}
+                        <div className="flex-shrink-0 w-[260px] bg-[#0A0A0B] border border-dashed border-[#2E2E2E] rounded-xl p-4 flex flex-col justify-between hover:border-[#FF5C00]/30 transition-colors">
+                            <textarea
+                                value={seedTweetInput}
+                                onChange={e => setSeedTweetInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleQuickAddSeedTweet(); } }}
+                                placeholder="Jot down a tweet idea..."
+                                className="bg-transparent text-sm text-white placeholder:text-[#4A4A4E] resize-none outline-none flex-1 min-h-[60px]"
+                                rows={3}
+                            />
+                            <div className="flex items-center justify-between mt-2">
+                                <span className={`text-[11px] font-mono ${seedTweetInput.length > 280 ? 'text-red-400' : 'text-[#4A4A4E]'}`}>
+                                    {seedTweetInput.length > 0 ? `${seedTweetInput.length}/280` : ''}
+                                </span>
+                                <button
+                                    onClick={handleQuickAddSeedTweet}
+                                    disabled={!seedTweetInput.trim()}
+                                    className="px-3 py-1 rounded-lg text-xs font-medium text-white bg-[#FF5C00] hover:bg-[#FF6B1A] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {seedTweets.length === 0 && !seedTweetInput && (
+                        <p className="text-xs text-[#4A4A4E] mt-1">No tweet ideas yet — add one to start your queue</p>
+                    )}
+                </div>
                 {filteredContent.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center py-24">
                         <div className="text-center">

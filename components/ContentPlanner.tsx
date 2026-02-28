@@ -95,6 +95,7 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
     const [searchQuery, setSearchQuery] = useState('');
     const [filterTag, setFilterTag] = useState<PlannerTag | 'all'>('all');
     const [moveDropdownId, setMoveDropdownId] = useState<string | null>(null);
+    const [backlogView, setBacklogView] = useState<'all' | 'tweets'>('all');
     const hasLoaded = useRef(false);
 
     const currentWeekId = getWeekId(currentWeekOffset);
@@ -329,6 +330,21 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                             {backlogNotes.length > 0 && (
                                 <span className="px-2.5 py-0.5 rounded-md bg-[#1F1F23] text-[#6B6B70] text-xs font-medium">{backlogNotes.length}</span>
                             )}
+                            {/* View toggle */}
+                            <div className="flex rounded-lg overflow-hidden border border-[#1F1F23] ml-2">
+                                <button
+                                    onClick={() => setBacklogView('all')}
+                                    className={`px-3 py-1 text-[11px] font-medium transition-colors ${backlogView === 'all' ? 'bg-[#1F1F23] text-white' : 'text-[#6B6B70] hover:text-[#ADADB0]'}`}
+                                >
+                                    All Ideas
+                                </button>
+                                <button
+                                    onClick={() => setBacklogView('tweets')}
+                                    className={`px-3 py-1 text-[11px] font-medium transition-colors ${backlogView === 'tweets' ? 'bg-blue-500/20 text-blue-400' : 'text-[#6B6B70] hover:text-[#ADADB0]'}`}
+                                >
+                                    Tweet Drafts
+                                </button>
+                            </div>
                         </div>
                         <button
                             onClick={() => addNote(null)}
@@ -338,14 +354,18 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                             Add Idea
                         </button>
                     </div>
-                    {backlogNotes.length === 0 ? (
+                    {(() => {
+                        const filteredBacklog = backlogView === 'tweets'
+                            ? backlogNotes.filter(n => n.tag === 'tweet' || n.tag === 'thread')
+                            : backlogNotes;
+                        return filteredBacklog.length === 0 ? (
                         <div className="bg-[#111113] rounded-xl border border-[#1F1F23] p-10 text-center">
                             <span className="material-symbols-sharp text-[#2E2E2E] mb-2 block" style={{ fontSize: 36, fontVariationSettings: "'wght' 200" }}>note_add</span>
-                            <p className="text-sm text-[#6B6B70] mt-2">No ideas yet. Add your first brainstorm note.</p>
+                            <p className="text-sm text-[#6B6B70] mt-2">{backlogView === 'tweets' ? 'No tweet drafts yet. Tag an idea as "tweet" to see it here.' : 'No ideas yet. Add your first brainstorm note.'}</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {backlogNotes.map(note => (
+                            {filteredBacklog.map(note => (
                                 <NoteCard
                                     key={note.id}
                                     note={note}
@@ -357,7 +377,8 @@ export const ContentPlanner: React.FC<ContentPlannerProps> = ({ brandName, brand
                                 />
                             ))}
                         </div>
-                    )}
+                    );
+                    })()}
                 </div>
             </div>
 
@@ -389,42 +410,90 @@ interface NoteCardProps {
 }
 
 const NoteCard: React.FC<NoteCardProps> = ({ note, onEdit, onDraftAI, onMoveToggle, showMoveDropdown, onMove, compact }) => {
+    const isTweetStyle = note.tag === 'tweet' || note.tag === 'thread';
+    const tweetContent = `${note.title ? note.title + '\n' : ''}${note.body || ''}`.trim();
+    const charCount = tweetContent.length;
+
     return (
         <div className="relative">
             <div
                 onClick={onEdit}
-                className={`bg-[#0A0A0B] rounded-lg border border-[#1F1F23] cursor-pointer hover:border-[#FF5C00]/30 transition-colors group ${compact ? 'p-2.5' : 'p-4'}`}
+                className={`bg-[#0A0A0B] rounded-lg border cursor-pointer hover:border-[#FF5C00]/30 transition-colors group ${isTweetStyle && !compact ? 'border-blue-500/20 p-4' : 'border-[#1F1F23]'} ${compact ? 'p-2.5' : 'p-4'}`}
             >
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <h4 className={`font-medium text-white truncate ${compact ? 'text-xs' : 'text-sm'}`}>{note.title || 'Untitled'}</h4>
-                    <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: STATUS_COLORS[note.status] }} title={note.status} />
-                </div>
-                {note.tag && (
-                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${TAG_COLORS[note.tag]}`}>
-                        {note.tag}
-                    </span>
+                {isTweetStyle && !compact ? (
+                    <>
+                        {/* Tweet-style header */}
+                        <div className="flex items-center gap-2 mb-2.5">
+                            <div className="w-8 h-8 rounded-full bg-[#1F1F23] flex items-center justify-center flex-shrink-0">
+                                <span className="material-symbols-sharp text-[#6B6B70]" style={{ fontSize: 16, fontVariationSettings: "'wght' 300" }}>person</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-sm font-medium text-white truncate">{note.title || 'Draft'}</span>
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${TAG_COLORS[note.tag]}`}>
+                                    {note.tag}
+                                </span>
+                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[note.status] }} title={note.status} />
+                            </div>
+                        </div>
+                        {/* Tweet body */}
+                        {note.body && (
+                            <p className="text-sm text-[#ADADB0] leading-relaxed mb-3 line-clamp-4 whitespace-pre-line">{note.body}</p>
+                        )}
+                        {/* Footer: char count + actions */}
+                        <div className="flex items-center justify-between">
+                            <span className={`text-[11px] font-mono ${charCount > 280 ? 'text-red-400' : 'text-[#4A4A4E]'}`}>
+                                {charCount}/280
+                            </span>
+                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onDraftAI(); }}
+                                    className="px-2.5 py-1 rounded text-[11px] font-medium bg-[#FF5C00]/10 text-[#FF5C00] hover:bg-[#FF5C00]/20 transition-colors"
+                                >
+                                    Generate
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onMoveToggle(); }}
+                                    className="px-2 py-1 rounded text-[11px] text-[#6B6B70] hover:text-white hover:bg-[#1F1F23] transition-colors"
+                                >
+                                    Move
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <h4 className={`font-medium text-white truncate ${compact ? 'text-xs' : 'text-sm'}`}>{note.title || 'Untitled'}</h4>
+                            <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: STATUS_COLORS[note.status] }} title={note.status} />
+                        </div>
+                        {note.tag && (
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${TAG_COLORS[note.tag]}`}>
+                                {note.tag}
+                            </span>
+                        )}
+                        {note.body && !compact && (
+                            <p className="text-xs text-[#6B6B70] mt-2 line-clamp-2">{note.body}</p>
+                        )}
+                        {note.body && compact && (
+                            <p className="text-[10px] text-[#4A4A4E] mt-1 line-clamp-1">{note.body}</p>
+                        )}
+                        {/* Action row — visible on hover */}
+                        <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDraftAI(); }}
+                                className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#FF5C00]/10 text-[#FF5C00] hover:bg-[#FF5C00]/20 transition-colors"
+                            >
+                                Draft with AI
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onMoveToggle(); }}
+                                className="px-2 py-0.5 rounded text-[10px] text-[#6B6B70] hover:text-white hover:bg-[#1F1F23] transition-colors"
+                            >
+                                Move
+                            </button>
+                        </div>
+                    </>
                 )}
-                {note.body && !compact && (
-                    <p className="text-xs text-[#6B6B70] mt-2 line-clamp-2">{note.body}</p>
-                )}
-                {note.body && compact && (
-                    <p className="text-[10px] text-[#4A4A4E] mt-1 line-clamp-1">{note.body}</p>
-                )}
-                {/* Action row — visible on hover */}
-                <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onDraftAI(); }}
-                        className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#FF5C00]/10 text-[#FF5C00] hover:bg-[#FF5C00]/20 transition-colors"
-                    >
-                        Draft with AI
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onMoveToggle(); }}
-                        className="px-2 py-0.5 rounded text-[10px] text-[#6B6B70] hover:text-white hover:bg-[#1F1F23] transition-colors"
-                    >
-                        Move
-                    </button>
-                </div>
             </div>
 
             {/* Move dropdown */}

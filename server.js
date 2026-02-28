@@ -3355,6 +3355,68 @@ app.get('/api/admin/billing', requireAdmin, async (req, res) => {
     }
 });
 
+// POST /api/admin/grant-plan — grant a plan to a brand (bypasses Stripe)
+app.post('/api/admin/grant-plan', requireAdmin, async (req, res) => {
+    try {
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        const { brandId, plan = 'growth' } = req.body;
+        if (!brandId) return res.status(400).json({ error: 'brandId is required' });
+
+        const validPlans = ['starter', 'growth', 'enterprise'];
+        if (!validPlans.includes(plan)) return res.status(400).json({ error: `Invalid plan: ${plan}. Must be one of: ${validPlans.join(', ')}` });
+
+        // Plan limits (mirrored from services/subscription.ts)
+        const PLAN_LIMITS = {
+            starter:    { maxBrands: 1, brainFrequencyHours: 24, contentPerMonth: 50, imagesPerMonth: 25, maxCampaigns: 3, maxCompetitors: 1, maxKnowledgeDocs: 5, onChainAnalytics: false, autoPublish: false, aiCopilot: false, maxTeamMembers: 1 },
+            growth:     { maxBrands: 3, brainFrequencyHours: 6, contentPerMonth: 200, imagesPerMonth: 100, maxCampaigns: -1, maxCompetitors: 5, maxKnowledgeDocs: 25, onChainAnalytics: true, autoPublish: true, aiCopilot: true, maxTeamMembers: 1 },
+            enterprise: { maxBrands: -1, brainFrequencyHours: 1, contentPerMonth: -1, imagesPerMonth: -1, maxCampaigns: -1, maxCompetitors: -1, maxKnowledgeDocs: -1, onChainAnalytics: true, autoPublish: true, aiCopilot: true, maxTeamMembers: -1 },
+        };
+
+        // Find the brand's owner
+        const { data: brand } = await supabase.from('brands').select('id, owner_id').eq('id', brandId).maybeSingle();
+        if (!brand) return res.status(404).json({ error: `Brand not found: ${brandId}` });
+        if (!brand.owner_id) return res.status(400).json({ error: `Brand ${brandId} has no owner_id` });
+
+        const ownerPrefix = brand.owner_id.slice(0, 8);
+        const storageKey = `${ownerPrefix}_ethergraph_brand_profiles_v17`;
+
+        // Load current brand profiles from cloud
+        const { data: storageRow } = await supabase.from('app_storage').select('value').eq('key', storageKey).maybeSingle();
+        if (!storageRow?.value) return res.status(404).json({ error: `No brand profiles found for owner prefix ${ownerPrefix}` });
+
+        const profiles = storageRow.value;
+        // Find the brand key (case-insensitive match)
+        const brandKey = Object.keys(profiles).find(k => k.toLowerCase() === brandId.toLowerCase());
+        if (!brandKey || !profiles[brandKey]) return res.status(404).json({ error: `Brand "${brandId}" not found in profiles for owner ${ownerPrefix}` });
+
+        // Update subscription: set plan, limits, and manual grant ID to bypass trial
+        profiles[brandKey].subscription = {
+            ...(profiles[brandKey].subscription || {}),
+            plan,
+            limits: { ...PLAN_LIMITS[plan] },
+            usage: profiles[brandKey].subscription?.usage || { contentThisMonth: 0, imagesThisMonth: 0, lastResetAt: Date.now() },
+            stripeSubscriptionId: 'manual_grant',
+            billingPeriod: 'monthly',
+        };
+
+        // Save back to cloud
+        const { error: saveError } = await supabase.from('app_storage').upsert({
+            key: storageKey,
+            value: profiles,
+            updated_at: new Date().toISOString(),
+        });
+        if (saveError) throw saveError;
+
+        console.log(`[Admin] Granted ${plan} plan to brand "${brandKey}" (owner: ${ownerPrefix})`);
+        res.json({ success: true, brandId: brandKey, plan, ownerPrefix });
+    } catch (e) {
+        console.error('[Admin] Grant plan error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Only start server if NOT running in Vercel (Vercel handles the server via 'api' folder)
 if (process.env.VERCEL !== '1') {
     app.listen(PORT, () => {
