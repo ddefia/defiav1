@@ -403,6 +403,9 @@ const App: React.FC = () => {
         try { const cached = localStorage.getItem(`defia_recs_ctx_${selectedBrand || ''}`); return cached ? JSON.parse(cached) : {}; } catch { return {}; }
     });
     const regenFiredRef = useRef(false);
+    const [qrtFeed, setQrtFeed] = useState<any[]>(() => {
+        try { const cached = localStorage.getItem(`defia_qrt_${selectedBrand || ''}`); return cached ? JSON.parse(cached) : []; } catch { return []; }
+    });
 
     // News Article Detail State
     const [selectedArticle, setSelectedArticle] = useState<any>(null);
@@ -1644,6 +1647,12 @@ const App: React.FC = () => {
             setRegenLastRun(now);
             setDecisionSummary(newSummary);
 
+            // Save competitor tweets as QRT feed
+            if (compTweets.length > 0) {
+                setQrtFeed(compTweets);
+                try { localStorage.setItem(`defia_qrt_${selectedBrand}`, JSON.stringify(compTweets)); } catch {}
+            }
+
             // Persist to localStorage
             try {
                 localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(richRecs));
@@ -2437,6 +2446,7 @@ const App: React.FC = () => {
                         onSchedule={handleOpenScheduleModal}
                         chainMetrics={chainMetrics}
                         campaignLogs={selectedBrand ? loadCampaignLogs(selectedBrand) : []}
+                        qrtFeed={qrtFeed}
                     />
                 )}
 

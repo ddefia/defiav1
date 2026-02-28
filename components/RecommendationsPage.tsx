@@ -18,6 +18,7 @@ interface RecommendationsPageProps {
     onSchedule: (content: string, image?: string) => void;
     chainMetrics?: ComputedMetrics | null;
     campaignLogs?: CampaignLog[];
+    qrtFeed?: any[];
 }
 
 // --- Helpers ---
@@ -262,7 +263,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     brandName, brandConfig, socialMetrics, socialSignals,
     agentDecisions, recommendations, regenLoading, regenLastRun, decisionSummary,
     onRegenerate, onDismiss, onNavigate, onSchedule,
-    chainMetrics, campaignLogs,
+    chainMetrics, campaignLogs, qrtFeed,
 }) => {
     const [selectedIdx, setSelectedIdx] = useState<number>(0);
     const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -911,6 +912,84 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* QRT Opportunities Section */}
+            {(qrtFeed && qrtFeed.length > 0) && (
+                <div className="border-t border-[#1F1F23] px-8 py-6 bg-[#0A0A0B]">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)' }}>
+                            <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-semibold text-white">QRT Opportunities</h3>
+                            <p className="text-xs text-[#6B7280]">Competitor & ecosystem tweets you can quote retweet</p>
+                        </div>
+                        <span className="ml-auto px-2 py-0.5 rounded-full bg-[#06B6D4]/10 text-[#06B6D4] text-[11px] font-medium">{qrtFeed.length} tweets</span>
+                    </div>
+                    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+                        {qrtFeed.map((tweet: any, i: number) => (
+                            <div
+                                key={tweet.id || `qrt-${i}`}
+                                className="flex-shrink-0 w-[340px] bg-[#111113] border border-[#1F1F23] rounded-xl p-4 hover:border-[#06B6D4]/30 transition-colors"
+                            >
+                                <div className="flex items-center gap-2 mb-2.5">
+                                    <div
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white"
+                                        style={{ backgroundColor: ['#A855F7', '#EC4899', '#3B82F6', '#22C55E', '#F59E0B'][i % 5] }}
+                                    >
+                                        {(tweet.competitor || tweet.author || 'U').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <span className="text-[13px] font-semibold text-white">@{tweet.competitor || tweet.author || 'unknown'}</span>
+                                        {tweet.competitorName && (
+                                            <span className="text-xs text-[#6B7280] ml-1.5">{tweet.competitorName}</span>
+                                        )}
+                                    </div>
+                                    {tweet.timestamp && (
+                                        <span className="text-[11px] text-[#4A4A4E]">{timeAgo(tweet.timestamp)}</span>
+                                    )}
+                                </div>
+                                <p className="text-[13px] text-[#D1D5DB] leading-relaxed whitespace-pre-wrap mb-3">{tweet.text}</p>
+                                {tweet.images?.[0] && (
+                                    <img src={tweet.images[0]} alt="" className="rounded-lg mb-3 max-h-[140px] w-full object-cover border border-[#1F1F23]" loading="lazy" />
+                                )}
+                                <div className="flex items-center justify-between pt-1">
+                                    <div className="flex items-center gap-3">
+                                        {(tweet.likes > 0) && <span className="text-[11px] text-[#6B7280]">❤️ {tweet.likes}</span>}
+                                        {(tweet.retweets > 0) && <span className="text-[11px] text-[#6B7280]">🔄 {tweet.retweets}</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {tweet.tweetUrl && (
+                                            <a
+                                                href={tweet.tweetUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[11px] text-[#6B7280] hover:text-white transition-colors"
+                                                onClick={e => e.stopPropagation()}
+                                            >
+                                                View ↗
+                                            </a>
+                                        )}
+                                        <button
+                                            onClick={() => onNavigate('studio', {
+                                                qrt: {
+                                                    text: tweet.text,
+                                                    author: tweet.competitor || tweet.author || 'unknown',
+                                                    tweetUrl: tweet.tweetUrl,
+                                                }
+                                            })}
+                                            className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#06B6D4] bg-[#06B6D4]/10 hover:bg-[#06B6D4]/20 transition-colors"
+                                        >
+                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                            Quote This
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
