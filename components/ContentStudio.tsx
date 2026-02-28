@@ -831,9 +831,16 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     const handleContentCardClick = (item: ContentItem) => {
         if (item.type === 'twitter' || item.type === 'thread') {
             setEditingItemId(item.id);
-            setTweetTopic(item.description || item.title);
-            setGeneratedTweetPreview(item.description || item.title);
+            const text = item.description || item.title;
+            // Populate both modes so preview always works
+            setTweetTopic(text);
+            setGeneratedTweetPreview(text);
+            setManualTweetText(text);
+            setManualTweetImage(item.image || null);
             if (item.image) setPreviewImage(item.image);
+            else setPreviewImage(null);
+            // Open in manual mode for hand-written tweets, AI mode for generated ones
+            setTweetMode(item.id.startsWith('studio-draft-') ? 'manual' : 'ai');
             setCurrentView('create-tweet');
         } else if (item.type === 'graphic') {
             setCurrentView('create-graphic');
