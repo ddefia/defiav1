@@ -16,6 +16,7 @@ interface ContentStudioProps {
     onNavigate?: (section: string, params?: any) => void;
     initialDraft?: string;
     initialVisualPrompt?: string;
+    initialQrt?: { text: string; author: string; tweetUrl?: string } | null;
 }
 
 type ContentType = 'all' | 'twitter' | 'discord' | 'email' | 'graphics';
@@ -64,7 +65,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     onUpdateBrandConfig,
     onNavigate,
     initialDraft,
-    initialVisualPrompt
+    initialVisualPrompt,
+    initialQrt
 }) => {
     // View State
     const [currentView, setCurrentView] = useState<'library' | 'create-tweet' | 'create-graphic' | 'add-tweet-image' | 'quote-tweet'>('library');
@@ -171,7 +173,17 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
     // --- PERSISTENCE & DEEP LINKS ---
     useEffect(() => {
-        if (initialDraft || initialVisualPrompt) {
+        if (initialQrt) {
+            // QRT deep link from analytics — pre-fill quote tweet view
+            setFetchedTweetData({
+                text: initialQrt.text,
+                authorName: initialQrt.author,
+                authorHandle: initialQrt.author,
+                url: initialQrt.tweetUrl || '',
+            });
+            if (initialQrt.tweetUrl) setQuoteTweetUrl(initialQrt.tweetUrl);
+            setCurrentView('quote-tweet');
+        } else if (initialDraft || initialVisualPrompt) {
             // Draft takes priority over visual prompt for view selection
             if (initialDraft) {
                 setTweetTopic(initialDraft);

@@ -387,6 +387,7 @@ const App: React.FC = () => {
     // Studio Deep Link State
     const [studioDraft, setStudioDraft] = useState<string>('');
     const [studioVisualPrompt, setStudioVisualPrompt] = useState<string>('');
+    const [studioQrt, setStudioQrt] = useState<{ text: string; author: string; tweetUrl?: string } | null>(null);
 
     // Recommendation State (Lifted — single source of truth for Dashboard + RecommendationsPage)
     const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null);
@@ -1730,6 +1731,7 @@ const App: React.FC = () => {
         if (section === 'studio') {
             setStudioDraft(params?.draft || '');
             setStudioVisualPrompt(params?.visualPrompt || '');
+            setStudioQrt(params?.qrt || null);
         }
 
         // Recommendation Detail: Deep Link with recommendation data
@@ -2369,6 +2371,7 @@ const App: React.FC = () => {
                         onNavigate={handleNavigate}
                         initialDraft={studioDraft}
                         initialVisualPrompt={studioVisualPrompt}
+                        initialQrt={studioQrt}
                     />
                 )}
 

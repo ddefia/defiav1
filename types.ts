@@ -279,6 +279,10 @@ export interface Mention {
   text: string;
   author: string;
   timestamp: string;
+  images?: string[];
+  tweetUrl?: string;
+  likes?: number;
+  retweets?: number;
 }
 
 export interface SocialMetrics {

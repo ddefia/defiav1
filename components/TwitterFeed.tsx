@@ -122,6 +122,23 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
         { id: 'trend-4', hashtag: '#Crypto', tweetCount: 'Trending', changePercent: -3, isPositive: false },
     ] : [];
 
+    // QRT Opportunities - mentions from other accounts worth quoting
+    const qrtOpportunities: Tweet[] = (metrics?.recentMentions || [])
+        .filter(m => m.text && m.text.trim().length > 0)
+        .map((m, i) => ({
+            id: `qrt-${m.id || i}`,
+            author: m.author || 'Unknown',
+            handle: `@${m.author || 'unknown'}`,
+            avatar: (m.author || 'U').charAt(0).toUpperCase(),
+            avatarColor: ['#A855F7', '#EC4899', '#3B82F6', '#22C55E', '#F59E0B'][i % 5],
+            content: m.text,
+            timestamp: m.timestamp ? getRelativeTime(m.timestamp) : 'Recently',
+            likes: m.likes || 0,
+            retweets: m.retweets || 0,
+            mediaUrl: m.images?.[0],
+            url: m.tweetUrl,
+        }));
+
     // AI Insight
     const aiTopic = hasData ? `#${brandName.replace(/\s+/g, '')}` : '';
     const avgLikes = brandMentions.length > 0
@@ -390,72 +407,92 @@ export const TwitterFeed: React.FC<TwitterFeedProps> = ({ brandName, socialMetri
                         </div>
                     </div>
 
-                    {/* Trending Topics Column */}
-                    <div className="w-[280px] bg-[#111113] border border-[#1F1F23] rounded-xl flex flex-col overflow-hidden shrink-0">
+                    {/* QRT Opportunities Column */}
+                    <div className="flex-1 bg-[#111113] border border-[#1F1F23] rounded-xl flex flex-col overflow-hidden">
                         {/* Column Header */}
                         <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#1F1F23]">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded bg-[#FF5C00]"></div>
-                                <span className="text-sm font-semibold text-white">Trending Topics</span>
+                                <span className="text-sm font-semibold text-white">QRT Opportunities</span>
                             </div>
+                            {qrtOpportunities.length > 0 && (
+                                <div className="bg-[#FF5C0022] px-2 py-1 rounded">
+                                    <span className="text-[11px] font-semibold text-[#FF5C00]">{qrtOpportunities.length} tweets</span>
+                                </div>
+                            )}
                         </div>
-                        {/* Topics List */}
+                        {/* Tweet Feed */}
                         <div className="flex-1 overflow-y-auto">
-                            {trendingTopics.map((topic, idx) => (
+                            {qrtOpportunities.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                                    <span className="material-symbols-sharp text-3xl text-[#3B3B40] mb-2" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                    <p className="text-sm text-[#6B7280]">No mentions to quote yet</p>
+                                    <p className="text-xs text-[#4B4B50] mt-1">Mentions from other accounts will appear here</p>
+                                </div>
+                            )}
+                            {qrtOpportunities.map((tweet, idx) => (
                                 <div
-                                    key={topic.id}
-                                    className={`flex flex-col gap-1 px-4 py-3 ${idx < trendingTopics.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}
+                                    key={tweet.id}
+                                    className={`flex gap-2.5 px-4 py-3 hover:bg-[#FFFFFF04] ${idx < qrtOpportunities.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}
                                 >
-                                    <span className="text-sm font-semibold text-white">{topic.hashtag}</span>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs text-[#6B7280]">{topic.tweetCount}</span>
-                                        <div className="flex items-center gap-1">
-                                            <span
-                                                className="material-symbols-sharp text-xs"
-                                                style={{
-                                                    color: topic.isPositive ? '#22C55E' : '#EF4444',
-                                                    fontVariationSettings: "'wght' 300"
+                                    <div
+                                        className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0"
+                                        style={{ backgroundColor: tweet.avatarColor }}
+                                    >
+                                        {tweet.avatar}
+                                    </div>
+                                    <div className="flex-1 flex flex-col gap-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[13px] font-semibold text-white">{tweet.handle}</span>
+                                            <span className="text-xs text-[#6B7280]">· {tweet.timestamp}</span>
+                                        </div>
+                                        <p className="text-[13px] text-[#D1D5DB] leading-[1.55]">{formatTweetContent(tweet.content)}</p>
+                                        {tweet.mediaUrl && (
+                                            <img src={tweet.mediaUrl} alt="" className="rounded-lg mt-1.5 max-h-[200px] w-full object-cover border border-[#1F1F23]" loading="lazy" />
+                                        )}
+                                        <div className="flex items-center justify-between pt-1.5">
+                                            <div className="flex items-center gap-4">
+                                                {tweet.likes > 0 && <span className="text-[11px] text-[#6B7280]">❤️ {formatNumber(tweet.likes)}</span>}
+                                                {tweet.retweets > 0 && <span className="text-[11px] text-[#6B7280]">🔄 {formatNumber(tweet.retweets)}</span>}
+                                            </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (onNavigate) {
+                                                        onNavigate('studio', {
+                                                            qrt: {
+                                                                text: tweet.content,
+                                                                author: tweet.author,
+                                                                tweetUrl: tweet.url,
+                                                            }
+                                                        });
+                                                    }
                                                 }}
+                                                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors"
                                             >
-                                                {topic.isPositive ? 'trending_up' : 'trending_down'}
-                                            </span>
-                                            <span className={`text-[11px] font-medium ${topic.isPositive ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
-                                                {topic.isPositive ? '+' : ''}{topic.changePercent}%
-                                            </span>
+                                                <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                                Quote
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* AI Insight Card */}
-                        <div
-                            className="flex flex-col gap-3 p-4 border-t border-[#FF5C0044]"
-                            style={{
-                                background: 'linear-gradient(180deg, #111113 0%, #1A120D 100%)'
-                            }}
-                        >
-                            <div className="flex items-center gap-2">
-                                <div
-                                    className="w-6 h-6 rounded-md flex items-center justify-center"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #FF5C00 0%, #FF8400 100%)'
-                                    }}
-                                >
-                                    <span className="material-symbols-sharp text-white text-sm" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>
-                                        auto_awesome
-                                    </span>
+                        {/* Trending Topics Footer */}
+                        {trendingTopics.length > 0 && (
+                            <div className="border-t border-[#1F1F23] px-4 py-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-2 h-2 rounded bg-[#FF5C00]"></div>
+                                    <span className="text-xs font-semibold text-[#9CA3AF]">Trending Topics</span>
                                 </div>
-                                <span className="text-xs font-semibold text-[#FF5C00]">AI Insight</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {trendingTopics.map(topic => (
+                                        <span key={topic.id} className="text-xs text-[#D1D5DB] bg-[#1F1F23] px-2.5 py-1 rounded-full">{topic.hashtag}</span>
+                                    ))}
+                                </div>
                             </div>
-                            <p className="text-xs text-[#D1D5DB] leading-[1.4]">{aiInsight}</p>
-                            <button
-                                onClick={handleCreatePost}
-                                className="flex items-center justify-center gap-1.5 bg-[#FF5C00] hover:bg-[#FF6B1A] transition-colors rounded-md px-3 py-2"
-                            >
-                                <span className="text-xs font-semibold text-white">Create Post</span>
-                            </button>
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>
