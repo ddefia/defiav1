@@ -76,6 +76,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     const [seedTweetInput, setSeedTweetInput] = useState('');
 
     // Create Tweet State
+    const [tweetMode, setTweetMode] = useState<'ai' | 'manual'>('ai');
+    const [manualTweetText, setManualTweetText] = useState('');
     const [tweetTopic, setTweetTopic] = useState('');
     const [selectedContentType, setSelectedContentType] = useState<TweetContentType>('announcement');
     const [tweetContext, setTweetContext] = useState('');
@@ -893,9 +895,11 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     // =====================================================
     if (currentView === 'create-tweet') {
         const isThreadPreview = selectedContentType === 'thread' && generatedThreadPreview.length > 0;
-        const currentTweetText = isThreadPreview
-            ? (generatedThreadPreview[currentThreadIndex] || generatedThreadPreview[0])
-            : generatedTweetPreview;
+        const currentTweetText = tweetMode === 'manual'
+            ? manualTweetText.trim()
+            : (isThreadPreview
+                ? (generatedThreadPreview[currentThreadIndex] || generatedThreadPreview[0])
+                : generatedTweetPreview);
         return (
             <div className="flex-1 flex bg-[#0A0A0B] min-h-0">
                 {/* Left Panel */}
@@ -927,68 +931,131 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
                     {/* Body */}
                     <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                        {/* Tweet Topic */}
-                        <div className="space-y-2.5">
-                            <label className="text-sm font-semibold text-white">What's your tweet about?</label>
-                            <textarea
-                                value={tweetTopic}
-                                onChange={e => setTweetTopic(e.target.value)}
-                                placeholder="Announce our new NFT collection drop, highlight the exclusive benefits for early holders and create urgency..."
-                                className="w-full h-[100px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
-                            />
+                        {/* Mode Toggle: AI vs Manual */}
+                        <div className="flex rounded-xl overflow-hidden border border-[#2E2E2E]">
+                            <button
+                                onClick={() => setTweetMode('ai')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${tweetMode === 'ai' ? 'bg-[#FF5C00]/10 text-[#FF5C00] border-r border-[#FF5C00]/20' : 'text-[#64748B] hover:text-white border-r border-[#2E2E2E]'}`}
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>auto_awesome</span>
+                                Generate with AI
+                            </button>
+                            <button
+                                onClick={() => setTweetMode('manual')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${tweetMode === 'manual' ? 'bg-blue-500/10 text-blue-400' : 'text-[#64748B] hover:text-white'}`}
+                            >
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
+                                Paste Your Own
+                            </button>
                         </div>
 
-                        {/* Content Type */}
-                        <div className="space-y-2.5">
-                            <label className="text-sm font-semibold text-white">Content Type</label>
-                            <div className="grid grid-cols-2 gap-2.5">
-                                {CONTENT_TYPE_OPTIONS.map(opt => (
-                                    <button
-                                        key={opt.id}
-                                        onClick={() => setSelectedContentType(opt.id)}
-                                        className={`flex flex-col gap-1 p-3 rounded-[10px] border text-left transition-all ${
-                                            selectedContentType === opt.id
-                                                ? 'bg-[#FF5C0015] border-[#FF5C00]'
-                                                : 'bg-[#0A0A0B] border-[#2E2E2E] hover:border-[#3E3E3E]'
-                                        }`}
-                                    >
-                                        <span className={`text-[13px] font-semibold ${selectedContentType === opt.id ? 'text-[#FF5C00]' : 'text-white'}`}>
-                                            {opt.emoji} {opt.label}
+                        {tweetMode === 'manual' ? (
+                            <>
+                                {/* Manual Tweet Input */}
+                                <div className="space-y-2.5">
+                                    <label className="text-sm font-semibold text-white">Your tweet</label>
+                                    <textarea
+                                        value={manualTweetText}
+                                        onChange={e => setManualTweetText(e.target.value)}
+                                        placeholder="Paste or type your tweet here..."
+                                        className="w-full h-[180px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-blue-500 focus:outline-none resize-none transition-colors leading-relaxed"
+                                    />
+                                    <div className="flex items-center justify-between">
+                                        <span className={`text-xs font-mono ${manualTweetText.length > 280 ? 'text-red-400' : 'text-[#4A4A4E]'}`}>
+                                            {manualTweetText.length}/280
                                         </span>
-                                        <span className={`text-[11px] ${selectedContentType === opt.id ? 'text-[#FF5C0099]' : 'text-[#64748B]'}`}>
-                                            {opt.description}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                                        <span className="text-xs text-[#4A4A4E]">Tip: paste multiple tweets separated by blank lines</span>
+                                    </div>
+                                </div>
 
-                        {/* Context / Background */}
-                        <div className="space-y-2.5">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-semibold text-white">Context / Background</label>
-                                <span className="text-xs text-[#64748B]">Optional</span>
-                            </div>
-                            <textarea
-                                value={tweetContext}
-                                onChange={e => setTweetContext(e.target.value)}
-                                placeholder="Add any relevant details: links, dates, specific features to mention, hashtags to include..."
-                                className="w-full h-[80px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
-                            />
-                        </div>
+                                {/* Save Button */}
+                                <button
+                                    onClick={() => {
+                                        if (!manualTweetText.trim()) return;
+                                        // Split by double newlines to detect multiple tweets
+                                        const chunks = manualTweetText.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+                                        for (const chunk of chunks) {
+                                            handleSaveDraft(chunk, undefined, 'twitter');
+                                        }
+                                        setManualTweetText('');
+                                        if (chunks.length === 1) {
+                                            // Stay in create view with preview
+                                            setGeneratedTweetPreview(chunks[0]);
+                                        }
+                                    }}
+                                    disabled={!manualTweetText.trim()}
+                                    className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-500"
+                                >
+                                    <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>save</span>
+                                    {manualTweetText.includes('\n\n') ? 'Save All Tweets' : 'Save Tweet'}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                {/* Tweet Topic */}
+                                <div className="space-y-2.5">
+                                    <label className="text-sm font-semibold text-white">What's your tweet about?</label>
+                                    <textarea
+                                        value={tweetTopic}
+                                        onChange={e => setTweetTopic(e.target.value)}
+                                        placeholder="Announce our new NFT collection drop, highlight the exclusive benefits for early holders and create urgency..."
+                                        className="w-full h-[100px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
+                                    />
+                                </div>
 
-                        {/* Generate Button */}
-                        <button
-                            onClick={handleGenerateTweet}
-                            disabled={!tweetTopic.trim() || isGeneratingTweet}
-                            className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
-                        >
-                            <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
-                            {isGeneratingTweet
-                                ? (selectedContentType === 'thread' ? 'Generating Thread...' : 'Generating...')
-                                : (selectedContentType === 'thread' ? 'Generate Thread' : 'Generate Tweet')}
-                        </button>
+                                {/* Content Type */}
+                                <div className="space-y-2.5">
+                                    <label className="text-sm font-semibold text-white">Content Type</label>
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        {CONTENT_TYPE_OPTIONS.map(opt => (
+                                            <button
+                                                key={opt.id}
+                                                onClick={() => setSelectedContentType(opt.id)}
+                                                className={`flex flex-col gap-1 p-3 rounded-[10px] border text-left transition-all ${
+                                                    selectedContentType === opt.id
+                                                        ? 'bg-[#FF5C0015] border-[#FF5C00]'
+                                                        : 'bg-[#0A0A0B] border-[#2E2E2E] hover:border-[#3E3E3E]'
+                                                }`}
+                                            >
+                                                <span className={`text-[13px] font-semibold ${selectedContentType === opt.id ? 'text-[#FF5C00]' : 'text-white'}`}>
+                                                    {opt.emoji} {opt.label}
+                                                </span>
+                                                <span className={`text-[11px] ${selectedContentType === opt.id ? 'text-[#FF5C0099]' : 'text-[#64748B]'}`}>
+                                                    {opt.description}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Context / Background */}
+                                <div className="space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-semibold text-white">Context / Background</label>
+                                        <span className="text-xs text-[#64748B]">Optional</span>
+                                    </div>
+                                    <textarea
+                                        value={tweetContext}
+                                        onChange={e => setTweetContext(e.target.value)}
+                                        placeholder="Add any relevant details: links, dates, specific features to mention, hashtags to include..."
+                                        className="w-full h-[80px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
+                                    />
+                                </div>
+
+                                {/* Generate Button */}
+                                <button
+                                    onClick={handleGenerateTweet}
+                                    disabled={!tweetTopic.trim() || isGeneratingTweet}
+                                    className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-white text-[15px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    style={{ background: 'linear-gradient(180deg, #FF5C00 0%, #FF8400 100%)' }}
+                                >
+                                    <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
+                                    {isGeneratingTweet
+                                        ? (selectedContentType === 'thread' ? 'Generating Thread...' : 'Generating...')
+                                        : (selectedContentType === 'thread' ? 'Generate Thread' : 'Generate Tweet')}
+                                </button>
+                            </>
+                        )}
 
                         {error && (
                             <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg text-center">
