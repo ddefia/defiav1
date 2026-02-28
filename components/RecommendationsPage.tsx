@@ -49,7 +49,8 @@ const getRecStyle = (action: string) => {
 
 const getPriorityLabel = (score: number) => score >= 85 ? 'High' : score >= 70 ? 'Medium' : 'Low';
 const getPriorityColor = (score: number) => score >= 85 ? '#22C55E' : score >= 70 ? '#F59E0B' : '#6B6B70';
-const cleanTitle = (title: string) => (title || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA|TWEET|THREAD)\s*:\s*/i, '').trim() || title;
+const safeStr = (v: any): string => typeof v === 'string' ? v : (v?.signal || v?.analysis || v?.insight || v?.text || (v && typeof v === 'object' ? JSON.stringify(v) : String(v || '')));
+const cleanTitle = (title: any) => { const s = safeStr(title); return s.replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA|TWEET|THREAD)\s*:\s*/i, '').trim() || s; };
 
 // Source tag styling
 const SOURCE_TAG_STYLES: Record<string, { color: string; icon: string }> = {
@@ -661,7 +662,9 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                             {selectedRec.dataSignal && (
                                 <p className="text-[#9CA3AF] text-[15px] leading-relaxed mb-8 max-w-[700px] flex items-center gap-2">
                                     <span className="material-symbols-sharp text-[16px] text-[#FF5C00]">bolt</span>
-                                    {selectedRec.dataSignal}
+                                    {typeof selectedRec.dataSignal === 'string'
+                                        ? selectedRec.dataSignal
+                                        : selectedRec.dataSignal.signal || selectedRec.dataSignal.analysis || selectedRec.dataSignal.insight || JSON.stringify(selectedRec.dataSignal)}
                                 </p>
                             )}
 
@@ -748,7 +751,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         <div className="mb-5">
                                             <span className="text-[#9CA3AF] text-xs font-medium">Why this recommendation</span>
                                             <p className="text-[#E5E7EB] text-sm leading-relaxed mt-2">
-                                                {selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.'}
+                                                {safeStr(selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')}
                                             </p>
                                         </div>
 
@@ -796,15 +799,18 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                                         {isRelevant && <span className="ml-auto text-[8px] px-1.5 py-0.5 rounded-full bg-[#FF5C0015] text-[#FF5C00] font-medium">KEY</span>}
                                                                     </div>
                                                                     <p className="text-[#D1D5DB] text-[11px] leading-relaxed mb-1.5">
-                                                                        {insight.summary ? (insight.summary.length > 120 ? insight.summary.slice(0, 120) + '...' : insight.summary) : insight.focus}
+                                                                        {(() => { const s = safeStr(insight.summary || insight.focus || ''); return s.length > 120 ? s.slice(0, 120) + '...' : s; })()}
                                                                     </p>
                                                                     {insight.keySignals?.length > 0 && (
                                                                         <div className="flex flex-wrap gap-1">
-                                                                            {insight.keySignals.slice(0, 3).map((signal: string, sIdx: number) => (
-                                                                                <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#ADADB0]">
-                                                                                    {signal.length > 40 ? signal.slice(0, 37) + '…' : signal}
-                                                                                </span>
-                                                                            ))}
+                                                                            {insight.keySignals.slice(0, 3).map((signal: any, sIdx: number) => {
+                                                                                const text = typeof signal === 'string' ? signal : (signal?.signal || signal?.text || JSON.stringify(signal));
+                                                                                return (
+                                                                                    <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#ADADB0]">
+                                                                                        {text.length > 40 ? text.slice(0, 37) + '…' : text}
+                                                                                    </span>
+                                                                                );
+                                                                            })}
                                                                         </div>
                                                                     )}
                                                                 </div>
