@@ -688,7 +688,7 @@ app.post('/api/gemini/embed', async (req, res) => {
         logApiUsage({
             provider: 'gemini', model, endpoint: '/api/gemini/embed',
             tokens_in: 0, tokens_out: 0,
-            estimated_cost_usd: estimateCost(model || 'text-embedding-004', 500, 0), // rough estimate
+            estimated_cost_usd: estimateCost(model || 'gemini-embedding-exp-03-07', 500, 0), // rough estimate
             user_id: req.authUser?.id || null, source: 'client-proxy',
             status_code: 200, duration_ms: Date.now() - start,
         });

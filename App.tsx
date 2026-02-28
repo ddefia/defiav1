@@ -571,12 +571,11 @@ const App: React.FC = () => {
         window.addEventListener(STORAGE_EVENTS.AUTOMATION_UPDATE, handleAutomationUpdate);
         window.addEventListener(STORAGE_EVENTS.INTEGRATIONS_UPDATE, handleIntegrationsUpdate);
 
-        // Listen for Brand Updates - read from localStorage directly to avoid cloud fetch loop
+        // Listen for Brand Updates - use loadBrandProfiles() which reads the correct user-scoped key
         const handleBrandUpdate = () => {
             try {
-                const stored = localStorage.getItem('ethergraph_brand_profiles_v17');
-                if (stored) {
-                    const parsed = JSON.parse(stored);
+                const parsed = loadBrandProfiles();
+                if (parsed) {
                     const brandKeys = Object.keys(parsed);
                     if (brandKeys.length > 0) {
                         profilesSyncingRef.current = true;
