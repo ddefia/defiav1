@@ -47,8 +47,7 @@
     ],
     "functions": {
         "api/index.js": {
-            "maxDuration": 120,
-            "maxRequestBodySize": "50mb"
+            "maxDuration": 120
         }
     }
 }
