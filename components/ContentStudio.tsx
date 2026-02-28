@@ -78,6 +78,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     // Create Tweet State
     const [tweetMode, setTweetMode] = useState<'ai' | 'manual'>('ai');
     const [manualTweetText, setManualTweetText] = useState('');
+    const [manualTweetImage, setManualTweetImage] = useState<string | null>(null);
+    const manualImageInputRef = React.useRef<HTMLInputElement>(null);
     const [tweetTopic, setTweetTopic] = useState('');
     const [selectedContentType, setSelectedContentType] = useState<TweetContentType>('announcement');
     const [tweetContext, setTweetContext] = useState('');
@@ -968,19 +970,57 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                     </div>
                                 </div>
 
+                                {/* Photo Attachment */}
+                                <input
+                                    ref={manualImageInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        const reader = new FileReader();
+                                        reader.onload = (ev) => setManualTweetImage(ev.target?.result as string);
+                                        reader.readAsDataURL(file);
+                                        e.target.value = '';
+                                    }}
+                                />
+                                {manualTweetImage ? (
+                                    <div className="relative rounded-xl overflow-hidden border border-[#2E2E2E]">
+                                        <img src={manualTweetImage} className="w-full max-h-[200px] object-cover" alt="Attached" />
+                                        <button
+                                            onClick={() => setManualTweetImage(null)}
+                                            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                                        >
+                                            <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => manualImageInputRef.current?.click()}
+                                        className="w-full flex items-center justify-center gap-2 py-3 bg-[#0A0A0B] border border-dashed border-[#2E2E2E] rounded-xl text-[#64748B] hover:border-[#3E3E3E] hover:text-white transition-colors"
+                                    >
+                                        <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>add_photo_alternate</span>
+                                        <span className="text-sm font-medium">Add Photo</span>
+                                    </button>
+                                )}
+
                                 {/* Save Button */}
                                 <button
                                     onClick={() => {
                                         if (!manualTweetText.trim()) return;
                                         // Split by double newlines to detect multiple tweets
                                         const chunks = manualTweetText.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
-                                        for (const chunk of chunks) {
-                                            handleSaveDraft(chunk, undefined, 'twitter');
+                                        for (let i = 0; i < chunks.length; i++) {
+                                            // Attach image to first tweet only
+                                            handleSaveDraft(chunks[i], i === 0 ? (manualTweetImage || undefined) : undefined, 'twitter');
                                         }
                                         setManualTweetText('');
+                                        setManualTweetImage(null);
                                         if (chunks.length === 1) {
                                             // Stay in create view with preview
                                             setGeneratedTweetPreview(chunks[0]);
+                                            if (manualTweetImage) setPreviewImage(manualTweetImage);
                                         }
                                     }}
                                     disabled={!manualTweetText.trim()}
@@ -2231,9 +2271,14 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             <div
                                 key={item.id}
                                 onClick={() => handleContentCardClick(item)}
-                                className="flex-shrink-0 w-[260px] bg-[#111113] border border-[#1F1F23] rounded-xl p-4 cursor-pointer hover:border-blue-500/30 transition-colors group"
+                                className="flex-shrink-0 w-[320px] max-h-[400px] overflow-y-auto bg-[#111113] border border-[#1F1F23] rounded-xl p-4 cursor-pointer hover:border-blue-500/30 transition-colors group"
                             >
-                                <p className="text-sm text-[#ADADB0] leading-relaxed line-clamp-3 mb-3">{item.description || item.title}</p>
+                                <p className="text-[15px] text-[#ADADB0] leading-relaxed whitespace-pre-wrap mb-3">{item.description || item.title}</p>
+                                {item.image && (
+                                    <div className="rounded-xl overflow-hidden mb-3">
+                                        <img src={item.image} className="w-full object-cover" alt="" />
+                                    </div>
+                                )}
                                 <div className="flex items-center justify-between">
                                     <span className="text-[11px] text-[#4A4A4E]">{item.date}</span>
                                     <button
