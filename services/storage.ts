@@ -13,10 +13,13 @@ const getUserPrefix = (): string => {
     try {
         // Read directly from Supabase auth token in localStorage
         const keys = Object.keys(localStorage);
+        // Try both the standard token key and any sb-* auth token key
         const authKey = keys.find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
         if (authKey) {
-            const session = JSON.parse(localStorage.getItem(authKey) || '{}');
-            const userId = session?.user?.id;
+            const raw = localStorage.getItem(authKey) || '{}';
+            const session = JSON.parse(raw);
+            // Supabase stores session as { access_token, user: { id } } or directly
+            const userId = session?.user?.id || session?.data?.user?.id;
             if (userId) {
                 _cachedUserPrefix = userId.slice(0, 8);
                 return _cachedUserPrefix;
@@ -136,28 +139,64 @@ const rerouteKeyForTeam = (key: string): string => {
     return key;
 };
 
+const tryFetchKey = async (k: string): Promise<{ value: any, updated_at: string } | null> => {
+    const { data, error } = await supabase
+        .from('app_storage')
+        .select('value, updated_at')
+        .eq('key', k)
+        .maybeSingle();
+    if (error && error.code !== 'PGRST116') {
+        console.warn(`Supabase fetch error for ${k}:`, error.message);
+    }
+    return data ? { value: data.value, updated_at: data.updated_at } : null;
+};
+
 const fetchFromCloud = async (key: string): Promise<{ value: any, updated_at: string } | null> => {
     try {
         const scopedKey = rerouteKeyForTeam(key);
-        const { data, error } = await supabase
-            .from('app_storage')
-            .select('value, updated_at')
-            .eq('key', scopedKey)
-            .maybeSingle();
 
-        if (error) {
-            if (error.code !== 'PGRST116') { // Ignore "Row not found"
-                console.warn(`Supabase fetch error for ${scopedKey}:`, error.message);
+        // Primary fetch
+        const result = await tryFetchKey(scopedKey);
+        if (result) return result;
+
+        // Fallback: data may have been saved with 'anon' prefix (session race condition)
+        // or with no prefix at all (very old format). Try both, then self-heal.
+        const fallbackKeys: string[] = [];
+
+        if (scopedKey.includes(':')) {
+            // Team brand key: {ownerNs}:{userPrefix}_{base}
+            const colonIdx = scopedKey.indexOf(':');
+            const ownerNs = scopedKey.slice(0, colonIdx);
+            const rest = scopedKey.slice(colonIdx + 1);
+            const underscoreIdx = rest.indexOf('_');
+            if (underscoreIdx > 0) {
+                const base = rest.slice(underscoreIdx + 1);
+                fallbackKeys.push(`${ownerNs}:anon_${base}`);
+                fallbackKeys.push(`${ownerNs}:${base}`);
             }
-            // Fallback: try legacy unscoped key for migration
-            const { data: legacyData } = await supabase
-                .from('app_storage')
-                .select('value, updated_at')
-                .eq('key', key)
-                .maybeSingle();
-            return legacyData ? { value: legacyData.value, updated_at: legacyData.updated_at } : null;
+        } else {
+            // Own brand key: {userPrefix}_{base}
+            const underscoreIdx = scopedKey.indexOf('_');
+            if (underscoreIdx > 0) {
+                const base = scopedKey.slice(underscoreIdx + 1);
+                fallbackKeys.push(`anon_${base}`);
+                fallbackKeys.push(base); // very old no-prefix format
+            }
         }
-        return data ? { value: data.value, updated_at: data.updated_at } : null;
+
+        for (const fallbackKey of fallbackKeys) {
+            const fallback = await tryFetchKey(fallbackKey);
+            if (fallback) {
+                console.log(`Cloud fetch: recovered data from fallback key "${fallbackKey}", re-saving under "${scopedKey}"`);
+                // Self-heal: write under the correct key so future fetches work
+                supabase.from('app_storage')
+                    .upsert({ key: scopedKey, value: fallback.value, updated_at: new Date().toISOString() })
+                    .then(({ error: e }) => { if (e) console.warn('Self-heal save failed:', e.message); });
+                return fallback;
+            }
+        }
+
+        return null;
     } catch (e) {
         console.error("Cloud fetch failed:", e);
         return null;
