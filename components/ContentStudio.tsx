@@ -17,6 +17,7 @@ interface ContentStudioProps {
     initialDraft?: string;
     initialVisualPrompt?: string;
     initialQrt?: { text: string; author: string; tweetUrl?: string } | null;
+    initialContext?: string;
 }
 
 type ContentType = 'all' | 'twitter' | 'discord' | 'email' | 'graphics';
@@ -66,7 +67,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     onNavigate,
     initialDraft,
     initialVisualPrompt,
-    initialQrt
+    initialQrt,
+    initialContext,
 }) => {
     // View State
     const [currentView, setCurrentView] = useState<'library' | 'create-tweet' | 'create-graphic' | 'add-tweet-image' | 'quote-tweet'>('library');
@@ -189,6 +191,9 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                 setTweetTopic(initialDraft);
                 setGeneratedTweetPreview(initialDraft);
                 setCurrentView('create-tweet');
+            }
+            if (initialContext) {
+                setTweetContext(initialContext);
             }
             if (initialVisualPrompt) {
                 setVisualPrompt(initialVisualPrompt);

@@ -19,6 +19,8 @@ interface RecommendationsPageProps {
     chainMetrics?: ComputedMetrics | null;
     campaignLogs?: CampaignLog[];
     qrtFeed?: any[];
+    recommendationFocus?: string;
+    onFocusChange?: (focus: string) => void;
 }
 
 // --- Helpers ---
@@ -315,6 +317,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     agentDecisions, recommendations, regenLoading, regenLastRun, decisionSummary,
     onRegenerate, onDismiss, onNavigate, onSchedule,
     chainMetrics, campaignLogs, qrtFeed,
+    recommendationFocus = '', onFocusChange,
 }) => {
     const [selectedIdx, setSelectedIdx] = useState<number>(0);
     const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -435,10 +438,26 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     }, [socialMetrics, socialSignals, brandConfig]);
 
     const handleExecute = (rec: any) => {
-        const draft = rec.fullDraft
-            ? rec.fullDraft.replace(/#\w+/g, '').trim()
-            : rec.contentIdeas?.[0] || `${cleanTitle(rec.fullReason || rec.title)} — strategic move for ${brandName}`;
-        onNavigate('studio', { draft, visualPrompt: rec.title });
+        const recType = (rec.type || rec.action || '').toUpperCase();
+        const isCampaign = recType === 'CAMPAIGN' || recType === 'CAMPAIGN_IDEA';
+
+        if (isCampaign) {
+            // For campaigns, send the first specific content idea as the tweet draft
+            // and the full brief as background context — not the raw instructions blob
+            const campaignTweet = rec.contentIdeas?.[0] || rec.hook || cleanTitle(rec.title);
+            const brief = [rec.goal, rec.description, rec.fullReason]
+                .filter(Boolean).join(' — ').slice(0, 300);
+            onNavigate('studio', {
+                draft: campaignTweet,
+                visualPrompt: rec.title,
+                context: brief,
+            });
+        } else {
+            const draft = rec.fullDraft
+                ? rec.fullDraft.replace(/#\w+/g, '').trim()
+                : rec.contentIdeas?.[0] || `${cleanTitle(rec.fullReason || rec.title)} — strategic move for ${brandName}`;
+            onNavigate('studio', { draft, visualPrompt: rec.title });
+        }
     };
 
     // Find real index in allRecommendations for dismiss
@@ -517,7 +536,36 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             <div className="flex-1 flex overflow-hidden">
                 {/* Left: Priority Queue */}
                 <div className="w-[420px] min-w-[420px] border-r border-[#1F1F23] flex flex-col bg-[#0A0A0B]">
-                    <div className="px-5 pt-5 pb-3">
+                    {/* Focus Input */}
+                    <div className="px-5 pt-4 pb-2 border-b border-[#1F1F23]/60">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="material-symbols-sharp text-[13px] text-[#FF5C00]">target</span>
+                            <span className="text-[#9CA3AF] text-xs font-semibold tracking-wider uppercase">Focus</span>
+                            {recommendationFocus && (
+                                <span className="ml-auto text-[10px] bg-[#FF5C00]/20 text-[#FF5C00] px-2 py-0.5 rounded-full font-medium">Active</span>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={recommendationFocus}
+                                onChange={e => onFocusChange?.(e.target.value)}
+                                placeholder="e.g. AI agents, community growth, DeFi…"
+                                className="w-full bg-[#111113] border border-[#1F1F23] rounded-lg px-3 py-2 text-white text-xs placeholder-[#4B5563] focus:outline-none focus:border-[#FF5C00]/50 transition-colors"
+                            />
+                            {recommendationFocus && (
+                                <button
+                                    onClick={() => onFocusChange?.('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#4B5563] hover:text-white transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-[14px]">close</span>
+                                </button>
+                            )}
+                        </div>
+                        <p className="text-[#4B5563] text-[10px] mt-1.5">Guides the AI on what topics to prioritize. Hit "Run Analysis" to apply.</p>
+                    </div>
+
+                    <div className="px-5 pt-4 pb-3">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-[#9CA3AF] text-xs font-semibold tracking-wider uppercase">Priority Queue</span>
                             <span className="text-[#9CA3AF] text-xs">{filteredRecs.length} items</span>

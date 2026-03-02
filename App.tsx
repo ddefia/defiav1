@@ -387,9 +387,17 @@ const App: React.FC = () => {
     // Studio Deep Link State
     const [studioDraft, setStudioDraft] = useState<string>('');
     const [studioVisualPrompt, setStudioVisualPrompt] = useState<string>('');
+    const [studioContext, setStudioContext] = useState<string>('');
     const [studioQrt, setStudioQrt] = useState<{ text: string; author: string; tweetUrl?: string } | null>(null);
 
     // Recommendation State (Lifted — single source of truth for Dashboard + RecommendationsPage)
+    const [recommendationFocus, setRecommendationFocus] = useState<string>(() => {
+        try { return localStorage.getItem('defia_rec_focus') || ''; } catch { return ''; }
+    });
+    const handleFocusChange = (focus: string) => {
+        setRecommendationFocus(focus);
+        try { localStorage.setItem('defia_rec_focus', focus); } catch {}
+    };
     const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null);
     const [recommendationContext, setRecommendationContext] = useState<any>({});
     const [llmRecommendations, setLlmRecommendations] = useState<any[]>(() => {
@@ -918,7 +926,9 @@ const App: React.FC = () => {
                     },
                     userObjective: hasOnlyWelcome
                         ? "Post-onboarding kickoff: deliver 1 campaign idea, 1 community engagement, and 1 evergreen content angle. Prioritize high-signal, low-risk actions."
-                        : "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
+                        : recommendationFocus
+                            ? `Identify key market opportunities and execute a strategic response. Focus on high-impact updates. The brand owner has flagged this as a priority focus area: "${recommendationFocus}". Lean into this theme where the data supports it.`
+                            : "Identify key market opportunities and execute a strategic response. Focus on high-impact updates."
                 };
 
                 // Fetch competitor tweets for brain context
@@ -1464,7 +1474,9 @@ const App: React.FC = () => {
                     recentPosts: socialMetrics?.recentPosts || [],
                     pastStrategies: strategyTasks
                 },
-                userObjective: "Identify key market opportunities and execute a strategic response."
+                userObjective: recommendationFocus
+                    ? `Identify key market opportunities and execute a strategic response. The brand owner has flagged this as a priority focus area: "${recommendationFocus}". Lean into this theme where the data supports it.`
+                    : "Identify key market opportunities and execute a strategic response."
             };
 
             const mentions = await fetchMentions(selectedBrand);
@@ -1781,6 +1793,7 @@ const App: React.FC = () => {
         if (section === 'studio') {
             setStudioDraft(params?.draft || '');
             setStudioVisualPrompt(params?.visualPrompt || '');
+            setStudioContext(params?.context || '');
             setStudioQrt(params?.qrt || null);
         }
 
@@ -2428,6 +2441,7 @@ const App: React.FC = () => {
                         onNavigate={handleNavigate}
                         initialDraft={studioDraft}
                         initialVisualPrompt={studioVisualPrompt}
+                        initialContext={studioContext}
                         initialQrt={studioQrt}
                     />
                 )}
@@ -2495,6 +2509,8 @@ const App: React.FC = () => {
                         chainMetrics={chainMetrics}
                         campaignLogs={selectedBrand ? loadCampaignLogs(selectedBrand) : []}
                         qrtFeed={qrtFeed}
+                        recommendationFocus={recommendationFocus}
+                        onFocusChange={handleFocusChange}
                     />
                 )}
 
