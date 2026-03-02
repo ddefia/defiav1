@@ -220,7 +220,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                             <span className="text-[9px] text-[#6B6B70] font-medium">+{filteredEvents.length - 2}</span>
                         )}
                     </div>
-                    <div className="space-y-0.5 overflow-hidden max-h-[68px]">
+                    <div className="space-y-0.5 overflow-hidden max-h-[68px] min-w-0">
                         {filteredEvents.slice(0, 2).map(ev => {
                             const style = getEventStyle(ev);
                             return (
@@ -230,10 +230,13 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                     onDragStart={(e) => handleDragStart(e, ev.id)}
                                     onDragEnd={handleDragEnd}
                                     onClick={(e) => { e.stopPropagation(); handleEventClick(ev); }}
-                                    className={`${style.bg} rounded px-1.5 py-0.5 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity`}
+                                    className={`${style.bg} rounded px-1 py-0.5 cursor-grab active:cursor-grabbing hover:opacity-80 transition-opacity flex items-center gap-1 min-w-0 overflow-hidden`}
                                     style={style.customBg ? { backgroundColor: style.customBg } : {}}
                                 >
-                                    <p className={`text-[10px] font-medium truncate ${style.text}`} style={style.customText ? { color: style.customText } : {}}>
+                                    {ev.image && (
+                                        <img src={ev.image} alt="" className="w-5 h-5 rounded-sm object-cover flex-shrink-0" />
+                                    )}
+                                    <p className={`text-[10px] font-medium truncate ${style.text} min-w-0`} style={style.customText ? { color: style.customText } : {}}>
                                         {ev.time && <span className="opacity-60">{ev.time} </span>}
                                         {ev.campaignName || ev.content.substring(0, 25)}
                                     </p>
@@ -292,10 +295,16 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                     <div className="text-[10px] text-[#6B6B70]">{dateObj.toLocaleDateString(undefined, { month: 'short' })}</div>
                                 </div>
                                 <div className={`w-1 h-10 rounded-full ${style.bg}`} style={style.customBg ? { backgroundColor: style.customBg } : {}}></div>
+                                {ev.image && (
+                                    <img src={ev.image} alt="" className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
+                                )}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-0.5">
                                         {ev.campaignName && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#22C55E18] text-[#22C55E]">{ev.campaignName}</span>}
-                                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${ev.status === 'published' ? 'bg-[#22C55E18] text-[#22C55E]' : 'bg-[#3B82F618] text-[#3B82F6]'}`}>{ev.status}</span>
+                                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${ev.status === 'published' ? 'bg-[#22C55E18] text-[#22C55E]' : 'bg-[#3B82F618] text-[#3B82F6]'}`}>
+                                            {ev.status === 'scheduled' && <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>}
+                                            {ev.status === 'scheduled' ? 'Posting to X' : ev.status}
+                                        </span>
                                         {ev.time && <span className="text-[10px] text-[#6B6B70]">{ev.time}</span>}
                                     </div>
                                     <p className="text-sm text-white truncate">{ev.content}</p>
@@ -319,7 +328,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                     <h1 className="text-lg font-semibold text-white">Content Calendar</h1>
                     <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 rounded-md bg-[#FF5C0018] text-[#FF5C00] text-[10px] font-medium">{thisMonthEvents.length} this month</span>
-                        {scheduledCount > 0 && <span className="px-2 py-0.5 rounded-md bg-[#3B82F618] text-[#3B82F6] text-[10px] font-medium">{scheduledCount} scheduled</span>}
+                        {scheduledCount > 0 && <span className="px-2 py-0.5 rounded-md bg-[#3B82F618] text-[#3B82F6] text-[10px] font-medium inline-flex items-center gap-1"><svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>{scheduledCount} queued for X</span>}
                         {publishedCount > 0 && <span className="px-2 py-0.5 rounded-md bg-[#22C55E18] text-[#22C55E] text-[10px] font-medium">{publishedCount} published</span>}
                     </div>
                 </div>
@@ -430,15 +439,26 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
                                 <div>
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="px-2 py-0.5 bg-[#1F1F23] text-white text-[10px] font-bold uppercase rounded tracking-wider">{selectedEvent.platform}</span>
-                                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded tracking-wider ${selectedEvent.status === 'published' ? 'bg-[#22C55E22] text-[#22C55E]' : 'bg-[#3B82F622] text-[#3B82F6]'}`}>{selectedEvent.status}</span>
+                                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded tracking-wider inline-flex items-center gap-1 ${selectedEvent.status === 'published' ? 'bg-[#22C55E22] text-[#22C55E]' : 'bg-[#3B82F622] text-[#3B82F6]'}`}>
+                                            {selectedEvent.status === 'scheduled' && <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>}
+                                            {selectedEvent.status === 'scheduled' ? 'Posting to X' : selectedEvent.status}
+                                        </span>
                                     </div>
                                     <h3 className="text-lg font-bold text-white mb-1">{selectedEvent.campaignName || 'Single Post'}</h3>
                                     {selectedEvent.publishedAt && <p className="text-xs text-[#94A3B8]">Published {new Date(selectedEvent.publishedAt).toLocaleString()}</p>}
                                     {!isEditing ? (
+                                        <>
                                         <p className="text-sm text-[#64748B]">
                                             Scheduled for <span className="font-medium text-white">{new Date(selectedEvent.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</span>
                                             {selectedEvent.time && <span className="text-[#94A3B8]"> at <span className="font-medium text-white">{selectedEvent.time}</span></span>}
                                         </p>
+                                        {selectedEvent.status === 'scheduled' && (
+                                            <p className="text-[11px] text-[#3B82F6] mt-1 flex items-center gap-1">
+                                                <svg viewBox="0 0 24 24" className="w-3 h-3" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                                Will auto-post to X at the scheduled time
+                                            </p>
+                                        )}
+                                        </>
                                     ) : (
                                         <div className="flex items-center gap-2 mt-1">
                                             <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="bg-[#0A0A0B] border border-[#2E2E2E] rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-[#FF5C00]" />

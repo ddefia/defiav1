@@ -52,16 +52,64 @@ const getPriorityColor = (score: number) => score >= 85 ? '#22C55E' : score >= 7
 const safeStr = (v: any): string => typeof v === 'string' ? v : (v?.signal || v?.analysis || v?.insight || v?.text || (v && typeof v === 'object' ? JSON.stringify(v) : String(v || '')));
 const cleanTitle = (title: any) => { const s = safeStr(title); return s.replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA|TWEET|THREAD)\s*:\s*/i, '').trim() || s; };
 
-// Source tag styling
-const SOURCE_TAG_STYLES: Record<string, { color: string; icon: string }> = {
-    'Web3 News': { color: '#8B5CF6', icon: 'newspaper' },
-    'X Analytics': { color: '#1DA1F2', icon: 'analytics' },
-    'Knowledge Base': { color: '#22C55E', icon: 'menu_book' },
-    'Competitive Intel': { color: '#EF4444', icon: 'compare_arrows' },
-    'Brand Mentions': { color: '#EC4899', icon: 'alternate_email' },
-    'Content Calendar': { color: '#F59E0B', icon: 'edit_calendar' },
-    'On-Chain Data': { color: '#06B6D4', icon: 'token' },
+// Source tag styling + navigation targets
+const SOURCE_TAG_STYLES: Record<string, { color: string; icon: string; nav?: string }> = {
+    'Web3 News': { color: '#8B5CF6', icon: 'newspaper', nav: 'web3-news' },
+    'X Analytics': { color: '#1DA1F2', icon: 'analytics', nav: 'twitter' },
+    'Knowledge Base': { color: '#22C55E', icon: 'menu_book', nav: 'brand-settings' },
+    'Competitive Intel': { color: '#EF4444', icon: 'compare_arrows', nav: 'twitter' },
+    'Brand Mentions': { color: '#EC4899', icon: 'alternate_email', nav: 'twitter' },
+    'Content Calendar': { color: '#F59E0B', icon: 'edit_calendar', nav: 'studio' },
+    'On-Chain Data': { color: '#06B6D4', icon: 'token', nav: 'analytics' },
     'AI Analysis': { color: '#FF5C00', icon: 'psychology' },
+};
+
+// Linkify text: turn @handles into twitter links, quoted terms into X search links
+const LinkifiedText: React.FC<{ text: string; className?: string }> = ({ text, className }) => {
+    // Match @handles and "double-quoted phrases" (safe, no ambiguity)
+    // For single quotes: only match 'phrases' that start with uppercase (avoids possessives like economy's)
+    const parts = text.split(/(@\w+|"[^"]{4,}?")/g);
+    const elements: React.ReactNode[] = [];
+    parts.forEach((part, i) => {
+        if (part.startsWith('@')) {
+            const handle = part.slice(1);
+            elements.push(
+                <a key={i} href={`https://x.com/${handle}`} target="_blank" rel="noopener noreferrer"
+                    className="text-[#1DA1F2] hover:underline cursor-pointer font-medium"
+                    onClick={e => e.stopPropagation()}
+                    title={`View @${handle} on X`}
+                >{part}<span className="material-symbols-sharp text-[10px] opacity-60 align-middle ml-0.5" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span></a>
+            );
+        } else if (part.startsWith('"') && part.endsWith('"')) {
+            const term = part.slice(1, -1);
+            elements.push(
+                <a key={i} href={`https://x.com/search?q=${encodeURIComponent(term)}`} target="_blank" rel="noopener noreferrer"
+                    className="text-[#8B5CF6] hover:underline cursor-pointer font-medium"
+                    onClick={e => e.stopPropagation()}
+                    title={`Search "${term}" on X`}
+                >{part}<span className="material-symbols-sharp text-[10px] opacity-60 align-middle ml-0.5" style={{ fontVariationSettings: "'wght' 300" }}>search</span></a>
+            );
+        } else {
+            // Second pass: find 'single-quoted phrases' that start with uppercase letter
+            // This safely avoids possessives (economy's, Bitcoin's) since those have lowercase after '
+            const subParts = part.split(/('[A-Z][^']{3,}?')/g);
+            subParts.forEach((sub, j) => {
+                if (sub.startsWith("'") && sub.endsWith("'") && sub.length > 5) {
+                    const term = sub.slice(1, -1);
+                    elements.push(
+                        <a key={`${i}-${j}`} href={`https://x.com/search?q=${encodeURIComponent(term)}`} target="_blank" rel="noopener noreferrer"
+                            className="text-[#8B5CF6] hover:underline cursor-pointer font-medium"
+                            onClick={e => e.stopPropagation()}
+                            title={`Search "${term}" on X`}
+                        >{sub}<span className="material-symbols-sharp text-[10px] opacity-60 align-middle ml-0.5" style={{ fontVariationSettings: "'wght' 300" }}>search</span></a>
+                    );
+                } else {
+                    elements.push(<span key={`${i}-${j}`}>{sub}</span>);
+                }
+            });
+        }
+    });
+    return <span className={className}>{elements}</span>;
 };
 
 // Agent relevance by rec type
@@ -119,6 +167,7 @@ export const generateSupplementalRecs = (
             impactScore: Math.min(92, 78 + Math.floor(trend.relevanceScore / 10)),
             source: 'supplemental',
             sourceTags: ['Web3 News', ...(matchingKeyword ? ['Knowledge Base'] : [])],
+            sourceLinks: trend.url ? [{ label: trend.headline.slice(0, 60), url: trend.url, type: 'article' }] : [],
             generatedAt: Date.now(),
         });
     }
@@ -183,6 +232,7 @@ export const generateSupplementalRecs = (
                     impactScore: 84,
                     source: 'supplemental',
                     sourceTags: ['Web3 News', 'Knowledge Base'],
+                    sourceLinks: trend.url ? [{ label: trend.headline.slice(0, 60), url: trend.url, type: 'article' }] : [],
                     generatedAt: Date.now(),
                 });
                 break; // Only one campaign idea
@@ -522,11 +572,11 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 {rec.impactScore}% <span className="text-[#9CA3AF] font-normal">conf</span>
                                             </span>
                                         </div>
-                                        <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug line-clamp-3">{cleanTitle(rec.title)}</h4>
+                                        <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug line-clamp-3"><LinkifiedText text={cleanTitle(rec.title)} /></h4>
                                         {rec.dataSignal && (
                                             <div className="flex items-center gap-1 mb-1.5 text-[#9CA3AF] text-[11px]">
                                                 <span className="material-symbols-sharp text-[12px]">bolt</span>
-                                                {rec.dataSignal.length > 45 ? rec.dataSignal.slice(0, 45) + '…' : rec.dataSignal}
+                                                <LinkifiedText text={safeStr(rec.dataSignal).length > 45 ? safeStr(rec.dataSignal).slice(0, 45) + '…' : safeStr(rec.dataSignal)} />
                                             </div>
                                         )}
                                         <div className="flex items-center justify-between">
@@ -534,7 +584,12 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 {(rec.sourceTags || []).slice(0, 3).map((tag: string, tIdx: number) => {
                                                     const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
                                                     return (
-                                                        <span key={tIdx} className="flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: `${style.color}15`, color: style.color }}>
+                                                        <span key={tIdx}
+                                                            className={`flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded ${style.nav ? 'cursor-pointer hover:brightness-125 transition-all' : ''}`}
+                                                            style={{ backgroundColor: `${style.color}15`, color: style.color }}
+                                                            onClick={style.nav ? (e) => { e.stopPropagation(); onNavigate(style.nav!); } : undefined}
+                                                            title={style.nav ? `Go to ${tag}` : undefined}
+                                                        >
                                                             <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
                                                             {tag}
                                                         </span>
@@ -640,7 +695,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                             </span>
                                                             <span className="text-[9px] font-bold tracking-wider uppercase" style={{ color: s.color }}>{s.label}</span>
                                                         </div>
-                                                        <p className="text-[10px] text-[#ADADB0] leading-relaxed text-center px-1 line-clamp-2">{s.text}</p>
+                                                        <LinkifiedText text={s.text} className="text-[10px] text-[#ADADB0] leading-relaxed text-center px-1 line-clamp-2 block" />
                                                     </div>
                                                     {i < steps.length - 1 && (
                                                         <div className="flex items-center px-1 pt-1 self-start">
@@ -656,15 +711,13 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                             {/* Title */}
                             <h2 className="text-white text-2xl font-bold mb-3 leading-snug" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
-                                {cleanTitle(selectedRec.fullReason || selectedRec.reasoning || selectedRec.title)}
+                                <LinkifiedText text={cleanTitle(selectedRec.fullReason || selectedRec.reasoning || selectedRec.title)} />
                             </h2>
                             {/* Data signal subtitle — only show if different from the title */}
                             {selectedRec.dataSignal && (
                                 <p className="text-[#9CA3AF] text-[15px] leading-relaxed mb-8 max-w-[700px] flex items-center gap-2">
                                     <span className="material-symbols-sharp text-[16px] text-[#FF5C00]">bolt</span>
-                                    {typeof selectedRec.dataSignal === 'string'
-                                        ? selectedRec.dataSignal
-                                        : selectedRec.dataSignal.signal || selectedRec.dataSignal.analysis || selectedRec.dataSignal.insight || JSON.stringify(selectedRec.dataSignal)}
+                                    <LinkifiedText text={safeStr(selectedRec.dataSignal)} />
                                 </p>
                             )}
 
@@ -750,9 +803,9 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                                         <div className="mb-5">
                                             <span className="text-[#9CA3AF] text-xs font-medium">Why this recommendation</span>
-                                            <p className="text-[#E5E7EB] text-sm leading-relaxed mt-2">
-                                                {safeStr(selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')}
-                                            </p>
+                                            <div className="text-[#E5E7EB] text-sm leading-relaxed mt-2">
+                                                <LinkifiedText text={safeStr(selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')} />
+                                            </div>
                                         </div>
 
                                         {selectedRec.strategicAlignment && (
@@ -843,6 +896,44 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         </div>
                                     )}
 
+                                    {/* Original Data Sources — clickable links to the actual articles/tweets */}
+                                    {selectedRec.sourceLinks?.length > 0 && (
+                                        <div className="rounded-2xl bg-[#111113] border border-[#22C55E33] p-5">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <span className="material-symbols-sharp text-[16px] text-[#22C55E]">link</span>
+                                                <span className="text-[#22C55E] text-sm font-semibold">Original Sources</span>
+                                                <span className="text-[#6B6B70] text-[10px] ml-auto">{selectedRec.sourceLinks.length} link{selectedRec.sourceLinks.length !== 1 ? 's' : ''}</span>
+                                            </div>
+                                            <div className="space-y-2">
+                                                {selectedRec.sourceLinks.map((link: any, lIdx: number) => (
+                                                    <a
+                                                        key={lIdx}
+                                                        href={link.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-start gap-2.5 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#1F1F23] hover:border-[#22C55E44] hover:bg-[#22C55E08] transition-all group cursor-pointer"
+                                                        onClick={e => e.stopPropagation()}
+                                                    >
+                                                        <span className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: link.type === 'tweet' ? '#1DA1F215' : '#8B5CF615' }}>
+                                                            <span className="material-symbols-sharp text-[14px]" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6', fontVariationSettings: "'wght' 300" }}>
+                                                                {link.type === 'tweet' ? 'chat_bubble' : 'article'}
+                                                            </span>
+                                                        </span>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[#E5E7EB] text-xs font-medium line-clamp-1">{link.label}</span>
+                                                                <span className="material-symbols-sharp text-[11px] text-[#6B6B70] group-hover:text-[#22C55E] transition-colors flex-shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                                            </div>
+                                                            <p className="text-[#6B6B70] text-[10px] mt-0.5 truncate">
+                                                                {link.type === 'tweet' ? 'View on X' : (() => { try { return new URL(link.url).hostname.replace('www.', ''); } catch { return 'Source'; } })()}
+                                                            </p>
+                                                        </div>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Intelligence Sources — per-rec */}
                                     <div className="rounded-2xl bg-[#111113] border border-[#1F1F23] p-5">
                                         <div className="flex items-center gap-2 mb-4">
@@ -853,6 +944,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         <div className="space-y-2">
                                             {(selectedRec.sourceTags || ['AI Analysis']).map((tag: string, tIdx: number) => {
                                                 const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
+                                                const navTarget = style.nav;
                                                 // Generate contextual evidence per source
                                                 const evidence =
                                                     tag === 'Web3 News' && socialSignals.trendingTopics?.length
@@ -871,12 +963,21 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                         ? 'Competitor positioning gaps identified'
                                                     : '4-agent council synthesis';
                                                 return (
-                                                    <div key={tIdx} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#1F1F23]">
+                                                    <div key={tIdx}
+                                                        className={`flex items-start gap-2.5 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#1F1F23] ${navTarget ? 'cursor-pointer hover:border-[#2E2E2E] hover:bg-[#111113] transition-all group' : ''}`}
+                                                        onClick={navTarget ? () => onNavigate(navTarget) : undefined}
+                                                        title={navTarget ? `Open ${tag}` : undefined}
+                                                    >
                                                         <span className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: `${style.color}15` }}>
                                                             <span className="material-symbols-sharp text-[14px]" style={{ color: style.color, fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
                                                         </span>
-                                                        <div className="min-w-0">
-                                                            <span className="text-[#E5E7EB] text-xs font-medium">{tag}</span>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[#E5E7EB] text-xs font-medium">{tag}</span>
+                                                                {navTarget && (
+                                                                    <span className="material-symbols-sharp text-[11px] text-[#6B6B70] group-hover:text-[#9CA3AF] transition-colors" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                                                )}
+                                                            </div>
                                                             <p className="text-[#9CA3AF] text-[10px] leading-relaxed mt-0.5">{evidence}</p>
                                                         </div>
                                                     </div>

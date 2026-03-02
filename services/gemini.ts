@@ -1278,9 +1278,14 @@ export const generateCampaignDrafts = async (
     1. **STRATEGIC**: Strictly aligned with the "Strategic Focus Document" and "Core Knowledge".
     2. **REASONED**: Every tweet must have a clear "Why". Connecting it to a roadmap goal.
     3. **HIGH-SIGNAL**: Use dense, insightful language. Avoid fluff.
-    4. **FORMATTED**: Use short paragraphs. ONE idea per line.
-    5. **IMPACT OVER LENGTH**: Do NOT write walls of text. Be PUNCHY. Use short sentences for rhythm. "Why? Keep reading." is better than a long explanation.
-    6. **TITLE CASE**: Use proper Title Case for all campaign names, titles, and headlines. Ensure proper grammar, punctuation, and capitalization throughout.
+    4. **NATURAL PROSE FORMAT**: Write tweets as flowing prose paragraphs — NEVER use bullet points, dashes (- or •), numbered lists, or asterisks. Each tweet should read like a confident thought leader posting on X, not a PowerPoint slide.
+    5. **TWEET STRUCTURE**: Every tweet MUST follow this flow:
+       - HOOK (1 line): A bold claim, contrarian take, or provocative question that stops the scroll
+       - BODY (1-3 lines): The insight, mechanic, or "why it matters" — written as natural sentences
+       - CTA (1 line): A call to action, forward-looking statement, or punchy closer
+       Use \\n\\n between these sections for spacing. Do NOT label them.
+    6. **IMPACT OVER LENGTH**: Do NOT write walls of text. Be PUNCHY. Use short sentences for rhythm. "Why? Keep reading." is better than a long explanation.
+    7. **TITLE CASE**: Use proper Title Case for all campaign names, titles, and headlines. Ensure proper grammar, punctuation, and capitalization throughout.
     7. **VISUAL VARIETY**: ${availableTemplates}
        - CRITICAL INSTRUCTION: When assigning a "visualTemplate" to a tweet:
        - **Strictly limit 'Quote' templates** to genuine quotes/testimonials. 
@@ -1312,10 +1317,11 @@ export const generateCampaignDrafts = async (
     ${bannedInstruction}
 
     EXECUTION GUIDELINES:
-    1. **UNPREDICTABLE FLOW**: Mix up the structure (Short / List / Quote / Contrarian).
+    1. **UNPREDICTABLE FLOW**: Mix up the energy (Short & Punchy / Deep Insight / Contrarian Take / Bold Question).
     2. **SUBSTANCE**: Cite the "Strategic Focus Document" or "Core Knowledge" where possible.
     3. **NO FLUFF**: If a sentence doesn't add value, remove it.
-    4. **FORMATTING**: Use '\\n' for line breaks inside the JSON string to make it readable.
+    4. **FORMATTING**: Use '\\n\\n' for paragraph breaks inside the JSON string. Write flowing prose — NEVER bullets, dashes, or numbered lists.
+    5. **ANTI-PATTERN CHECK**: Before finalizing, verify NO tweet contains: bullet points (- or •), numbered lists (1. 2. 3.), asterisks for emphasis (**bold**), or markdown formatting. If found, rewrite as natural prose.
 
     OUTPUT FORMAT (JSON ONLY):
     Output a RAW JSON object.
@@ -1355,7 +1361,12 @@ export const generateCampaignDrafts = async (
         const json = JSON.parse(text);
 
         const validDrafts = (json.drafts || []).map((draft: any) => ({
-            tweet: draft.tweet,
+            tweet: (draft.tweet || '')
+                // Strip bullet characters that AI sometimes inserts despite instructions
+                .replace(/^[\s]*[-•●▪▸►]\s*/gm, '')
+                .replace(/^[\s]*\d+[\.\)]\s*/gm, '')
+                .replace(/\*\*([^*]+)\*\*/g, '$1')
+                .trim(),
             reasoning: draft.reasoning,
             // We strip out the Content Agent's visual guesses because the Visual Director will do it better.
         }));
@@ -2728,7 +2739,10 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
-            config: { responseMimeType: "application/json" }
+            config: {
+                responseMimeType: "application/json",
+                thinkingConfig: { thinkingBudget: 2048 }
+            }
         });
         return JSON.parse(safeResponseText(response) || "{}");
     } catch (e) {
@@ -2827,7 +2841,10 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
-            config: { responseMimeType: "application/json" }
+            config: {
+                responseMimeType: "application/json",
+                thinkingConfig: { thinkingBudget: 4096 }
+            }
         });
         const result = JSON.parse(safeResponseText(response) || "{}");
         return { analysis, actions: result.actions || [] };
@@ -3221,7 +3238,7 @@ export const classifyAndPopulate = async (
 export const generateGeneralChatResponse = async (
     userHistory: { role: string, content: string }[],
     brandContext: BrandConfig,
-    marketingContext?: { calendar: any[], tasks: any[], report: any }
+    marketingContext?: { calendar: any[], tasks: any[], report: any, qrtFeed?: any[] }
 ): Promise<{ text: string, actions?: { label: string, action: string }[] }> => {
     dispatchThinking(`🤖 Copilot: Consulting Knowledge Base...`);
     const ai = getAI();
@@ -3251,6 +3268,11 @@ export const generateGeneralChatResponse = async (
     // --- CONTEXT SERIALIZATION ---
     // Make the context richer so the AI can "Look out" for the brand
     const upcomingEvents = marketingContext?.calendar?.slice(0, 5).map(e => `- ${new Date(e.date).toLocaleDateString()}: ${e.content} (${e.platform})`).join('\n') || "No upcoming events.";
+
+    // Competitor / QRT feed context
+    const qrtContext = (marketingContext?.qrtFeed || []).slice(0, 10).map((t: any) =>
+        `- @${t.author || t.competitor || 'unknown'}: "${(t.text || t.content || '').substring(0, 120)}" (${t.likes || 0} likes)`
+    ).join('\n');
 
     // Parse Growth Report for intelligent chatter
     let growthInsights = "No recent strategic analysis.";
@@ -3286,7 +3308,12 @@ export const generateGeneralChatResponse = async (
     
     - 🗓️ Upcoming Calendar (Context for timing):
       ${upcomingEvents}
-    
+
+    ${qrtContext ? `- 🔄 COMPETITOR TWEETS / QRT OPPORTUNITIES (Recent tweets from competitors that the brand could Quote Retweet):
+      ${qrtContext}
+
+      When the user asks about QRT topics, quote retweet opportunities, or competitor activity, reference these tweets specifically. Suggest which ones to QRT and why, with a brief angle/take for each.` : ''}
+
     INSTRUCTIONS:
     1. **ANSWER & AMPLIFY**: Answer the user's question, then add value. "Yes, we can do that. And based on the Q1 Goals, this would also help us with..."
     2. **CLARIFY**: If the user is vague (e.g. "Draft a post"), ask clarifying questions *before* offering a draft. "Who is the audience? Is this for the Alpha group or general public?"

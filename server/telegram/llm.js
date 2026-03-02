@@ -12,6 +12,7 @@ import { GoogleGenAI } from '@google/genai';
 import { logApiUsage, estimateCost } from '../services/usageLogger.js';
 
 const TIMEOUT_MS = 30000;
+const THINKING_TIMEOUT_MS = 90000; // Thinking mode needs longer
 
 // ━━━ Timeout Helper ━━━
 
@@ -27,20 +28,22 @@ const withTimeout = (promise, ms = TIMEOUT_MS) => {
 
 // ━━━ Gemini ━━━
 
-const callGemini = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode = false }) => {
+const callGemini = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode = false, model = 'gemini-2.0-flash', thinkingConfig = null }) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
-    const genAI = new GoogleGenAI({ apiKey, httpOptions: { timeout: TIMEOUT_MS } });
+    const timeout = thinkingConfig ? THINKING_TIMEOUT_MS : TIMEOUT_MS;
+    const genAI = new GoogleGenAI({ apiKey, httpOptions: { timeout } });
     const config = { temperature };
     if (systemPrompt) config.systemInstruction = { parts: [{ text: systemPrompt }] };
     if (jsonMode) config.responseMimeType = 'application/json';
+    if (thinkingConfig) config.thinkingConfig = thinkingConfig;
 
     const response = await withTimeout(genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model,
         contents: { parts: [{ text: userMessage }] },
         config,
-    }));
+    }), timeout);
 
     return (response.text || '').trim();
 };
@@ -107,6 +110,7 @@ const callGroq = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode
 const generateText = async (opts) => {
     let geminiError;
     const start = Date.now();
+    const modelName = opts.model || 'gemini-2.0-flash';
 
     // Try Gemini first
     try {
@@ -114,12 +118,12 @@ const generateText = async (opts) => {
         if (result) {
             // Log successful Gemini call
             logApiUsage({
-                provider: 'gemini', model: 'gemini-2.0-flash',
+                provider: 'gemini', model: modelName,
                 endpoint: opts._endpoint || 'generateText',
                 source: opts._source || 'server-llm',
                 brand_id: opts._brandId || null,
                 status_code: 200, duration_ms: Date.now() - start,
-                estimated_cost_usd: estimateCost('gemini-2.0-flash', 500, 300), // rough estimate
+                estimated_cost_usd: estimateCost(modelName, 500, 300),
             });
             return result;
         }
@@ -134,7 +138,7 @@ const generateText = async (opts) => {
         if (!isRetryable) throw e; // Non-retryable errors (bad prompt, auth, etc.) — don't fallback
         console.warn(`[LLM] Gemini failed (${e.message?.slice(0, 80)}), trying Groq fallback...`);
         logApiUsage({
-            provider: 'gemini', model: 'gemini-2.0-flash',
+            provider: 'gemini', model: modelName,
             endpoint: opts._endpoint || 'generateText',
             source: opts._source || 'server-llm',
             brand_id: opts._brandId || null,

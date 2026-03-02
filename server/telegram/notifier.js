@@ -72,12 +72,22 @@ const notifyLinkedChats = async (supabase, brandId, type, payload = null) => {
         }
 
         case 'recommendations': {
-            // Batch notification — payload is array of actions
+            // Batch notification — payload is array of actions (supports both old and rich format)
             if (!payload || !Array.isArray(payload) || payload.length === 0) return;
-            const validActions = payload.filter(a => a.action && a.action !== 'NO_ACTION' && a.action !== 'ERROR');
+            const validActions = payload.filter(a => {
+                const actionType = a.type || a.action;
+                return actionType && actionType !== 'NO_ACTION' && actionType !== 'ERROR';
+            });
             if (validActions.length === 0) return;
             const siteUrl = process.env.FRONTEND_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
             message = formatRecommendationsBatch(validActions, brandName, siteUrl);
+            break;
+        }
+
+        case 'raw_text': {
+            // Pre-formatted message from client — send as-is
+            if (!payload || typeof payload !== 'string') return;
+            message = payload;
             break;
         }
 

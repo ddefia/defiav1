@@ -211,26 +211,53 @@ const ACTION_ICONS = {
     CAMPAIGN: '\u{1F4E2}',
     GAP_FILL: '\u{1F3AF}',
     Tweet: '\u{1F426}',
+    TWEET: '\u{1F426}',
     QRT: '\u{1F501}',
+    THREAD: '\u{1F9F5}',
+    Content: '\u{1F4DD}',
+    Engagement: '\u{1F4AC}',
+    Trend: '\u26A1',
 };
 
 const formatRecommendationsBatch = (actions, brandName, siteUrl) => {
     if (!actions || actions.length === 0) return '';
 
+    // Support both old format (a.action) and new rich format (a.type)
+    const valid = actions.filter(a => {
+        const actionType = a.type || a.action;
+        return actionType && actionType !== 'NO_ACTION' && actionType !== 'ERROR';
+    });
+    if (valid.length === 0) return '';
+
     const lines = [];
-    lines.push(`\u{1F9E0} ${bold(`AI CMO — ${brandName || 'Your Brand'}`)}`);
+    lines.push(`\u{1F9E0} ${bold(`Strategy Update — ${brandName || 'Your Brand'}`)}`);
     lines.push('');
 
-    for (const a of actions) {
-        if (!a.action || a.action === 'NO_ACTION' || a.action === 'ERROR') continue;
-        const icon = ACTION_ICONS[a.action] || '\u{1F4AC}';
-        const reason = (a.reason || '').replace(/\n/g, ' ').slice(0, 120);
-        lines.push(`\u2022 ${icon} ${bold(a.action)} ${escapeMarkdownV2('—')} ${escapeMarkdownV2(reason)}`);
+    for (let i = 0; i < Math.min(valid.length, 5); i++) {
+        const a = valid[i];
+        const actionType = a.type || a.action;
+        const icon = ACTION_ICONS[actionType] || '\u{1F4CC}';
+        const headline = (a.hook || a.topic || a.reason || '').replace(/\n/g, ' ').slice(0, 100);
+
+        lines.push(`${icon} ${bold(String(headline || actionType).slice(0, 80))}`);
+
+        // Show reasoning
+        const reasoning = a.reasoning || a.reason || '';
+        if (reasoning) {
+            lines.push(italic(reasoning.replace(/\n/g, ' ').slice(0, 150)));
+        }
+
+        // Show data source if available
+        if (a.dataSource) {
+            lines.push(escapeMarkdownV2(`Signal: ${a.dataSource.replace(/\n/g, ' ').slice(0, 100)}`));
+        }
+
+        if (i < Math.min(valid.length, 5) - 1) lines.push('');
     }
 
     if (siteUrl) {
         lines.push('');
-        lines.push(`\u27A1\uFE0F ${escapeMarkdownV2('View & act:')} ${escapeMarkdownV2(siteUrl)}`);
+        lines.push(`\u27A1\uFE0F ${escapeMarkdownV2('Full details:')} ${escapeMarkdownV2(siteUrl)}`);
     }
 
     return lines.join('\n');

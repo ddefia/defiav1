@@ -4,6 +4,10 @@ import { generateText } from '../telegram/llm.js';
 /**
  * BRAIN SERVICE (Server-Side)
  * "The Intelligence"
+ *
+ * Upgraded to use gemini-2.5-flash with thinking mode for high-quality
+ * recommendations that match the client-side brain output format.
+ * One comprehensive call with thinkingBudget:8192 replaces 6 separate calls.
  */
 
 export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends, brandProfile = {}, competitorTweets = []) => {
@@ -54,97 +58,123 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
         const prompt = `
-        You are the Autonomous Marketing Agent for ${brandName}.
-        TODAY'S DATE: ${today}
+You are the Autonomous Marketing Strategist for ${brandName}.
+TODAY'S DATE: ${today}
 
-        BRAND VOICE: ${voice}
-        ${toneGuidelines ? `TONE GUIDELINES: ${toneGuidelines}` : ''}
-        ${targetAudience ? `TARGET AUDIENCE: ${targetAudience}` : ''}
-        ${bannedPhrases ? `BANNED PHRASES (never use these): ${bannedPhrases}` : ''}
-        ${marketingDirectives ? `STRATEGIC DIRECTIVES (from the brand owner — prioritize these in all decisions):\n        ${marketingDirectives}` : ''}
+═══════════════════════════════════════════
+BRAND IDENTITY
+═══════════════════════════════════════════
+VOICE: ${voice}
+${toneGuidelines ? `TONE: ${toneGuidelines}` : ''}
+${targetAudience ? `AUDIENCE: ${targetAudience}` : ''}
+${bannedPhrases ? `BANNED PHRASES (never use): ${bannedPhrases}` : ''}
+${marketingDirectives ? `STRATEGIC DIRECTIVES (from brand owner — top priority):\n${marketingDirectives}` : ''}
 
-        BRAND KNOWLEDGE BASE:
-        ${knowledgeBase}
+BRAND KNOWLEDGE BASE:
+${knowledgeBase}
 
-        ${tweetExamples ? `CONTENT STYLE EXAMPLES (study these carefully — match this tone, length, spacing, and style):
+${tweetExamples ? `CONTENT STYLE EXAMPLES (match this tone, length, spacing):
 ${tweetExamples}` : ''}
 
-        CURRENT STATE:
-        ${duneMetrics ? `- On-Chain Volume: $${duneMetrics.totalVolume?.toLocaleString() || 'N/A'}\n        - Active Wallets: ${duneMetrics.activeWallets || 'N/A'}` : '- On-Chain Data: Not available'}
+═══════════════════════════════════════════
+LIVE DATA INPUTS
+═══════════════════════════════════════════
+${duneMetrics ? `ON-CHAIN: Volume $${duneMetrics.totalVolume?.toLocaleString() || 'N/A'} | Active Wallets: ${duneMetrics.activeWallets || 'N/A'}` : 'ON-CHAIN: Not available'}
 
-        LATEST SPECIFIC POSTS (DIRECT MENTIONS/TAGS):
-        ${mentionsBlock}
+MENTIONS (direct tags/replies):
+${mentionsBlock}
 
-        WEB3 MARKET TRENDS (live news):
-        ${trendsBlock}
+WEB3 MARKET TRENDS (live news):
+${trendsBlock}
 
-        ${competitorTweetsBlock ? `COMPETITOR RECENT TWEETS (what competitors are posting):\n        ${competitorTweetsBlock}` : ''}
+${competitorTweetsBlock ? `COMPETITOR TWEETS:\n${competitorTweetsBlock}` : ''}
 
-        TASK:
-        You work FOR ${brandName}. Produce 3 actionable marketing recommendations.
+═══════════════════════════════════════════
+YOUR TASK
+═══════════════════════════════════════════
+Think through these 4 strategic perspectives before formulating actions:
 
-        Check these 6 triggers (priority order):
-        1. COMMUNITY MANAGER: Are there direct questions or FUD in "SPECIFIC POSTS" needing a reply?
-        2. NEWSROOM: Is there a SPECIFIC market trend we can "Trend Jack"? The trend must be clearly identified from the TRENDS list above — name it explicitly.
-        3. QRT SCANNER: Is there a high-signal tweet from mentions or competitor tweets worth quote-retweeting? (An influencer posting about a topic we have authority on, a competitor making a claim we can counter, or a conversation we can add genuine value to.) Only flag if a real tweet exists in the data — do NOT manufacture QRT opportunities.
-        4. ANALYST: Notable on-chain metric change worth a data-driven tweet?
-        5. CAMPAIGN PLANNER: Strategic multi-day campaign opportunity based on a SPECIFIC current trend?
-        6. CONTENT STRATEGIST: Content gap — topic our audience cares about that we haven't covered?
+1. SOCIAL LISTENER: What narratives are shifting? What conversations should ${brandName} enter? Any mentions needing response?
+2. PERFORMANCE ANALYST: What content formats/topics perform best? What engagement patterns exist in the data?
+3. CONTENT PLANNER: What gaps exist in content strategy? What themes should ${brandName} own this week?
+4. KNOWLEDGE CURATOR: What brand differentiators map to current market opportunities?
 
-        CRITICAL RULES:
-        - TODAY IS ${today}. NEVER recommend posting about past events, launches, or milestones that already happened. Only forward-looking, timely content.
-        - TREND_JACK requires a REAL, SPECIFIC trend from the TRENDS list. Name the exact trend in the reason. Do NOT invent trends or use generic market commentary.
-        - Every draft must be specific to ${brandName} — reference actual products, features, or ecosystem.
-        - No generic "web3 is growing" or "crypto is evolving" filler. Be specific or skip the action.
-        - Drafts should be tweet-length (under 280 chars) unless it's a CAMPAIGN brief.
-        - NEVER use hashtags in drafts. No #anything. This is strictly forbidden.
-        - Space out tweets properly — use double line breaks between sections.
-        - Do NOT default to REPLY. Only REPLY if there's a genuine question/FUD in the mentions.
-        - Do NOT mention random brand features just to fill space. Only reference features that connect to the trend or topic.
-        ${tweetExamples ? `- Match the style, tone, and length of the CONTENT STYLE EXAMPLES above. These are the gold standard.` : ''}
+Then produce EXACTLY 5 diverse, actionable marketing recommendations.
 
-        FORMAT RULES BY ACTION TYPE:
-        - TREND_JACK: "reason" = explain the SPECIFIC trend (what is happening, cite the headline). "draft" = the tweet angle connecting ${brandName} to that trend.
-        - Tweet: "reason" = brief why. "draft" = ready-to-post tweet.
-        - CAMPAIGN: "reason" = the opportunity (cite specific trend/data). "draft" = campaign concept (2-3 sentences max).
-        - QRT: "reason" = why this tweet is worth quoting (who said it, why it matters). "draft" = the quote-retweet text (adds brand insight, NOT just "great take!"). "originalAuthor" = @handle of the tweet being quoted. "originalText" = the tweet text being quoted. Only use QRT if a genuinely high-signal tweet exists in mentions or competitor tweets.
-        - REPLY / GAP_FILL: Standard format.
+Each action must be a DIFFERENT type from: TWEET, THREAD, CAMPAIGN, REPLY, TREND_JACK, GAP_FILL, QRT
 
-        Return 3 DIVERSE actions (each a DIFFERENT type) as JSON:
+CRITICAL RULES:
+- TODAY IS ${today}. NEVER recommend posting about past events or milestones. Only forward-looking content.
+- TREND_JACK requires a REAL, SPECIFIC trend from the TRENDS list. Name the exact headline.
+- QRT requires a REAL tweet from the mentions or competitor tweets. Include originalTweet.
+- Every recommendation must be specific to ${brandName} — reference actual products, features, ecosystem.
+- No generic "web3 is growing" filler. Be specific or pick a different action type.
+- Drafts should be tweet-length (under 280 chars) unless it's a CAMPAIGN or THREAD brief.
+- NEVER use hashtags. No #anything.
+- Do NOT default to REPLY unless there's a genuine question/FUD in mentions.
+${tweetExamples ? `- Match the style and tone of the CONTENT STYLE EXAMPLES above.` : ''}
+
+═══════════════════════════════════════════
+OUTPUT FORMAT (strict JSON)
+═══════════════════════════════════════════
+{
+    "analysis": {
+        "summary": "2-3 sentence market context summary",
+        "keyThemes": ["theme1", "theme2", "theme3"],
+        "opportunities": ["opp1", "opp2"],
+        "risks": ["risk1"],
+        "strategicAngle": "The bold narrative only ${brandName} can own right now"
+    },
+    "actions": [
         {
-            "actions": [
-                {
-                    "action": "REPLY" | "TREND_JACK" | "Tweet" | "CAMPAIGN" | "GAP_FILL" | "QRT",
-                    "targetId": "ID of tweet/trend acting upon (or empty string)",
-                    "reason": "1-sentence why (reference specific data or trend headline)",
-                    "draft": "The content to post or campaign brief",
-                    "originalAuthor": "(QRT only) @handle of tweet being quoted",
-                    "originalText": "(QRT only) text of tweet being quoted"
-                }
-            ]
+            "type": "TWEET | THREAD | CAMPAIGN | REPLY | TREND_JACK | GAP_FILL | QRT",
+            "topic": "What this is about",
+            "goal": "What we want to achieve",
+            "instructions": "Ready-to-post content OR detailed brief",
+            "reasoning": "1-2 sentences: why this action, what data supports it",
+            "hook": "Attention-grabbing opening line for the content",
+            "strategicAlignment": "How this connects to brand strategy",
+            "contentIdeas": ["idea1", "idea2", "idea3"],
+            "dataSource": "What signal triggered this (mention, trend headline, metric, etc.)",
+            "originalTweet": { "author": "@handle", "text": "quoted text" }
         }
-        `;
+    ]
+}
+
+"originalTweet" is ONLY for QRT/REPLY types — omit for others.
+Return exactly 5 actions, each a DIFFERENT type.
+`;
 
         const text = await generateText({
             userMessage: prompt,
+            jsonMode: true,
+            model: 'gemini-2.5-flash',
+            thinkingConfig: { thinkingBudget: 8192 },
+            temperature: 0.7,
             _source: 'agent-cron', _endpoint: 'brain.analyzeState',
             _brandId: brandProfile.brandId || null,
         });
 
-        // SimpleJSON cleanup
+        // JSON cleanup
         const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(jsonStr);
 
-        // Strip hashtags from all drafts (LLMs ignore prompt rules sometimes)
+        // Strip hashtags from all drafts/instructions (LLMs sometimes ignore prompt rules)
         const stripHashtags = (txt) => (txt || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
 
-        // Support both new multi-action format and legacy single-action format
+        // Normalize actions — support both new rich format and legacy format
         if (parsed.actions && Array.isArray(parsed.actions)) {
-            parsed.actions.forEach(a => { if (a.draft) a.draft = stripHashtags(a.draft); });
-            return parsed; // New format: { actions: [...] }
+            parsed.actions.forEach(a => {
+                if (a.instructions) a.instructions = stripHashtags(a.instructions);
+                if (a.draft) a.draft = stripHashtags(a.draft);
+                // Ensure backward compat: map 'type' to 'action' for legacy consumers
+                if (a.type && !a.action) a.action = a.type;
+            });
+            return parsed; // { analysis, actions: [...] }
         }
         // Legacy single action — wrap in array
         if (parsed.draft) parsed.draft = stripHashtags(parsed.draft);
+        if (parsed.type && !parsed.action) parsed.action = parsed.type;
         return { actions: [parsed] };
 
     } catch (e) {

@@ -24,6 +24,7 @@ interface CampaignsProps {
     onClearIntent?: () => void;
     recentPosts?: any[];
     onNavigate?: (section: string, params?: any) => void;
+    aiRecommendations?: any[];
 }
 
 export const Campaigns: React.FC<CampaignsProps> = ({
@@ -34,7 +35,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     initialIntent,
     onClearIntent,
     recentPosts = [],
-    onNavigate
+    onNavigate,
+    aiRecommendations = [],
 }) => {
     // View State: 'list' | 'wizard'
     const [viewMode, setViewMode] = useState<'list' | 'wizard'>('list');
@@ -120,10 +122,11 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
         try {
             const tasks = loadStrategyTasks(brandName);
-            const recommendations: MarketingAction[] = tasks
+            const fromTasks: MarketingAction[] = tasks
                 .filter((t: any) => {
+                    const isRealTask = t.id !== 'welcome-1';
                     const isHighImpact = (t.impactScore && t.impactScore >= 7) || t.priority === 'high';
-                    return t.status !== 'completed' && t.status !== 'dismissed' && isHighImpact;
+                    return isRealTask && t.status !== 'completed' && t.status !== 'dismissed' && isHighImpact;
                 })
                 .slice(0, 3)
                 .map((t: any) => ({
@@ -138,11 +141,34 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     logicExplanation: t.logicExplanation || '',
                     content: null
                 } as any));
-            setRecommendedStrategies(recommendations);
+
+            // If strategy tasks have real data, use those
+            if (fromTasks.length > 0) {
+                setRecommendedStrategies(fromTasks);
+            }
+            // Otherwise, derive from AI CMO recommendations (passed as prop)
+            else if (aiRecommendations.length > 0) {
+                const fromAI: MarketingAction[] = aiRecommendations
+                    .filter((r: any) => r.type === 'Campaign' || r.type === 'Trend' || r.type === 'Content' || r.type === 'Thread')
+                    .slice(0, 3)
+                    .map((r: any) => ({
+                        type: r.type === 'Campaign' ? 'CAMPAIGN' : r.type === 'Trend' ? 'CAMPAIGN' : r.type === 'Thread' ? 'THREAD' : 'CAMPAIGN',
+                        topic: r.fullDraft?.split('\n')[0] || r.title || 'Strategic Campaign',
+                        hook: r.title?.replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA|TWEET|THREAD)\s*:\s*/i, '').trim() || r.title,
+                        goal: r.strategicAlignment || r.reasoning || 'Strategic Growth',
+                        reasoning: r.fullReason || r.reasoning || '',
+                        strategicAlignment: r.strategicAlignment || '',
+                        contentIdeas: r.contentIdeas || [],
+                        proof: r.dataSignal || '',
+                        logicExplanation: r.fullReason || '',
+                        content: null
+                    } as any));
+                if (fromAI.length > 0) setRecommendedStrategies(fromAI);
+            }
         } catch (e) {
             showToast('Failed to load campaign recommendations', 'error');
         }
-    }, [brandName]);
+    }, [brandName, aiRecommendations]);
 
     useEffect(() => {
         const stateToSave = {
@@ -217,31 +243,38 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
     const getActiveCampaigns = () => {
         const logs = loadCampaignLogs(brandName);
-        const logMap = Object.fromEntries(logs.map(log => [log.name, log]));
-        const campaigns: Record<string, { count: number, nextDate: string, status: string, type: string, budget: string, reach: string, conversion: string, roi: string }> = {};
+        const campaigns: Record<string, { count: number, nextDate: string, status: string, type: string, budget: string, channel: string }> = {};
+
+        // First: populate from CampaignLog storage (the primary source of truth)
+        logs.forEach(log => {
+            campaigns[log.name] = {
+                count: 0,
+                nextDate: log.startDate || '',
+                status: log.endDate && new Date(log.endDate) < new Date() ? 'Completed' : 'Active',
+                type: log.channel || 'General',
+                budget: log.budget ? `$${log.budget.toLocaleString()}` : '$0',
+                channel: log.channel || 'Twitter',
+            };
+        });
+
+        // Second: enrich with calendar event data (post count, dates)
         events.forEach(e => {
             if (e.campaignName) {
                 if (!campaigns[e.campaignName]) {
-                    const log = logMap[e.campaignName];
                     campaigns[e.campaignName] = {
-                        count: 0,
-                        nextDate: e.date,
-                        status: 'Active',
-                        type: 'General',
-                        budget: log?.budget ? `$${log.budget.toLocaleString()}` : '$0',
-                        reach: '0',
-                        conversion: '0%',
-                        roi: '+0%'
+                        count: 0, nextDate: e.date, status: 'Active', type: 'General',
+                        budget: '$0', channel: 'Twitter',
                     };
                 }
                 campaigns[e.campaignName].count++;
-                if (new Date(e.date) > new Date(campaigns[e.campaignName].nextDate)) {
+                if (!campaigns[e.campaignName].nextDate || new Date(e.date) > new Date(campaigns[e.campaignName].nextDate)) {
                     campaigns[e.campaignName].nextDate = e.date;
                 }
                 const allPast = events.filter(ev => ev.campaignName === e.campaignName).every(ev => new Date(ev.date) < new Date());
                 if (allPast) campaigns[e.campaignName].status = 'Completed';
             }
         });
+
         return Object.entries(campaigns).map(([name, data]) => ({ name, ...data }));
     };
 
@@ -515,6 +548,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
                     const promises = [
                         generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined, artPrompt: item.artPrompt }),
+                        generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined, artPrompt: item.artPrompt }),
                         generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: item.template || campaignTemplate || undefined, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined, artPrompt: item.artPrompt })
                     ];
                     await new Promise(r => setTimeout(r, Math.random() * 1000));
@@ -563,6 +597,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
             const effectiveRefImage = item.referenceImageId || campaignReferenceImage || undefined;
 
             const promises = [
+                generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined }),
                 generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined }),
                 generateWeb3Graphic({ prompt: item.visualHeadline || item.tweet, artPrompt: item.artPrompt, size: '1K', aspectRatio: '16:9', brandConfig, brandName, templateType: effectiveTemplate, selectedReferenceImages: effectiveRefImage ? [effectiveRefImage] : undefined })
             ];
@@ -1117,101 +1152,41 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                     </div>
                 )}
 
-                {/* Bottom Row: Performance Chart & Quick Actions */}
+                {/* Bottom Row: Quick Actions */}
                 {viewMode === 'list' && filteredCampaigns.length > 0 && (
-                    <div className="flex gap-6">
-                        {/* Performance Chart */}
-                        <div className="flex-1 bg-[#111113] border border-[#1F1F23] rounded-xl overflow-hidden">
-                            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm font-semibold text-white">Campaign Performance</span>
-                                    <span className="px-2 py-1 rounded-full text-[10px] font-medium bg-[#22C55E]/20 text-[#22C55E]">Live</span>
-                                </div>
-                                <div className="flex items-center gap-1 p-1 rounded-full bg-[#1A1A1D]">
-                                    {['7D', '30D', '90D'].map(period => (
-                                        <button
-                                            key={period}
-                                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                                                period === '7D' ? 'bg-[#1F1F23] text-white' : 'text-[#6B6B70] hover:text-white'
-                                            }`}
-                                        >
-                                            {period}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="p-5">
-                                {/* Legend */}
-                                <div className="flex items-center gap-5 mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-[#FF5C00]"></span>
-                                        <span className="text-xs text-[#6B6B70]">Reach</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-[#22C55E]"></span>
-                                        <span className="text-xs text-[#6B6B70]">Conversions</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-[#3B82F6]"></span>
-                                        <span className="text-xs text-[#6B6B70]">Engagement</span>
-                                    </div>
-                                </div>
-                                {/* Bar Chart */}
-                                <div className="flex items-end gap-3 h-40">
-                                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => {
-                                        const heights = [45, 60, 55, 75, 65, 85, 70];
-                                        return (
-                                            <div key={day} className="flex-1 flex flex-col items-center gap-2">
-                                                <div className="w-full flex gap-1 items-end h-32">
-                                                    <div className="flex-1 bg-[#FF5C00] rounded-t" style={{ height: `${heights[i]}%` }}></div>
-                                                    <div className="flex-1 bg-[#22C55E] rounded-t" style={{ height: `${heights[i] * 0.6}%` }}></div>
-                                                    <div className="flex-1 bg-[#3B82F6] rounded-t" style={{ height: `${heights[i] * 0.4}%` }}></div>
-                                                </div>
-                                                <span className={`text-[10px] ${day === 'Sun' ? 'text-[#FF5C00] font-medium' : 'text-[#6B6B70]'}`}>{day}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                    <div className="bg-[#111113] border border-[#1F1F23] rounded-xl overflow-hidden">
+                        <div className="px-5 py-4 border-b border-[#1F1F23]">
+                            <span className="text-sm font-semibold text-white">Quick Actions</span>
                         </div>
-
-                        {/* Quick Actions */}
-                        <div className="w-80 bg-[#111113] border border-[#1F1F23] rounded-xl overflow-hidden">
-                            <div className="px-5 py-4 border-b border-[#1F1F23]">
-                                <span className="text-sm font-semibold text-white">Quick Actions</span>
-                            </div>
-                            <div>
-                                {[
-                                    { icon: 'add_circle', label: 'Create Campaign', desc: 'Launch a new marketing campaign', color: '#FF5C00' },
-                                    { icon: 'content_copy', label: 'Duplicate Campaign', desc: 'Clone an existing campaign', color: '#6B6B70' },
-                                    { icon: 'download', label: 'Export Report', desc: 'Download campaign analytics', color: '#6B6B70' },
-                                    { icon: 'schedule', label: 'Schedule Campaign', desc: 'Plan future campaign launches', color: '#6B6B70' },
-                                ].map((action, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => {
-                                            if (action.label === 'Create Campaign') {
-                                                if (tryStartCampaign()) {
-                                                    setViewMode('wizard');
-                                                    setCampaignStep(1);
-                                                }
-                                            }
-                                        }}
-                                        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-[#1A1A1D] transition-colors border-b border-[#1F1F23] last:border-none"
-                                    >
-                                        <div className="w-10 h-10 rounded-lg bg-[#1F1F23] flex items-center justify-center">
-                                            <span className="material-symbols-sharp text-xl" style={{ color: action.color, fontVariationSettings: "'FILL' 1, 'wght' 300" }}>
-                                                {action.icon}
-                                            </span>
-                                        </div>
-                                        <div className="flex-1 text-left">
-                                            <p className="text-sm font-medium text-white">{action.label}</p>
-                                            <p className="text-xs text-[#6B6B70]">{action.desc}</p>
-                                        </div>
-                                        <span className="material-symbols-sharp text-[#4A4A4E] text-lg">chevron_right</span>
-                                    </button>
-                                ))}
-                            </div>
+                        <div className="flex">
+                            <button
+                                onClick={() => { if (tryStartCampaign()) { setViewMode('wizard'); setCampaignStep(1); } }}
+                                className="flex-1 flex items-center gap-4 px-5 py-4 hover:bg-[#1A1A1D] transition-colors border-r border-[#1F1F23]"
+                            >
+                                <div className="w-10 h-10 rounded-lg bg-[#1F1F23] flex items-center justify-center">
+                                    <span className="material-symbols-sharp text-xl text-[#FF5C00]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>add_circle</span>
+                                </div>
+                                <div className="flex-1 text-left">
+                                    <p className="text-sm font-medium text-white">Create Campaign</p>
+                                    <p className="text-xs text-[#6B6B70]">Launch a new marketing campaign</p>
+                                </div>
+                                <span className="material-symbols-sharp text-[#4A4A4E] text-lg">chevron_right</span>
+                            </button>
+                            {onNavigate && (
+                                <button
+                                    onClick={() => onNavigate('recommendations')}
+                                    className="flex-1 flex items-center gap-4 px-5 py-4 hover:bg-[#1A1A1D] transition-colors"
+                                >
+                                    <div className="w-10 h-10 rounded-lg bg-[#1F1F23] flex items-center justify-center">
+                                        <span className="material-symbols-sharp text-xl text-[#8B5CF6]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                        <p className="text-sm font-medium text-white">AI Campaign Ideas</p>
+                                        <p className="text-xs text-[#6B6B70]">Get AI-powered campaign recommendations</p>
+                                    </div>
+                                    <span className="material-symbols-sharp text-[#4A4A4E] text-lg">chevron_right</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -1956,7 +1931,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                                         <button
                                                                             key={imgIdx}
                                                                             onClick={() => handleSelectImage(item.id, imgIdx)}
-                                                                            className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                                                                            className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
                                                                                 item.selectedImageIndex === imgIdx
                                                                                     ? 'border-[#22C55E] ring-2 ring-[#22C55E]/30'
                                                                                     : 'border-[#1F1F23] hover:border-[#4A4A4E]'
@@ -1976,6 +1951,12 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                                                     <span className="text-[10px] font-medium text-white">Click to Select</span>
                                                                                 </div>
                                                                             )}
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); setViewingImage(img); }}
+                                                                                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-black/60 flex items-center justify-center opacity-0 hover:opacity-100 group-hover:opacity-70 transition-opacity"
+                                                                            >
+                                                                                <span className="material-symbols-sharp text-white text-xs">zoom_in</span>
+                                                                            </button>
                                                                         </button>
                                                                     ))}
                                                                 </div>
@@ -2121,7 +2102,8 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                     <img
                                                         src={item.images[item.selectedImageIndex || 0]}
                                                         alt=""
-                                                        className="w-full h-full object-cover"
+                                                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                                        onClick={() => setViewingImage(item.images![item.selectedImageIndex || 0])}
                                                     />
                                                 )}
                                                 {item.status === 'error' && (
@@ -2445,6 +2427,31 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                         }}
                         onDismiss={() => setLimitModal(null)}
                     />
+                )}
+
+                {/* Image Zoom Modal */}
+                {viewingImage && (
+                    <div
+                        className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-8 cursor-pointer"
+                        onClick={() => setViewingImage(null)}
+                    >
+                        <div className="relative max-w-4xl max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+                            <img src={viewingImage} alt="" className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl" />
+                            <button
+                                onClick={() => setViewingImage(null)}
+                                className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-[#1F1F23] border border-[#333] flex items-center justify-center text-white hover:bg-[#333] transition-colors"
+                            >
+                                <span className="material-symbols-sharp text-sm">close</span>
+                            </button>
+                            <button
+                                onClick={() => handleDownload(viewingImage, 'campaign-asset')}
+                                className="absolute bottom-3 right-3 px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors flex items-center gap-1.5"
+                            >
+                                <span className="material-symbols-sharp text-sm">download</span>
+                                Download
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

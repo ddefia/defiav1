@@ -1240,8 +1240,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                 disabled={!currentTweetText}
                                 className="flex items-center gap-2 px-5 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
-                                Schedule
+                                <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>schedule_send</span>
+                                Schedule to X
                             </button>
                             <button
                                 onClick={() => currentTweetText && handlePrepareTweet(currentTweetText)}
@@ -2155,8 +2155,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                     onClick={() => onSchedule(generatedQuoteTweet)}
                                     className="flex items-center gap-2 px-5 py-3 rounded-[10px] bg-[#1F1F23] border border-[#2E2E2E] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors"
                                 >
-                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
-                                    Schedule
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>schedule_send</span>
+                                    Schedule to X
                                 </button>
                                 <button
                                     onClick={() => {
@@ -2504,8 +2504,8 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                                     onClick={(e) => { e.stopPropagation(); onSchedule(item.description || item.title, item.image); }}
                                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1F1F23] text-[#8B8B8F] text-xs font-medium hover:text-white transition-colors"
                                                 >
-                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>calendar_today</span>
-                                                    Schedule
+                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>schedule_send</span>
+                                                    Schedule to X
                                                 </button>
                                             </div>
                                         </div>

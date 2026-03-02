@@ -142,8 +142,14 @@ export const Web3NewsFeed: React.FC<Web3NewsFeedProps> = ({ brandName, brandConf
             })
             .map(item => ({
                 ...item,
-                // Surface image URL: prefer imageUrl field, fallback to rawData.image for older cached items
-                imageUrl: item.imageUrl || item.rawData?.image || undefined,
+                // Surface image URL: prefer imageUrl field, fallback through rawData fields
+                imageUrl: item.imageUrl
+                    || item.rawData?.image || item.rawData?.imageUrl || item.rawData?.image_url
+                    || item.rawData?.thumbnail || item.rawData?.thumbnailUrl
+                    || item.rawData?.og_image || item.rawData?.ogImage
+                    || item.rawData?.media || item.rawData?.img
+                    || item.rawData?.picture || item.rawData?.featuredImage || item.rawData?.cover
+                    || undefined,
                 sourceName: item.source === 'Twitter' ? 'X / Twitter' : (item.source || 'Web3 News'),
                 category: item.topic?.toLowerCase() || 'defi',
                 relevanceBadge: item.relevanceScore > 80 ? `High relevance to ${brandName}` :

@@ -50,47 +50,41 @@ const transformMetricsToKPIs = (
     const impressionSpark = history.map((h: any) => h.impressions || 0);
     const engagementSpark = history.map((h: any) => h.rate || 0);
 
-    // Derive comparison from engagement history
-    const followersChange = metrics?.comparison?.followersChange || 0;
-    const impressionsChange = metrics?.comparison?.impressionsChange || 0;
-
-    const getTrend = (delta: number) => delta > 0 ? 'up' as const : delta < 0 ? 'down' as const : 'flat' as const;
-
     return [
         {
             label: 'TWITTER FOLLOWERS',
             value: followersVal > 0 ? `${(followersVal / 1000).toFixed(1)}K` : '--',
-            delta: followersChange,
-            trend: getTrend(followersChange),
+            delta: 0,
+            trend: 'flat' as const,
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: followersVal > 10000 ? 'Strong' : followersVal > 0 ? 'Growing' : 'Weak',
+            statusLabel: followersVal > 10000 ? 'Strong' : followersVal > 0 ? 'Growing' : 'No data',
             sparklineData: []
         },
         {
             label: 'TOTAL ENGAGEMENTS',
             value: metrics ? formatEngagements(metrics) : '--',
-            delta: metrics?.comparison?.engagementChange || 0,
-            trend: getTrend(metrics?.comparison?.engagementChange || 0),
+            delta: 0,
+            trend: 'flat' as const,
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: metrics ? 'Active' : 'Weak',
+            statusLabel: metrics ? `From ${(metrics.recentPosts || []).length} posts` : 'No data',
             sparklineData: history.map((h: any) => h.engagements || 0)
         },
         {
-            label: 'WEEKLY IMPRESSIONS',
+            label: 'EST. IMPRESSIONS',
             value: impressionsVal > 0 ? `${(impressionsVal / 1000).toFixed(1)}K` : '--',
-            delta: impressionsChange,
-            trend: getTrend(impressionsChange),
-            confidence: metrics ? 'High' : 'Low',
-            statusLabel: impressionsVal > 10000 ? 'Strong' : impressionsVal > 0 ? 'Growing' : 'Weak',
+            delta: 0,
+            trend: 'flat' as const,
+            confidence: metrics ? 'Low' : 'Low',
+            statusLabel: impressionsVal > 0 ? 'Estimated' : 'No data',
             sparklineData: impressionSpark
         },
         {
             label: 'ENGAGEMENT RATE',
             value: metrics ? `${engagementRateVal.toFixed(2)}%` : '--',
-            delta: metrics?.comparison?.engagementChange || 0,
-            trend: getTrend(metrics?.comparison?.engagementChange || 0),
+            delta: 0,
+            trend: 'flat' as const,
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: metrics ? (engagementRateVal >= 2 ? 'Strong' : 'Watch') : 'Weak',
+            statusLabel: metrics ? (engagementRateVal >= 2 ? 'Strong' : 'Watch') : 'No data',
             sparklineData: engagementSpark
         }
     ];
@@ -1509,10 +1503,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             {upcomingContent.length > 0 ? upcomingContent.map((content: any, i) => (
                                 <div key={content.id || i} className="rounded-xl bg-[#0A0A0B] border border-[#1F1F23] overflow-hidden cursor-pointer hover:border-[#FF5C00]/50 transition-colors" onClick={() => onNavigate('calendar')}>
                                     <div
-                                        className="h-[100px] flex items-center justify-center text-3xl"
+                                        className="h-[100px] flex items-center justify-center text-3xl overflow-hidden"
                                         style={{ background: getContentTypeBg(content.platform) }}
                                     >
-                                        {getContentTypeIcon(content.platform)}
+                                        {content.image ? (
+                                            <img src={content.image} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                            getContentTypeIcon(content.platform)
+                                        )}
                                     </div>
                                     <div className="p-3 space-y-2">
                                         <div className="flex items-center justify-between">

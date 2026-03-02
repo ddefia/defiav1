@@ -11,6 +11,32 @@ const ACTOR_CRYPTO_NEWS = 'pGMem7q7HCa1dUbN2';
 const NEWS_RUN_WAIT_SECONDS = 30;
 const NEWS_STORAGE_KEY = 'defia_web3_news_cache_v1';
 
+/**
+ * Extract og:image from an article URL (fallback when Apify doesn't provide images)
+ */
+const fetchOgImage = async (url) => {
+    if (!url) return null;
+    try {
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Defia/1.0)' },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) return null;
+        const html = await res.text();
+        // Look for og:image meta tag
+        const ogMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+        if (ogMatch?.[1]) return ogMatch[1];
+        // Fallback: twitter:image
+        const twMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
+        return twMatch?.[1] || null;
+    } catch {
+        return null;
+    }
+};
+
 // Default search terms for web3/crypto news
 const DEFAULT_SEARCH_TERMS = 'bitcoin,ethereum,solana,defi,nft,web3,crypto';
 
@@ -120,7 +146,9 @@ export const transformNewsItems = (items, brandName) => {
             timestamp,
             createdAt,
             url: item.url || '',
-            imageUrl: item.image || item.imageUrl || item.thumbnail || item.media || item.og_image || null,
+            imageUrl: item.image || item.imageUrl || item.image_url || item.thumbnail || item.thumbnailUrl
+                || item.media || item.og_image || item.ogImage || item.img || item.picture
+                || item.photo || item.heroImage || item.featuredImage || item.cover || null,
             rawData: item
         };
     });
@@ -171,6 +199,22 @@ export const fetchWeb3News = async (supabase, brandName, options = {}) => {
         // Fetch fresh news
         const rawItems = await runCryptoNewsScraper(searchQuery, limit, token);
         const newsItems = transformNewsItems(rawItems, brandName);
+
+        // Fill in missing images via og:image extraction (best-effort, parallel)
+        const needsImage = newsItems.filter(item => !item.imageUrl && item.url);
+        if (needsImage.length > 0) {
+            console.log(`[Web3News] Fetching og:image for ${needsImage.length} articles without images`);
+            const ogResults = await Promise.allSettled(
+                needsImage.slice(0, 8).map(item => fetchOgImage(item.url))
+            );
+            needsImage.slice(0, 8).forEach((item, i) => {
+                if (ogResults[i]?.status === 'fulfilled' && ogResults[i].value) {
+                    item.imageUrl = ogResults[i].value;
+                }
+            });
+            const filled = ogResults.filter(r => r.status === 'fulfilled' && r.value).length;
+            console.log(`[Web3News] og:image extracted for ${filled}/${needsImage.length} articles`);
+        }
 
         // Cache the results
         if (supabase) {

@@ -330,6 +330,7 @@ const App: React.FC = () => {
     const [itemToSchedule, setItemToSchedule] = useState<{ content: string, image?: string, campaignName?: string } | null>(null);
     const [scheduleDate, setScheduleDate] = useState('');
     const [scheduleTime, setScheduleTime] = useState('');
+    const [scheduleConfirmation, setScheduleConfirmation] = useState<string | null>(null);
 
     // Strategy & Metrics State (Lifted for Dashboard)
     const [strategyTasks, setStrategyTasks] = useState<StrategyTask[]>([]);
@@ -351,7 +352,6 @@ const App: React.FC = () => {
     const decisionLoopInFlightRef = useRef<Record<string, boolean>>({});
     const agentDecisionsRef = useRef<any[]>([]);
     const strategyTasksRef = useRef<StrategyTask[]>([]);
-    const processedDecisionTimeRef = useRef<number>(0);
     const profilesSyncingRef = useRef<boolean>(false);
 
     // Brain interval derived from the current brand's subscription plan
@@ -658,32 +658,25 @@ const App: React.FC = () => {
         }).then(setChainMetrics).catch(() => setChainMetrics(null));
     }, [selectedBrand]);
 
-    const normalizeDecisionType = (action?: string): StrategyTask['type'] => {
-        const normalized = action?.toUpperCase() || '';
-        switch (normalized) {
-            case 'REPLY':
-                return 'REPLY';
-            case 'TREND_JACK':
-                return 'TREND_JACK';
-            case 'CAMPAIGN':
-                return 'CAMPAIGN_IDEA';
-            default:
-                return 'EVERGREEN';
-        }
-    };
-
-    const mapDecisionToTask = (decision: any): StrategyTask => {
-        const actionLabel = decision.action ? decision.action.toString().toUpperCase() : 'ACTION';
+    // Maps server-side decisions (old or rich format) to StrategyTask objects
+    const mapDecisionToTask = (d: any): StrategyTask => {
+        const actionType = d.type || d.action || 'Tweet';
+        const typeMap: Record<string, StrategyTask['type']> = {
+            REPLY: 'REPLY', TREND_JACK: 'TREND_JACK', CAMPAIGN: 'CAMPAIGN_IDEA',
+            GAP_FILL: 'GAP_FILL', Tweet: 'EVERGREEN', TWEET: 'EVERGREEN', QRT: 'REACTION', THREAD: 'EVERGREEN',
+        };
         return {
-            id: decision.id || crypto.randomUUID(),
-            type: normalizeDecisionType(decision.action),
-            title: `${actionLabel}: ${decision.reason || 'Strategic opportunity detected'}`,
-            description: decision.reason || 'Automated decision from server brain.',
-            reasoning: decision.reason || 'Automated decision from server brain.',
-            impactScore: 7,
-            executionPrompt: decision.draft || decision.reason || 'Draft a response to the detected opportunity.',
-            createdAt: decision.timestamp || Date.now(),
-            feedback: 'neutral'
+            id: d.id || `server-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            type: typeMap[actionType] || 'EVERGREEN',
+            title: d.hook || d.topic || d.reason || actionType,
+            description: d.instructions || d.goal || d.draft || d.reason || '',
+            status: 'pending' as const,
+            impactScore: d.impactScore || 7,
+            reasoning: d.reasoning || d.reason || '',
+            executionPrompt: d.instructions || d.draft || '',
+            logicExplanation: d.strategicAlignment || '',
+            proof: d.dataSource || '',
+            contentIdeas: Array.isArray(d.contentIdeas) ? d.contentIdeas : [],
         };
     };
 
@@ -691,68 +684,10 @@ const App: React.FC = () => {
         return tasks.length === 1 && tasks[0].id === 'welcome-1';
     };
 
-    // --- Agent Decisions Polling ---
-    useEffect(() => {
-        // Reset processed decision tracker when brand changes
-        processedDecisionTimeRef.current = 0;
-        const fetchDecisions = async () => {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-            try {
-                // If health check failed previously, maybe skip this?
-                // For now, simple fetch with suppression
-                const authToken = await getAuthToken();
-                const res = await fetch(`${baseUrl}/api/decisions`, {
-                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
-                }).catch(() => null);
-                if (res && res.ok) {
-                    const data = await res.json();
-                    const brandLower = selectedBrand.toLowerCase();
-                    const filtered = data.filter((d: any) =>
-                        d.status === 'pending' &&
-                        (!d.brandId || d.brandId.toLowerCase() === brandLower)
-                    );
-                    agentDecisionsRef.current = filtered;
-                    setAgentDecisions(filtered);
-                }
-            } catch (e) {
-                // scilent fail 
-            }
-        };
-        fetchDecisions();
-        const interval = setInterval(fetchDecisions, 10000); // Poll every 10s
-        return () => clearInterval(interval);
-    }, [selectedBrand]);
-
     // Keep strategyTasksRef in sync with state (without causing re-renders)
     useEffect(() => {
         strategyTasksRef.current = strategyTasks;
     }, [strategyTasks]);
-
-    useEffect(() => {
-        if (!selectedBrand || agentDecisions.length === 0) return;
-        const latestDecision = agentDecisions[0];
-        const decisionTimestamp = latestDecision?.created_at || latestDecision?.timestamp || null;
-        const decisionTime = decisionTimestamp ? new Date(decisionTimestamp).getTime() : 0;
-        if (!decisionTime) return;
-
-        // Skip if we already processed this decision time
-        if (processedDecisionTimeRef.current >= decisionTime) return;
-
-        const currentTasks = strategyTasksRef.current;
-        const latestTaskTime = currentTasks.reduce((max, task) => Math.max(max, task.createdAt || 0), 0);
-        if (latestTaskTime && decisionTime <= latestTaskTime) {
-            processedDecisionTimeRef.current = decisionTime;
-            return;
-        }
-
-        const mapped = agentDecisions.map(mapDecisionToTask).slice(0, 5);
-        if (mapped.length === 0) return;
-
-        processedDecisionTimeRef.current = decisionTime;
-        setStrategyTasks(mapped);
-        saveStrategyTasks(selectedBrand, mapped);
-        saveDecisionLoopLastRun(selectedBrand, decisionTime);
-    }, [agentDecisions, selectedBrand]);
 
     // --- AUTO-PILOT LOGIC (Formerly in GrowthEngine) ---
     // Persistent background scanning regardless of active tab
@@ -798,6 +733,33 @@ const App: React.FC = () => {
                         return;
                     }
                 }
+
+                // Check if server-cached recommendations are fresh — skip local brain if so
+                try {
+                    const cached = await fetchCachedRecommendations(selectedBrand);
+                    if (cached?.actions?.length) {
+                        const cacheAge = cached.generatedAt ? Date.now() - new Date(cached.generatedAt).getTime() : Infinity;
+                        const intervalMs = getDecisionLoopInterval();
+                        if (cacheAge < intervalMs) {
+                            // Server recommendations are fresh — use them, skip local brain
+                            const mappedFromServer = cached.actions
+                                .filter((a: any) => {
+                                    const t = a.type || a.action;
+                                    return t && t !== 'NO_ACTION' && t !== 'ERROR';
+                                })
+                                .map((a: any) => mapDecisionToTask(a))
+                                .slice(0, 6);
+                            if (mappedFromServer.length > 0 && hasOnlyWelcomeTask(strategyTasksRef.current)) {
+                                setStrategyTasks(mappedFromServer);
+                                saveStrategyTasks(selectedBrand, mappedFromServer);
+                            }
+                            // Update last-run timestamp so we don't re-run local brain
+                            saveDecisionLoopLastRun(selectedBrand, Date.now());
+                            setSystemLogs(prev => [`Server brain fresh (${Math.round(cacheAge / 60000)}m ago). Using cached recommendations.`, ...prev]);
+                            return;
+                        }
+                    }
+                } catch { /* non-critical — fall through to local brain */ }
 
                 // 1. Ingest Market Data
                 setSystemLogs(prev => ["Scanning Social Graph (Twitter/Farcaster) & On-Chain...", ...prev]);
@@ -1037,7 +999,7 @@ const App: React.FC = () => {
                     feedback: 'neutral'
                 }));
 
-                const hasCampaignTask = newTasks.some(task => task.type === 'CAMPAIGN_IDEA' || task.type === 'CAMPAIGN');
+                const hasCampaignTask = newTasks.some(task => task.type === 'CAMPAIGN_IDEA');
                 if (!hasCampaignTask) {
                     const fallbackTopic = trends[0]?.headline || `${selectedBrand} launch momentum`;
                     newTasks.unshift({
@@ -1605,7 +1567,7 @@ const App: React.FC = () => {
                         // Enrich with images/url from actual source data (mentions or competitor tweets)
                         const authorClean = (ot.author || '').replace('@', '').toLowerCase();
                         const sourceMention = mentions.find((m: any) => (m.author || '').toLowerCase() === authorClean);
-                        const sourceCompTweet = (compTweets || competitorTweets || []).find((t: any) => (t.competitor || '').toLowerCase() === authorClean);
+                        const sourceCompTweet = (compTweets || []).find((t: any) => (t.competitor || '').toLowerCase() === authorClean);
                         const source = sourceMention || sourceCompTweet;
                         return {
                             ...ot,
@@ -1617,6 +1579,54 @@ const App: React.FC = () => {
                     sourceTweetImages: (() => {
                         if (action.type === 'REPLY' && mentions[0]?.images?.length) return mentions[0].images;
                         return [];
+                    })(),
+                    // Enrich with clickable source links from original data
+                    sourceLinks: (() => {
+                        const links: Array<{ label: string; url: string; type: string }> = [];
+                        const aType = (action.type || '').toUpperCase();
+                        const actionText = `${action.topic || ''} ${action.reasoning || ''} ${action.dataSource || ''} ${action.hook || ''}`.toLowerCase();
+
+                        // Match trending topics / news articles by headline overlap
+                        const trends = socialSignals.trendingTopics || [];
+                        for (const trend of trends) {
+                            if (!trend.url) continue;
+                            const headline = (trend.headline || '').toLowerCase();
+                            // Check if this trend's headline appears in the action's text or if it's a TREND_JACK rec
+                            if ((headline.length > 10 && actionText.includes(headline.slice(0, 30).toLowerCase()))
+                                || (aType === 'TREND_JACK' && actionText.includes(headline.split(' ').slice(0, 3).join(' ')))) {
+                                links.push({ label: trend.headline.slice(0, 60), url: trend.url, type: 'article' });
+                                break; // One matching article is enough
+                            }
+                        }
+                        // If TREND_JACK but no specific match, attach the top trend article
+                        if (aType === 'TREND_JACK' && links.length === 0 && trends[0]?.url) {
+                            links.push({ label: trends[0].headline?.slice(0, 60) || 'Top Trending Article', url: trends[0].url, type: 'article' });
+                        }
+
+                        // Match mentions by author
+                        if (mentions.length > 0 && (aType === 'REPLY' || aType === 'QRT' || aType === 'COMMUNITY')) {
+                            const targetMention = mentions.find((m: any) => {
+                                const author = (m.author || '').toLowerCase();
+                                return actionText.includes(author) || actionText.includes(`@${author}`);
+                            }) || mentions[0];
+                            if (targetMention?.tweetUrl) {
+                                links.push({ label: `@${targetMention.author}: ${(targetMention.text || '').slice(0, 50)}…`, url: targetMention.tweetUrl, type: 'tweet' });
+                            }
+                        }
+
+                        // Match competitor tweets
+                        const ct = compTweets || [];
+                        if (ct.length > 0) {
+                            const matchedComp = ct.find((t: any) => {
+                                const comp = (t.competitor || '').toLowerCase();
+                                return actionText.includes(comp) || actionText.includes(`@${comp}`);
+                            });
+                            if (matchedComp?.tweetUrl) {
+                                links.push({ label: `@${matchedComp.competitor}: ${(matchedComp.text || '').slice(0, 50)}…`, url: matchedComp.tweetUrl, type: 'tweet' });
+                            }
+                        }
+
+                        return links;
                     })(),
                     generatedAt: now,
                 };
@@ -1659,6 +1669,37 @@ const App: React.FC = () => {
                 localStorage.setItem(`defia_recs_ts_${selectedBrand}`, String(now));
                 localStorage.setItem(`defia_recs_ctx_${selectedBrand}`, JSON.stringify(newSummary));
             } catch {}
+
+            // Push to Telegram via server (fire-and-forget)
+            if (richRecs.length > 0 && registry?.brandId) {
+                try {
+                    const esc = (t: string) => String(t || '').replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+                    const bold = (t: string) => `*${esc(t)}*`;
+                    const italic = (t: string) => `_${esc(t)}_`;
+                    const typeIcons: Record<string, string> = { Engagement: '💬', Trend: '⚡', Campaign: '📢', Content: '📝', Thread: '🧵', QRT: '🔁', Tweet: '🐦' };
+
+                    const lines: string[] = [];
+                    lines.push(`🧠 ${bold(`Strategy Update — ${selectedBrand}`)}`);
+                    lines.push('');
+                    for (const rec of richRecs.slice(0, 4)) {
+                        const icon = typeIcons[rec.type] || '📌';
+                        lines.push(`${icon} ${bold(String(rec.title || rec.type || 'Action').slice(0, 80))}`);
+                        if (rec.reasoning) lines.push(italic(rec.reasoning.replace(/\n/g, ' ').slice(0, 150)));
+                        if (rec.dataSignal) lines.push(esc(`Signal: ${rec.dataSignal.slice(0, 100)}`));
+                        lines.push('');
+                    }
+                    const siteUrl = window.location.origin;
+                    lines.push(`➡️ ${esc('Full details:')} ${esc(siteUrl)}`);
+
+                    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+                    const authToken = await getAuthToken();
+                    fetch(`${baseUrl}/api/recommendations/notify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
+                        body: JSON.stringify({ brandId: registry.brandId, message: lines.join('\n') }),
+                    }).catch(() => {}); // Fire-and-forget
+                } catch {}
+            }
 
             // Also update strategy tasks
             if (actions.length > 0) {
@@ -1844,6 +1885,12 @@ const App: React.FC = () => {
 
         setShowScheduleModal(false);
         setItemToSchedule(null);
+
+        // Show confirmation banner
+        const dateStr = new Date(scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const timeStr = new Date(scheduledAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        setScheduleConfirmation(`Scheduled to post on X — ${dateStr} at ${timeStr}`);
+        setTimeout(() => setScheduleConfirmation(null), 5000);
     };
 
     const handleDeleteEvent = (id: string) => {
@@ -2284,6 +2331,7 @@ const App: React.FC = () => {
                         onClearIntent={() => setCampaignIntent(null)}
                         recentPosts={socialMetrics?.recentPosts || []}
                         onNavigate={handleNavigate}
+                        aiRecommendations={llmRecommendations}
                     />
                 )}
 
@@ -2471,6 +2519,7 @@ const App: React.FC = () => {
                         growthReport={growthReport}
                         socialMetrics={socialMetrics}
                         agentDecisions={agentDecisions}
+                        qrtFeed={qrtFeed}
                         onNavigate={handleNavigate}
                     />
                 )}
@@ -2489,6 +2538,22 @@ const App: React.FC = () => {
                 )}
 
 
+
+                {/* Schedule confirmation banner */}
+                {scheduleConfirmation && (
+                    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-3 px-5 py-3.5 rounded-xl bg-[#111113] border border-[#22C55E30] shadow-2xl" style={{ animation: 'schedModalIn 0.2s ease-out' }}>
+                        <div className="w-8 h-8 rounded-lg bg-[#22C55E18] flex items-center justify-center">
+                            <span className="material-symbols-sharp text-[#22C55E] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>check_circle</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold text-white">{scheduleConfirmation}</p>
+                            <p className="text-[11px] text-[#6B6B70] mt-0.5">View in Calendar to edit or cancel</p>
+                        </div>
+                        <button onClick={() => setScheduleConfirmation(null)} className="ml-2 text-[#6B6B70] hover:text-white transition-colors">
+                            <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                        </button>
+                    </div>
+                )}
 
                 {/* SCHEDULE / ADD CONTENT MODAL */}
                 {showScheduleModal && (
@@ -2605,6 +2670,12 @@ const App: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Auto-post notice */}
+                            <div className="mx-6 mt-1 mb-0 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[#3B82F608] border border-[#3B82F620]">
+                                <svg viewBox="0 0 24 24" className="w-4 h-4 flex-shrink-0 text-[#3B82F6]" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                <span className="text-xs text-[#8B8B90]">This post will <span className="text-[#3B82F6] font-medium">auto-post to X</span> at the scheduled time</span>
+                            </div>
+
                             {/* Footer */}
                             <div className="px-6 py-4 border-t border-[#1F1F23] flex gap-3">
                                 <button
@@ -2620,7 +2691,7 @@ const App: React.FC = () => {
                                     style={{ background: scheduleDate ? 'linear-gradient(135deg, #FF5C00, #FF8A4C)' : '#1F1F23' }}
                                 >
                                     <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>schedule_send</span>
-                                    Confirm Schedule
+                                    Schedule Post to X
                                 </button>
                             </div>
                         </div>

@@ -115,6 +115,55 @@ const pruneOldDecisions = async (supabase, days = 30) => {
 
 const normalize = (value) => String(value || '').toLowerCase();
 
+// ━━━ Per-Brand Interval Gating ━━━
+
+const PLAN_INTERVALS = { starter: 24, growth: 6, enterprise: 1 };
+const DEFAULT_INTERVAL_HOURS = 6;
+
+const getBrandInterval = async (supabase, brandId) => {
+    if (!supabase) return DEFAULT_INTERVAL_HOURS;
+    try {
+        const { data } = await supabase
+            .from('subscriptions')
+            .select('plan_tier')
+            .eq('brand_id', brandId)
+            .eq('status', 'active')
+            .maybeSingle();
+        const tier = (data?.plan_tier || '').toLowerCase();
+        return PLAN_INTERVALS[tier] || DEFAULT_INTERVAL_HOURS;
+    } catch {
+        return DEFAULT_INTERVAL_HOURS;
+    }
+};
+
+export const shouldRunForBrand = async (supabase, brandId) => {
+    if (!supabase) return true;
+    try {
+        const intervalHours = await getBrandInterval(supabase, brandId);
+        const { data } = await supabase
+            .from('app_storage')
+            .select('value')
+            .eq('key', `defia_brain_last_run_${brandId}`)
+            .maybeSingle();
+        if (!data?.value?.lastRun) return true; // Never run before
+        const age = Date.now() - new Date(data.value.lastRun).getTime();
+        return age >= intervalHours * 60 * 60 * 1000;
+    } catch {
+        return true; // On error, run to be safe
+    }
+};
+
+export const markBrandRun = async (supabase, brandId) => {
+    if (!supabase) return;
+    try {
+        await supabase.from('app_storage').upsert({
+            key: `defia_brain_last_run_${brandId}`,
+            value: { lastRun: new Date().toISOString() },
+            updated_at: new Date().toISOString(),
+        });
+    } catch { /* non-critical */ }
+};
+
 export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdentifier, supabaseOverride } = {}) => {
     console.log(`\n[${new Date().toISOString()}] 🧠 Agent Cycle: ${label}`);
 
@@ -224,16 +273,17 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
                 console.log(`     - Loaded ${competitorTweets.length} competitor tweets from ${competitors.filter(c => c.handle).length} competitor(s)`);
             }
 
-            // 2. Analyze (returns { actions: [...] })
+            // 2. Analyze (returns { analysis, actions: [...] })
             const decisionResult = await analyzeState(dune, [], mentions, brandTrends, brandProfile, competitorTweets);
             const decisions = decisionResult.actions || [decisionResult];
 
             // 3. Act & Save — process all actions
             let savedAny = false;
             for (const decision of decisions) {
-                if (decision.action && decision.action !== 'NO_ACTION' && decision.action !== 'ERROR') {
-                    const icon = decision.action === 'REPLY' ? '↩️' : decision.action === 'TREND_JACK' ? '⚡' : decision.action === 'CAMPAIGN' ? '📢' : decision.action === 'GAP_FILL' ? '🎯' : '💬';
-                    console.log(`     - ${icon} [${brandId}] ACTION: ${decision.action}`);
+                const actionType = decision.action || decision.type;
+                if (actionType && actionType !== 'NO_ACTION' && actionType !== 'ERROR') {
+                    const icon = actionType === 'REPLY' ? '↩️' : actionType === 'TREND_JACK' ? '⚡' : actionType === 'CAMPAIGN' ? '📢' : actionType === 'GAP_FILL' ? '🎯' : actionType === 'QRT' ? '🔁' : '💬';
+                    console.log(`     - ${icon} [${brandId}] ACTION: ${actionType}`);
 
                     const record = { ...decision, brandId };
                     saveDecisionToFile(record);
@@ -246,7 +296,27 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
                 }
             }
 
-            // Send ONE consolidated Telegram notification for all recommendations
+            // 4. Cache to app_storage so the client can read it
+            const ownerPrefix = brand.owner_id ? brand.owner_id.slice(0, 8) : null;
+            if (ownerPrefix && supabase) {
+                try {
+                    const cacheKey = `${ownerPrefix}_defia_recommendations_cache_v1_${(brand.name || brandId).toLowerCase()}`;
+                    await supabase.from('app_storage').upsert({
+                        key: cacheKey,
+                        value: {
+                            actions: decisions,
+                            analysis: decisionResult.analysis || null,
+                            generatedAt: new Date().toISOString(),
+                        },
+                        updated_at: new Date().toISOString(),
+                    });
+                    console.log(`     - 💾 Cached ${decisions.length} recommendations to app_storage for ${brandId}`);
+                } catch (cacheErr) {
+                    console.warn(`     - Cache write failed for ${brandId}:`, cacheErr.message);
+                }
+            }
+
+            // 5. Send ONE consolidated Telegram notification for all recommendations
             try {
                 await notifyLinkedChats(supabase, brandId, 'recommendations', decisions);
             } catch (tgErr) {
@@ -278,12 +348,40 @@ export const startAgent = () => {
         if (apifyKey) await updateAllBrands(apifyKey, activeBrands);
     }, 5000);
 
-    // Bootup brain cycle removed — the scheduled cron (every 6h) handles this.
+    // Bootup brain cycle removed — the scheduled cron (every hour) handles this.
     // Running it on every deploy was burning Apify credits (1 actor run per brand per restart).
 
-    // 1. Core Agent Loop (Decision Making) - Every 6 hours (was hourly — reduced to save Apify credits)
-    cron.schedule('0 */6 * * *', async () => {
-        await runBrainCycle({ label: 'Scheduled Decision Scan', supabaseOverride: supabase });
+    // 1. Core Agent Loop — Hourly (per-brand interval gating inside)
+    // Uses gemini-2.5-flash with thinking mode for high-quality recommendations.
+    // Each brand only runs when its subscription interval has elapsed (24h/6h/1h).
+    cron.schedule('0 * * * *', async () => {
+        console.log(`\n[${new Date().toISOString()}] 🧠 Hourly Brain Check: Scanning brands...`);
+        try {
+            const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
+            if (activeBrands.length === 0) return;
+
+            const cycleStart = Date.now();
+            for (const brand of activeBrands) {
+                // Timeout guard: bail if approaching Vercel 120s limit
+                if (Date.now() - cycleStart > 100000) {
+                    console.log('   - ⏱️ Approaching timeout, remaining brands deferred to next cycle');
+                    break;
+                }
+
+                const shouldRun = await shouldRunForBrand(supabase, brand.id);
+                if (!shouldRun) continue;
+
+                console.log(`   - 🧠 Running brain for ${brand.name || brand.id}...`);
+                try {
+                    await runBrainCycle({ label: 'Scheduled Brain', brandIdentifier: brand.id, supabaseOverride: supabase });
+                    await markBrandRun(supabase, brand.id);
+                } catch (e) {
+                    console.warn(`   - Brain failed for ${brand.id}:`, e.message);
+                }
+            }
+        } catch (e) {
+            console.error('   - Hourly Brain Check Failed:', e.message);
+        }
     });
 
     // 2. Data Sync Loop (Data Freshness) - Daily at Noon

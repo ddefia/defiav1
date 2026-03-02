@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { startAgent, triggerAgentRun, runBrainCycle, runBriefingCycle } from './server/agent/scheduler.js';
+import { startAgent, triggerAgentRun, runBrainCycle, runBriefingCycle, shouldRunForBrand, markBrandRun } from './server/agent/scheduler.js';
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
 import { updateAllBrands, fetchMentions, fetchCompetitorTweets } from './server/agent/ingest.js';
 import { analyzeState } from './server/agent/brain.js';
@@ -20,6 +20,7 @@ import { generateAndCreateQueries, CHAIN_SCHEMAS } from './server/services/dune.
 import Stripe from 'stripe';
 import { handleTelegramWebhook } from './server/telegram/webhookHandler.js';
 import { generateLinkCode, getLinkedChats } from './server/telegram/linkManager.js';
+import { notifyLinkedChats } from './server/telegram/notifier.js';
 import { sendMessage as sendTelegramMessage, setWebhook as setTelegramWebhook, deleteWebhook as deleteTelegramWebhook, getMe as getTelegramMe, isConfigured as isTelegramConfigured } from './server/telegram/telegramClient.js';
 import { logApiUsage, estimateCost } from './server/services/usageLogger.js';
 
@@ -1815,6 +1816,23 @@ app.get('/api/agent/run', async (req, res) => {
     }
 });
 
+// --- Client → Telegram: Forward rich recommendations ---
+app.post('/api/recommendations/notify', requireAuth, async (req, res) => {
+    try {
+        const { brandId, message } = req.body;
+        if (!brandId || !message) return res.status(400).json({ error: 'Missing brandId or message' });
+
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        await notifyLinkedChats(supabase, brandId, 'raw_text', message);
+        return res.json({ status: 'ok' });
+    } catch (e) {
+        console.warn('[RecsNotify] Failed:', e.message);
+        return res.status(500).json({ error: 'Notification failed' });
+    }
+});
+
 // --- Recommendations Cron (Cache brain analysis for all brands) ---
 app.get('/api/agent/recommendations', async (req, res) => {
     try {
@@ -1828,29 +1846,28 @@ app.get('/api/agent/recommendations', async (req, res) => {
         }
 
         const results = [];
+        const cycleStart = Date.now();
+
         for (const brand of activeBrands) {
+            // Timeout guard: bail if approaching Vercel 120s limit
+            if (Date.now() - cycleStart > 100000) {
+                console.log('[Recs] Approaching timeout, remaining brands deferred');
+                break;
+            }
+
             try {
                 const brandId = brand.id;
                 const ownerPrefix = brand.owner_id ? brand.owner_id.slice(0, 8) : null;
                 if (!ownerPrefix) {
-                    console.warn(`[Recs] Brand ${brandId} has no owner_id — skipping`);
                     results.push({ brandId, skipped: true, reason: 'No owner' });
                     continue;
                 }
 
-                // Check if cached recommendations are still fresh (< 20h)
-                const cacheKey = `${ownerPrefix}_defia_recommendations_cache_v1_${(brand.name || brandId).toLowerCase()}`;
-                const { data: existing } = await supabase
-                    .from('app_storage')
-                    .select('updated_at')
-                    .eq('key', cacheKey)
-                    .maybeSingle();
-                if (existing?.updated_at) {
-                    const age = Date.now() - new Date(existing.updated_at).getTime();
-                    if (age < 20 * 60 * 60 * 1000) { // < 20 hours
-                        results.push({ brandId, skipped: true, reason: 'Cache still fresh' });
-                        continue;
-                    }
+                // Per-brand interval check (replaces hardcoded 20h)
+                const needsRun = await shouldRunForBrand(supabase, brandId);
+                if (!needsRun) {
+                    results.push({ brandId, skipped: true, reason: 'Interval not elapsed' });
+                    continue;
                 }
 
                 // Check automation enabled
@@ -1875,7 +1892,7 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     }));
                 } catch { /* non-critical */ }
 
-                // Fetch mentions from cache (no new Apify calls — uses existing 6h cached data)
+                // Fetch mentions from cache
                 let mentions = [];
                 try {
                     if (apifyKey && handle) {
@@ -1895,7 +1912,7 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     }
                 }
 
-                // Run brain with full context (mentions + competitor tweets + trends)
+                // Run brain with full context (now uses gemini-2.5-flash + thinking)
                 const decisionResult = await analyzeState(
                     null, [], mentions, trends,
                     { ...brandProfile, name: brand.name || brandId },
@@ -1904,18 +1921,29 @@ app.get('/api/agent/recommendations', async (req, res) => {
 
                 // Validate: don't cache error responses
                 const actions = decisionResult?.actions || [];
-                if (actions.length === 0 || (actions.length === 1 && actions[0]?.action === 'ERROR')) {
+                if (actions.length === 0 || (actions.length === 1 && (actions[0]?.action === 'ERROR' || actions[0]?.type === 'ERROR'))) {
                     console.warn(`[Recs] Brain returned error/empty for ${brandId}:`, decisionResult?.reason || 'no actions');
                     results.push({ brandId, error: decisionResult?.reason || 'Brain returned no actions' });
                     continue;
                 }
 
-                // Cache to app_storage
+                // Cache to app_storage (client reads from this key)
+                const cacheKey = `${ownerPrefix}_defia_recommendations_cache_v1_${(brand.name || brandId).toLowerCase()}`;
                 await supabase.from('app_storage').upsert({
                     key: cacheKey,
-                    value: { actions, generatedAt: new Date().toISOString() },
+                    value: { actions, analysis: decisionResult.analysis || null, generatedAt: new Date().toISOString() },
                     updated_at: new Date().toISOString(),
                 });
+
+                // Mark brand as run (for interval gating)
+                await markBrandRun(supabase, brandId);
+
+                // Send Telegram notification
+                try {
+                    await notifyLinkedChats(supabase, brandId, 'recommendations', actions);
+                } catch (tgErr) {
+                    console.warn(`[Recs] Telegram failed for ${brandId}:`, tgErr.message);
+                }
 
                 results.push({ brandId, cached: true, actionCount: actions.length });
                 console.log(`[Recs] Cached ${actions.length} recommendations for ${brandId}`);

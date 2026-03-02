@@ -13,6 +13,7 @@ interface CopilotViewProps {
     growthReport: GrowthReport | null;
     socialMetrics: SocialMetrics | null;
     agentDecisions: any[];
+    qrtFeed?: any[];
     onNavigate: (section: string, params?: any) => void;
 }
 
@@ -72,6 +73,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
     growthReport,
     socialMetrics,
     agentDecisions,
+    qrtFeed = [],
     onNavigate
 }) => {
     const [input, setInput] = useState('');
@@ -166,13 +168,14 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
         scrollToBottom();
     }, [messages]);
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
+    const handleSend = async (overrideMessage?: string) => {
+        const messageText = overrideMessage || input.trim();
+        if (!messageText) return;
 
         const userMsg: ChatMessage = {
             id: `usr-${Date.now()}`,
             role: 'user',
-            content: input,
+            content: messageText,
             timestamp: Date.now()
         };
 
@@ -186,7 +189,8 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
             const marketingContext = {
                 calendar: calendarEvents,
                 tasks: strategyTasks,
-                report: growthReport
+                report: growthReport,
+                qrtFeed: qrtFeed
             };
 
             const classification = await classifyAndPopulate(history, brandConfig, marketingContext);
@@ -533,10 +537,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                             {suggestionChips.map((chip, i) => (
                                 <button
                                     key={i}
-                                    onClick={() => {
-                                        setInput(chip.label);
-                                        // Focus the input so user can just press Enter
-                                    }}
+                                    onClick={() => handleSend(chip.label)}
                                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1F1F23] border border-[#2E2E2E] text-[#94A3B8] text-xs font-medium hover:bg-[#2A2A2D] hover:text-white hover:border-[#FF5C0044] transition-colors"
                                 >
                                     <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>{chip.icon}</span>
