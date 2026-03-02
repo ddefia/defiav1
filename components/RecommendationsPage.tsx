@@ -45,6 +45,7 @@ const getRecStyle = (action: string) => {
         case 'COMMUNITY': return { type: 'Community', typeBg: '#F59E0B', icon: 'groups', borderColor: '#F59E0B44' };
         case 'TWEET': return { type: 'Tweet', typeBg: '#1DA1F2', icon: 'chat_bubble', borderColor: '#1DA1F244' };
         case 'THREAD': return { type: 'Thread', typeBg: '#A855F7', icon: 'segment', borderColor: '#A855F744' };
+        case 'QRT': return { type: 'QRT', typeBg: '#06B6D4', icon: 'format_quote', borderColor: '#06B6D444' };
         default: return { type: 'Optimization', typeBg: '#F59E0B', icon: 'tune', borderColor: '#F59E0B44' };
     }
 };
@@ -541,6 +542,23 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                             <span className="text-[#9CA3AF] text-xs font-semibold tracking-wider uppercase">Priority Queue</span>
                             <span className="text-[#9CA3AF] text-xs">{filteredRecs.length} items</span>
                         </div>
+                        {/* AI Focus compact input */}
+                        <div className="flex items-center gap-2 bg-[#111113] border border-[#1F1F23] rounded-lg px-3 py-2 mb-3">
+                            <span className="material-symbols-sharp text-[#FF5C00] text-[14px] flex-shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>target</span>
+                            <input
+                                type="text"
+                                value={recommendationFocus}
+                                onChange={e => onFocusChange?.(e.target.value)}
+                                placeholder="Focus area (e.g. AI agents)…"
+                                className="flex-1 bg-transparent text-white text-xs placeholder-[#4B5563] focus:outline-none min-w-0"
+                            />
+                            {recommendationFocus ? (
+                                <button onClick={() => onFocusChange?.('')}
+                                    className="flex-shrink-0 text-[#4B5563] hover:text-white transition-colors">
+                                    <span className="material-symbols-sharp text-[14px]">close</span>
+                                </button>
+                            ) : null}
+                        </div>
                         <div className="flex bg-[#111113] rounded-lg p-1 gap-1">
                             {(['high', 'medium', 'low', 'all'] as const).map(f => (
                                 <button key={f}
@@ -592,6 +610,19 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             </span>
                                         </div>
                                         <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug line-clamp-3"><LinkifiedText text={cleanTitle(rec.title)} /></h4>
+                                        {/* Trending / QRT signal highlight */}
+                                        {rec.type === 'Trend' && (
+                                            <div className="flex items-center gap-1 mb-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-pulse flex-shrink-0"></span>
+                                                <span className="text-[#8B5CF6] text-[10px] font-bold tracking-wider uppercase">Trending Now</span>
+                                            </div>
+                                        )}
+                                        {rec.type === 'QRT' && rec.originalTweet && (
+                                            <div className="flex items-center gap-1 mb-1.5">
+                                                <span className="material-symbols-sharp text-[11px] text-[#06B6D4]">format_quote</span>
+                                                <span className="text-[#06B6D4] text-[10px] font-semibold">Source tweet available</span>
+                                            </div>
+                                        )}
                                         {rec.dataSignal && (
                                             <div className="flex items-center gap-1 mb-1.5 text-[#9CA3AF] text-[11px]">
                                                 <span className="material-symbols-sharp text-[12px]">bolt</span>
@@ -676,17 +707,33 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                             {/* WHAT */}
                             <div className="mb-6">
                                 <span className="text-[10px] font-bold tracking-widest text-[#FF5C00] uppercase mb-2 block">What</span>
+
+                                {/* Trending NOW banner */}
+                                {selectedRec.type === 'Trend' && (
+                                    <div className="flex items-center gap-2.5 mb-3 px-3 py-2 rounded-lg bg-[#8B5CF6]/10 border border-[#8B5CF6]/25">
+                                        <span className="w-2 h-2 rounded-full bg-[#8B5CF6] animate-pulse flex-shrink-0"></span>
+                                        <span className="text-[#8B5CF6] text-xs font-bold tracking-widest uppercase">Trending Now</span>
+                                        {selectedRec.sourceLinks?.[0]?.url && (
+                                            <a href={selectedRec.sourceLinks[0].url} target="_blank" rel="noopener noreferrer"
+                                                className="ml-auto text-[#8B5CF6] text-xs hover:underline flex items-center gap-1 font-medium">
+                                                Read article
+                                                <span className="material-symbols-sharp text-[11px]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                            </a>
+                                        )}
+                                    </div>
+                                )}
+
                                 <h2 className="text-white text-[22px] font-bold leading-snug mb-4" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
                                     <LinkifiedText text={cleanTitle(selectedRec.title)} />
                                 </h2>
 
-                                {/* Source tweet for QRT/REPLY */}
-                                {(selectedRec.type === 'QRT' || selectedRec.type === 'Engagement') && selectedRec.originalTweet && (
+                                {/* Source tweet for QRT/REPLY — shown whenever originalTweet is present */}
+                                {selectedRec.originalTweet && (
                                     <div className="rounded-xl border border-[#06B6D4]/30 bg-[#06B6D4]/5 p-4 mb-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <span className="material-symbols-sharp text-[14px] text-[#06B6D4]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
                                             <span className="text-[#06B6D4] text-[11px] font-semibold uppercase tracking-wider">
-                                                {selectedRec.type === 'QRT' ? 'Tweet to Quote' : 'Tweet to Reply to'}
+                                                {selectedRec.type === 'QRT' ? 'Tweet to Quote' : selectedRec.type === 'Engagement' ? 'Tweet to Reply to' : 'Source Tweet'}
                                             </span>
                                             {selectedRec.originalTweet.tweetUrl && (
                                                 <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
@@ -737,9 +784,13 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     <LinkifiedText text={safeStr(selectedRec.reasoning || selectedRec.fullReason || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')} />
                                 </p>
                                 {selectedRec.dataSignal && (
-                                    <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
-                                        <span className="material-symbols-sharp text-[14px] text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
-                                        <LinkifiedText text={safeStr(selectedRec.dataSignal)} className="text-[13px]" />
+                                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${selectedRec.type === 'Trend' ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20' : 'bg-[#FF5C00]/8 border border-[#FF5C00]/15'}`}>
+                                        <span className="material-symbols-sharp text-[14px]"
+                                            style={{ color: selectedRec.type === 'Trend' ? '#8B5CF6' : '#FF5C00', fontVariationSettings: "'wght' 300" }}>
+                                            {selectedRec.type === 'Trend' ? 'trending_up' : 'bolt'}
+                                        </span>
+                                        <LinkifiedText text={safeStr(selectedRec.dataSignal)}
+                                            className={`text-[13px] font-medium ${selectedRec.type === 'Trend' ? 'text-[#C4B5FD]' : 'text-[#FDBA74]'}`} />
                                     </div>
                                 )}
                                 {/* Source tags as inline pills */}

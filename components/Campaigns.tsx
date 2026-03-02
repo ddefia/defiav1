@@ -89,7 +89,16 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     // UI State
     const [error, setError] = useState<string | null>(null);
     const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+    const [campaignMenuOpen, setCampaignMenuOpen] = useState<string | null>(null);
     const [activeUploadId, setActiveUploadId] = useState<string | null>(null);
+
+    // Close campaign action menu on outside click
+    useEffect(() => {
+        if (!campaignMenuOpen) return;
+        const handler = () => setCampaignMenuOpen(null);
+        document.addEventListener('click', handler);
+        return () => document.removeEventListener('click', handler);
+    }, [campaignMenuOpen]);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
     const campaignFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -515,6 +524,25 @@ export const Campaigns: React.FC<CampaignsProps> = ({
 
     const handleDeleteDraft = (id: string) => {
         setCampaignItems(prev => prev.filter(item => item.id !== id));
+    };
+
+    const handleDeleteCampaign = (campName: string) => {
+        // Remove from campaign logs
+        const logs = loadCampaignLogs(brandName);
+        saveCampaignLogs(brandName, logs.filter(l => l.name !== campName));
+        // Remove all calendar events belonging to this campaign
+        const filtered = events.filter(e => e.campaignName !== campName);
+        onUpdateEvents(filtered);
+        setCampaignMenuOpen(null);
+        showToast(`Campaign "${campName}" deleted`, 'success');
+    };
+
+    const handleEditCampaign = (campName: string) => {
+        setCampaignTheme(campName);
+        setCampaignType('theme');
+        setCampaignStep(1);
+        setViewMode('wizard');
+        setCampaignMenuOpen(null);
     };
 
     const handleGenerateApproved = async () => {
@@ -1088,13 +1116,35 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             <span className="text-[13px] font-medium text-[#6B6B70] font-mono">{camp.roi || '—'}</span>
                                         </div>
                                         {/* Actions */}
-                                        <div className="flex-1 flex justify-end">
+                                        <div className="flex-1 flex justify-end relative">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); }}
+                                                onClick={(e) => { e.stopPropagation(); setCampaignMenuOpen(prev => prev === camp.name ? null : camp.name); }}
                                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B6B70] hover:text-white hover:bg-[#1F1F23] transition-colors"
                                             >
                                                 <span className="material-symbols-sharp text-lg">more_horiz</span>
                                             </button>
+                                            {campaignMenuOpen === camp.name && (
+                                                <div
+                                                    className="absolute right-0 top-9 z-50 w-40 bg-[#1A1A1D] border border-[#2E2E2E] rounded-xl shadow-xl overflow-hidden"
+                                                    onClick={e => e.stopPropagation()}
+                                                >
+                                                    <button
+                                                        onClick={() => handleEditCampaign(camp.name)}
+                                                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-white hover:bg-[#2A2A2D] transition-colors text-left"
+                                                    >
+                                                        <span className="material-symbols-sharp text-base text-[#9CA3AF]" style={{ fontVariationSettings: "'wght' 300" }}>edit</span>
+                                                        Edit Campaign
+                                                    </button>
+                                                    <div className="h-px bg-[#2E2E2E]"></div>
+                                                    <button
+                                                        onClick={() => handleDeleteCampaign(camp.name)}
+                                                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors text-left"
+                                                    >
+                                                        <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>delete</span>
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))

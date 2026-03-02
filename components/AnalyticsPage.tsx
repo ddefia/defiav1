@@ -8,8 +8,6 @@ interface AnalyticsPageProps {
     brandName: string;
     metrics: SocialMetrics | null;
     chainMetrics: ComputedMetrics | null;
-    recommendationFocus?: string;
-    onFocusChange?: (focus: string) => void;
 }
 
 type ChartTab = 'impressions' | 'engagements' | 'followers';
@@ -30,7 +28,7 @@ interface ContentRow {
     mediaUrl?: string;
 }
 
-export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics, chainMetrics, recommendationFocus = '', onFocusChange }) => {
+export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics, chainMetrics }) => {
     const [chartTab, setChartTab] = useState<ChartTab>('impressions');
     const [sortField, setSortField] = useState<SortField>('engagement');
     const [sortAsc, setSortAsc] = useState(false);
@@ -236,37 +234,6 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col gap-5 p-6 px-10 overflow-y-auto min-h-0">
-                {/* AI Focus — guides what recommendations the brain prioritises */}
-                <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-4 flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-lg bg-[#FF5C0015] flex items-center justify-center flex-shrink-0">
-                        <span className="material-symbols-sharp text-[#FF5C00] text-base" style={{ fontVariationSettings: "'wght' 300" }}>target</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-white text-sm font-semibold">AI Recommendation Focus</span>
-                            {recommendationFocus && (
-                                <span className="text-[10px] bg-[#FF5C00]/20 text-[#FF5C00] px-2 py-0.5 rounded-full font-medium">Active</span>
-                            )}
-                        </div>
-                        <p className="text-[#6B6B70] text-xs">Tell the AI what to prioritise in recommendations. Applies on next analysis run.</p>
-                    </div>
-                    <div className="relative w-[320px] flex-shrink-0">
-                        <input
-                            type="text"
-                            value={recommendationFocus}
-                            onChange={e => onFocusChange?.(e.target.value)}
-                            placeholder="e.g. AI agents, community growth, DeFi…"
-                            className="w-full bg-[#0A0A0B] border border-[#2E2E2E] rounded-lg px-3 py-2 text-white text-sm placeholder-[#4B5563] focus:outline-none focus:border-[#FF5C00]/50 transition-colors"
-                        />
-                        {recommendationFocus && (
-                            <button onClick={() => onFocusChange?.('')}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#4B5563] hover:text-white transition-colors">
-                                <span className="material-symbols-sharp text-[16px]">close</span>
-                            </button>
-                        )}
-                    </div>
-                </div>
-
                 {/* Metrics Row */}
                 <div className="grid grid-cols-4 gap-4">
                     {/* Weekly Impressions */}

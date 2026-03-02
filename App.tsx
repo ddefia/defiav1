@@ -2316,8 +2316,6 @@ const App: React.FC = () => {
                         brandName={selectedBrand}
                         metrics={socialMetrics}
                         chainMetrics={chainMetrics}
-                        recommendationFocus={recommendationFocus}
-                        onFocusChange={handleFocusChange}
                     />
                 )}
 
