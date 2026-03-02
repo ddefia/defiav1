@@ -536,36 +536,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             <div className="flex-1 flex overflow-hidden">
                 {/* Left: Priority Queue */}
                 <div className="w-[420px] min-w-[420px] border-r border-[#1F1F23] flex flex-col bg-[#0A0A0B]">
-                    {/* Focus Input */}
-                    <div className="px-5 pt-4 pb-2 border-b border-[#1F1F23]/60">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="material-symbols-sharp text-[13px] text-[#FF5C00]">target</span>
-                            <span className="text-[#9CA3AF] text-xs font-semibold tracking-wider uppercase">Focus</span>
-                            {recommendationFocus && (
-                                <span className="ml-auto text-[10px] bg-[#FF5C00]/20 text-[#FF5C00] px-2 py-0.5 rounded-full font-medium">Active</span>
-                            )}
-                        </div>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={recommendationFocus}
-                                onChange={e => onFocusChange?.(e.target.value)}
-                                placeholder="e.g. AI agents, community growth, DeFi…"
-                                className="w-full bg-[#111113] border border-[#1F1F23] rounded-lg px-3 py-2 text-white text-xs placeholder-[#4B5563] focus:outline-none focus:border-[#FF5C00]/50 transition-colors"
-                            />
-                            {recommendationFocus && (
-                                <button
-                                    onClick={() => onFocusChange?.('')}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#4B5563] hover:text-white transition-colors"
-                                >
-                                    <span className="material-symbols-sharp text-[14px]">close</span>
-                                </button>
-                            )}
-                        </div>
-                        <p className="text-[#4B5563] text-[10px] mt-1.5">Guides the AI on what topics to prioritize. Hit "Run Analysis" to apply.</p>
-                    </div>
-
-                    <div className="px-5 pt-4 pb-3">
+                    <div className="px-5 pt-5 pb-3">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-[#9CA3AF] text-xs font-semibold tracking-wider uppercase">Priority Queue</span>
                             <span className="text-[#9CA3AF] text-xs">{filteredRecs.length} items</span>
@@ -671,17 +642,21 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                 {/* Right: Detail Panel */}
                 <div className="flex-1 overflow-y-auto bg-[#0A0A0B]">
                     {selectedRec ? (
-                        <div className="p-8">
-                            {/* Top badges + actions */}
-                            <div className="flex items-center justify-between mb-5">
+                        <div className="p-7 max-w-[820px]">
+
+                            {/* Header row: badges + actions */}
+                            <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="px-3 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase" style={{ backgroundColor: `${getPriorityColor(selectedRec.impactScore)}22`, color: getPriorityColor(selectedRec.impactScore) }}>
+                                    <span className="px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase"
+                                        style={{ backgroundColor: `${getPriorityColor(selectedRec.impactScore)}18`, color: getPriorityColor(selectedRec.impactScore) }}>
                                         {getPriorityLabel(selectedRec.impactScore)} Priority
                                     </span>
-                                    <span className="px-3 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase bg-[#1F1F23] text-[#9CA3AF]">
+                                    <span className="px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase"
+                                        style={{ backgroundColor: `${selectedRec.typeBg || '#FF5C00'}18`, color: selectedRec.typeBg || '#FF5C00' }}>
+                                        <span className="material-symbols-sharp text-[11px] mr-1" style={{ fontVariationSettings: "'wght' 400" }}>{selectedRec.icon}</span>
                                         {selectedRec.type}
                                     </span>
-                                    <span className="px-3 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase" style={{ backgroundColor: `${getPriorityColor(selectedRec.impactScore)}22`, color: getPriorityColor(selectedRec.impactScore) }}>
+                                    <span className="px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase bg-[#1F1F23] text-[#9CA3AF]">
                                         {selectedRec.impactScore}% Confidence
                                     </span>
                                 </div>
@@ -698,359 +673,126 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 </div>
                             </div>
 
-                            {/* Timestamps */}
-                            <div className="flex items-center gap-4 mb-4 text-[11px]">
-                                {selectedRec.generatedAt && (
-                                    <span className="flex items-center gap-1.5 text-[#9CA3AF]">
-                                        <span className="material-symbols-sharp text-[13px]" style={{ fontVariationSettings: "'wght' 300" }}>schedule</span>
-                                        Generated {timeAgo(selectedRec.generatedAt)}
-                                    </span>
-                                )}
-                                {regenLastRun > 0 && (
-                                    <span className="flex items-center gap-1.5 text-[#9CA3AF]">
-                                        <span className="material-symbols-sharp text-[13px]" style={{ fontVariationSettings: "'wght' 300" }}>database</span>
-                                        Data from {new Date(regenLastRun).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {new Date(regenLastRun).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-                                    </span>
-                                )}
-                            </div>
+                            {/* WHAT */}
+                            <div className="mb-6">
+                                <span className="text-[10px] font-bold tracking-widest text-[#FF5C00] uppercase mb-2 block">What</span>
+                                <h2 className="text-white text-[22px] font-bold leading-snug mb-4" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
+                                    <LinkifiedText text={cleanTitle(selectedRec.title)} />
+                                </h2>
 
-                            {/* Thinking Chain */}
-                            {selectedRec.dataSignal && (() => {
-                                const relevantAgentNames = getRelevantAgents(selectedRec.type);
-                                const relevantInsights = (decisionSummary?.agentInsights || []).filter((a: any) => relevantAgentNames.includes(a.agent));
-                                const agentSummary = relevantInsights.length > 0
-                                    ? relevantInsights.map((a: any) => a.agent).join(' + ') + ' analysis'
-                                    : relevantAgentNames.join(' + ');
-                                const steps = [
-                                    { label: 'Signal', icon: 'sensors', color: '#3B82F6', text: selectedRec.dataSignal.length > 70 ? selectedRec.dataSignal.slice(0, 67) + '…' : selectedRec.dataSignal },
-                                    { label: 'Agents', icon: 'groups', color: '#8B5CF6', text: agentSummary },
-                                    { label: 'Strategy', icon: 'hub', color: '#FF5C00', text: selectedRec.strategicAlignment ? (selectedRec.strategicAlignment.length > 70 ? selectedRec.strategicAlignment.slice(0, 67) + '…' : selectedRec.strategicAlignment) : 'Brain synthesis' },
-                                    { label: 'Action', icon: 'bolt', color: '#22C55E', text: `${selectedRec.type}: ${cleanTitle(selectedRec.title).slice(0, 50)}` },
-                                ];
-                                return (
-                                    <div className="rounded-xl bg-[#111113] border border-[#1F1F23] p-4 mb-6">
-                                        <div className="flex items-center gap-1.5 mb-3">
-                                            <span className="material-symbols-sharp text-[14px] text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>route</span>
-                                            <span className="text-[10px] font-bold text-[#FF5C00] tracking-wider uppercase">Reasoning Chain</span>
-                                        </div>
-                                        <div className="flex items-stretch gap-0">
-                                            {steps.map((s, i) => (
-                                                <div key={i} className="flex items-stretch flex-1 min-w-0">
-                                                    <div className="flex flex-col items-center flex-1 min-w-0 relative">
-                                                        <div className="flex items-center gap-1.5 mb-1.5">
-                                                            <span className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${s.color}22` }}>
-                                                                <span className="material-symbols-sharp text-[12px]" style={{ color: s.color, fontVariationSettings: "'wght' 300" }}>{s.icon}</span>
-                                                            </span>
-                                                            <span className="text-[9px] font-bold tracking-wider uppercase" style={{ color: s.color }}>{s.label}</span>
-                                                        </div>
-                                                        <LinkifiedText text={s.text} className="text-[10px] text-[#ADADB0] leading-relaxed text-center px-1 line-clamp-2 block" />
-                                                    </div>
-                                                    {i < steps.length - 1 && (
-                                                        <div className="flex items-center px-1 pt-1 self-start">
-                                                            <span className="material-symbols-sharp text-[12px] text-[#3E3E3E]">chevron_right</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Title */}
-                            <h2 className="text-white text-2xl font-bold mb-3 leading-snug" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
-                                <LinkifiedText text={cleanTitle(selectedRec.fullReason || selectedRec.reasoning || selectedRec.title)} />
-                            </h2>
-                            {/* Data signal subtitle — only show if different from the title */}
-                            {selectedRec.dataSignal && (
-                                <p className="text-[#9CA3AF] text-[15px] leading-relaxed mb-8 max-w-[700px] flex items-center gap-2">
-                                    <span className="material-symbols-sharp text-[16px] text-[#FF5C00]">bolt</span>
-                                    <LinkifiedText text={safeStr(selectedRec.dataSignal)} />
-                                </p>
-                            )}
-
-                            {/* Action Context Banner */}
-                            <div className="rounded-xl bg-[#111113] border border-[#1F1F23] p-4 mb-6 flex items-center gap-3">
-                                <span className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                                    style={{ backgroundColor: `${selectedRec.typeBg}22` }}>
-                                    <span className="material-symbols-sharp text-[20px]"
-                                        style={{ color: selectedRec.typeBg, fontVariationSettings: "'wght' 300" }}>{selectedRec.icon}</span>
-                                </span>
-                                <div>
-                                    <span className="text-white text-sm font-semibold">{selectedRec.type} Opportunity</span>
-                                    <p className="text-[#9CA3AF] text-xs mt-0.5">
-                                        {selectedRec.type === 'Engagement' ? 'Engage with an active conversation to build community presence and visibility.'
-                                            : selectedRec.type === 'Trend' ? 'Capitalize on a trending topic while it has peak attention.'
-                                            : selectedRec.type === 'Campaign' ? 'Launch a coordinated content push around a strategic theme.'
-                                            : selectedRec.type === 'Content' ? 'Fill a content gap in your posting schedule.'
-                                            : selectedRec.type === 'Community' ? 'Strengthen community bonds with targeted interaction.'
-                                            : selectedRec.type === 'Tweet' ? 'Publish timely content to maintain audience presence.'
-                                            : selectedRec.type === 'Thread' ? 'Create a multi-part thread for deeper engagement.'
-                                            : selectedRec.type === 'QRT' ? 'Quote-retweet a high-signal tweet to insert your brand into the conversation.'
-                                            : 'Optimize your content strategy based on current signals.'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Original Tweet Quote (QRT only) */}
-                            {selectedRec.type === 'QRT' && selectedRec.originalTweet && (
-                                <div className="rounded-xl border border-[#06B6D4]/30 bg-[#06B6D4]/5 p-4 mb-6">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="material-symbols-sharp text-[16px] text-[#06B6D4]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
-                                        <span className="text-[#06B6D4] text-xs font-semibold uppercase tracking-wider">Tweet to Quote</span>
-                                        {selectedRec.originalTweet.tweetUrl && (
-                                            <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
-                                                className="ml-auto text-[#06B6D4] text-xs hover:underline flex items-center gap-1">
-                                                <span className="material-symbols-sharp text-xs" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
-                                                View on X
-                                            </a>
-                                        )}
-                                    </div>
-                                    <p className="text-white text-[14px] leading-relaxed italic">
-                                        "{selectedRec.originalTweet.text}"
-                                    </p>
-                                    {selectedRec.originalTweet.images?.length > 0 && (
-                                        <div className="flex gap-2 mt-3 overflow-x-auto">
-                                            {selectedRec.originalTweet.images.slice(0, 4).map((img: string, i: number) => (
-                                                <img key={i} src={img} alt={`Tweet media ${i + 1}`}
-                                                    className="rounded-lg max-h-[160px] object-cover border border-[#1F1F23]"
-                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-                                    <p className="text-[#9CA3AF] text-xs mt-2">
-                                        — {selectedRec.originalTweet.author}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Source Tweet Images (for mention-based recs like REPLY) */}
-                            {selectedRec.sourceTweetImages?.length > 0 && selectedRec.type !== 'QRT' && (
-                                <div className="flex gap-2 mb-6 overflow-x-auto">
-                                    {selectedRec.sourceTweetImages.slice(0, 4).map((img: string, i: number) => (
-                                        <img key={i} src={img} alt={`Source tweet media ${i + 1}`}
-                                            className="rounded-lg max-h-[140px] object-cover border border-[#1F1F23]"
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Two column: Reasoning + Right cards */}
-                            <div className="flex gap-6">
-                                {/* Left: AI Reasoning */}
-                                <div className="flex-1 min-w-0">
-                                    <div className="rounded-2xl bg-[#111113] border border-[#1F1F23] p-6">
-                                        <div className="flex items-center gap-2 mb-5">
-                                            <span className="w-8 h-8 rounded-lg bg-[#FF5C0022] flex items-center justify-center">
-                                                <span className="material-symbols-sharp text-[18px] text-[#FF5C00]">psychology</span>
+                                {/* Source tweet for QRT/REPLY */}
+                                {(selectedRec.type === 'QRT' || selectedRec.type === 'Engagement') && selectedRec.originalTweet && (
+                                    <div className="rounded-xl border border-[#06B6D4]/30 bg-[#06B6D4]/5 p-4 mb-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="material-symbols-sharp text-[14px] text-[#06B6D4]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                            <span className="text-[#06B6D4] text-[11px] font-semibold uppercase tracking-wider">
+                                                {selectedRec.type === 'QRT' ? 'Tweet to Quote' : 'Tweet to Reply to'}
                                             </span>
-                                            <span className="text-white text-base font-semibold">AI Reasoning</span>
+                                            {selectedRec.originalTweet.tweetUrl && (
+                                                <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
+                                                    className="ml-auto text-[#06B6D4] text-xs hover:underline flex items-center gap-1">
+                                                    <span className="material-symbols-sharp text-[11px]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>View on X
+                                                </a>
+                                            )}
                                         </div>
-
-                                        <div className="mb-5">
-                                            <span className="text-[#9CA3AF] text-xs font-medium">Why this recommendation</span>
-                                            <div className="text-[#E5E7EB] text-sm leading-relaxed mt-2">
-                                                <LinkifiedText text={safeStr(selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')} />
-                                            </div>
-                                        </div>
-
-                                        {selectedRec.strategicAlignment && (
-                                            <div className="pt-4 border-t border-[#1F1F23]">
-                                                <span className="text-[#9CA3AF] text-xs font-medium">Strategic alignment</span>
-                                                <p className="text-[#E5E7EB] text-sm leading-relaxed mt-2">
-                                                    {selectedRec.strategicAlignment}
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {/* Agent Council Insights — filtered to relevant agents for this rec */}
-                                        {decisionSummary?.agentInsights && decisionSummary.agentInsights.length > 0 && (() => {
-                                            const relevantNames = getRelevantAgents(selectedRec.type);
-                                            const colors: Record<string, string> = {
-                                                'Social Listener': '#3B82F6', 'Performance Analyst': '#22C55E',
-                                                'Content Planner': '#F59E0B', 'Knowledge Curator': '#8B5CF6',
-                                            };
-                                            const icons: Record<string, string> = {
-                                                'Social Listener': 'visibility', 'Performance Analyst': 'analytics',
-                                                'Content Planner': 'edit_calendar', 'Knowledge Curator': 'menu_book',
-                                            };
-                                            // Show relevant agents first (highlighted), then others dimmed
-                                            const sorted = [...decisionSummary.agentInsights].sort((a: any, b: any) => {
-                                                const aRel = relevantNames.includes(a.agent) ? 0 : 1;
-                                                const bRel = relevantNames.includes(b.agent) ? 0 : 1;
-                                                return aRel - bRel;
-                                            });
-                                            return (
-                                                <div className="pt-4 mt-4 border-t border-[#1F1F23]">
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <span className="text-[#9CA3AF] text-xs font-medium">Agent Council</span>
-                                                        <span className="text-[#6B6B70] text-[10px]">· {relevantNames.length} agent{relevantNames.length !== 1 ? 's' : ''} contributed</span>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        {sorted.map((insight: any, idx: number) => {
-                                                            const isRelevant = relevantNames.includes(insight.agent);
-                                                            const color = colors[insight.agent] || '#FF5C00';
-                                                            return (
-                                                                <div key={idx} className={`rounded-lg p-3 transition-all ${isRelevant ? 'bg-[#0A0A0B] border border-[#1F1F23]' : 'bg-[#0A0A0B]/50 border border-[#1F1F23]/50 opacity-50'}`}>
-                                                                    <div className="flex items-center gap-1.5 mb-1.5">
-                                                                        <span className="material-symbols-sharp text-[14px]" style={{ color }}>{icons[insight.agent] || 'smart_toy'}</span>
-                                                                        <span className="text-[10px] font-semibold" style={{ color }}>{insight.agent}</span>
-                                                                        {isRelevant && <span className="ml-auto text-[8px] px-1.5 py-0.5 rounded-full bg-[#FF5C0015] text-[#FF5C00] font-medium">KEY</span>}
-                                                                    </div>
-                                                                    <p className="text-[#D1D5DB] text-[11px] leading-relaxed mb-1.5">
-                                                                        {(() => { const s = safeStr(insight.summary || insight.focus || ''); return s.length > 120 ? s.slice(0, 120) + '...' : s; })()}
-                                                                    </p>
-                                                                    {insight.keySignals?.length > 0 && (
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                            {insight.keySignals.slice(0, 3).map((signal: any, sIdx: number) => {
-                                                                                const text = typeof signal === 'string' ? signal : (signal?.signal || signal?.text || JSON.stringify(signal));
-                                                                                return (
-                                                                                    <span key={sIdx} className="px-1.5 py-0.5 rounded bg-[#1F1F23] text-[9px] text-[#ADADB0]">
-                                                                                        {text.length > 40 ? text.slice(0, 37) + '…' : text}
-                                                                                    </span>
-                                                                                );
-                                                                            })}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-
-                                {/* Right: Draft + Sources + Ideas */}
-                                <div className="w-[340px] min-w-[340px] space-y-4">
-                                    {/* Draft Content */}
-                                    {selectedRec.fullDraft && (
-                                        <div className="rounded-2xl bg-[#111113] border border-[#1F1F23] p-5">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <span className="material-symbols-sharp text-[16px] text-[#FF5C00]">edit_note</span>
-                                                <span className="text-[#FF5C00] text-sm font-semibold">Draft Content</span>
-                                            </div>
-                                            <p className="text-[#E5E7EB] text-sm leading-relaxed mb-4">
-                                                {selectedRec.fullDraft}
-                                            </p>
-                                            <button onClick={() => onNavigate('studio', { draft: selectedRec.fullDraft })}
-                                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2E2E2E] text-[#9CA3AF] text-xs hover:bg-[#1F1F23] transition-colors">
-                                                <span className="material-symbols-sharp text-[14px]">edit</span>
-                                                Edit in Studio
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Original Data Sources — clickable links to the actual articles/tweets */}
-                                    {selectedRec.sourceLinks?.length > 0 && (
-                                        <div className="rounded-2xl bg-[#111113] border border-[#22C55E33] p-5">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <span className="material-symbols-sharp text-[16px] text-[#22C55E]">link</span>
-                                                <span className="text-[#22C55E] text-sm font-semibold">Original Sources</span>
-                                                <span className="text-[#6B6B70] text-[10px] ml-auto">{selectedRec.sourceLinks.length} link{selectedRec.sourceLinks.length !== 1 ? 's' : ''}</span>
-                                            </div>
-                                            <div className="space-y-2">
-                                                {selectedRec.sourceLinks.map((link: any, lIdx: number) => (
-                                                    <a
-                                                        key={lIdx}
-                                                        href={link.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-start gap-2.5 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#1F1F23] hover:border-[#22C55E44] hover:bg-[#22C55E08] transition-all group cursor-pointer"
-                                                        onClick={e => e.stopPropagation()}
-                                                    >
-                                                        <span className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: link.type === 'tweet' ? '#1DA1F215' : '#8B5CF615' }}>
-                                                            <span className="material-symbols-sharp text-[14px]" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6', fontVariationSettings: "'wght' 300" }}>
-                                                                {link.type === 'tweet' ? 'chat_bubble' : 'article'}
-                                                            </span>
-                                                        </span>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="text-[#E5E7EB] text-xs font-medium line-clamp-1">{link.label}</span>
-                                                                <span className="material-symbols-sharp text-[11px] text-[#6B6B70] group-hover:text-[#22C55E] transition-colors flex-shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
-                                                            </div>
-                                                            <p className="text-[#6B6B70] text-[10px] mt-0.5 truncate">
-                                                                {link.type === 'tweet' ? 'View on X' : (() => { try { return new URL(link.url).hostname.replace('www.', ''); } catch { return 'Source'; } })()}
-                                                            </p>
-                                                        </div>
-                                                    </a>
+                                        <p className="text-[#E5E7EB] text-sm leading-relaxed italic">"{selectedRec.originalTweet.text}"</p>
+                                        {selectedRec.originalTweet.images?.length > 0 && (
+                                            <div className="flex gap-2 mt-2 overflow-x-auto">
+                                                {selectedRec.originalTweet.images.slice(0, 3).map((img: string, i: number) => (
+                                                    <img key={i} src={img} alt="" className="rounded-lg max-h-[120px] object-cover border border-[#1F1F23]"
+                                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                                 ))}
                                             </div>
-                                        </div>
-                                    )}
-
-                                    {/* Intelligence Sources — per-rec */}
-                                    <div className="rounded-2xl bg-[#111113] border border-[#1F1F23] p-5">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <span className="material-symbols-sharp text-[16px] text-[#9CA3AF]">database</span>
-                                            <span className="text-white text-sm font-semibold">Intelligence Sources</span>
-                                            <span className="text-[#6B6B70] text-[10px] ml-auto">{(selectedRec.sourceTags || []).length} active</span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {(selectedRec.sourceTags || ['AI Analysis']).map((tag: string, tIdx: number) => {
-                                                const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
-                                                const navTarget = style.nav;
-                                                // Generate contextual evidence per source
-                                                const evidence =
-                                                    tag === 'Web3 News' && socialSignals.trendingTopics?.length
-                                                        ? `${socialSignals.trendingTopics.length} trending topics · Top: "${(socialSignals.trendingTopics[0]?.headline || '').slice(0, 40)}"`
-                                                    : tag === 'X Analytics' && socialMetrics?.recentPosts?.length
-                                                        ? `${socialMetrics.recentPosts.length} posts analyzed · ${socialMetrics.engagementRate?.toFixed(1) || '0'}% engagement`
-                                                    : tag === 'Knowledge Base' && brandConfig?.knowledgeBase?.length
-                                                        ? `${brandConfig.knowledgeBase.length} entries · Brand positioning + voice guidelines`
-                                                    : tag === 'Brand Mentions' && decisionSummary?.inputCoverage?.mentions
-                                                        ? `${decisionSummary.inputCoverage.mentions} mention${decisionSummary.inputCoverage.mentions !== 1 ? 's' : ''} scanned`
-                                                    : tag === 'Content Calendar' && decisionSummary?.inputCoverage?.calendarItems
-                                                        ? `${decisionSummary.inputCoverage.calendarItems} scheduled items reviewed`
-                                                    : tag === 'On-Chain Data'
-                                                        ? 'Wallet growth, retention, campaign ROI'
-                                                    : tag === 'Competitive Intel'
-                                                        ? 'Competitor positioning gaps identified'
-                                                    : '4-agent council synthesis';
-                                                return (
-                                                    <div key={tIdx}
-                                                        className={`flex items-start gap-2.5 p-2.5 rounded-lg bg-[#0A0A0B] border border-[#1F1F23] ${navTarget ? 'cursor-pointer hover:border-[#2E2E2E] hover:bg-[#111113] transition-all group' : ''}`}
-                                                        onClick={navTarget ? () => onNavigate(navTarget) : undefined}
-                                                        title={navTarget ? `Open ${tag}` : undefined}
-                                                    >
-                                                        <span className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: `${style.color}15` }}>
-                                                            <span className="material-symbols-sharp text-[14px]" style={{ color: style.color, fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
-                                                        </span>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="text-[#E5E7EB] text-xs font-medium">{tag}</span>
-                                                                {navTarget && (
-                                                                    <span className="material-symbols-sharp text-[11px] text-[#6B6B70] group-hover:text-[#9CA3AF] transition-colors" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-[#9CA3AF] text-[10px] leading-relaxed mt-0.5">{evidence}</p>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                        )}
+                                        <p className="text-[#6B6B70] text-xs mt-2">— {selectedRec.originalTweet.author}</p>
                                     </div>
+                                )}
 
-                                    {/* Content Ideas */}
-                                    {selectedRec.contentIdeas && selectedRec.contentIdeas.length > 0 && (
-                                        <div className="rounded-2xl bg-[#111113] border border-[#FF5C0033] p-5">
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <span className="material-symbols-sharp text-[16px] text-[#FF5C00]">tips_and_updates</span>
-                                                <span className="text-[#FF5C00] text-sm font-semibold">Content Ideas</span>
-                                            </div>
-                                            <div className="space-y-3">
+                                {/* Content ideas / draft */}
+                                {(selectedRec.contentIdeas?.length > 0 || selectedRec.fullDraft) && (
+                                    <div className="bg-[#111113] border border-[#1F1F23] rounded-xl p-4">
+                                        <span className="text-[#9CA3AF] text-[11px] font-semibold uppercase tracking-wider mb-3 block">
+                                            {selectedRec.contentIdeas?.length > 1 ? 'Content ideas' : 'Suggested content'}
+                                        </span>
+                                        {selectedRec.contentIdeas?.length > 0 ? (
+                                            <div className="space-y-2">
                                                 {selectedRec.contentIdeas.map((idea: string, j: number) => (
-                                                    <div key={j} className="flex items-start gap-2">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF5C00] mt-1.5 flex-shrink-0"></span>
+                                                    <div key={j} className="flex items-start gap-2.5">
+                                                        <span className="w-5 h-5 rounded-full bg-[#FF5C00]/15 text-[#FF5C00] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{j + 1}</span>
                                                         <span className="text-[#E5E7EB] text-sm leading-relaxed">{idea}</span>
                                                     </div>
                                                 ))}
                                             </div>
-                                        </div>
-                                    )}
+                                        ) : (
+                                            <p className="text-[#E5E7EB] text-sm leading-relaxed">{selectedRec.fullDraft}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* WHY */}
+                            <div className="mb-6">
+                                <span className="text-[10px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2 block">Why</span>
+                                <p className="text-[#D1D5DB] text-[15px] leading-relaxed mb-3">
+                                    <LinkifiedText text={safeStr(selectedRec.reasoning || selectedRec.fullReason || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')} />
+                                </p>
+                                {selectedRec.dataSignal && (
+                                    <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                                        <span className="material-symbols-sharp text-[14px] text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
+                                        <LinkifiedText text={safeStr(selectedRec.dataSignal)} className="text-[13px]" />
+                                    </div>
+                                )}
+                                {/* Source tags as inline pills */}
+                                {(selectedRec.sourceTags || []).length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 mt-3">
+                                        {(selectedRec.sourceTags as string[]).map((tag: string, tIdx: number) => {
+                                            const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
+                                            return (
+                                                <span key={tIdx}
+                                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${style.nav ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                                    style={{ backgroundColor: `${style.color}18`, color: style.color }}
+                                                    onClick={style.nav ? () => onNavigate(style.nav!) : undefined}>
+                                                    <span className="material-symbols-sharp text-[11px]" style={{ fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
+                                                    {tag}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* WHERE + WHEN */}
+                            <div>
+                                <span className="text-[10px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2 block">Where &amp; When</span>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    {/* Platform */}
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23]">
+                                        <span className="material-symbols-sharp text-[14px] text-[#1DA1F2]" style={{ fontVariationSettings: "'wght' 300" }}>chat_bubble</span>
+                                        <span className="text-[#E5E7EB] text-xs font-medium">X / Twitter</span>
+                                    </div>
+                                    {/* Format */}
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23]">
+                                        <span className="material-symbols-sharp text-[14px]" style={{ color: selectedRec.typeBg || '#FF5C00', fontVariationSettings: "'wght' 300" }}>{selectedRec.icon}</span>
+                                        <span className="text-[#E5E7EB] text-xs font-medium">{selectedRec.type}</span>
+                                    </div>
+                                    {/* Timing */}
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23]">
+                                        <span className="material-symbols-sharp text-[14px] text-[#9CA3AF]" style={{ fontVariationSettings: "'wght' 300" }}>schedule</span>
+                                        <span className="text-[#9CA3AF] text-xs">
+                                            {selectedRec.generatedAt ? `Generated ${timeAgo(selectedRec.generatedAt)}` : regenLastRun > 0 ? `Data from ${new Date(regenLastRun).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Now'}
+                                        </span>
+                                    </div>
+                                    {/* Source links */}
+                                    {selectedRec.sourceLinks?.map((link: any, lIdx: number) => (
+                                        <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23] hover:border-[#3E3E3E] transition-colors group">
+                                            <span className="material-symbols-sharp text-[14px]" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6', fontVariationSettings: "'wght' 300" }}>
+                                                {link.type === 'tweet' ? 'chat_bubble' : 'article'}
+                                            </span>
+                                            <span className="text-[#E5E7EB] text-xs font-medium line-clamp-1 max-w-[140px]">{link.label}</span>
+                                            <span className="material-symbols-sharp text-[11px] text-[#6B6B70] group-hover:text-[#9CA3AF]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                        </a>
+                                    ))}
                                 </div>
                             </div>
                         </div>
