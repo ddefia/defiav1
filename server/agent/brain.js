@@ -109,34 +109,44 @@ CRITICAL RULES:
 - QRT requires a REAL tweet from the mentions or competitor tweets. Include originalTweet.
 - Every recommendation must be specific to ${brandName} — reference actual products, features, ecosystem.
 - No generic "web3 is growing" filler. Be specific or pick a different action type.
-- Drafts should be tweet-length (under 280 chars) unless it's a CAMPAIGN or THREAD brief.
 - NEVER use hashtags. No #anything.
 - Do NOT default to REPLY unless there's a genuine question/FUD in mentions.
-${tweetExamples ? `- Match the style and tone of the CONTENT STYLE EXAMPLES above.` : ''}
+${tweetExamples ? `- Match the EXACT style, tone, and length of the CONTENT STYLE EXAMPLES above. If examples use short punchy sentences, do the same.` : ''}
+
+CONTENT QUALITY GATE — each recommendation MUST pass ALL of these:
+✓ "Could this tweet ONLY come from ${brandName}?" — if yes, keep. If another brand could post it unchanged, rewrite.
+✓ "Is there a real signal behind this?" — cite the specific mention, trend headline, metric, or KB entry.
+✓ "Does instructions contain the actual copy?" — for TWEET/TREND_JACK/QRT/REPLY: it must be a complete, ready-to-post tweet (under 280 chars). For THREAD: hook + first 3 tweets numbered 1/ 2/ 3/. For CAMPAIGN/GAP_FILL: campaign brief + opening tweet draft.
+
+EXAMPLE OUTPUT QUALITY:
+BAD instructions: "Post about our technology being fast and decentralized"
+GOOD instructions (TWEET): "institutional custody isn't waiting for L2 maturity. we built native MPC key management into our sequencer so traders can self-custody at sequencer-level speed. first protocol to do this."
+BAD hook: "Technology Thread"
+GOOD hook: "The Custody Speed Trap"
 
 ═══════════════════════════════════════════
 OUTPUT FORMAT (strict JSON)
 ═══════════════════════════════════════════
 {
     "analysis": {
-        "summary": "2-3 sentence market context summary",
-        "keyThemes": ["theme1", "theme2", "theme3"],
-        "opportunities": ["opp1", "opp2"],
-        "risks": ["risk1"],
-        "strategicAngle": "The bold narrative only ${brandName} can own right now"
+        "summary": "2-3 sentence market context citing specific data points from the LIVE DATA above",
+        "keyThemes": ["theme1 with data evidence", "theme2", "theme3"],
+        "opportunities": ["Specific opportunity 1 tied to a named trend or metric", "Opportunity 2 citing a competitor gap"],
+        "risks": ["Risk 1 with data", "Risk 2"],
+        "strategicAngle": "The bold counter-narrative only ${brandName} can credibly own — name a specific brand capability vs a specific market assumption"
     },
     "actions": [
         {
             "type": "TWEET | THREAD | CAMPAIGN | REPLY | TREND_JACK | GAP_FILL | QRT",
-            "topic": "What this is about",
-            "goal": "What we want to achieve",
-            "instructions": "Ready-to-post content OR detailed brief",
-            "reasoning": "1-2 sentences: why this action, what data supports it",
-            "hook": "Attention-grabbing opening line for the content",
-            "strategicAlignment": "How this connects to brand strategy",
-            "contentIdeas": ["idea1", "idea2", "idea3"],
-            "dataSource": "What signal triggered this (mention, trend headline, metric, etc.)",
-            "originalTweet": { "author": "@handle", "text": "quoted text" }
+            "topic": "Specific topic grounded in data — NOT a generic category",
+            "goal": "Measurable outcome (e.g. 'drive 50+ RTs from DeFi researchers', 'capture institutional trader attention')",
+            "instructions": "THE ACTUAL TWEET TEXT, ready to copy-paste and post. TWEET/TREND_JACK/QRT/REPLY = complete tweet under 280 chars. THREAD = hook tweet + first 3 tweets labeled 1/ 2/ 3/. CAMPAIGN = campaign brief paragraph + opening tweet draft.",
+            "reasoning": "2-3 sentences citing the SPECIFIC signal: name the exact trend headline, mention author, metric delta, or KB entry that triggered this recommendation.",
+            "hook": "Bold internal code name with edge — 3-5 words (e.g. 'The MEV Shield', 'Sequencer Supremacy', 'Operation Phantom Growth')",
+            "strategicAlignment": "References [specific KB entry or brand feature] because [specific market gap or competitive weakness]",
+            "contentIdeas": ["Contrarian angle", "Data-backed variant", "Narrative tie-in to trending topic"],
+            "dataSource": "SPECIFIC signal: exact trend headline / '@handle tweet text' / metric name + value / KB entry snippet",
+            "originalTweet": { "author": "@handle", "text": "quoted text — exact tweet being QRT'd" }
         }
     ]
 }

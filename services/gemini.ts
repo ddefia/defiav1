@@ -2807,31 +2807,43 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     MANDATORY RULES:
     1. Generate EXACTLY 5 actions. Never fewer, never more.
     2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET. The remaining 2 can be any type (REPLY, TREND_JACK, GAP_FILL, QRT). Actions must use DIFFERENT angles — never repeat the same topic/theme across actions.
-    3. SPECIFICITY (CRITICAL): Every action must be hyper-specific and immediately executable. BAD: "Post about our technology". GOOD: "Thread breaking down how our decentralized sequencer prevents MEV extraction — use the recent Flashbots controversy as the hook".
-    4. KNOWLEDGE: Every action MUST leverage specific brand knowledge base entries. Quote specific technical features, partnerships, or differentiators.
-    5. TIMELINESS: Each reasoning MUST explain WHY NOW (today is ${today}). Reference a specific trend, market event, competitor move, or calendar date. If no fresh trend data is available, reference evergreen market narratives the brand can own. NEVER recommend posting about past events (product launches, milestones, etc.) that have already happened — only forward-looking content.
+    3. SPECIFICITY (CRITICAL): Every action must be hyper-specific and immediately executable. BAD: "Post about our technology". GOOD: "Thread breaking down how our decentralized sequencer prevents MEV extraction — use the recent Flashbots controversy as the hook, cite our 0 MEV incidents in 6 months".
+    4. KNOWLEDGE: Every action MUST leverage specific brand knowledge base entries. Quote specific technical features, partnerships, or differentiators by name.
+    5. TIMELINESS: Each reasoning MUST explain WHY NOW (today is ${today}). Reference a specific trend, market event, competitor move, or calendar date. If no fresh trend data is available, reference evergreen market narratives the brand can own. NEVER recommend posting about past events (launches, milestones) that have already happened — only forward-looking.
     6. FRESHNESS: Do NOT repeat past strategies. If past strategies are listed, propose completely different angles.
-    7. HOOKS: Each hook should be a punchy 2-4 word internal code name (e.g. "Sequencer Supremacy", "The MEV Shield").
-    8. CONTENT IDEAS: Each action needs 3 specific, creative content ideas — not restatements of the topic. Think headlines, angles, contrarian takes.
-    9. AVOID GENERIC: Never output actions like "General brand update", "Community engagement post", or "Thought leadership thread" without specific substance. Every action must pass the test: "Could this ONLY apply to THIS brand?"
-    10. TONE: Write reasoning as if you're a sharp CMO pitching to the CEO. Confident, data-aware, no fluff.
-    11. SOURCE ATTRIBUTION (CRITICAL): For each action, specify which data source triggered it. Was it a specific trending news headline? A competitor gap? Performance data showing what works? A knowledge base entry revealing unexploited positioning? The user needs to see WHY this rec exists and WHERE the signal came from.
-    12. QRT OPPORTUNITIES: If any brand mentions or competitor tweets contain a high-signal statement that the brand should quote-retweet (e.g. an influencer/KOL posting about a topic the brand has authority on, a competitor making a claim the brand can counter, or a trending conversation the brand can add value to), output a QRT action. The QRT must add genuine insight — not just "great take!" — and connect back to the brand's knowledge base or unique positioning. Include "originalTweet" with the author handle and text being quoted. Only output QRT if a genuinely high-signal tweet exists in the data — do NOT manufacture QRT opportunities.
+    7. HOOKS: Each hook = a punchy internal code name with attitude (3-5 words): e.g. "The MEV Shield", "Sequencer Supremacy", "Operation Phantom Growth", "The Custody Speed Trap".
+    8. CONTENT IDEAS: 3 SPECIFIC creative variants — not restatements of the topic. Think contrarian angle, data-backed angle, narrative hijack.
+    9. AVOID GENERIC: Every action must pass: "Could this ONLY come from THIS brand, not any other?" If another brand could post it unchanged, rewrite. No "General brand update", "Community engagement", "Thought leadership" without concrete substance.
+    10. TONE: Write reasoning as a sharp CMO pitching to the CEO. Confident, data-driven, no buzzwords, no fluff.
+    11. SOURCE ATTRIBUTION (CRITICAL): For each action, cite the SPECIFIC signal that triggered it — exact trend headline, "@handle: tweet text", metric name + value, or KB entry excerpt. The user must immediately see WHERE this came from.
+    12. QRT OPPORTUNITIES: If mentions or competitor tweets contain a high-signal statement the brand can credibly quote and add to — do it. Must add genuine brand insight, not "great take!". Only output QRT if a real tweet exists in the data — NEVER fabricate.
+    13. COPY QUALITY (CRITICAL): The "instructions" field MUST contain the actual ready-to-post tweet text. TWEET/TREND_JACK/QRT/REPLY: complete tweet, under 280 chars, no hashtags, no placeholders. THREAD: opening hook tweet + tweets 1/ through 3/ written out. CAMPAIGN: campaign concept brief (2-3 sentences) + the opening tweet draft. The user will copy-paste this directly — write it as finished work, not a description of what to write.
+
+    QUALITY GATE — before finalizing each action, verify:
+    ✓ instructions = actual written copy, not a description of what to write
+    ✓ dataSource = names a specific signal (not "market trends" — which headline? which tweet? which metric?)
+    ✓ reasoning = explains WHY THIS WEEK specifically
+
+    EXAMPLE — what great output looks like:
+    BAD instructions: "Post about our technology being fast and decentralized"
+    GOOD instructions (TWEET): "institutional custody isn't waiting for L2 maturity. we built native MPC key management into our sequencer so traders can self-custody at sequencer-level speed. first protocol to do this."
+    BAD dataSource: "market trends"
+    GOOD dataSource: "Trending headline: 'Flashbots launches SUAVE — MEV supply chain going fully transparent' — creates opening for us to position as the protocol that eliminated MEV at sequencer level"
 
     OUTPUT JSON:
     {
         "actions": [
             {
                 "type": "TWEET" | "THREAD" | "CAMPAIGN" | "REPLY" | "TREND_JACK" | "GAP_FILL" | "QRT",
-                "topic": "Specific topic grounded in data",
-                "goal": "Measurable outcome this action achieves",
-                "instructions": "Specific constraints for execution (format, tone, length, CTA)",
-                "reasoning": "Data-backed rationale citing specific metrics/trends/competitor gaps (2-3 sentences)",
-                "hook": "Bold internal code name (e.g. 'Operation Phantom Growth', 'The Liquidity Vampire')",
-                "strategicAlignment": "Aligns with [specific brand value/knowledge entry] because...",
-                "contentIdeas": ["Specific headline 1", "Specific angle 2", "Specific creative idea 3"],
-                "dataSource": "The specific signal that triggered this action (e.g. 'Trending: AI agents narrative surging', 'Performance: threads get 3x engagement', 'Competitor gap: Optimism ignoring DePIN', 'KB: DAT technology underexploited in content')",
-                "originalTweet": "(QRT only) { \"author\": \"@handle\", \"text\": \"the tweet being quoted\" } — omit for non-QRT actions"
+                "topic": "Specific topic grounded in named data — NOT a generic category",
+                "goal": "Measurable outcome (e.g. 'drive engagement from institutional DeFi researchers', 'own the MEV narrative this week')",
+                "instructions": "THE ACTUAL COPY, ready to post. TWEET/TREND_JACK/QRT/REPLY = full tweet under 280 chars. THREAD = hook + tweets 1/ 2/ 3/ written out. CAMPAIGN = brief + opening tweet. NO PLACEHOLDERS.",
+                "reasoning": "2-3 sentences citing the SPECIFIC signal by name: exact trend headline, @handle tweet, metric value, or KB entry excerpt that triggered this.",
+                "hook": "Bold internal code name — 3-5 words with attitude (e.g. 'Operation Phantom Growth', 'The Liquidity Vampire')",
+                "strategicAlignment": "References [specific KB entry or named brand feature] because [specific competitor gap or market assumption we're countering]",
+                "contentIdeas": ["Contrarian angle: [specific]", "Data angle: [specific metric]", "Narrative hijack: [specific trend]"],
+                "dataSource": "SPECIFIC: exact headline / '@handle: tweet text snippet' / 'metric: value' / 'KB: entry excerpt'",
+                "originalTweet": "(QRT only) { \"author\": \"@handle\", \"text\": \"the exact tweet being quoted\" } — omit for non-QRT actions"
             }
         ]
     }

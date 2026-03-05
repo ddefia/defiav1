@@ -839,6 +839,17 @@ export interface BrandRegistryEntry {
 export const loadBrandRegistry = (): Record<string, BrandRegistryEntry> => {
     try {
         const stored = localStorage.getItem(BRAND_REGISTRY_KEY);
+        // Background sync from cloud so registry works across devices
+        fetchFromCloud(BRAND_REGISTRY_KEY).then(result => {
+            if (result?.value) {
+                const cloudTs = new Date(result.updated_at).getTime();
+                const localTs = getLocalTimestamp(BRAND_REGISTRY_KEY);
+                if (cloudTs > localTs) {
+                    localStorage.setItem(BRAND_REGISTRY_KEY, JSON.stringify(result.value));
+                    setLocalTimestamp(BRAND_REGISTRY_KEY, cloudTs);
+                }
+            }
+        }).catch(() => {});
         return stored ? JSON.parse(stored) : {};
     } catch (e) {
         console.warn("Failed to load brand registry", e);
@@ -851,6 +862,8 @@ export const saveBrandRegistryEntry = (brandName: string, brandId: string): void
         const registry = loadBrandRegistry();
         registry[brandName.toLowerCase()] = { brandId, brandName, updatedAt: Date.now() };
         localStorage.setItem(BRAND_REGISTRY_KEY, JSON.stringify(registry));
+        setLocalTimestamp(BRAND_REGISTRY_KEY, Date.now());
+        saveToCloud(BRAND_REGISTRY_KEY, registry); // Sync across devices
     } catch (e) {
         console.warn("Failed to save brand registry entry", e);
     }
@@ -964,7 +977,17 @@ export const loadBrainLogs = (brandName: string): any[] => {
     try {
         const key = `${BRAIN_LOGS_KEY}_${brandName.toLowerCase()}`;
         const stored = localStorage.getItem(key);
-        // We could sync this to cloud too, similar to above pattern
+        // Background sync from cloud so brain logs persist across devices
+        fetchFromCloud(userKey(`${BRAIN_LOGS_KEY}_${brandName.toLowerCase()}`)).then(result => {
+            if (result?.value && Array.isArray(result.value)) {
+                const cloudTs = new Date(result.updated_at).getTime();
+                const localTs = getLocalTimestamp(key);
+                if (cloudTs > localTs) {
+                    localStorage.setItem(key, JSON.stringify(result.value));
+                    setLocalTimestamp(key, cloudTs);
+                }
+            }
+        }).catch(() => {});
         return stored ? JSON.parse(stored) : [];
     } catch (e) {
         return [];
@@ -983,9 +1006,7 @@ export const saveBrainLog = (log: any): void => {
         const updated = [log, ...existing].slice(0, MAX_LOGS);
 
         localStorage.setItem(key, JSON.stringify(updated));
-
-        // Optional: Fire event for real-time UI update if needed
-        // dispatchStorageEvent('BRAIN_UPDATE', { brandName: log.brandId });
+        saveToCloud(userKey(`${BRAIN_LOGS_KEY}_${log.brandId.toLowerCase()}`), updated);
     } catch (e) {
         console.error("Failed to save brain log", e);
     }
