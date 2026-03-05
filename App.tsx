@@ -493,7 +493,7 @@ const App: React.FC = () => {
             fetchCachedRecommendations(selectedBrand).then(cached => {
                 if (cached?.actions?.length) {
                     const mappedFromCache = cached.actions
-                        .filter((a: any) => a.action && a.action !== 'NO_ACTION' && a.action !== 'ERROR')
+                        .filter((a: any) => { const t = a.type || a.action; return t && t !== 'NO_ACTION' && t !== 'ERROR'; })
                         .map((a: any) => mapDecisionToTask(a))
                         .slice(0, 5);
                     if (mappedFromCache.length > 0) {
@@ -1750,6 +1750,20 @@ const App: React.FC = () => {
             if (cachedTs) setRegenLastRun(cachedTs);
             if (cachedCtx) setDecisionSummary(JSON.parse(cachedCtx));
         } catch {}
+        // Check server-side cache — update llmRecommendations and regenLastRun if server is fresher
+        // This fixes "Last sync 3 days ago" when the cron ran but the user's tab was closed
+        fetchCachedRecommendations(selectedBrand).then(serverCached => {
+            if (!serverCached?.actions?.length) return;
+            const serverTs = serverCached.generatedAt ? new Date(serverCached.generatedAt).getTime() : 0;
+            const localTs = Number(localStorage.getItem(`defia_recs_ts_${selectedBrand}`)) || 0;
+            if (serverTs > localTs) {
+                setLlmRecommendations(serverCached.actions);
+                setRegenLastRun(serverTs);
+                localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(serverCached.actions));
+                localStorage.setItem(`defia_recs_ts_${selectedBrand}`, String(serverTs));
+                console.log(`[Recs] Server cache fresher (${Math.round((Date.now() - serverTs) / 60000)}m old). Updated recommendations.`);
+            }
+        }).catch(() => {});
         regenFiredRef.current = false;
     }, [selectedBrand]);
 
