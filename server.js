@@ -626,24 +626,40 @@ import { GoogleGenAI } from "@google/genai";
 
 const getGeminiApiKey = () => process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
 
-// Per-user Gemini rate limiter: max 20 AI calls per minute per authenticated user
-// Protects against infinite loops and quota exhaustion across 30+ concurrent users
+/// Per-user Gemini rate limiter — two windows:
+//   Short window : 10 calls / 1 min   → stops infinite loops (7 calls/burst from orchestrate)
+//   Long  window : 100 calls / 1 hour → prevents quota exhaustion across 30+ users
 const geminiRateLimitMap = new Map();
-const GEMINI_RATE_WINDOW_MS = 60 * 1000; // 1 minute
-const GEMINI_RATE_MAX = 20; // 20 Gemini calls per user per minute
+const GEMINI_SHORT_WINDOW_MS = 60 * 1000;        // 1 minute
+const GEMINI_SHORT_MAX       = 10;               // 10 calls per minute (allows 1x orchestrate + a few tweets)
+const GEMINI_LONG_WINDOW_MS  = 60 * 60 * 1000;  // 1 hour
+const GEMINI_LONG_MAX        = 100;              // 100 calls per hour per user
 
 const geminiRateLimit = (req, res, next) => {
     const userId = req.authUser?.id || req.ip || 'unknown';
     const now = Date.now();
-    const record = geminiRateLimitMap.get(userId);
-    if (!record || now - record.windowStart > GEMINI_RATE_WINDOW_MS) {
-        geminiRateLimitMap.set(userId, { windowStart: now, count: 1 });
-        return next();
+    const record = geminiRateLimitMap.get(userId) || { shortStart: now, shortCount: 0, longStart: now, longCount: 0 };
+
+    // Reset short window if expired
+    if (now - record.shortStart > GEMINI_SHORT_WINDOW_MS) {
+        record.shortStart = now;
+        record.shortCount = 0;
     }
-    record.count++;
-    if (record.count > GEMINI_RATE_MAX) {
-        console.warn(`[GeminiProxy] Rate limit hit: user ${String(userId).slice(0, 8)} — ${record.count} calls/min`);
-        return res.status(429).json({ error: 'Too many AI requests. Please wait a moment before trying again.', retryAfter: 60 });
+    // Reset long window if expired
+    if (now - record.longStart > GEMINI_LONG_WINDOW_MS) {
+        record.longStart = now;
+        record.longCount = 0;
+    }
+
+    record.shortCount++;
+    record.longCount++;
+    geminiRateLimitMap.set(userId, record);
+
+    if (record.shortCount > GEMINI_SHORT_MAX) {
+        return res.status(429).json({ error: 'Too many AI requests. Please wait a moment.', retryAfter: 60 });
+    }
+    if (record.longCount > GEMINI_LONG_MAX) {
+        return res.status(429).json({ error: 'Hourly AI request limit reached. Please try again later.', retryAfter: 3600 });
     }
     next();
 };
@@ -652,7 +668,7 @@ const geminiRateLimit = (req, res, next) => {
 setInterval(() => {
     const now = Date.now();
     for (const [id, record] of geminiRateLimitMap.entries()) {
-        if (now - record.windowStart > GEMINI_RATE_WINDOW_MS * 2) geminiRateLimitMap.delete(id);
+        if (now - record.longStart > GEMINI_LONG_WINDOW_MS * 2) geminiRateLimitMap.delete(id);
     }
 }, 5 * 60 * 1000);
 
