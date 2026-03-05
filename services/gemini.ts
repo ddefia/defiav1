@@ -2741,7 +2741,7 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
-                thinkingConfig: { thinkingBudget: 2048 }
+                thinkingConfig: { thinkingBudget: 8192 }
             }
         });
         return JSON.parse(safeResponseText(response) || "{}");
@@ -2855,7 +2855,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
-                thinkingConfig: { thinkingBudget: 4096 }
+                thinkingConfig: { thinkingBudget: 8192 }
             }
         });
         const result = JSON.parse(safeResponseText(response) || "{}");
