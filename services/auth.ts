@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
+import { resetUserPrefix } from './storage';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -234,6 +235,7 @@ export const signIn = async (
 
 export const signOut = async (): Promise<void> => {
     clearAuthData();
+    resetUserPrefix(); // Clear cached prefix BEFORE reload to prevent cross-user data leaks
 
     if (supabaseAuth) {
         await supabaseAuth.auth.signOut();
@@ -241,7 +243,7 @@ export const signOut = async (): Promise<void> => {
 
     // Dispatch event to clear user-scoped storage prefix (listened by storage.ts)
     window.dispatchEvent(new CustomEvent('defia:user-signed-out'));
-    window.location.href = '/'; // Full page reload clears cached prefix
+    window.location.href = '/'; // Full page reload clears all in-memory state
 };
 
 // ============================================

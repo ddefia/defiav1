@@ -626,7 +626,37 @@ import { GoogleGenAI } from "@google/genai";
 
 const getGeminiApiKey = () => process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
 
-app.post('/api/gemini/generate', async (req, res) => {
+// Per-user Gemini rate limiter: max 20 AI calls per minute per authenticated user
+// Protects against infinite loops and quota exhaustion across 30+ concurrent users
+const geminiRateLimitMap = new Map();
+const GEMINI_RATE_WINDOW_MS = 60 * 1000; // 1 minute
+const GEMINI_RATE_MAX = 20; // 20 Gemini calls per user per minute
+
+const geminiRateLimit = (req, res, next) => {
+    const userId = req.authUser?.id || req.ip || 'unknown';
+    const now = Date.now();
+    const record = geminiRateLimitMap.get(userId);
+    if (!record || now - record.windowStart > GEMINI_RATE_WINDOW_MS) {
+        geminiRateLimitMap.set(userId, { windowStart: now, count: 1 });
+        return next();
+    }
+    record.count++;
+    if (record.count > GEMINI_RATE_MAX) {
+        console.warn(`[GeminiProxy] Rate limit hit: user ${String(userId).slice(0, 8)} — ${record.count} calls/min`);
+        return res.status(429).json({ error: 'Too many AI requests. Please wait a moment before trying again.', retryAfter: 60 });
+    }
+    next();
+};
+
+// Clean up stale Gemini rate limit entries every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, record] of geminiRateLimitMap.entries()) {
+        if (now - record.windowStart > GEMINI_RATE_WINDOW_MS * 2) geminiRateLimitMap.delete(id);
+    }
+}, 5 * 60 * 1000);
+
+app.post('/api/gemini/generate', requireAuth, geminiRateLimit, async (req, res) => {
     const start = Date.now();
     try {
         const apiKey = getGeminiApiKey();
@@ -674,7 +704,7 @@ app.post('/api/gemini/generate', async (req, res) => {
     }
 });
 
-app.post('/api/gemini/embed', async (req, res) => {
+app.post('/api/gemini/embed', requireAuth, geminiRateLimit, async (req, res) => {
     const start = Date.now();
     try {
         const apiKey = getGeminiApiKey();

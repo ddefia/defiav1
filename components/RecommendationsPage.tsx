@@ -322,6 +322,9 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 }) => {
     const [selectedIdx, setSelectedIdx] = useState<number>(0);
     const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+    const [approvedRecs, setApprovedRecs] = useState<Set<string>>(new Set());
+    const [snoozedRecs, setSnoozedRecs] = useState<Set<string>>(new Set());
+    const [showMarketSnapshot, setShowMarketSnapshot] = useState(true);
 
     // Derive combined recs: prefer LLM, fallback to agent decisions, supplement with data-driven recs
     const isFallbackMode = recommendations.length === 0;
@@ -468,6 +471,19 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
         if (realIdx >= 0) onDismiss(realIdx);
     };
 
+    const getRecKey = (rec: any) => `${rec.type}_${cleanTitle(rec.title).slice(0, 30)}`;
+
+    const handleApproveSelected = () => {
+        if (!selectedRec) return;
+        setApprovedRecs(prev => new Set([...prev, getRecKey(selectedRec)]));
+    };
+
+    const handleSnoozeSelected = () => {
+        if (!selectedRec) return;
+        setSnoozedRecs(prev => new Set([...prev, getRecKey(selectedRec)]));
+        handleDismissSelected();
+    };
+
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
@@ -507,7 +523,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
             {/* Status bar */}
             <div className="px-8 py-2.5 border-b border-[#1F1F23]/50 bg-[#0A0A0B]">
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-3 text-xs flex-wrap">
                     <span className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full ${regenLastRun > 0 ? 'bg-[#22C55E] animate-pulse' : 'bg-[#6B7280]'}`}></span>
                         <span className="text-[#9CA3AF]">Last sync: {regenLastRun > 0 ? timeAgo(regenLastRun) : 'Never'}</span>
@@ -516,6 +532,21 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                     <span className="text-[#9CA3AF]">{dataSourceCount} data sources</span>
                     <span className="text-[#2E2E2E]">·</span>
                     <span className="text-[#FF5C00] font-medium">{allRecommendations.length} pending actions</span>
+                    {approvedRecs.size > 0 && (
+                        <>
+                            <span className="text-[#2E2E2E]">·</span>
+                            <span className="text-[#22C55E] font-medium flex items-center gap-1">
+                                <span className="material-symbols-sharp text-[12px]">check_circle</span>
+                                {approvedRecs.size} approved
+                            </span>
+                        </>
+                    )}
+                    {decisionSummary?.strategicAngle && (
+                        <>
+                            <span className="text-[#2E2E2E]">·</span>
+                            <span className="text-[#9CA3AF] italic truncate max-w-[300px]">"{decisionSummary.strategicAngle}"</span>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -529,6 +560,87 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                         <button onClick={onRegenerate} className="text-[#FF5C00] font-medium hover:underline">
                             Run Analysis for AI-powered recommendations
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Market Snapshot — strategic intelligence from AI council */}
+            {(decisionSummary?.summary || decisionSummary?.strategicAngle) && (
+                <div className={`border-b border-[#1F1F23] bg-[#06060808] transition-all duration-200 ${showMarketSnapshot ? '' : 'max-h-[40px] overflow-hidden'}`}>
+                    {/* Snapshot header / toggle */}
+                    <button
+                        onClick={() => setShowMarketSnapshot(v => !v)}
+                        className="w-full flex items-center gap-3 px-8 py-2.5 hover:bg-[#111113]/50 transition-colors group"
+                    >
+                        <div className="w-5 h-5 rounded flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF5C00 0%, #A855F7 100%)' }}>
+                            <span className="material-symbols-sharp text-white text-[12px]" style={{ fontVariationSettings: "'wght' 400" }}>psychology</span>
+                        </div>
+                        <span className="text-[11px] font-bold tracking-widest text-[#FF5C00] uppercase">Market Intelligence</span>
+                        {decisionSummary?.strategicAngle && !showMarketSnapshot && (
+                            <span className="text-[#9CA3AF] text-xs italic ml-2 truncate flex-1 text-left">{decisionSummary.strategicAngle}</span>
+                        )}
+                        <span className="material-symbols-sharp text-[16px] text-[#6B7280] group-hover:text-[#9CA3AF] ml-auto transition-colors">
+                            {showMarketSnapshot ? 'expand_less' : 'expand_more'}
+                        </span>
+                    </button>
+
+                    {/* Snapshot content */}
+                    <div className="px-8 pb-4 grid grid-cols-[1fr_auto_auto] gap-6">
+                        {/* Left: Summary + strategic angle */}
+                        <div className="min-w-0">
+                            {decisionSummary?.strategicAngle && (
+                                <p className="text-white text-sm font-semibold mb-1.5 leading-snug">
+                                    {decisionSummary.strategicAngle}
+                                </p>
+                            )}
+                            {decisionSummary?.summary && (
+                                <p className="text-[#9CA3AF] text-xs leading-relaxed line-clamp-2">
+                                    {decisionSummary.summary}
+                                </p>
+                            )}
+                            {/* Key themes */}
+                            {decisionSummary?.keyThemes?.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                    {(decisionSummary.keyThemes as string[]).slice(0, 5).map((theme: string, i: number) => (
+                                        <span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FF5C00]/10 text-[#FF5C00] border border-[#FF5C00]/20">
+                                            {theme}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {/* Center: Opportunities */}
+                        {decisionSummary?.opportunities?.length > 0 && (
+                            <div className="min-w-[180px] max-w-[220px]">
+                                <span className="text-[9px] font-bold tracking-widest text-[#22C55E] uppercase mb-1.5 block flex items-center gap-1">
+                                    <span className="material-symbols-sharp text-[11px]">trending_up</span> Opportunities
+                                </span>
+                                <ul className="space-y-1">
+                                    {(decisionSummary.opportunities as string[]).slice(0, 3).map((opp: string, i: number) => (
+                                        <li key={i} className="flex items-start gap-1.5">
+                                            <span className="w-1 h-1 rounded-full bg-[#22C55E] mt-1.5 flex-shrink-0"></span>
+                                            <span className="text-[#D1D5DB] text-[11px] leading-snug">{opp}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        {/* Right: Risks */}
+                        {decisionSummary?.risks?.length > 0 && (
+                            <div className="min-w-[180px] max-w-[220px]">
+                                <span className="text-[9px] font-bold tracking-widest text-[#EF4444] uppercase mb-1.5 block flex items-center gap-1">
+                                    <span className="material-symbols-sharp text-[11px]">warning</span> Risks
+                                </span>
+                                <ul className="space-y-1">
+                                    {(decisionSummary.risks as string[]).slice(0, 3).map((risk: string, i: number) => (
+                                        <li key={i} className="flex items-start gap-1.5">
+                                            <span className="w-1 h-1 rounded-full bg-[#EF4444] mt-1.5 flex-shrink-0"></span>
+                                            <span className="text-[#D1D5DB] text-[11px] leading-snug">{risk}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -594,18 +706,25 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                         ) : filteredRecs.length > 0 ? (
                             filteredRecs.map((rec: any, i: number) => {
                                 const isSelected = i === selectedIdx;
+                                const recKey = getRecKey(rec);
+                                const isApproved = approvedRecs.has(recKey);
                                 return (
                                     <button key={i} onClick={() => setSelectedIdx(i)}
                                         className={`w-full text-left rounded-xl p-4 transition-all border ${isSelected
-                                            ? 'bg-[#111113] border-[#FF5C0066] shadow-lg shadow-[#FF5C0011]'
-                                            : 'bg-[#0A0A0B] border-[#1F1F23] hover:bg-[#111113] hover:border-[#2E2E2E]'
+                                            ? isApproved ? 'bg-[#111113] border-[#22C55E55] shadow-lg shadow-[#22C55E11]' : 'bg-[#111113] border-[#FF5C0066] shadow-lg shadow-[#FF5C0011]'
+                                            : isApproved ? 'bg-[#22C55E05] border-[#22C55E22] hover:bg-[#111113]' : 'bg-[#0A0A0B] border-[#1F1F23] hover:bg-[#111113] hover:border-[#2E2E2E]'
                                         }`}>
                                         <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: rec.typeBg }}></span>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: rec.typeBg }}></span>
                                                 <span className="text-[10px] font-bold tracking-wider uppercase" style={{ color: rec.typeBg }}>{rec.type}</span>
+                                                {isApproved && (
+                                                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] text-[9px] font-bold tracking-wider">
+                                                        <span className="material-symbols-sharp text-[10px]">check</span>APPROVED
+                                                    </span>
+                                                )}
                                             </div>
-                                            <span className="text-xs font-medium" style={{ color: getPriorityColor(rec.impactScore) }}>
+                                            <span className="text-xs font-medium flex-shrink-0" style={{ color: getPriorityColor(rec.impactScore) }}>
                                                 {rec.impactScore}% <span className="text-[#9CA3AF] font-normal">conf</span>
                                             </span>
                                         </div>
@@ -676,7 +795,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                         <div className="p-7 max-w-[820px]">
 
                             {/* Header row: badges + actions */}
-                            <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-start justify-between mb-6 gap-4">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span className="px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase"
                                         style={{ backgroundColor: `${getPriorityColor(selectedRec.impactScore)}18`, color: getPriorityColor(selectedRec.impactScore) }}>
@@ -690,16 +809,38 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     <span className="px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase bg-[#1F1F23] text-[#9CA3AF]">
                                         {selectedRec.impactScore}% Confidence
                                     </span>
+                                    {approvedRecs.has(getRecKey(selectedRec)) && (
+                                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
+                                            <span className="material-symbols-sharp text-[12px]">check_circle</span>
+                                            Approved
+                                        </span>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={handleDismissSelected}
-                                        className="px-4 py-2 rounded-lg border border-[#2E2E2E] text-[#9CA3AF] text-sm hover:bg-[#1F1F23] transition-colors">
-                                        Dismiss
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    {/* Snooze */}
+                                    <button onClick={handleSnoozeSelected}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2E2E2E] text-[#9CA3AF] text-sm hover:bg-[#1F1F23] hover:text-white transition-colors"
+                                        title="Snooze — remove from queue for now">
+                                        <span className="material-symbols-sharp text-[15px]">snooze</span>
+                                        Snooze
                                     </button>
+                                    {/* Approve */}
+                                    <button onClick={handleApproveSelected}
+                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all border ${approvedRecs.has(getRecKey(selectedRec))
+                                            ? 'bg-[#22C55E]/10 border-[#22C55E]/30 text-[#22C55E]'
+                                            : 'border-[#22C55E]/40 text-[#22C55E] hover:bg-[#22C55E]/10'
+                                        }`}
+                                        title="Mark as approved strategy">
+                                        <span className="material-symbols-sharp text-[15px]">
+                                            {approvedRecs.has(getRecKey(selectedRec)) ? 'check_circle' : 'check'}
+                                        </span>
+                                        {approvedRecs.has(getRecKey(selectedRec)) ? 'Approved' : 'Approve'}
+                                    </button>
+                                    {/* Create Content */}
                                     <button onClick={() => handleExecute(selectedRec)}
                                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#FF5C00] to-[#FF8400] text-white text-sm font-semibold hover:opacity-90 transition-all shadow-lg shadow-[#FF5C0033]">
                                         <span className="material-symbols-sharp text-[16px]">edit</span>
-                                        Open in Studio
+                                        Create Content
                                     </button>
                                 </div>
                             </div>
@@ -783,16 +924,32 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 <p className="text-[#D1D5DB] text-[15px] leading-relaxed mb-3">
                                     <LinkifiedText text={safeStr(selectedRec.reasoning || selectedRec.fullReason || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')} />
                                 </p>
-                                {selectedRec.dataSignal && (
-                                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${selectedRec.type === 'Trend' ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20' : 'bg-[#FF5C00]/8 border border-[#FF5C00]/15'}`}>
-                                        <span className="material-symbols-sharp text-[14px]"
+
+                                {/* Data signal evidence — full text, not truncated */}
+                                {(selectedRec.dataSource || selectedRec.dataSignal) && (
+                                    <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg mb-3 ${selectedRec.type === 'Trend' ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20' : 'bg-[#FF5C00]/8 border border-[#FF5C00]/15'}`}>
+                                        <span className="material-symbols-sharp text-[14px] flex-shrink-0 mt-0.5"
                                             style={{ color: selectedRec.type === 'Trend' ? '#8B5CF6' : '#FF5C00', fontVariationSettings: "'wght' 300" }}>
                                             {selectedRec.type === 'Trend' ? 'trending_up' : 'bolt'}
                                         </span>
-                                        <LinkifiedText text={safeStr(selectedRec.dataSignal)}
-                                            className={`text-[13px] font-medium ${selectedRec.type === 'Trend' ? 'text-[#C4B5FD]' : 'text-[#FDBA74]'}`} />
+                                        <div className="flex-1 min-w-0">
+                                            <span className={`text-[10px] font-bold tracking-wider uppercase block mb-1 ${selectedRec.type === 'Trend' ? 'text-[#8B5CF6]/70' : 'text-[#FF5C00]/70'}`}>
+                                                Signal
+                                            </span>
+                                            <LinkifiedText text={safeStr(selectedRec.dataSource || selectedRec.dataSignal)}
+                                                className={`text-[13px] font-medium leading-snug ${selectedRec.type === 'Trend' ? 'text-[#C4B5FD]' : 'text-[#FDBA74]'}`} />
+                                        </div>
                                     </div>
                                 )}
+
+                                {/* Strategic alignment — WHY THIS FOR THIS BRAND */}
+                                {selectedRec.strategicAlignment && (
+                                    <div className="px-3 py-2.5 rounded-lg bg-[#111113] border border-[#1F1F23] mb-3">
+                                        <span className="text-[10px] font-bold tracking-wider uppercase text-[#9CA3AF] block mb-1">Strategic Fit</span>
+                                        <p className="text-[#D1D5DB] text-[13px] leading-relaxed">{selectedRec.strategicAlignment}</p>
+                                    </div>
+                                )}
+
                                 {/* Source tags as inline pills */}
                                 {(selectedRec.sourceTags || []).length > 0 && (
                                     <div className="flex flex-wrap gap-1.5 mt-3">
@@ -811,6 +968,65 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     </div>
                                 )}
                             </div>
+
+                            {/* YOUR COMPETITIVE EDGE — from decisionSummary.strategicAngle */}
+                            {(decisionSummary?.strategicAngle || selectedRec.goal) && (
+                                <div className="mb-6 rounded-xl border border-[#FF5C00]/15 bg-gradient-to-r from-[#FF5C00]/5 to-transparent p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="material-symbols-sharp text-[14px] text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>target</span>
+                                        <span className="text-[10px] font-bold tracking-widest text-[#FF5C00] uppercase">Your Competitive Edge</span>
+                                    </div>
+                                    {decisionSummary?.strategicAngle && (
+                                        <p className="text-white text-[14px] font-semibold leading-snug mb-1">{decisionSummary.strategicAngle}</p>
+                                    )}
+                                    {selectedRec.goal && (
+                                        <p className="text-[#9CA3AF] text-[13px] leading-relaxed">{selectedRec.goal}</p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* THE BET — opportunities vs risks from decisionSummary */}
+                            {((decisionSummary?.opportunities?.length > 0) || (decisionSummary?.risks?.length > 0)) && (
+                                <div className="mb-6">
+                                    <span className="text-[10px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-3 block">The Bet</span>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {/* Opportunities */}
+                                        {decisionSummary?.opportunities?.length > 0 && (
+                                            <div className="rounded-xl bg-[#22C55E]/5 border border-[#22C55E]/15 p-4">
+                                                <div className="flex items-center gap-1.5 mb-2.5">
+                                                    <span className="material-symbols-sharp text-[13px] text-[#22C55E]">trending_up</span>
+                                                    <span className="text-[10px] font-bold tracking-wider uppercase text-[#22C55E]">Upside</span>
+                                                </div>
+                                                <ul className="space-y-2">
+                                                    {(decisionSummary.opportunities as string[]).slice(0, 4).map((opp: string, i: number) => (
+                                                        <li key={i} className="flex items-start gap-2">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] mt-1.5 flex-shrink-0"></span>
+                                                            <span className="text-[#D1D5DB] text-[12px] leading-snug">{opp}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {/* Risks */}
+                                        {decisionSummary?.risks?.length > 0 && (
+                                            <div className="rounded-xl bg-[#EF4444]/5 border border-[#EF4444]/15 p-4">
+                                                <div className="flex items-center gap-1.5 mb-2.5">
+                                                    <span className="material-symbols-sharp text-[13px] text-[#EF4444]">warning</span>
+                                                    <span className="text-[10px] font-bold tracking-wider uppercase text-[#EF4444]">Watch Out</span>
+                                                </div>
+                                                <ul className="space-y-2">
+                                                    {(decisionSummary.risks as string[]).slice(0, 4).map((risk: string, i: number) => (
+                                                        <li key={i} className="flex items-start gap-2">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] mt-1.5 flex-shrink-0"></span>
+                                                            <span className="text-[#D1D5DB] text-[12px] leading-snug">{risk}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* WHERE + WHEN */}
                             <div>
