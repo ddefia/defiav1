@@ -2955,130 +2955,17 @@ MARKET TRENDS: ${trendPreview || 'None detected.'}
 ${chainPreview ? `ON-CHAIN: ${chainPreview}` : ''}
 ${performanceBlock}`.trim();
 
-    const agentPrompts = [
-        {
-            prompt: `
-${sharedContext}
+    // REMOVED: 4 parallel agent pre-processing calls (Social Listener, Performance Analyst,
+    // Content Planner, Knowledge Curator). They each fired a separate Gemini call just to
+    // summarize data that's already fully available in sharedContext / ragDocs.
+    // analyzeMarketContext + formulateStrategy receive the complete raw context directly,
+    // which achieves the same quality in 2 calls instead of 6.
+    // agentInsights returned as empty array to preserve the return type contract.
 
-YOUR ROLE: Social Listener Agent — the brand's ears in the market.
-YOUR FOCUS DATA:
-- Trending Topics: ${trendPreview || 'None.'}
-- Brand Mentions: ${mentionPreview || 'No recent mentions.'}
-${competitorTweetsPreview ? `- Competitor Activity:\n${competitorTweetsPreview}` : ''}
+    const analysis = await analyzeMarketContext(context);
+    const plan = await formulateStrategy(context, analysis);
 
-YOUR TASK:
-1. Summarize the top 2-3 narrative shifts happening in the market right now.
-2. Identify high-signal conversations the brand should enter or respond to.
-3. Compare the brand's narrative positioning vs competitors — where are competitors dominating the conversation? Where are we winning?
-4. Flag any emerging narratives that align with the brand's knowledge base.
-5. QRT SCAN: Check mentions and competitor tweets for any high-signal statement worth quote-retweeting. Look for: influencers/KOLs posting about topics the brand has authority on, competitors making claims the brand can counter, or anyone sparking a conversation the brand can add genuine value to. Flag the specific tweet author + text in your keySignals if found.
-
-OUTPUT JSON:
-{"agent":"Social Listener","focus":"Narratives + Mentions + Competitive Gaps","summary":"2-3 sentence analysis","keySignals":["signal1","signal2","signal3"]}`,
-            fallback: {
-                agent: 'Social Listener',
-                focus: 'Narratives + Mentions + Competitive Gaps',
-                summary: 'No fresh mentions detected. Lean on current trend headlines and competitive positioning.',
-                keySignals: trendPreview ? [trendPreview] : []
-            }
-        },
-        {
-            prompt: `
-${sharedContext}
-
-YOUR ROLE: Performance Analyst Agent — data-driven performance optimizer.
-YOUR FOCUS DATA:
-- Social Analytics: ${analyticsPreview}
-${chainPreview ? `- On-Chain Metrics: ${chainPreview}` : ''}
-- ${performanceBlock}
-
-YOUR TASK:
-1. Analyze which recent posts performed BEST and identify WHY (topic, format, timing, hook style).
-2. Analyze which posts UNDERPERFORMED and identify patterns to avoid.
-3. ${chainPreview ? 'Cross-reference social performance with on-chain signals — are high-engagement posts driving wallet growth? Which campaigns have the best ROI and retention?' : 'Identify what content types consistently drive engagement.'}
-4. Provide a clear recommendation on what content FORMAT works best for this brand (short tweets vs threads vs campaigns).
-
-OUTPUT JSON:
-{"agent":"Performance Analyst","focus":"Engagement Patterns + Content Performance","summary":"2-3 sentence data-driven analysis","keySignals":["signal1","signal2","signal3"]}`,
-            fallback: {
-                agent: 'Performance Analyst',
-                focus: 'Engagement Patterns + Content Performance',
-                summary: 'Insufficient analytics data. Recommend publishing diverse content types to establish performance baseline.',
-                keySignals: []
-            }
-        },
-        {
-            prompt: `
-${sharedContext}
-
-YOUR ROLE: Content Planner Agent — strategic content calendar architect.
-YOUR FOCUS DATA:
-- Upcoming Calendar: ${calendarPreview || 'No upcoming content scheduled.'}
-- Recent Post Cadence: ${context.memory.recentPosts?.length || 0} posts in recent history.
-
-YOUR TASK:
-1. Identify gaps in the content calendar that leave the brand invisible during key market moments.
-2. Recommend content types based on past performance data (which formats got highest engagement).
-3. Propose content themes that leverage the brand's knowledge base topics — what expertise can we showcase?
-4. Factor in competitor content gaps — where are competitors NOT publishing that we can own?
-
-OUTPUT JSON:
-{"agent":"Content Planner","focus":"Calendar Gaps + Content Strategy","summary":"2-3 sentence strategic plan","keySignals":["signal1","signal2","signal3"]}`,
-            fallback: {
-                agent: 'Content Planner',
-                focus: 'Calendar Gaps + Content Strategy',
-                summary: 'No upcoming calendar items. Prioritize scheduling the next high-impact thread.',
-                keySignals: []
-            }
-        },
-        {
-            prompt: `
-${sharedContext}
-
-YOUR ROLE: Knowledge Curator Agent — brand guardian and differentiation strategist.
-YOUR FOCUS DATA:
-- Brand Memory & Knowledge Base: ${context.memory.ragDocs.join('\n') || 'No knowledge base context.'}
-
-YOUR TASK:
-1. Surface the top 2-3 brand principles, technical advantages, or strategic positions that MUST be reflected in upcoming content.
-2. Cross-reference brand expertise against current market trends — which trends align with our knowledge base?
-3. Identify where our unique expertise creates differentiation that competitors CANNOT match.
-4. Flag any brand constraints (banned phrases, tone guidelines) that should guide content creation.
-
-OUTPUT JSON:
-{"agent":"Knowledge Curator","focus":"Brand Differentiation + Knowledge Leverage","summary":"2-3 sentence strategic guidance","keySignals":["signal1","signal2","signal3"]}`,
-            fallback: {
-                agent: 'Knowledge Curator',
-                focus: 'Brand Differentiation + Knowledge Leverage',
-                summary: 'No knowledge base context available. Use brand values and positioning defaults.',
-                keySignals: []
-            }
-        }
-    ];
-
-    const agentInsights = await Promise.all(
-        agentPrompts.map(({ prompt, fallback }) => runAgentInsight(prompt, fallback))
-    );
-
-    const agentSummaryBlock = agentInsights
-        .map(insight => `- ${insight.agent} (${insight.focus}): ${insight.summary} | Signals: ${insight.keySignals.join('; ')}`)
-        .join('\n');
-
-    const enrichedContext: BrainContext = {
-        ...context,
-        memory: {
-            ...context.memory,
-            ragDocs: [
-                ...context.memory.ragDocs,
-                `AGENT COUNCIL SUMMARY:\n${agentSummaryBlock}`.trim()
-            ]
-        }
-    };
-
-    const analysis = await analyzeMarketContext(enrichedContext);
-    const plan = await formulateStrategy(enrichedContext, analysis);
-
-    return { analysis, actions: plan.actions || [], agentInsights };
+    return { analysis, actions: plan.actions || [], agentInsights: [] };
 };
 
 /**
