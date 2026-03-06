@@ -12,6 +12,7 @@ const INTENTS = {
     ANALYZE_TRENDS: 'ANALYZE_TRENDS',     // "What's trending?"
     USE_RECOMMENDATION: 'USE_RECOMMENDATION', // "Use recommendation #2"
     GET_BRIEFING: 'GET_BRIEFING',         // "What's the daily brief?"
+    ADD_TO_PLANNER: 'ADD_TO_PLANNER',     // "Add this to content planner"
     GENERAL_CHAT: 'GENERAL_CHAT',         // Everything else
 };
 
@@ -30,6 +31,7 @@ INTENTS:
 - ANALYZE_TRENDS: User wants to know what's trending, market analysis, recent news.
 - USE_RECOMMENDATION: User references a specific recommendation number. Extract the number.
 - GET_BRIEFING: User asks for the daily brief, morning report, strategy summary.
+- ADD_TO_PLANNER: User wants to save something to the content planner/calendar. Trigger phrases: "add to content planner", "save to planner", "note this", "save this idea", "add to calendar", "remember this for content". Usually used when replying to a message they want to save.
 - GENERAL_CHAT: Brainstorming, strategy discussion, asking for ideas/suggestions, questions, opinions, or any other conversation. This includes requests like "give me content ideas", "suggest topics", "what should we post about", "brainstorm some angles" — these are GENERAL_CHAT because the user wants IDEAS and DISCUSSION, not a finished draft.
 
 IMPORTANT DISTINCTION:

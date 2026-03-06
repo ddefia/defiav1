@@ -19,6 +19,7 @@ import {
     extractTweetUrl,
     fetchTweetContent,
     generateQuoteRetweet,
+    saveContentPlannerNote,
 } from './contentGenerator.js';
 import {
     formatDailyBriefing,
@@ -29,6 +30,7 @@ import {
     formatWelcome,
     formatHelp,
     formatChatResponse,
+    formatPlannerNoteAdded,
     formatError,
 } from './messageFormatter.js';
 import { fetchBrandProfile, getSupabaseClient } from '../agent/brandContext.js';
@@ -670,6 +672,42 @@ const processMessage = async (update) => {
                 chatHistory.push({ role: 'assistant', text: '(briefing sent)', timestamp: Date.now() });
                 await saveChatHistory(supabase, chatId, chatHistory);
                 return; // Already handled
+            }
+
+            case INTENTS.ADD_TO_PLANNER: {
+                // Extract note content from the replied-to message + user's extra text
+                const repliedMsg = message.reply_to_message;
+                const noteBody = repliedMsg?.text || repliedMsg?.caption || cleanText || '';
+
+                // User's text (after stripping "add to content planner" phrases) becomes the title
+                const titleRaw = cleanText
+                    .replace(/add\s*(this\s*)?(to\s*)?(the\s*)?content\s*planner/i, '')
+                    .replace(/save\s*(this\s*)?(to\s*)?(the\s*)?planner/i, '')
+                    .replace(/note\s*this/i, '')
+                    .replace(/save\s*this\s*idea/i, '')
+                    .replace(/add\s*(to\s*)?(the\s*)?calendar/i, '')
+                    .replace(/remember\s*this\s*for\s*content/i, '')
+                    .trim();
+                const noteTitle = titleRaw || (noteBody.length > 60 ? noteBody.slice(0, 57) + '...' : noteBody);
+
+                if (!noteBody) {
+                    responseText = formatChatResponse('Reply to a message with "add to content planner" to save it as a note.');
+                    break;
+                }
+
+                try {
+                    const brandName = brandProfile.name || linked.brandId;
+                    const savedNote = await saveContentPlannerNote(supabase, brandName, {
+                        title: noteTitle,
+                        body: noteBody,
+                    });
+                    responseText = formatPlannerNoteAdded(savedNote);
+                    historyNote = `[Saved to content planner]: "${noteTitle}"`;
+                } catch (e) {
+                    console.error('[Telegram] Content planner save failed:', e.message);
+                    responseText = formatError('Failed to save note. Try again.');
+                }
+                break;
             }
 
             case INTENTS.GENERAL_CHAT:

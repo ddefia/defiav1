@@ -263,6 +263,21 @@ const formatRecommendationsBatch = (actions, brandName, siteUrl) => {
     return lines.join('\n');
 };
 
+// ━━━ Content Planner Note ━━━
+
+const formatPlannerNoteAdded = (note) => {
+    const lines = [];
+    lines.push(`\uD83D\uDCCB ${bold('Saved to Content Planner')}`);
+    lines.push('');
+    if (note.title) lines.push(bold(note.title));
+    if (note.body && note.body !== note.title) {
+        lines.push(italic(note.body.slice(0, 200)));
+    }
+    lines.push('');
+    lines.push(escapeMarkdownV2(`Status: idea | Tag: ${note.tag || 'idea'}`));
+    return lines.join('\n');
+};
+
 // ━━━ Error ━━━
 
 const formatError = (message) => {
@@ -280,5 +295,6 @@ export {
     formatWelcome,
     formatHelp,
     formatChatResponse,
+    formatPlannerNoteAdded,
     formatError,
 };

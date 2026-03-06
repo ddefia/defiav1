@@ -4,6 +4,7 @@
  * Ports the essential logic from client-side services/gemini.ts for Telegram use.
  */
 
+import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import { getSupabaseClient } from '../agent/brandContext.js';
 import { generateText, withTimeout, TIMEOUT_MS } from './llm.js';
@@ -49,8 +50,11 @@ const generateTweet = async (topic, brandProfile) => {
         ? `\nTARGET AUDIENCE: ${audienceList.map(a => typeof a === 'string' ? a : a.title || a.name || a.label || '').filter(Boolean).join(', ')}`
         : (brandProfile.targetAudience ? `\nTARGET AUDIENCE: ${brandProfile.targetAudience}` : '');
 
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
     const systemPrompt = `You are an Elite Crypto Content Creator for ${brandName}.
 You are known for high-signal content that simplifies complex topics without losing nuance.
+TODAY'S DATE: ${today}. NEVER reference past events or outdated milestones as if they are current.
 
 TASK: Write a single, high-quality tweet about: "${topic}".
 
@@ -587,7 +591,10 @@ const generateChatResponse = async (message, chatHistory = [], brandProfile, con
 
     const historyText = chatHistory.slice(-10).map(m => `${m.role}: ${m.text}`).join('\n');
 
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
     const systemPrompt = `You are the marketing brain behind ${brandName}. You sit in this Telegram group as a team member — not an assistant, not a bot. You're the sharpest person in the room when it comes to marketing, positioning, and content for ${brandName}.
+TODAY'S DATE: ${today}. Always reference current/future context. Never talk about past events as if they're upcoming.
 
 PERSONALITY:
 - Talk like a real person in a group chat. Short, punchy, no fluff.
@@ -723,10 +730,14 @@ const summarizeTrends = async (brandId, supabase) => {
 const getRecentRecommendations = async (brandId, supabase, limit = 5) => {
     if (!supabase || !brandId) return [];
 
+    // Only fetch recommendations from the last 48 hours to avoid stale data
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
     const { data, error } = await supabase
         .from('agent_decisions')
         .select('*')
         .eq('brand_id', brandId)
+        .gte('created_at', cutoff)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -894,7 +905,10 @@ const generateQuoteRetweet = async (originalTweet, brandProfile) => {
         ? ` by ${originalTweet.authorName}`
         : '';
 
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
     const systemPrompt = `You are an Elite Crypto Content Creator for ${brandName}.
+TODAY'S DATE: ${today}.
 You are writing a QUOTE RETWEET — a response that adds value on top of an existing tweet.
 
 ORIGINAL TWEET${authorCredit}:
@@ -944,6 +958,57 @@ INSTRUCTIONS:
     return (raw || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
 };
 
+// ━━━ Content Planner Note ━━━
+
+/**
+ * Save a note to the content planner via Supabase app_storage.
+ * Uses the same key format as the client-side ContentPlanner component
+ * so notes appear in the web dashboard immediately.
+ */
+const saveContentPlannerNote = async (supabase, brandName, { title, body }) => {
+    if (!supabase || !brandName) throw new Error('Missing supabase or brandName');
+
+    const key = `defia_content_planner_v1_${brandName.toLowerCase()}`;
+
+    // Load existing notes
+    const { data: existing } = await supabase
+        .from('app_storage')
+        .select('value')
+        .eq('key', key)
+        .maybeSingle();
+
+    const notes = Array.isArray(existing?.value) ? existing.value : [];
+
+    // Compute current week ID (ISO week format: YYYY-Www)
+    const now = new Date();
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    const weekNum = Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    const weekId = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+
+    const newNote = {
+        id: crypto.randomBytes(8).toString('hex'),
+        title: title || body.slice(0, 60),
+        body,
+        day: null,
+        weekId,
+        tag: 'idea',
+        status: 'idea',
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+    };
+
+    notes.push(newNote);
+
+    // Upsert to app_storage (same as client saveToCloud)
+    await supabase.from('app_storage').upsert({
+        key,
+        value: notes,
+        updated_at: now.toISOString(),
+    });
+
+    return newNote;
+};
+
 export {
     generateTweet,
     generateImage,
@@ -956,4 +1021,5 @@ export {
     extractTweetUrl,
     fetchTweetContent,
     generateQuoteRetweet,
+    saveContentPlannerNote,
 };
