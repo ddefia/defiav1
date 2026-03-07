@@ -450,10 +450,10 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                 const key = (s.dataSignal || s.title || '').toLowerCase().split(/\s+/).slice(0, 4).join(' ');
                 return !primaryText.includes(key.slice(0, 20));
             });
-            return [...primary, ...filtered].slice(0, 8);
+            return [...primary, ...filtered].filter(r => r.type && r.title && r.impactScore).slice(0, 8);
         }
 
-        return primary;
+        return primary.filter(r => r.type && r.title && r.impactScore);
     }, [recommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig, chainMetrics, campaignLogs]);
 
     // Filter by priority

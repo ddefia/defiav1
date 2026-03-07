@@ -319,10 +319,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 const key = (s.dataSignal || s.title || '').toLowerCase().split(/\s+/).slice(0, 4).join(' ');
                 return !primaryText.includes(key.slice(0, 20));
             });
-            return [...primary, ...filtered].slice(0, 6);
+            return [...primary, ...filtered].filter(r => r.type && r.title && r.impactScore).slice(0, 6);
         }
 
-        return primary;
+        return primary.filter(r => r.type && r.title && r.impactScore);
     }, [sharedRecommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig, chainMetrics]);
 
     // Fetch Web3 news for dashboard — auto-refresh if stale
