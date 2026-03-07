@@ -1981,6 +1981,21 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     updated_at: new Date().toISOString(),
                 });
 
+                // Also save to agent_decisions so Telegram /recommendations picks them up
+                for (const action of actions) {
+                    try {
+                        await supabase.from('agent_decisions').insert({
+                            brand_id: brandId,
+                            action: action.action || action.type || 'RECOMMEND',
+                            target_id: action.targetId || null,
+                            reason: action.reason || action.rationale || null,
+                            draft: action.draft || action.suggestedContent || null,
+                            status: 'pending',
+                            metadata: action.metadata || null,
+                        });
+                    } catch { /* non-critical */ }
+                }
+
                 // Mark brand as run (for interval gating)
                 await markBrandRun(supabase, brandId);
 
@@ -2500,7 +2515,7 @@ app.get('/api/web3-news', async (req, res) => {
         const result = await fetchWeb3News(supabase, brand || 'global', {
             forceRefresh: refresh === 'true',
             limit: 10,
-            cacheDurationMs: 24 * 60 * 60 * 1000 // 24 hours
+            cacheDurationMs: 6 * 60 * 60 * 1000 // 6 hours — keep news fresh
         });
 
         res.json({

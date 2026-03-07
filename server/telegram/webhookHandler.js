@@ -851,11 +851,15 @@ const handleRecommendationsCommand = async (supabase, chatId) => {
 
     const recommendations = await getRecentRecommendations(linked.brandId, supabase, 5);
     if (recommendations.length === 0) {
-        await safeSend(chatId, formatChatResponse('No recent recommendations. The AI agent generates these during scheduled analysis cycles (every 6 hours).'));
+        await safeSend(chatId, formatChatResponse('No recommendations available yet. The AI agent will generate these during the next scheduled analysis cycle.'));
         return;
     }
 
-    const lines = [`\u{1F4CB} *Recent AI Recommendations*\n`];
+    // Check if recommendations are older than 48h
+    const newest = recommendations[0]?.created_at ? new Date(recommendations[0].created_at).getTime() : 0;
+    const isStale = newest > 0 && (Date.now() - newest) > 48 * 60 * 60 * 1000;
+
+    const lines = [`\u{1F4CB} *${isStale ? 'Latest' : 'Recent'} AI Recommendations*\n`];
     recommendations.forEach((rec, i) => {
         const icon = rec.action === 'REPLY' ? '\u21A9\uFE0F'
             : rec.action === 'TREND_JACK' ? '\u26A1'

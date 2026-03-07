@@ -1573,11 +1573,19 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                         }`}
                                     >
                                         {/* Image */}
-                                        <div className="aspect-video w-full relative">
+                                        <div className="aspect-video w-full relative group/img">
                                             <img src={img} className="w-full h-full object-cover" alt={`Variation ${idx + 1}`} />
+                                            {/* Delete button */}
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setGraphicVariations(prev => prev.filter((_, i) => i !== idx)); if (selectedVariation >= graphicVariations.length - 1) setSelectedVariation(Math.max(0, graphicVariations.length - 2)); }}
+                                                className="absolute top-3 left-3 w-8 h-8 rounded-full bg-black/70 hover:bg-red-600 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-all"
+                                                title="Remove variation"
+                                            >
+                                                <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                            </button>
                                             {/* Selection indicator */}
                                             {selectedVariation === idx && (
-                                                <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#FF5C00] flex items-center justify-center">
+                                                <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#FF5C00] flex items-center justify-center">
                                                     <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check</span>
                                                 </div>
                                             )}

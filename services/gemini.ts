@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief, StrategicPosture, Mention, AgentInsight } from "../types";
 import { saveBrainLog } from "./storage";
 import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
+import { getAuthToken } from "./auth";
 
 // --- API KEY HELPER ---
 // Server-side only: direct SDK access. Browser: proxied through /api/gemini/*
@@ -32,10 +33,13 @@ const createProxyAI = () => ({
                 const directAI = new GoogleGenAI({ apiKey });
                 return directAI.models.generateContent(params);
             }
-            // Browser: proxy through server
+            // Browser: proxy through server — include auth token
+            const token = await getAuthToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
             const res = await fetch('/api/gemini/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ model: params.model, contents: params.contents, config: params.config }),
             });
             if (!res.ok) {
@@ -64,9 +68,12 @@ const createProxyAI = () => ({
                 const directAI = new GoogleGenAI({ apiKey });
                 return directAI.models.embedContent(params);
             }
+            const token = await getAuthToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
             const res = await fetch('/api/gemini/embed', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ model: params.model, contents: params.contents }),
             });
             if (!res.ok) {

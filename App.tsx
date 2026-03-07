@@ -1766,6 +1766,28 @@ const App: React.FC = () => {
         }
     }, [selectedBrand, agentDecisions?.length, llmRecommendations.length, regenLoading, socialSignals.trendingTopics?.length]);
 
+    // Independent QRT feed fetch — runs when QRT is empty and competitors exist
+    useEffect(() => {
+        if (!selectedBrand || !profiles[selectedBrand]) return;
+        if (qrtFeed.length > 0) return; // already have QRT data
+
+        const compHandles = (profiles[selectedBrand]?.competitors || [])
+            .map((c: any) => c.handle).filter(Boolean);
+        if (compHandles.length === 0) return;
+
+        let cancelled = false;
+        fetchCompetitorTweets(compHandles)
+            .then(tweets => {
+                if (!cancelled && tweets.length > 0) {
+                    setQrtFeed(tweets);
+                    try { localStorage.setItem(`defia_qrt_${selectedBrand}`, JSON.stringify(tweets)); } catch {}
+                    console.log(`[QRT] Loaded ${tweets.length} competitor tweets for QRT feed`);
+                }
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [selectedBrand, profiles[selectedBrand]?.competitors?.length]);
+
     const handleTrendToCampaign = (trend: TrendItem) => {
         handleNavigate('campaigns', { title: trend.headline });
     };

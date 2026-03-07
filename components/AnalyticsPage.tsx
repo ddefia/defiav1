@@ -222,12 +222,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
     }
 
     return (
-        <div className="flex-1 flex flex-col bg-[#0A0A0B] min-h-0">
+        <div className="flex-1 flex flex-col min-h-0" style={{ backgroundColor: 'var(--bg-primary)' }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-10 py-5 border-b border-[#1F1F23] shrink-0">
+            <div className="flex items-center justify-between px-10 py-5 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-bold text-white">Analytics</h1>
-                    <p className="text-sm text-[#6B6B70]">Track your marketing performance and growth metrics</p>
+                    <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Analytics</h1>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Track your marketing performance and growth metrics</p>
                 </div>
                 <span className="text-[#6B6B70] text-sm">Based on recent X/Twitter data for {brandName}</span>
             </div>
@@ -237,14 +237,14 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                 {/* Metrics Row */}
                 <div className="grid grid-cols-4 gap-4">
                     {/* Weekly Impressions */}
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
+                    <div className="rounded-[14px] p-5 flex flex-col gap-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                         <div className="flex items-center justify-between">
                             <span className="text-[#9CA3AF] text-[13px]">Weekly Impressions</span>
                             <div className="w-8 h-8 rounded-lg bg-[#3B82F622] flex items-center justify-center">
                                 <span className="material-symbols-sharp text-[#3B82F6] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>visibility</span>
                             </div>
                         </div>
-                        <span className="text-white text-[28px] font-bold">{formatNumber(impressions)}</span>
+                        <span className="text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>{formatNumber(impressions)}</span>
                         <div className="flex items-center gap-1.5">
                             <span className={`material-symbols-sharp text-sm ${getDeltaTone(impressionsChange).className}`} style={{ fontVariationSettings: "'wght' 300" }}>
                                 {getDeltaTone(impressionsChange).icon}
@@ -256,14 +256,14 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     </div>
 
                     {/* Total Engagements */}
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
+                    <div className="rounded-[14px] p-5 flex flex-col gap-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                         <div className="flex items-center justify-between">
                             <span className="text-[#9CA3AF] text-[13px]">Total Engagements</span>
                             <div className="w-8 h-8 rounded-lg bg-[#22C55E22] flex items-center justify-center">
                                 <span className="material-symbols-sharp text-[#22C55E] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>favorite</span>
                             </div>
                         </div>
-                        <span className="text-white text-[28px] font-bold">{formatNumber(totalEngagements)}</span>
+                        <span className="text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>{formatNumber(totalEngagements)}</span>
                         <div className="flex items-center gap-1.5">
                             <span className={`material-symbols-sharp text-sm ${getDeltaTone(engagementChange).className}`} style={{ fontVariationSettings: "'wght' 300" }}>
                                 {getDeltaTone(engagementChange).icon}
@@ -275,14 +275,14 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     </div>
 
                     {/* Total Followers */}
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
+                    <div className="rounded-[14px] p-5 flex flex-col gap-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                         <div className="flex items-center justify-between">
                             <span className="text-[#9CA3AF] text-[13px]">Total Followers</span>
                             <div className="w-8 h-8 rounded-lg bg-[#FF5C0022] flex items-center justify-center">
                                 <span className="material-symbols-sharp text-[#FF5C00] text-base" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>group</span>
                             </div>
                         </div>
-                        <span className="text-white text-[28px] font-bold">{formatNumber(totalFollowers)}</span>
+                        <span className="text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>{formatNumber(totalFollowers)}</span>
                         <div className="flex items-center gap-1.5">
                             <span className={`material-symbols-sharp text-sm ${getDeltaTone(followersChange).className}`} style={{ fontVariationSettings: "'wght' 300" }}>
                                 {getDeltaTone(followersChange).icon}
@@ -294,14 +294,14 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     </div>
 
                     {/* Engagement Rate */}
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5 flex flex-col gap-3">
+                    <div className="rounded-[14px] p-5 flex flex-col gap-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                         <div className="flex items-center justify-between">
                             <span className="text-[#9CA3AF] text-[13px]">Engagement Rate</span>
                             <div className="w-8 h-8 rounded-lg bg-[#A855F722] flex items-center justify-center">
                                 <span className="material-symbols-sharp text-[#A855F7] text-base" style={{ fontVariationSettings: "'wght' 300" }}>percent</span>
                             </div>
                         </div>
-                        <span className="text-white text-[28px] font-bold">{engagementRate.toFixed(2)}%</span>
+                        <span className="text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>{engagementRate.toFixed(2)}%</span>
                         <div className="flex items-center gap-1.5">
                             <span className={`material-symbols-sharp text-sm ${getDeltaTone(engagementChange).className}`} style={{ fontVariationSettings: "'wght' 300" }}>
                                 {getDeltaTone(engagementChange).icon}
@@ -315,10 +315,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
 
                 {/* On-Chain Metrics — only when chain data exists */}
                 {chainMetrics && (chainMetrics.netNewWallets > 0 || chainMetrics.totalVolume > 0 || chainMetrics.activeWallets > 0) && (
-                    <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] overflow-hidden">
-                        <div className="px-6 py-4 border-b border-[#1F1F23] flex items-center gap-2.5">
+                    <div className="rounded-[14px] overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
+                        <div className="px-6 py-4 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
                             <span className="material-symbols-sharp text-base text-[#8B5CF6]" style={{ fontVariationSettings: "'wght' 300" }}>token</span>
-                            <span className="text-white text-sm font-semibold">On-Chain Analytics</span>
+                            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>On-Chain Analytics</span>
                         </div>
                         <div className="grid grid-cols-4 gap-4 p-6">
                             <div className="flex flex-col gap-3">
@@ -328,7 +328,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                         <span className="material-symbols-sharp text-[#8B5CF6] text-base" style={{ fontVariationSettings: "'wght' 300" }}>person_add</span>
                                     </div>
                                 </div>
-                                <span className="text-white text-[28px] font-bold">{formatNumber(chainMetrics.netNewWallets)}</span>
+                                <span className="text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>{formatNumber(chainMetrics.netNewWallets)}</span>
                                 <span className="text-[#6B6B70] text-xs">net new (30d)</span>
                             </div>
                             <div className="flex flex-col gap-3">
@@ -338,7 +338,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                         <span className="material-symbols-sharp text-[#06B6D4] text-base" style={{ fontVariationSettings: "'wght' 300" }}>account_balance_wallet</span>
                                     </div>
                                 </div>
-                                <span className="text-white text-[28px] font-bold">{formatNumber(chainMetrics.activeWallets)}</span>
+                                <span className="text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>{formatNumber(chainMetrics.activeWallets)}</span>
                                 <span className="text-[#6B6B70] text-xs">currently active</span>
                             </div>
                             <div className="flex flex-col gap-3">
@@ -348,7 +348,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                         <span className="material-symbols-sharp text-[#22C55E] text-base" style={{ fontVariationSettings: "'wght' 300" }}>bar_chart</span>
                                     </div>
                                 </div>
-                                <span className="text-white text-[28px] font-bold">
+                                <span className="text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>
                                     {chainMetrics.totalVolume > 1_000_000 ? `$${(chainMetrics.totalVolume / 1_000_000).toFixed(1)}M` : chainMetrics.totalVolume > 1000 ? `$${(chainMetrics.totalVolume / 1000).toFixed(0)}K` : `$${chainMetrics.totalVolume.toLocaleString()}`}
                                 </span>
                                 <span className="text-[#6B6B70] text-xs">total</span>
@@ -360,7 +360,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                         <span className="material-symbols-sharp text-[#F59E0B] text-base" style={{ fontVariationSettings: "'wght' 300" }}>sync</span>
                                     </div>
                                 </div>
-                                <span className="text-white text-[28px] font-bold">{chainMetrics.retentionRate.toFixed(1)}%</span>
+                                <span className="text-[28px] font-bold" style={{ color: 'var(--text-primary)' }}>{chainMetrics.retentionRate.toFixed(1)}%</span>
                                 <span className={`text-xs ${chainMetrics.retentionRate >= 30 ? 'text-[#22C55E]' : chainMetrics.retentionRate >= 15 ? 'text-[#F59E0B]' : 'text-[#6B6B70]'}`}>
                                     {chainMetrics.retentionRate >= 30 ? 'Healthy' : chainMetrics.retentionRate >= 15 ? 'Average' : 'Needs improvement'}
                                 </span>
@@ -401,13 +401,13 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                 )}
 
                 {/* Performance Chart Section */}
-                <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5">
+                <div className="rounded-[14px] p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                     <div className="flex gap-5">
                         {/* Chart Area */}
                         <div className="flex-1 flex flex-col gap-4 min-w-0">
                             <div className="flex items-center justify-between">
-                                <span className="text-white text-base font-semibold">Performance Over Time</span>
-                                <div className="flex items-center gap-1 p-1 bg-[#1A1A1D] rounded-lg">
+                                <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Performance Over Time</span>
+                                <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                     {(['impressions', 'engagements', 'followers'] as ChartTab[]).map(tab => (
                                         <button
                                             key={tab}
@@ -474,34 +474,34 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
 
                         {/* Chart Stats Sidebar */}
                         <div className="w-[180px] flex flex-col gap-3 shrink-0">
-                            <div className="bg-[#1A1A1D] rounded-lg p-3.5 flex flex-col gap-1">
+                            <div className="rounded-lg p-3.5 flex flex-col gap-1" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                 <span className="text-[#6B6B70] text-xs">Peak Day</span>
-                                <span className="text-white text-base font-semibold">
+                                <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                                     {chartTab === 'engagements' && engagementPeak ? engagementPeak.date : '--'}
                                 </span>
                                 <span className="text-[#22C55E] text-xs font-medium">
                                     {chartTab === 'engagements' && engagementPeak ? `${engagementPeak.rate.toFixed(2)}%` : 'No data'}
                                 </span>
                             </div>
-                            <div className="bg-[#1A1A1D] rounded-lg p-3.5 flex flex-col gap-1">
+                            <div className="rounded-lg p-3.5 flex flex-col gap-1" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                 <span className="text-[#6B6B70] text-xs">Avg. Daily</span>
-                                <span className="text-white text-base font-semibold">
+                                <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                                     {chartTab === 'engagements' && hasEngagementHistory ? `${engagementAvg.toFixed(2)}%` : '--'}
                                 </span>
                                 <span className="text-[#6B6B70] text-xs">{hasEngagementHistory ? 'Avg rate' : 'No data'}</span>
                             </div>
-                            <div className="bg-[#1A1A1D] rounded-lg p-3.5 flex flex-col gap-1">
+                            <div className="rounded-lg p-3.5 flex flex-col gap-1" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                 <span className="text-[#6B6B70] text-xs">Growth Rate</span>
-                                <span className="text-white text-base font-semibold">
+                                <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                                     {chartTab === 'engagements' && hasEngagementHistory ? formatDelta(engagementGrowth) : '--'}
                                 </span>
                                 <span className="text-[#6B6B70] text-xs">Period over period</span>
                             </div>
-                            <div className="bg-[#1A1A1D] rounded-lg p-3.5 flex flex-col gap-1">
+                            <div className="rounded-lg p-3.5 flex flex-col gap-1" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                 <span className="text-[#6B6B70] text-xs">Best Platform</span>
                                 <div className="flex items-center gap-2">
                                     <span className="material-symbols-sharp text-[#1DA1F2] text-base" style={{ fontVariationSettings: "'wght' 300" }}>alternate_email</span>
-                                    <span className="text-white text-base font-semibold">{metrics ? 'Twitter/X' : '--'}</span>
+                                    <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{metrics ? 'Twitter/X' : '--'}</span>
                                 </div>
                                 <span className="text-[#6B6B70] text-xs">{metrics ? 'Based on available data' : 'No platform data'}</span>
                             </div>
@@ -511,8 +511,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
 
                 {/* AI Performance Insights */}
                 <div
-                    className="rounded-[14px] p-5 border border-[#FF5C0044]"
-                    style={{ background: 'linear-gradient(180deg, #111113 0%, #1A120D 100%)' }}
+                    className="rounded-[14px] p-5"
+                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-soft, rgba(255,92,0,0.15))', boxShadow: 'var(--card-shadow)' }}
                 >
                     <div className="flex items-center gap-2.5 mb-3">
                         <span className="material-symbols-sharp text-[#FF5C00] text-xl" style={{ fontVariationSettings: "'wght' 200" }}>auto_awesome</span>
@@ -524,11 +524,11 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                 <div className="w-5 h-5 rounded-full bg-[#FF5C00] flex items-center justify-center flex-shrink-0 mt-0.5">
                                     <span className="text-white text-[10px] font-semibold">{insight.num}</span>
                                 </div>
-                                <span className="text-[#E5E5E5] text-[13px] leading-relaxed">{insight.text}</span>
+                                <span className="text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{insight.text}</span>
                             </div>
                         ))}
                         {aiInsights.length === 0 && (
-                            <div className="text-[#6B6B70] text-sm">
+                            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
                                 No AI insights yet. Generate more campaigns or connect data sources to unlock insights.
                             </div>
                         )}
@@ -544,16 +544,16 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                 </div>
 
                 {/* Content Performance */}
-                <div className="bg-[#111113] border border-[#1F1F23] rounded-[14px] p-5">
+                <div className="rounded-[14px] p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                     {/* Header */}
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                            <span className="text-white text-base font-semibold">Content Performance</span>
+                            <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Content Performance</span>
                             <span className="text-[#6B6B70] text-xs">{sortedContent.length} posts</span>
                         </div>
                         <div className="flex items-center gap-2">
                             {contentLogs.length > 0 && (
-                                <div className="flex items-center gap-1 p-1 bg-[#1A1A1D] rounded-lg">
+                                <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                     <button
                                         onClick={() => setShowHistory(false)}
                                         className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${!showHistory ? 'bg-[#FF5C00] text-white' : 'text-[#9CA3AF] hover:text-white'}`}
@@ -574,9 +574,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     {/* Table */}
                     <div className="flex flex-col">
                         {/* Table Header */}
-                        <div className="flex items-center gap-4 py-2.5 border-b border-[#1F1F23]">
-                            <span className="text-[#6B6B70] text-xs font-medium flex-1 min-w-0">Content</span>
-                            <span className="text-[#6B6B70] text-xs font-medium w-[90px]">Platform</span>
+                        <div className="flex items-center gap-4 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                            <span className="text-xs font-medium flex-1 min-w-0" style={{ color: 'var(--text-muted)' }}>Content</span>
+                            <span className="text-xs font-medium w-[90px]" style={{ color: 'var(--text-muted)' }}>Platform</span>
                             <button onClick={() => handleSort('date')} className="flex items-center text-[#6B6B70] text-xs font-medium w-[80px] hover:text-white transition-colors">
                                 Date<SortIcon field="date" />
                             </button>
@@ -598,18 +598,21 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                                 <div
                                     key={item.id}
                                     onClick={() => setSelectedPost(item)}
-                                    className="flex items-center gap-4 py-3 hover:bg-[#1A1A1D] transition-colors rounded-lg -mx-2 px-2 cursor-pointer"
+                                    className="flex items-center gap-4 py-3 transition-colors rounded-lg -mx-2 px-2 cursor-pointer"
+                                    style={{ }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                 >
-                                    <span className="text-white text-[13px] flex-1 min-w-0 truncate">{item.content}</span>
+                                    <span className="text-[13px] flex-1 min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>{item.content}</span>
                                     <div className="flex items-center gap-1.5 w-[90px]">
                                         <span className="material-symbols-sharp text-sm" style={{ color: platformInfo.color, fontVariationSettings: "'wght' 300" }}>
                                             {platformInfo.icon}
                                         </span>
-                                        <span className="text-white text-[13px]">{platformInfo.name}</span>
+                                        <span className="text-[13px]" style={{ color: 'var(--text-primary)' }}>{platformInfo.name}</span>
                                     </div>
                                     <span className="text-[#9CA3AF] text-[13px] w-[80px]">{item.date || '--'}</span>
-                                    <span className="text-white text-[13px] w-[90px]">{formatNumber(item.impressions)}</span>
-                                    <span className="text-white text-[13px] w-[90px]">{formatNumber(item.engagement)}</span>
+                                    <span className="text-[13px] w-[90px]" style={{ color: 'var(--text-primary)' }}>{formatNumber(item.impressions)}</span>
+                                    <span className="text-[13px] w-[90px]" style={{ color: 'var(--text-primary)' }}>{formatNumber(item.engagement)}</span>
                                     <span className="text-[#22C55E] text-[13px] font-semibold w-[70px]">
                                         {Number(item.rate).toFixed(2)}%
                                     </span>
@@ -634,9 +637,9 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                     <div
                         className="fixed top-0 right-0 h-full w-[420px] z-50 flex flex-col"
                         style={{
-                            backgroundColor: '#111113',
-                            borderLeft: '1px solid #1F1F23',
-                            boxShadow: '-20px 0 60px rgba(0,0,0,0.5)',
+                            backgroundColor: 'var(--bg-secondary)',
+                            borderLeft: '1px solid var(--border)',
+                            boxShadow: '-20px 0 60px rgba(0,0,0,0.3)',
                             animation: 'slideInRight 0.2s ease-out',
                         }}
                     >
@@ -648,8 +651,8 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ brandName, metrics
                         `}</style>
 
                         {/* Drawer Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1F1F23] shrink-0">
-                            <span className="text-white text-base font-semibold">Post Details</span>
+                        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+                            <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Post Details</span>
                             <button onClick={() => setSelectedPost(null)} className="p-1.5 hover:bg-[#1A1A1D] rounded-lg transition-colors">
                                 <span className="material-symbols-sharp text-[#6B6B70] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
                             </button>

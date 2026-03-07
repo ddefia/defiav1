@@ -310,6 +310,43 @@ export const generateSupplementalRecs = (
         }
     }
 
+    // 6. Community engagement — always useful
+    if (recs.length < 5) {
+        recs.push({
+            ...getRecStyle('COMMUNITY'),
+            title: `Host an AMA or Twitter Space to deepen ${brandName}'s community connection`,
+            reasoning: `Community-driven content consistently outperforms broadcast-style posts. An AMA or Space positions ${brandName} as transparent and accessible.`,
+            fullReason: `Community-driven content consistently outperforms broadcast-style posts. Hosting an AMA or Twitter Space positions ${brandName} as transparent and accessible, while driving real-time engagement and organic impressions. This is especially effective for building trust in the Web3 space.`,
+            fullDraft: `We're going live this week for a community AMA — bring your questions.\n\nTopics:\n- ${brandName}'s roadmap update\n- Behind the scenes on recent developments\n- Open Q&A with the team\n\nDrop your questions below 👇`,
+            contentIdeas: [`Schedule a Twitter Space for this week`, `Create a question-collection tweet thread`],
+            strategicAlignment: 'Community engagement builds trust and drives organic growth through authentic interaction.',
+            dataSignal: 'Community engagement opportunity',
+            impactScore: 77,
+            source: 'supplemental',
+            sourceTags: ['AI Analysis', 'Brand Mentions'],
+            generatedAt: Date.now(),
+        });
+    }
+
+    // 7. Thread content — evergreen recommendation
+    if (recs.length < 5) {
+        const topic = keywords[0] || (knowledgeBase.length > 0 ? 'core mission' : 'Web3 journey');
+        recs.push({
+            ...getRecStyle('THREAD'),
+            title: `Publish an educational thread about ${brandName}'s ${topic}`,
+            reasoning: `Threads drive 2-3x more engagement than single tweets. An educational thread about ${topic} positions ${brandName} as a thought leader.`,
+            fullReason: `Thread-format content consistently drives 2-3x more engagement and higher save/share rates than single posts. An educational thread about ${topic} would position ${brandName} as a thought leader while providing value to followers. This builds long-term brand equity.`,
+            fullDraft: `Let's talk about ${topic} — a thread 🧵\n\n1/ Most people misunderstand what ${brandName} is building.\n\n2/ Here's the real story:\n\n3/ [Key insight about ${topic}]\n\n4/ This matters because...\n\n5/ Follow for more insights on ${topic}.`,
+            contentIdeas: [`Educational thread on ${topic}`, `Infographic companion to the thread`],
+            strategicAlignment: 'Thread content drives deeper engagement and positions the brand as a knowledge leader.',
+            dataSignal: `Thread opportunity: ${topic}`,
+            impactScore: 75,
+            source: 'supplemental',
+            sourceTags: ['Content Calendar', 'AI Analysis'],
+            generatedAt: Date.now(),
+        });
+    }
+
     return recs;
 };
 
@@ -487,21 +524,21 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between px-8 py-5 border-b border-[#1F1F23]">
+            <div className="flex items-center justify-between px-8 py-5" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div>
-                    <h1 className="text-white text-[22px] font-bold" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
+                    <h1 className="text-[22px] font-bold" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--text-primary)' }}>
                         AI CMO Recommendations
                     </h1>
-                    <p className="text-[#9CA3AF] text-sm mt-0.5">Strategic insights and action recommendations from your AI marketing assistant</p>
+                    <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>Strategic insights and action recommendations from your AI marketing assistant</p>
                 </div>
                 <div className="flex items-center gap-3">
                     {regenLastRun > 0 && (
-                        <span className="text-[#9CA3AF] text-xs flex items-center gap-1.5">
+                        <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
                             <span className="material-symbols-sharp text-[14px]">schedule</span>
                             Last sync: {timeAgo(regenLastRun)}
                         </span>
                     )}
-                    <span className="px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23] text-[#9CA3AF] text-xs flex items-center gap-1.5">
+                    <span className="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
                         <span className="material-symbols-sharp text-[14px]">database</span>
                         {dataSourceCount} data sources
                     </span>
@@ -522,19 +559,19 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             </div>
 
             {/* Status bar */}
-            <div className="px-8 py-2.5 border-b border-[#1F1F23]/50 bg-[#0A0A0B]">
+            <div className="px-8 py-2.5" style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-primary)' }}>
                 <div className="flex items-center gap-3 text-xs flex-wrap">
                     <span className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full ${regenLastRun > 0 ? 'bg-[#22C55E] animate-pulse' : 'bg-[#6B7280]'}`}></span>
-                        <span className="text-[#9CA3AF]">Last sync: {regenLastRun > 0 ? timeAgo(regenLastRun) : 'Never'}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Last sync: {regenLastRun > 0 ? timeAgo(regenLastRun) : 'Never'}</span>
                     </span>
-                    <span className="text-[#2E2E2E]">·</span>
-                    <span className="text-[#9CA3AF]">{dataSourceCount} data sources</span>
-                    <span className="text-[#2E2E2E]">·</span>
+                    <span style={{ color: 'var(--border)' }}>·</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{dataSourceCount} data sources</span>
+                    <span style={{ color: 'var(--border)' }}>·</span>
                     <span className="text-[#FF5C00] font-medium">{allRecommendations.length} pending actions</span>
                     {approvedRecs.size > 0 && (
                         <>
-                            <span className="text-[#2E2E2E]">·</span>
+                            <span style={{ color: 'var(--border)' }}>·</span>
                             <span className="text-[#22C55E] font-medium flex items-center gap-1">
                                 <span className="material-symbols-sharp text-[12px]">check_circle</span>
                                 {approvedRecs.size} approved
@@ -543,8 +580,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                     )}
                     {decisionSummary?.strategicAngle && (
                         <>
-                            <span className="text-[#2E2E2E]">·</span>
-                            <span className="text-[#9CA3AF] italic truncate max-w-[300px]">"{decisionSummary.strategicAngle}"</span>
+                            <span style={{ color: 'var(--border)' }}>·</span>
+                            <span className="italic truncate max-w-[300px]" style={{ color: 'var(--text-muted)' }}>"{decisionSummary.strategicAngle}"</span>
                         </>
                     )}
                 </div>
@@ -566,20 +603,22 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
             {/* Market Snapshot — strategic intelligence from AI council */}
             {(decisionSummary?.summary || decisionSummary?.strategicAngle) && (
-                <div className={`border-b border-[#1F1F23] bg-[#06060808] transition-all duration-200 ${showMarketSnapshot ? '' : 'max-h-[40px] overflow-hidden'}`}>
+                <div className={`transition-all duration-200 ${showMarketSnapshot ? '' : 'max-h-[40px] overflow-hidden'}`} style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-primary)' }}>
                     {/* Snapshot header / toggle */}
                     <button
                         onClick={() => setShowMarketSnapshot(v => !v)}
-                        className="w-full flex items-center gap-3 px-8 py-2.5 hover:bg-[#111113]/50 transition-colors group"
+                        className="w-full flex items-center gap-3 px-8 py-2.5 transition-colors group"
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--hover-bg)')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
                         <div className="w-5 h-5 rounded flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #FF5C00 0%, #A855F7 100%)' }}>
                             <span className="material-symbols-sharp text-white text-[12px]" style={{ fontVariationSettings: "'wght' 400" }}>psychology</span>
                         </div>
                         <span className="text-[11px] font-bold tracking-widest text-[#FF5C00] uppercase">Market Intelligence</span>
                         {decisionSummary?.strategicAngle && !showMarketSnapshot && (
-                            <span className="text-[#9CA3AF] text-xs italic ml-2 truncate flex-1 text-left">{decisionSummary.strategicAngle}</span>
+                            <span className="text-xs italic ml-2 truncate flex-1 text-left" style={{ color: 'var(--text-muted)' }}>{decisionSummary.strategicAngle}</span>
                         )}
-                        <span className="material-symbols-sharp text-[16px] text-[#6B7280] group-hover:text-[#9CA3AF] ml-auto transition-colors">
+                        <span className="material-symbols-sharp text-[16px] ml-auto transition-colors" style={{ color: 'var(--text-muted)' }}>
                             {showMarketSnapshot ? 'expand_less' : 'expand_more'}
                         </span>
                     </button>
@@ -589,12 +628,12 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                         {/* Left: Summary + strategic angle */}
                         <div className="min-w-0">
                             {decisionSummary?.strategicAngle && (
-                                <p className="text-white text-sm font-semibold mb-1.5 leading-snug">
+                                <p className="text-sm font-semibold mb-1.5 leading-snug" style={{ color: 'var(--text-primary)' }}>
                                     {decisionSummary.strategicAngle}
                                 </p>
                             )}
                             {decisionSummary?.summary && (
-                                <p className="text-[#9CA3AF] text-xs leading-relaxed line-clamp-2">
+                                <p className="text-xs leading-relaxed line-clamp-2" style={{ color: 'var(--text-muted)' }}>
                                     {decisionSummary.summary}
                                 </p>
                             )}
@@ -619,7 +658,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     {(decisionSummary.opportunities as string[]).slice(0, 3).map((opp: string, i: number) => (
                                         <li key={i} className="flex items-start gap-1.5">
                                             <span className="w-1 h-1 rounded-full bg-[#22C55E] mt-1.5 flex-shrink-0"></span>
-                                            <span className="text-[#D1D5DB] text-[11px] leading-snug">{opp}</span>
+                                            <span className="text-[11px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{opp}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -635,7 +674,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     {(decisionSummary.risks as string[]).slice(0, 3).map((risk: string, i: number) => (
                                         <li key={i} className="flex items-start gap-1.5">
                                             <span className="w-1 h-1 rounded-full bg-[#EF4444] mt-1.5 flex-shrink-0"></span>
-                                            <span className="text-[#D1D5DB] text-[11px] leading-snug">{risk}</span>
+                                            <span className="text-[11px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{risk}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -648,37 +687,43 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             {/* Main content */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Left: Priority Queue */}
-                <div className="w-[420px] min-w-[420px] border-r border-[#1F1F23] flex flex-col bg-[#0A0A0B]">
+                <div className="w-[420px] min-w-[420px] flex flex-col" style={{ borderRight: '1px solid var(--border)', backgroundColor: 'var(--bg-primary)' }}>
                     <div className="px-5 pt-5 pb-3">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-[#9CA3AF] text-xs font-semibold tracking-wider uppercase">Priority Queue</span>
-                            <span className="text-[#9CA3AF] text-xs">{filteredRecs.length} items</span>
+                            <span className="text-xs font-semibold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>Priority Queue</span>
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{filteredRecs.length} items</span>
                         </div>
                         {/* AI Focus compact input */}
-                        <div className="flex items-center gap-2 bg-[#111113] border border-[#1F1F23] rounded-lg px-3 py-2 mb-3">
+                        <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                             <span className="material-symbols-sharp text-[#FF5C00] text-[14px] flex-shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>target</span>
                             <input
                                 type="text"
                                 value={recommendationFocus}
                                 onChange={e => onFocusChange?.(e.target.value)}
                                 placeholder="Focus area (e.g. AI agents)…"
-                                className="flex-1 bg-transparent text-white text-xs placeholder-[#4B5563] focus:outline-none min-w-0"
+                                className="flex-1 bg-transparent text-xs focus:outline-none min-w-0"
+                                style={{ color: 'var(--text-primary)', ['--tw-placeholder-opacity' as any]: 1 }}
                             />
                             {recommendationFocus ? (
                                 <button onClick={() => onFocusChange?.('')}
-                                    className="flex-shrink-0 text-[#4B5563] hover:text-white transition-colors">
+                                    className="flex-shrink-0 transition-colors" style={{ color: 'var(--text-muted)' }}>
                                     <span className="material-symbols-sharp text-[14px]">close</span>
                                 </button>
                             ) : null}
                         </div>
-                        <div className="flex bg-[#111113] rounded-lg p-1 gap-1">
+                        <div className="flex rounded-lg p-1 gap-1" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                             {(['high', 'medium', 'low', 'all'] as const).map(f => (
                                 <button key={f}
                                     onClick={() => { setPriorityFilter(f); setSelectedIdx(0); }}
                                     className={`flex-1 py-1.5 rounded-md text-xs font-medium capitalize transition-all ${priorityFilter === f
-                                        ? f === 'high' ? 'bg-[#FF5C00] text-white' : 'bg-[#1F1F23] text-white'
-                                        : 'text-[#9CA3AF] hover:text-[#9CA3AF]'
+                                        ? f === 'high' ? 'bg-[#FF5C00] text-white' : ''
+                                        : ''
                                     }`}
+                                    style={priorityFilter === f && f !== 'high'
+                                        ? { backgroundColor: 'var(--hover-bg)', color: 'var(--text-primary)' }
+                                        : priorityFilter !== f
+                                        ? { color: 'var(--text-muted)' }
+                                        : undefined}
                                 >{f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</button>
                             ))}
                         </div>
@@ -692,14 +737,14 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     <span className="text-[#FF5C00] text-xs font-medium">4-Agent Council analyzing...</span>
                                 </div>
                                 {[1, 2, 3, 4].map(i => (
-                                    <div key={i} className="rounded-xl bg-[#111113] p-4 border border-[#1F1F23] animate-pulse mb-2">
+                                    <div key={i} className="rounded-xl p-4 animate-pulse mb-2" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                         <div className="flex items-center justify-between mb-3">
-                                            <div className="w-20 h-5 rounded bg-[#1F1F23]"></div>
-                                            <div className="w-12 h-4 rounded bg-[#1F1F23]"></div>
+                                            <div className="w-20 h-5 rounded" style={{ backgroundColor: 'var(--hover-bg)' }}></div>
+                                            <div className="w-12 h-4 rounded" style={{ backgroundColor: 'var(--hover-bg)' }}></div>
                                         </div>
-                                        <div className="h-4 w-3/4 bg-[#1F1F23] rounded mb-2"></div>
-                                        <div className="h-3 w-full bg-[#1F1F23] rounded mb-1"></div>
-                                        <div className="h-3 w-1/2 bg-[#1F1F23] rounded"></div>
+                                        <div className="h-4 w-3/4 rounded mb-2" style={{ backgroundColor: 'var(--hover-bg)' }}></div>
+                                        <div className="h-3 w-full rounded mb-1" style={{ backgroundColor: 'var(--hover-bg)' }}></div>
+                                        <div className="h-3 w-1/2 rounded" style={{ backgroundColor: 'var(--hover-bg)' }}></div>
                                     </div>
                                 ))}
                             </div>
@@ -711,9 +756,16 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 return (
                                     <button key={i} onClick={() => setSelectedIdx(i)}
                                         className={`w-full text-left rounded-xl p-4 transition-all border ${isSelected
-                                            ? isApproved ? 'bg-[#111113] border-[#22C55E55] shadow-lg shadow-[#22C55E11]' : 'bg-[#111113] border-[#FF5C0066] shadow-lg shadow-[#FF5C0011]'
-                                            : isApproved ? 'bg-[#22C55E05] border-[#22C55E22] hover:bg-[#111113]' : 'bg-[#0A0A0B] border-[#1F1F23] hover:bg-[#111113] hover:border-[#2E2E2E]'
-                                        }`}>
+                                            ? isApproved ? 'border-[#22C55E55] shadow-lg shadow-[#22C55E11]' : 'border-[#FF5C0066] shadow-lg shadow-[#FF5C0011]'
+                                            : isApproved ? 'bg-[#22C55E05] border-[#22C55E22]' : ''
+                                        }`}
+                                        style={{
+                                            backgroundColor: isSelected ? 'var(--bg-secondary)' : isApproved ? undefined : 'var(--bg-primary)',
+                                            borderColor: !isSelected && !isApproved ? 'var(--border)' : undefined,
+                                        }}
+                                        onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; } }}
+                                        onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.backgroundColor = isApproved ? '' : 'var(--bg-primary)'; } }}
+                                    >
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: rec.typeBg }}></span>
@@ -725,10 +777,10 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 )}
                                             </div>
                                             <span className="text-xs font-medium flex-shrink-0" style={{ color: getPriorityColor(rec.impactScore) }}>
-                                                {rec.impactScore}% <span className="text-[#9CA3AF] font-normal">conf</span>
+                                                {rec.impactScore}% <span className="font-normal" style={{ color: 'var(--text-muted)' }}>conf</span>
                                             </span>
                                         </div>
-                                        <h4 className="text-white text-sm font-semibold mb-1.5 leading-snug line-clamp-3"><LinkifiedText text={cleanTitle(rec.title)} /></h4>
+                                        <h4 className="text-sm font-semibold mb-1.5 leading-snug line-clamp-3" style={{ color: 'var(--text-primary)' }}><LinkifiedText text={cleanTitle(rec.title)} /></h4>
                                         {/* Trending / QRT signal highlight */}
                                         {rec.type === 'Trend' && (
                                             <div className="flex items-center gap-1 mb-1.5">
@@ -743,7 +795,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             </div>
                                         )}
                                         {rec.dataSignal && (
-                                            <div className="flex items-center gap-1 mb-1.5 text-[#9CA3AF] text-[11px]">
+                                            <div className="flex items-center gap-1 mb-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
                                                 <span className="material-symbols-sharp text-[12px]">bolt</span>
                                                 <LinkifiedText text={safeStr(rec.dataSignal).length > 45 ? safeStr(rec.dataSignal).slice(0, 45) + '…' : safeStr(rec.dataSignal)} />
                                             </div>
@@ -765,10 +817,10 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                     );
                                                 })}
                                                 {rec.generatedAt && (
-                                                    <span className="text-[#6B6B70] text-[9px] ml-auto">{timeAgo(rec.generatedAt)}</span>
+                                                    <span className="text-[9px] ml-auto" style={{ color: 'var(--text-muted)' }}>{timeAgo(rec.generatedAt)}</span>
                                                 )}
                                             </div>
-                                            <span className="material-symbols-sharp text-[14px] text-[#9CA3AF]">chevron_right</span>
+                                            <span className="material-symbols-sharp text-[14px]" style={{ color: 'var(--text-muted)' }}>chevron_right</span>
                                         </div>
                                     </button>
                                 );
@@ -778,8 +830,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 <div className="w-12 h-12 rounded-full bg-[#FF5C0015] flex items-center justify-center mb-3">
                                     <span className="material-symbols-sharp text-[24px] text-[#FF5C00]">lightbulb</span>
                                 </div>
-                                <p className="text-[#9CA3AF] text-sm mb-2">No recommendations yet</p>
-                                <p className="text-[#9CA3AF] text-xs mb-4">Run analysis to generate strategic recommendations from the AI council.</p>
+                                <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>No recommendations yet</p>
+                                <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Run analysis to generate strategic recommendations from the AI council.</p>
                                 <button onClick={onRegenerate}
                                     className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors">
                                     Generate Recommendations
@@ -790,7 +842,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                 </div>
 
                 {/* Right: Detail Panel */}
-                <div className="flex-1 overflow-y-auto bg-[#0A0A0B]">
+                <div className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
                     {selectedRec ? (
                         <div className="p-7 max-w-[820px]">
 
@@ -806,7 +858,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         <span className="material-symbols-sharp text-[11px] mr-1" style={{ fontVariationSettings: "'wght' 400" }}>{selectedRec.icon}</span>
                                         {selectedRec.type}
                                     </span>
-                                    <span className="px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase bg-[#1F1F23] text-[#9CA3AF]">
+                                    <span className="px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase" style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text-muted)' }}>
                                         {selectedRec.impactScore}% Confidence
                                     </span>
                                     {approvedRecs.has(getRecKey(selectedRec)) && (
@@ -819,7 +871,10 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                     {/* Snooze */}
                                     <button onClick={handleSnoozeSelected}
-                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2E2E2E] text-[#9CA3AF] text-sm hover:bg-[#1F1F23] hover:text-white transition-colors"
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors"
+                                        style={{ border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = 'var(--text-muted)'; }}
                                         title="Snooze — remove from queue for now">
                                         <span className="material-symbols-sharp text-[15px]">snooze</span>
                                         Snooze
@@ -864,7 +919,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     </div>
                                 )}
 
-                                <h2 className="text-white text-[22px] font-bold leading-snug mb-4" style={{ fontFamily: 'Geist, Inter, sans-serif' }}>
+                                <h2 className="text-[22px] font-bold leading-snug mb-4" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--text-primary)' }}>
                                     <LinkifiedText text={cleanTitle(selectedRec.title)} />
                                 </h2>
 
@@ -883,23 +938,24 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 </a>
                                             )}
                                         </div>
-                                        <p className="text-[#E5E7EB] text-sm leading-relaxed italic">"{selectedRec.originalTweet.text}"</p>
+                                        <p className="text-sm leading-relaxed italic" style={{ color: 'var(--text-secondary)' }}>"{selectedRec.originalTweet.text}"</p>
                                         {selectedRec.originalTweet.images?.length > 0 && (
                                             <div className="flex gap-2 mt-2 overflow-x-auto">
                                                 {selectedRec.originalTweet.images.slice(0, 3).map((img: string, i: number) => (
-                                                    <img key={i} src={img} alt="" className="rounded-lg max-h-[120px] object-cover border border-[#1F1F23]"
+                                                    <img key={i} src={img} alt="" className="rounded-lg max-h-[120px] object-cover"
+                                                        style={{ border: '1px solid var(--border)' }}
                                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                                 ))}
                                             </div>
                                         )}
-                                        <p className="text-[#6B6B70] text-xs mt-2">— {selectedRec.originalTweet.author}</p>
+                                        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>— {selectedRec.originalTweet.author}</p>
                                     </div>
                                 )}
 
                                 {/* Content ideas / draft */}
                                 {(selectedRec.contentIdeas?.length > 0 || selectedRec.fullDraft) && (
-                                    <div className="bg-[#111113] border border-[#1F1F23] rounded-xl p-4">
-                                        <span className="text-[#9CA3AF] text-[11px] font-semibold uppercase tracking-wider mb-3 block">
+                                    <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                                        <span className="text-[11px] font-semibold uppercase tracking-wider mb-3 block" style={{ color: 'var(--text-muted)' }}>
                                             {selectedRec.contentIdeas?.length > 1 ? 'Content ideas' : 'Suggested content'}
                                         </span>
                                         {selectedRec.contentIdeas?.length > 0 ? (
@@ -907,12 +963,12 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 {selectedRec.contentIdeas.map((idea: string, j: number) => (
                                                     <div key={j} className="flex items-start gap-2.5">
                                                         <span className="w-5 h-5 rounded-full bg-[#FF5C00]/15 text-[#FF5C00] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{j + 1}</span>
-                                                        <span className="text-[#E5E7EB] text-sm leading-relaxed">{idea}</span>
+                                                        <span className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{idea}</span>
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className="text-[#E5E7EB] text-sm leading-relaxed">{selectedRec.fullDraft}</p>
+                                            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{selectedRec.fullDraft}</p>
                                         )}
                                     </div>
                                 )}
@@ -920,8 +976,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                             {/* WHY */}
                             <div className="mb-6">
-                                <span className="text-[10px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2 block">Why</span>
-                                <p className="text-[#D1D5DB] text-[15px] leading-relaxed mb-3">
+                                <span className="text-[10px] font-bold tracking-widest uppercase mb-2 block" style={{ color: 'var(--text-muted)' }}>Why</span>
+                                <p className="text-[15px] leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
                                     <LinkifiedText text={safeStr(selectedRec.reasoning || selectedRec.fullReason || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')} />
                                 </p>
 
@@ -944,9 +1000,9 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                                 {/* Strategic alignment — WHY THIS FOR THIS BRAND */}
                                 {selectedRec.strategicAlignment && (
-                                    <div className="px-3 py-2.5 rounded-lg bg-[#111113] border border-[#1F1F23] mb-3">
-                                        <span className="text-[10px] font-bold tracking-wider uppercase text-[#9CA3AF] block mb-1">Strategic Fit</span>
-                                        <p className="text-[#D1D5DB] text-[13px] leading-relaxed">{selectedRec.strategicAlignment}</p>
+                                    <div className="px-3 py-2.5 rounded-lg mb-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                                        <span className="text-[10px] font-bold tracking-wider uppercase block mb-1" style={{ color: 'var(--text-muted)' }}>Strategic Fit</span>
+                                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{selectedRec.strategicAlignment}</p>
                                     </div>
                                 )}
 
@@ -977,10 +1033,10 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         <span className="text-[10px] font-bold tracking-widest text-[#FF5C00] uppercase">Your Competitive Edge</span>
                                     </div>
                                     {decisionSummary?.strategicAngle && (
-                                        <p className="text-white text-[14px] font-semibold leading-snug mb-1">{decisionSummary.strategicAngle}</p>
+                                        <p className="text-[14px] font-semibold leading-snug mb-1" style={{ color: 'var(--text-primary)' }}>{decisionSummary.strategicAngle}</p>
                                     )}
                                     {selectedRec.goal && (
-                                        <p className="text-[#9CA3AF] text-[13px] leading-relaxed">{selectedRec.goal}</p>
+                                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{selectedRec.goal}</p>
                                     )}
                                 </div>
                             )}
@@ -988,7 +1044,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                             {/* THE BET — opportunities vs risks from decisionSummary */}
                             {((decisionSummary?.opportunities?.length > 0) || (decisionSummary?.risks?.length > 0)) && (
                                 <div className="mb-6">
-                                    <span className="text-[10px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-3 block">The Bet</span>
+                                    <span className="text-[10px] font-bold tracking-widest uppercase mb-3 block" style={{ color: 'var(--text-muted)' }}>The Bet</span>
                                     <div className="grid grid-cols-2 gap-3">
                                         {/* Opportunities */}
                                         {decisionSummary?.opportunities?.length > 0 && (
@@ -1001,7 +1057,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                     {(decisionSummary.opportunities as string[]).slice(0, 4).map((opp: string, i: number) => (
                                                         <li key={i} className="flex items-start gap-2">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] mt-1.5 flex-shrink-0"></span>
-                                                            <span className="text-[#D1D5DB] text-[12px] leading-snug">{opp}</span>
+                                                            <span className="text-[12px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{opp}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -1018,7 +1074,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                     {(decisionSummary.risks as string[]).slice(0, 4).map((risk: string, i: number) => (
                                                         <li key={i} className="flex items-start gap-2">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] mt-1.5 flex-shrink-0"></span>
-                                                            <span className="text-[#D1D5DB] text-[12px] leading-snug">{risk}</span>
+                                                            <span className="text-[12px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{risk}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -1030,34 +1086,35 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                             {/* WHERE + WHEN */}
                             <div>
-                                <span className="text-[10px] font-bold tracking-widest text-[#9CA3AF] uppercase mb-2 block">Where &amp; When</span>
+                                <span className="text-[10px] font-bold tracking-widest uppercase mb-2 block" style={{ color: 'var(--text-muted)' }}>Where &amp; When</span>
                                 <div className="flex items-center gap-3 flex-wrap">
                                     {/* Platform */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23]">
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                         <span className="material-symbols-sharp text-[14px] text-[#1DA1F2]" style={{ fontVariationSettings: "'wght' 300" }}>chat_bubble</span>
-                                        <span className="text-[#E5E7EB] text-xs font-medium">X / Twitter</span>
+                                        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>X / Twitter</span>
                                     </div>
                                     {/* Format */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23]">
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                         <span className="material-symbols-sharp text-[14px]" style={{ color: selectedRec.typeBg || '#FF5C00', fontVariationSettings: "'wght' 300" }}>{selectedRec.icon}</span>
-                                        <span className="text-[#E5E7EB] text-xs font-medium">{selectedRec.type}</span>
+                                        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{selectedRec.type}</span>
                                     </div>
                                     {/* Timing */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23]">
-                                        <span className="material-symbols-sharp text-[14px] text-[#9CA3AF]" style={{ fontVariationSettings: "'wght' 300" }}>schedule</span>
-                                        <span className="text-[#9CA3AF] text-xs">
+                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                                        <span className="material-symbols-sharp text-[14px]" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300" }}>schedule</span>
+                                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                                             {selectedRec.generatedAt ? `Generated ${timeAgo(selectedRec.generatedAt)}` : regenLastRun > 0 ? `Data from ${new Date(regenLastRun).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Now'}
                                         </span>
                                     </div>
                                     {/* Source links */}
                                     {selectedRec.sourceLinks?.map((link: any, lIdx: number) => (
                                         <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111113] border border-[#1F1F23] hover:border-[#3E3E3E] transition-colors group">
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors group"
+                                            style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                             <span className="material-symbols-sharp text-[14px]" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6', fontVariationSettings: "'wght' 300" }}>
                                                 {link.type === 'tweet' ? 'chat_bubble' : 'article'}
                                             </span>
-                                            <span className="text-[#E5E7EB] text-xs font-medium line-clamp-1 max-w-[140px]">{link.label}</span>
-                                            <span className="material-symbols-sharp text-[11px] text-[#6B6B70] group-hover:text-[#9CA3AF]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                            <span className="text-xs font-medium line-clamp-1 max-w-[140px]" style={{ color: 'var(--text-secondary)' }}>{link.label}</span>
+                                            <span className="material-symbols-sharp text-[11px]" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300" }}>open_in_new</span>
                                         </a>
                                     ))}
                                 </div>
@@ -1068,8 +1125,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                             <div className="w-16 h-16 rounded-2xl bg-[#FF5C0015] flex items-center justify-center mb-4">
                                 <span className="material-symbols-sharp text-[32px] text-[#FF5C00]">auto_awesome</span>
                             </div>
-                            <h3 className="text-white text-lg font-semibold mb-2">No Recommendation Selected</h3>
-                            <p className="text-[#9CA3AF] text-sm max-w-sm">
+                            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>No Recommendation Selected</h3>
+                            <p className="text-sm max-w-sm" style={{ color: 'var(--text-muted)' }}>
                                 Select a recommendation from the queue or run analysis to generate new strategic insights.
                             </p>
                         </div>
@@ -1079,14 +1136,14 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
             {/* QRT Opportunities Section */}
             {(qrtFeed && qrtFeed.length > 0) && (
-                <div className="border-t border-[#1F1F23] px-8 py-6 bg-[#0A0A0B]">
+                <div className="border-t px-8 py-6" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-primary)' }}>
                     <div className="flex items-center gap-3 mb-4">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)' }}>
                             <span className="material-symbols-sharp text-white text-lg" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
                         </div>
                         <div>
-                            <h3 className="text-sm font-semibold text-white">QRT Opportunities</h3>
-                            <p className="text-xs text-[#6B7280]">Competitor & ecosystem tweets you can quote retweet</p>
+                            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>QRT Opportunities</h3>
+                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Competitor & ecosystem tweets you can quote retweet</p>
                         </div>
                         <span className="ml-auto px-2 py-0.5 rounded-full bg-[#06B6D4]/10 text-[#06B6D4] text-[11px] font-medium">{qrtFeed.length} tweets</span>
                     </div>
@@ -1094,7 +1151,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                         {qrtFeed.map((tweet: any, i: number) => (
                             <div
                                 key={tweet.id || `qrt-${i}`}
-                                className="flex-shrink-0 w-[340px] bg-[#111113] border border-[#1F1F23] rounded-xl p-4 hover:border-[#06B6D4]/30 transition-colors"
+                                className="flex-shrink-0 w-[340px] rounded-xl p-4 transition-colors"
+                                style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                             >
                                 <div className="flex items-center gap-2 mb-2.5">
                                     <div
@@ -1104,23 +1162,23 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         {(tweet.competitor || tweet.author || 'U').charAt(0).toUpperCase()}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <span className="text-[13px] font-semibold text-white">@{tweet.competitor || tweet.author || 'unknown'}</span>
+                                        <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>@{tweet.competitor || tweet.author || 'unknown'}</span>
                                         {tweet.competitorName && (
-                                            <span className="text-xs text-[#6B7280] ml-1.5">{tweet.competitorName}</span>
+                                            <span className="text-xs ml-1.5" style={{ color: 'var(--text-muted)' }}>{tweet.competitorName}</span>
                                         )}
                                     </div>
                                     {tweet.timestamp && (
-                                        <span className="text-[11px] text-[#4A4A4E]">{timeAgo(tweet.timestamp)}</span>
+                                        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{timeAgo(tweet.timestamp)}</span>
                                     )}
                                 </div>
-                                <p className="text-[13px] text-[#D1D5DB] leading-relaxed whitespace-pre-wrap mb-3">{tweet.text}</p>
+                                <p className="text-[13px] leading-relaxed whitespace-pre-wrap mb-3" style={{ color: 'var(--text-secondary)' }}>{tweet.text}</p>
                                 {tweet.images?.[0] && (
-                                    <img src={tweet.images[0]} alt="" className="rounded-lg mb-3 max-h-[140px] w-full object-cover border border-[#1F1F23]" loading="lazy" />
+                                    <img src={tweet.images[0]} alt="" className="rounded-lg mb-3 max-h-[140px] w-full object-cover" style={{ border: '1px solid var(--border)' }} loading="lazy" />
                                 )}
                                 <div className="flex items-center justify-between pt-1">
                                     <div className="flex items-center gap-3">
-                                        {(tweet.likes > 0) && <span className="text-[11px] text-[#6B7280]">❤️ {tweet.likes}</span>}
-                                        {(tweet.retweets > 0) && <span className="text-[11px] text-[#6B7280]">🔄 {tweet.retweets}</span>}
+                                        {(tweet.likes > 0) && <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>❤️ {tweet.likes}</span>}
+                                        {(tweet.retweets > 0) && <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>🔄 {tweet.retweets}</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {tweet.tweetUrl && (
@@ -1128,7 +1186,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 href={tweet.tweetUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="text-[11px] text-[#6B7280] hover:text-white transition-colors"
+                                                className="text-[11px] transition-colors"
+                                                style={{ color: 'var(--text-muted)' }}
                                                 onClick={e => e.stopPropagation()}
                                             >
                                                 View ↗

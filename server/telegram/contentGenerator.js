@@ -730,19 +730,64 @@ const summarizeTrends = async (brandId, supabase) => {
 const getRecentRecommendations = async (brandId, supabase, limit = 5) => {
     if (!supabase || !brandId) return [];
 
-    // Only fetch recommendations from the last 48 hours to avoid stale data
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-
+    // 1. Try agent_decisions from the last 48 hours (written by cron + scheduler)
+    const cutoff48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
         .from('agent_decisions')
         .select('*')
         .eq('brand_id', brandId)
-        .gte('created_at', cutoff)
+        .gte('created_at', cutoff48h)
         .order('created_at', { ascending: false })
         .limit(limit);
 
-    if (error || !data) return [];
-    return data;
+    if (!error && data?.length > 0) return data;
+
+    // 2. Fallback: check app_storage recommendation cache (written by /api/agent/recommendations cron)
+    try {
+        const { data: storageRows } = await supabase
+            .from('app_storage')
+            .select('key, value')
+            .like('key', `%_defia_recommendations_cache_v1_%`)
+            .limit(20);
+
+        if (storageRows?.length > 0) {
+            // Find the cache entry for this brand by checking if any key ends with the brandId
+            const brandIdLower = brandId.toLowerCase();
+            const match = storageRows.find(r => r.key.includes(brandIdLower));
+            if (match?.value?.actions?.length > 0) {
+                const cached = match.value;
+                const generatedAt = cached.generatedAt || new Date().toISOString();
+                console.log(`[Telegram] Found ${cached.actions.length} cached recommendations from app_storage (${generatedAt})`);
+                // Transform actions to agent_decisions format
+                return cached.actions.slice(0, limit).map((action, i) => ({
+                    id: `cached-${i}`,
+                    brand_id: brandId,
+                    action: action.action || action.type || 'RECOMMEND',
+                    target_id: action.targetId || null,
+                    reason: action.reason || action.rationale || null,
+                    draft: action.draft || action.suggestedContent || null,
+                    status: 'pending',
+                    created_at: generatedAt,
+                    metadata: action.metadata || null,
+                }));
+            }
+        }
+    } catch (e) {
+        console.warn('[Telegram] app_storage fallback failed:', e.message);
+    }
+
+    // 3. Last resort: fetch up to 7 days from agent_decisions
+    const cutoff7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: older, error: olderErr } = await supabase
+        .from('agent_decisions')
+        .select('*')
+        .eq('brand_id', brandId)
+        .gte('created_at', cutoff7d)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+    if (olderErr || !older) return [];
+    return older;
 };
 
 // ━━━ Fetch Daily Briefing ━━━

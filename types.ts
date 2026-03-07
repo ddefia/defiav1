@@ -547,7 +547,7 @@ export interface KPIItem {
   delta: number; // Percentage
   trend: 'up' | 'down' | 'flat';
   confidence: 'High' | 'Med' | 'Low'; // Data quality
-  statusLabel: 'Strong' | 'Watch' | 'Weak'; // Narrative label
+  statusLabel: string; // Narrative label
   sparklineData: number[]; // 7d trend
 }
 

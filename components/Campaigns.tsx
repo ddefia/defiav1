@@ -1066,7 +1066,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 <div className="w-[280px]">Campaign</div>
                                 <div className="w-[120px]">Type</div>
                                 <div className="w-[100px]">Status</div>
-                                <div className="w-[100px]">Budget</div>
+                                {/* Budget column removed */}
                                 <div className="w-[100px]">Reach</div>
                                 <div className="w-[110px]">Conversion</div>
                                 <div className="w-[80px]">ROI</div>
@@ -1099,10 +1099,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         <div className="w-[100px]">
                                             {getStatusBadge(camp.status)}
                                         </div>
-                                        {/* Budget */}
-                                        <div className="w-[100px]">
-                                            <span className="text-[13px] text-white font-mono">{camp.budget || '—'}</span>
-                                        </div>
+                                        {/* Budget removed */}
                                         {/* Reach */}
                                         <div className="w-[100px]">
                                             <span className="text-[13px] text-[#6B6B70] font-mono">{camp.reach || '—'}</span>
@@ -1347,19 +1344,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                                 className="w-full bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg px-4 py-3 text-white placeholder-[#4A4A4E] text-sm focus:outline-none focus:border-[#FF5C00] transition-colors"
                                             />
                                         </div>
-                                        <div className="w-36">
-                                            <label className="text-xs font-medium text-[#6B6B70] mb-2 block">Budget (USD)</label>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B6B70] text-sm">$</span>
-                                                <input
-                                                    type="number"
-                                                    value={campaignBudget || ''}
-                                                    onChange={(e) => setCampaignBudget(parseFloat(e.target.value) || 0)}
-                                                    placeholder="0"
-                                                    className="w-full bg-[#1A1A1D] border border-[#2E2E2E] rounded-lg pl-7 pr-3 py-3 text-white placeholder-[#4A4A4E] text-sm focus:outline-none focus:border-[#FF5C00] transition-colors"
-                                                />
-                                            </div>
-                                        </div>
+                                        {/* Budget field removed per design update */}
                                     </div>
 
                                     {/* Platforms */}

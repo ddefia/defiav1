@@ -32,10 +32,21 @@ interface DashboardProps {
     isKickoffGenerating?: boolean;
 }
 
-const formatEngagements = (metrics: SocialMetrics) => {
-    const total = (metrics.recentPosts || []).reduce((sum, p) => sum + (p.likes || 0) + (p.retweets || 0) + (p.comments || 0), 0);
-    if (total >= 1000) return `${(total / 1000).toFixed(1)}K`;
-    return total > 0 ? total.toString() : '--';
+const computeSocialScore = (metrics: SocialMetrics): number => {
+    let score = 0;
+    // Followers tier (0-25)
+    const f = metrics.totalFollowers || 0;
+    score += f >= 50000 ? 25 : f >= 10000 ? 22 : f >= 5000 ? 18 : f >= 1000 ? 14 : f > 0 ? 8 : 0;
+    // Engagement rate (0-25)
+    const r = metrics.engagementRate || 0;
+    score += r >= 5 ? 25 : r >= 3 ? 22 : r >= 2 ? 18 : r >= 1 ? 14 : r > 0 ? 8 : 0;
+    // Content velocity (0-25)
+    const posts = (metrics.recentPosts || []).length;
+    score += posts >= 10 ? 25 : posts >= 5 ? 20 : posts >= 3 ? 15 : posts > 0 ? 10 : 0;
+    // Impressions (0-25)
+    const imp = metrics.weeklyImpressions || 0;
+    score += imp >= 50000 ? 25 : imp >= 10000 ? 22 : imp >= 5000 ? 18 : imp >= 1000 ? 14 : imp > 0 ? 8 : 0;
+    return Math.min(100, score);
 };
 
 const transformMetricsToKPIs = (
@@ -61,12 +72,12 @@ const transformMetricsToKPIs = (
             sparklineData: []
         },
         {
-            label: 'TOTAL ENGAGEMENTS',
-            value: metrics ? formatEngagements(metrics) : '--',
+            label: 'SOCIAL SCORE',
+            value: metrics ? `${computeSocialScore(metrics)}` : '--',
             delta: 0,
-            trend: 'flat' as const,
+            trend: (metrics && computeSocialScore(metrics) >= 60) ? 'up' as const : 'flat' as const,
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: metrics ? `From ${(metrics.recentPosts || []).length} posts` : 'No data',
+            statusLabel: metrics ? (computeSocialScore(metrics) >= 75 ? 'Excellent' : computeSocialScore(metrics) >= 50 ? 'Good' : 'Building') : 'No data',
             sparklineData: history.map((h: any) => h.engagements || 0)
         },
         {
@@ -79,13 +90,13 @@ const transformMetricsToKPIs = (
             sparklineData: impressionSpark
         },
         {
-            label: 'ENGAGEMENT RATE',
-            value: metrics ? `${engagementRateVal.toFixed(2)}%` : '--',
+            label: 'WEEKLY POSTS',
+            value: metrics ? `${(metrics.recentPosts || []).length}` : '--',
             delta: 0,
-            trend: 'flat' as const,
+            trend: (metrics?.recentPosts?.length || 0) >= 5 ? 'up' as const : 'flat' as const,
             confidence: metrics ? 'High' : 'Low',
-            statusLabel: metrics ? (engagementRateVal >= 2 ? 'Strong' : 'Watch') : 'No data',
-            sparklineData: engagementSpark
+            statusLabel: metrics ? ((metrics.recentPosts?.length || 0) >= 7 ? 'Active' : (metrics.recentPosts?.length || 0) > 0 ? 'Growing' : 'Quiet') : 'No data',
+            sparklineData: []
         }
     ];
 };
@@ -97,7 +108,11 @@ const timeAgo = (ts: string | number) => {
     if (mins < 60) return `${mins}m ago`;
     const hours = Math.floor(mins / 60);
     if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
+    const days = Math.floor(hours / 24);
+    if (days <= 7) return `${days}d ago`;
+    // For older items, show the date instead of "20d ago"
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 // Parse **bold** markup and render as React elements
@@ -296,48 +311,59 @@ export const Dashboard: React.FC<DashboardProps> = ({
             });
         }
 
-        // Supplement with data-driven recs if primary count is below 3
-        if (primary.length < 3 && brandConfig) {
+        // Always supplement to reach at least 5 recommendations
+        if (primary.length < 5 && brandConfig) {
             const supplemental = generateSupplementalRecs(brandName, socialSignals, socialMetrics, brandConfig, chainMetrics, loadCampaignLogs(brandName));
-            return [...primary, ...supplemental].slice(0, 6);
+            const primaryText = primary.map(r => (r.title + ' ' + (r.fullReason || '')).toLowerCase()).join(' ');
+            const filtered = supplemental.filter(s => {
+                const key = (s.dataSignal || s.title || '').toLowerCase().split(/\s+/).slice(0, 4).join(' ');
+                return !primaryText.includes(key.slice(0, 20));
+            });
+            return [...primary, ...filtered].slice(0, 6);
         }
 
         return primary;
     }, [sharedRecommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig, chainMetrics]);
 
-    // Fetch Web3 news for dashboard
+    // Fetch Web3 news for dashboard — auto-refresh if stale
     useEffect(() => {
         setNewsLoading(true);
-        // Fallback: stop loading after 10 seconds regardless
         const timeout = setTimeout(() => setNewsLoading(false), 10000);
+        const mapItems = (items: any[]) => items.slice(0, 5).map((item: any) => {
+            const raw = item.rawData || {};
+            const sourceName = raw.news_provider || item.source || 'Web3';
+            const createdAt = raw.createdAt ? new Date(raw.createdAt).getTime() : (typeof item.createdAt === 'number' ? item.createdAt : 0);
+            return {
+                icon: getNewsIcon(sourceName),
+                iconBg: getNewsIconBg(sourceName),
+                title: item.headline || raw.title || item.summary || 'Untitled',
+                source: sourceName.replace(/^(www\.)?/, '').split('/')[0],
+                time: createdAt > 0 ? timeAgo(createdAt) : 'Recently',
+                url: item.url,
+                rawArticle: { ...item, sourceName: sourceName.replace(/^(www\.)?/, '').split('/')[0], category: item.topic || 'defi' }
+            };
+        });
         const fetchNews = async () => {
             try {
                 const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
                 const res = await fetch(`${baseUrl}/api/web3-news?brand=${encodeURIComponent(brandName)}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.items && data.items.length > 0) {
-                        const mapped = data.items.slice(0, 5).map((item: any) => {
-                            // Use rawData.createdAt or rawData.news_provider for richer info
-                            const raw = item.rawData || {};
-                            const sourceName = raw.news_provider || item.source || 'Web3';
-                            const createdAt = raw.createdAt ? new Date(raw.createdAt).getTime() : (typeof item.createdAt === 'number' ? item.createdAt : 0);
-                            return {
-                                icon: getNewsIcon(sourceName),
-                                iconBg: getNewsIconBg(sourceName),
-                                title: item.headline || raw.title || item.summary || 'Untitled',
-                                source: sourceName.replace(/^(www\.)?/, '').split('/')[0],
-                                time: createdAt > 0 ? timeAgo(createdAt) : 'Recently',
-                                url: item.url,
-                                rawArticle: {
-                                    ...item,
-                                    sourceName: sourceName.replace(/^(www\.)?/, '').split('/')[0],
-                                    category: item.topic || 'defi',
-                                }
-                            };
-                        });
-                        setNewsItems(mapped);
-                    }
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.items?.length) return;
+                // Check if all items are older than 12 hours — trigger background refresh
+                const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
+                const allStale = data.items.every((item: any) => {
+                    const ts = item.rawData?.createdAt ? new Date(item.rawData.createdAt).getTime() : (typeof item.createdAt === 'number' ? item.createdAt : Date.now());
+                    return ts < twelveHoursAgo;
+                });
+                // Show what we have immediately
+                setNewsItems(mapItems(data.items));
+                // If stale, try a force refresh in the background
+                if (allStale) {
+                    fetch(`${baseUrl}/api/web3-news?brand=${encodeURIComponent(brandName)}&refresh=true`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(fresh => { if (fresh?.items?.length) setNewsItems(mapItems(fresh.items)); })
+                        .catch(() => {});
                 }
             } catch (e) {
                 console.warn('[Dashboard] News fetch failed:', e);
@@ -816,7 +842,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     </>
                                 ) : (
                                     <>
-                                        <div className="text-[32px] font-medium font-mono tracking-tight mb-3" style={{ color: 'var(--text-primary)' }}>{kpi.value}</div>
+                                        <div className="text-[32px] font-medium font-mono tracking-tight mb-3" style={{ color: 'var(--text-primary)' }}>
+                                            {kpi.value}{kpi.label === 'SOCIAL SCORE' && <span className="text-sm font-normal" style={{ color: 'var(--text-muted)' }}>/100</span>}
+                                        </div>
                                         {kpi.delta !== 0 && (
                                             <div className="flex items-center gap-1">
                                                 {kpi.trend === 'up' ? (
@@ -1268,9 +1296,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                             <button
                                 onClick={() => onNavigate('news')}
-                                className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23] w-full hover:bg-[#1A1A1D] transition-colors"
+                                className="flex items-center justify-between px-5 py-4 w-full transition-colors"
+                                style={{ borderBottom: '1px solid var(--border)' }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                             >
-                                <span className="text-white text-sm font-semibold">Web3 News Feed</span>
+                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Web3 News Feed</span>
                                 <span className="text-[#FF5C00] text-xs font-medium">View All →</span>
                             </button>
                             <div>
@@ -1291,13 +1322,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                 onNavigate('news');
                                             }
                                         }}
-                                        className={`flex items-center gap-3 px-5 py-4 w-full text-left hover:bg-[#1F1F23] transition-colors cursor-pointer ${i < newsItems.length - 1 ? 'border-b border-[#1F1F23]' : ''}`}
+                                        className="flex items-center gap-3 px-5 py-4 w-full text-left transition-colors cursor-pointer"
+                                        style={{ borderBottom: i < newsItems.length - 1 ? '1px solid var(--border)' : 'none' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                     >
                                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ backgroundColor: item.iconBg }}>
                                             {item.icon}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-white text-sm font-medium line-clamp-1">{item.title}</p>
+                                            <p className="text-sm font-medium line-clamp-1" style={{ color: 'var(--text-primary)' }}>{item.title}</p>
                                             <p className="text-[#6B6B70] text-xs">{item.source} · {item.time}</p>
                                         </div>
                                         <svg className="w-4 h-4 text-[#4A4A4E] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -1313,23 +1347,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                         {/* Audience Insights */}
                         <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
-                            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
-                                <span className="text-white text-sm font-semibold">Audience Insights</span>
+                            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Audience Insights</span>
                                 <svg className="w-4 h-4 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
                             </div>
-                            <div className="px-5 py-4 border-b border-[#1F1F23]">
+                            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
                                 <div className="flex items-center gap-4">
                                     <div className="relative w-16 h-16">
                                         {socialSignals && socialSignals.sentimentScore > 0 ? (
                                             <>
                                                 <svg className="w-16 h-16 transform -rotate-90">
-                                                    <circle cx="32" cy="32" r="28" fill="none" stroke="#1F1F23" strokeWidth="6" />
+                                                    <circle cx="32" cy="32" r="28" fill="none" stroke="var(--border)" strokeWidth="6" />
                                                     <circle cx="32" cy="32" r="28" fill="none" stroke={socialSignals.sentimentScore >= 60 ? '#22C55E' : socialSignals.sentimentScore >= 40 ? '#F59E0B' : '#EF4444'} strokeWidth="6" strokeDasharray="175.93" strokeDashoffset={175.93 - (175.93 * socialSignals.sentimentScore / 100)} strokeLinecap="round" />
                                                 </svg>
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                    <span className="text-white text-sm font-bold">{socialSignals.sentimentScore}%</span>
+                                                    <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{socialSignals.sentimentScore}%</span>
                                                     <span className={`text-[10px] ${socialSignals.sentimentScore >= 60 ? 'text-[#22C55E]' : socialSignals.sentimentScore >= 40 ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
                                                         {socialSignals.sentimentScore >= 60 ? 'Positive' : socialSignals.sentimentScore >= 40 ? 'Neutral' : 'Negative'}
                                                     </span>
@@ -1338,11 +1372,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         ) : (
                                             <>
                                                 <svg className="w-16 h-16 transform -rotate-90">
-                                                    <circle cx="32" cy="32" r="28" fill="none" stroke="#1F1F23" strokeWidth="6" />
+                                                    <circle cx="32" cy="32" r="28" fill="none" stroke="var(--border)" strokeWidth="6" />
                                                 </svg>
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                    <span className="text-[#6B6B70] text-sm font-bold">--</span>
-                                                    <span className="text-[#6B6B70] text-[10px]">No data</span>
+                                                    <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>--</span>
+                                                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>No data</span>
                                                 </div>
                                             </>
                                         )}
@@ -1351,8 +1385,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         {socialSignals && socialSignals.activeNarratives && socialSignals.activeNarratives.length > 0 ? (
                                             socialSignals.activeNarratives.slice(0, 3).map((narrative, i) => (
                                                 <div key={i} className="flex justify-between text-xs">
-                                                    <span className="text-[#6B6B70]">{narrative}</span>
-                                                    <span className="text-white font-medium">Active</span>
+                                                    <span style={{ color: 'var(--text-muted)' }}>{narrative}</span>
+                                                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Active</span>
                                                 </div>
                                             ))
                                         ) : (
@@ -1363,13 +1397,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     </div>
                                 </div>
                             </div>
-                            <div className="divide-y divide-[#1F1F23]">
+                            <div style={{ borderTop: '1px solid var(--border)' }}>
                                 {/* Audience data is populated from real integrations */}
                                 {socialMetrics && socialMetrics.totalFollowers > 0 ? (
                                     <div className="flex items-center gap-3 px-5 py-3">
                                         <span className="text-lg">𝕏</span>
                                         <div className="flex-1">
-                                            <p className="text-white text-sm font-medium">X (Twitter)</p>
+                                            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>X (Twitter)</p>
                                             <p className="text-[#6B6B70] text-xs">{(socialMetrics.totalFollowers / 1000).toFixed(1)}K followers · {socialMetrics.engagementRate.toFixed(1)}% engaged</p>
                                         </div>
                                         <span className="text-xs font-medium" style={{ color: socialMetrics.comparison?.followersChange >= 0 ? '#22C55E' : '#EF4444' }}>
@@ -1387,21 +1421,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     {/* Campaigns Overview */}
                     <div className="rounded-xl overflow-hidden mb-7" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1F1F23]">
+                        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
                             <div className="flex items-center gap-2.5">
                                 <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Campaigns Overview</span>
                                 {campaigns.length > 0 && (
                                     <span className="px-2 py-1 rounded-full bg-[#22C55E18] text-[#22C55E] text-xs font-medium">All Performing Well</span>
                                 )}
                             </div>
-                            <div className="flex items-center p-1 rounded-full bg-[#1A1A1D]">
+                            <div className="flex items-center p-1 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                 {['All', 'Active', 'Completed'].map((tab) => (
                                     <button
                                         key={tab}
                                         onClick={() => setCampaignTab(tab.toLowerCase() as any)}
                                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                                            campaignTab === tab.toLowerCase() ? 'bg-[#FF5C00] text-white' : 'text-[#6B6B70] hover:text-white'
+                                            campaignTab === tab.toLowerCase() ? 'bg-[#FF5C00] text-white' : ''
                                         }`}
+                                        style={campaignTab !== tab.toLowerCase() ? { color: 'var(--text-muted)' } : undefined}
                                     >
                                         {tab}
                                     </button>
@@ -1410,7 +1445,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
 
                         {/* Table Header */}
-                        <div className="flex items-center px-5 py-3 bg-[#0A0A0B] text-[#6B6B70] text-[11px] font-semibold tracking-wider">
+                        <div className="flex items-center px-5 py-3 text-[11px] font-semibold tracking-wider" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
                             <div className="w-[220px]">CAMPAIGN</div>
                             <div className="w-[100px]">STATUS</div>
                             <div className="w-[100px]">REACH</div>
@@ -1425,14 +1460,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             {filteredCampaigns.length > 0 ? filteredCampaigns.map((campaign: any, i) => (
                                 <div
                                     key={campaign.id || i}
-                                    className="flex items-center px-5 py-3.5 border-b border-[#1F1F23] hover:bg-[#1F1F23]/50 cursor-pointer transition-colors"
+                                    className="flex items-center px-5 py-3.5 cursor-pointer transition-colors"
+                                    style={{ borderBottom: '1px solid var(--border)' }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                                     onClick={() => onNavigate('campaigns')}
                                 >
                                     <div className="w-[220px] flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-lg bg-[#1F1F23] flex items-center justify-center">
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                             {campaign.channel === 'Twitter' ? '🐦' : campaign.channel === 'Discord' ? '💬' : campaign.channel === 'Spaces' ? '👥' : '📊'}
                                         </div>
-                                        <span className="text-white text-sm font-medium">{campaign.name}</span>
+                                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{campaign.name}</span>
                                     </div>
                                     <div className="w-[100px]">
                                         <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -1443,13 +1481,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             {campaign.status === 'Scale' ? 'Active' : campaign.status === 'Test' ? 'Scheduled' : 'Completed'}
                                         </span>
                                     </div>
-                                    <div className="w-[100px] text-white text-sm font-mono">{campaign.reach || `${(campaign.valueCreated / 1000).toFixed(0)}K`}</div>
+                                    <div className="w-[100px] text-sm font-mono" style={{ color: 'var(--text-primary)' }}>{campaign.reach || `${(campaign.valueCreated / 1000).toFixed(0)}K`}</div>
                                     <div className="w-[120px] flex items-center gap-1.5">
-                                        <span className="text-white text-sm font-mono">{campaign.engagement || `${campaign.retention}%`}</span>
+                                        <span className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>{campaign.engagement || `${campaign.retention}%`}</span>
                                         {campaign.trendSignal === 'up' && <span className="text-[#22C55E] text-xs">↗</span>}
                                     </div>
                                     <div className="w-[120px] flex items-center gap-1.5">
-                                        <span className="text-white text-sm font-mono">{campaign.conversion || '—'}</span>
+                                        <span className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>{campaign.conversion || '—'}</span>
                                         {campaign.conversion && campaign.conversion !== '—' && <span className="text-[#22C55E] text-xs">↗</span>}
                                     </div>
                                     <div className="w-[80px]">
@@ -1465,12 +1503,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </div>
                             )) : (
                                 <div className="flex flex-col items-center justify-center py-10 text-center">
-                                    <div className="w-12 h-12 rounded-full bg-[#1F1F23] flex items-center justify-center mb-3">
-                                        <svg className="w-6 h-6 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                                        <svg className="w-6 h-6" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                         </svg>
                                     </div>
-                                    <p className="text-[#6B6B70] text-sm mb-3">No campaigns yet</p>
+                                    <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>No campaigns yet</p>
                                     <button
                                         onClick={() => onNavigate('campaigns')}
                                         className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-sm font-medium hover:bg-[#FF6B1A] transition-colors"

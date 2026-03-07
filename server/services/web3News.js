@@ -162,7 +162,7 @@ export const fetchWeb3News = async (supabase, brandName, options = {}) => {
         searchQuery = DEFAULT_SEARCH_TERMS,
         limit = 10,
         forceRefresh = false,
-        cacheDurationMs = 6 * 60 * 60 * 1000 // 6 hours — fresher news for better recommendations
+        cacheDurationMs = 4 * 60 * 60 * 1000 // 4 hours — daily-fresh news for dashboard
     } = options;
 
     const token = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';
