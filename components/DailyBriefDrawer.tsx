@@ -20,9 +20,9 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
             <div
                 className="relative w-full max-w-[680px] max-h-[85vh] rounded-2xl overflow-hidden flex flex-col"
                 style={{
-                    backgroundColor: '#0A0A0B',
+                    backgroundColor: 'var(--bg-primary)',
                     border: '1px solid #FF5C0033',
-                    boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,92,0,0.08), 0 0 120px rgba(255,92,0,0.06)',
+                    boxShadow: '0 40px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,92,0,0.08), 0 0 120px rgba(255,92,0,0.06)',
                     animation: 'briefModalIn 0.25s ease-out',
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -35,19 +35,19 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                 `}</style>
 
                 {/* Header */}
-                <div className="px-7 py-5 border-b border-[#1F1F23] flex items-center justify-between flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #111113 0%, #1A120D 100%)' }}>
+                <div className="px-7 py-5 flex items-center justify-between flex-shrink-0"
+                    style={{ borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%)' }}>
                     <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center shadow-lg shadow-[#FF5C0020]">
                             <span className="material-symbols-sharp text-white text-xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>auto_awesome</span>
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-white tracking-tight">Daily Brief</h2>
+                            <h2 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Daily Brief</h2>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="w-1.5 h-1.5 bg-[#22C55E] rounded-full animate-pulse"></span>
                                 <span className="text-[10px] font-semibold text-[#22C55E] tracking-wider uppercase">Live Analysis</span>
                                 {brief && (
-                                    <span className="text-[10px] text-[#4A4A4E] ml-1">
+                                    <span className="text-[10px] ml-1" style={{ color: 'var(--text-muted)' }}>
                                         · {new Date(brief.timestamp).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                                     </span>
                                 )}
@@ -56,7 +56,10 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 rounded-lg bg-[#1F1F23] flex items-center justify-center text-[#6B6B70] hover:text-white hover:bg-[#2A2A2E] transition-colors"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                     >
                         <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
                     </button>
@@ -67,16 +70,16 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
 
                     {loading ? (
                         <div className="flex flex-col items-center justify-center h-48 space-y-4">
-                            <div className="w-8 h-8 rounded-full border-2 border-[#1F1F23] border-t-[#FF5C00] animate-spin"></div>
-                            <p className="text-xs text-[#6B6B70] font-medium animate-pulse tracking-wider uppercase">Analyzing signals...</p>
+                            <div className="w-8 h-8 rounded-full border-2 border-t-[#FF5C00] animate-spin" style={{ borderColor: 'var(--border)', borderTopColor: '#FF5C00' }}></div>
+                            <p className="text-xs font-medium animate-pulse tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>Analyzing signals...</p>
                         </div>
                     ) : !brief ? (
                         <div className="flex flex-col items-center justify-center py-12">
-                            <div className="w-14 h-14 rounded-2xl bg-[#1F1F23] flex items-center justify-center mb-4">
-                                <span className="material-symbols-sharp text-[#4A4A4E] text-2xl" style={{ fontVariationSettings: "'wght' 200" }}>query_stats</span>
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                                <span className="material-symbols-sharp text-2xl" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 200" }}>query_stats</span>
                             </div>
-                            <p className="text-sm text-[#6B6B70]">Insufficient signal data.</p>
-                            <p className="text-xs text-[#4A4A4E] mt-1">The brief will appear after the next analysis cycle.</p>
+                            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Insufficient signal data.</p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>The brief will appear after the next analysis cycle.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-5">
@@ -88,9 +91,9 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                                 </div>
                                 <div className="space-y-2">
                                     {brief.keyDrivers.map((item, i) => (
-                                        <div key={i} className="flex items-start gap-3 p-3.5 rounded-xl bg-[#111113] border border-[#1F1F23]">
+                                        <div key={i} className="flex items-start gap-3 p-3.5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                             <span className="material-symbols-sharp text-[#3B82F6] text-base mt-0.5 shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
-                                            <p className="text-[13px] text-[#C4C4C4] leading-relaxed">{item}</p>
+                                            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary, var(--text-muted))' }}>{item}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -104,9 +107,9 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                                 </div>
                                 <div className="space-y-2">
                                     {brief.decisionsReinforced.map((item, i) => (
-                                        <div key={i} className="flex items-start gap-2.5 p-3.5 rounded-xl bg-[#111113] border border-[#1F1F23]">
+                                        <div key={i} className="flex items-start gap-2.5 p-3.5 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                             <span className="material-symbols-sharp text-[#22C55E] text-sm mt-0.5 shrink-0" style={{ fontVariationSettings: "'FILL' 1, 'wght' 300" }}>check_circle</span>
-                                            <p className="text-[13px] text-[#C4C4C4] leading-relaxed">{item}</p>
+                                            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary, var(--text-muted))' }}>{item}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -122,7 +125,7 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                                     {brief.risksAndUnknowns.map((item, i) => (
                                         <div key={i} className="flex items-start gap-2.5">
                                             <span className="material-symbols-sharp text-[#F59E0B] text-sm mt-0.5 shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>error</span>
-                                            <p className="text-[13px] text-[#D4A94E] leading-relaxed">{item}</p>
+                                            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary, #D4A94E)' }}>{item}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -134,7 +137,7 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                                     <span className="material-symbols-sharp text-[#8B5CF6] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>psychology</span>
                                     <h3 className="text-[11px] font-bold text-[#8B5CF6] uppercase tracking-[0.15em]">Confidence</h3>
                                 </div>
-                                <div className="p-4 rounded-xl bg-[#111113] border border-[#1F1F23]">
+                                <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                     <div className="flex items-center gap-3 mb-3">
                                         <span className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider ${
                                             brief.confidence.level === 'High' ? 'bg-[#22C55E18] text-[#22C55E] border border-[#22C55E33]' :
@@ -143,7 +146,7 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                                         }`}>
                                             {brief.confidence.level}
                                         </span>
-                                        <div className="flex-1 h-2 rounded-full bg-[#1F1F23] overflow-hidden">
+                                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border)' }}>
                                             <div className={`h-full rounded-full transition-all duration-500 ${
                                                 brief.confidence.level === 'High' ? 'w-[90%] bg-gradient-to-r from-[#22C55E] to-[#4ADE80]' :
                                                 brief.confidence.level === 'Medium' ? 'w-[60%] bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]' :
@@ -151,7 +154,7 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                                             }`}></div>
                                         </div>
                                     </div>
-                                    <p className="text-[13px] text-[#8B8B8F] leading-relaxed">{brief.confidence.explanation}</p>
+                                    <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{brief.confidence.explanation}</p>
                                 </div>
                             </div>
                         </div>
@@ -159,9 +162,9 @@ export const DailyBriefDrawer: React.FC<DailyBriefDrawerProps> = ({ isOpen, onCl
                 </div>
 
                 {/* Footer */}
-                <div className="px-7 py-3 border-t border-[#1F1F23] bg-[#0A0A0B] flex items-center justify-between flex-shrink-0">
-                    <span className="text-[10px] text-[#4A4A4E] font-medium tracking-wider uppercase">AI Analysis</span>
-                    <span className="text-[10px] text-[#4A4A4E] font-mono">{new Date().toLocaleTimeString()}</span>
+                <div className="px-7 py-3 flex items-center justify-between flex-shrink-0" style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--bg-primary)' }}>
+                    <span className="text-[10px] font-medium tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>AI Analysis</span>
+                    <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{new Date().toLocaleTimeString()}</span>
                 </div>
             </div>
         </div>

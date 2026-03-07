@@ -1221,7 +1221,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center">
                                     <span className="material-symbols-sharp text-white text-[16px]">auto_awesome</span>
                                 </div>
-                                <span className="text-white text-sm font-semibold">AI CMO Recommendations</span>
+                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>AI CMO Recommendations</span>
                                 {displayRecommendations.length > 0 && (
                                     <span className="px-2 py-1 rounded-full bg-[#FF5C0022] text-[#FF5C00] text-xs font-medium">{displayRecommendations.length} Actions</span>
                                 )}
@@ -1234,12 +1234,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                             <div className="flex items-center gap-2">
                                 {sharedRegenLastRun > 0 && (
-                                    <span className="text-[#6B6B70] text-[10px]">Updated {timeAgo(sharedRegenLastRun)}</span>
+                                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Updated {timeAgo(sharedRegenLastRun)}</span>
                                 )}
                                 <button
                                     onClick={(e) => { e.stopPropagation(); if (onRegenerate) onRegenerate(); }}
                                     disabled={sharedRegenLoading}
-                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${sharedRegenLoading ? 'bg-[#FF5C0022] text-[#FF5C00] cursor-wait' : 'bg-white/5 text-[#ADADB0] hover:bg-white/10'}`}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${sharedRegenLoading ? 'bg-[#FF5C0022] text-[#FF5C00] cursor-wait' : ''}`}
+                                    style={!sharedRegenLoading ? { backgroundColor: 'var(--hover-bg)', color: 'var(--text-muted)' } : undefined}
                                 >
                                     <svg className={`w-3 h-3 ${sharedRegenLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1260,20 +1261,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         ) : displayRecommendations.length > 0 ? (
                             <div className="p-4 space-y-2">
                                 {displayRecommendations.slice(0, 3).map((rec: any, i: number) => (
-                                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-[#0A0A0B] border border-[#1F1F23] hover:border-[#FF5C0044] transition-all">
+                                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg hover:border-[#FF5C0044] transition-all"
+                                        style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
                                         <div className="flex items-center gap-2 min-w-0 flex-1">
                                             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: rec.typeBg }}></span>
                                             <span className="text-[10px] font-bold tracking-wider uppercase flex-shrink-0" style={{ color: rec.typeBg }}>{rec.type}</span>
-                                            <span className="text-white text-sm truncate">{(rec.title || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim()}</span>
+                                            <span className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>{(rec.title || '').replace(/^(TREND_JACK|REPLY|CAMPAIGN|GAP_FILL|COMMUNITY|CAMPAIGN_IDEA)\s*:\s*/i, '').trim()}</span>
                                         </div>
                                         <span className="text-xs font-medium flex-shrink-0" style={{ color: rec.impactScore >= 85 ? '#22C55E' : rec.impactScore >= 70 ? '#F59E0B' : '#6B6B70' }}>
                                             {rec.impactScore}%
                                         </span>
-                                        <span className="material-symbols-sharp text-[14px] text-[#6B7280] flex-shrink-0">chevron_right</span>
+                                        <span className="material-symbols-sharp text-[14px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>chevron_right</span>
                                     </div>
                                 ))}
                                 {displayRecommendations.length > 3 && (
-                                    <p className="text-center text-[#6B6B70] text-[11px] pt-1">+{displayRecommendations.length - 3} more recommendations</p>
+                                    <p className="text-center text-[11px] pt-1" style={{ color: 'var(--text-muted)' }}>+{displayRecommendations.length - 3} more recommendations</p>
                                 )}
                                 <div className="flex items-center justify-center pt-1">
                                     <span className="text-[#FF5C00] text-xs font-medium group-hover:underline flex items-center gap-1">
@@ -1284,8 +1286,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         ) : (
                             <div className="p-5 text-center">
-                                <p className="text-[#6B6B70] text-sm mb-2">No recommendations yet</p>
-                                <p className="text-[#6B6B70] text-xs">Click Refresh or open the full Recommendations page.</p>
+                                <div className="w-10 h-10 rounded-xl bg-[#FF5C0015] flex items-center justify-center mx-auto mb-3">
+                                    <span className="material-symbols-sharp text-[#FF5C00] text-xl">lightbulb</span>
+                                </div>
+                                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>No recommendations yet</p>
+                                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Click Refresh to generate AI-powered strategic recommendations.</p>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); if (onRegenerate) onRegenerate(); }}
+                                    className="px-4 py-2 rounded-lg bg-[#FF5C00] text-white text-xs font-medium hover:bg-[#FF6B1A] transition-colors"
+                                >
+                                    Generate Recommendations
+                                </button>
                             </div>
                         )}
                     </div>
@@ -1348,74 +1359,115 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         {/* Audience Insights */}
                         <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
                             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
-                                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Audience Insights</span>
-                                <svg className="w-4 h-4 text-[#6B6B70]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                </svg>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Audience Insights</span>
+                                    {socialMetrics && socialMetrics.totalFollowers > 0 && (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#22C55E18] text-[#22C55E]">Live</span>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => onNavigate('settings')}
+                                    className="text-xs font-medium transition-colors"
+                                    style={{ color: 'var(--text-muted)' }}
+                                    onMouseEnter={e => e.currentTarget.style.color = '#FF5C00'}
+                                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                                >
+                                    {socialMetrics && socialMetrics.totalFollowers > 0 ? 'Settings →' : 'Connect →'}
+                                </button>
                             </div>
-                            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
-                                <div className="flex items-center gap-4">
-                                    <div className="relative w-16 h-16">
-                                        {socialSignals && socialSignals.sentimentScore > 0 ? (
-                                            <>
-                                                <svg className="w-16 h-16 transform -rotate-90">
-                                                    <circle cx="32" cy="32" r="28" fill="none" stroke="var(--border)" strokeWidth="6" />
-                                                    <circle cx="32" cy="32" r="28" fill="none" stroke={socialSignals.sentimentScore >= 60 ? '#22C55E' : socialSignals.sentimentScore >= 40 ? '#F59E0B' : '#EF4444'} strokeWidth="6" strokeDasharray="175.93" strokeDashoffset={175.93 - (175.93 * socialSignals.sentimentScore / 100)} strokeLinecap="round" />
+
+                            {socialMetrics && socialMetrics.totalFollowers > 0 ? (
+                                <>
+                                    {/* Sentiment + Narratives */}
+                                    <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+                                        <div className="flex items-center gap-4">
+                                            <div className="relative w-14 h-14 flex-shrink-0">
+                                                <svg className="w-14 h-14 transform -rotate-90">
+                                                    <circle cx="28" cy="28" r="24" fill="none" stroke="var(--border)" strokeWidth="5" />
+                                                    {socialSignals && socialSignals.sentimentScore > 0 && (
+                                                        <circle cx="28" cy="28" r="24" fill="none"
+                                                            stroke={socialSignals.sentimentScore >= 60 ? '#22C55E' : socialSignals.sentimentScore >= 40 ? '#F59E0B' : '#EF4444'}
+                                                            strokeWidth="5" strokeDasharray="150.80" strokeDashoffset={150.80 - (150.80 * socialSignals.sentimentScore / 100)} strokeLinecap="round" />
+                                                    )}
                                                 </svg>
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                    <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{socialSignals.sentimentScore}%</span>
-                                                    <span className={`text-[10px] ${socialSignals.sentimentScore >= 60 ? 'text-[#22C55E]' : socialSignals.sentimentScore >= 40 ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
-                                                        {socialSignals.sentimentScore >= 60 ? 'Positive' : socialSignals.sentimentScore >= 40 ? 'Neutral' : 'Negative'}
+                                                    <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                                                        {socialSignals && socialSignals.sentimentScore > 0 ? `${socialSignals.sentimentScore}%` : '--'}
+                                                    </span>
+                                                    <span className="text-[8px] font-medium" style={{ color: socialSignals && socialSignals.sentimentScore >= 60 ? '#22C55E' : socialSignals && socialSignals.sentimentScore >= 40 ? '#F59E0B' : 'var(--text-muted)' }}>
+                                                        {socialSignals && socialSignals.sentimentScore > 0
+                                                            ? (socialSignals.sentimentScore >= 60 ? 'Positive' : socialSignals.sentimentScore >= 40 ? 'Neutral' : 'Negative')
+                                                            : 'Sentiment'}
                                                     </span>
                                                 </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg className="w-16 h-16 transform -rotate-90">
-                                                    <circle cx="32" cy="32" r="28" fill="none" stroke="var(--border)" strokeWidth="6" />
-                                                </svg>
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                                    <span className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>--</span>
-                                                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>No data</span>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 space-y-2">
-                                        {socialSignals && socialSignals.activeNarratives && socialSignals.activeNarratives.length > 0 ? (
-                                            socialSignals.activeNarratives.slice(0, 3).map((narrative, i) => (
-                                                <div key={i} className="flex justify-between text-xs">
-                                                    <span style={{ color: 'var(--text-muted)' }}>{narrative}</span>
-                                                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Active</span>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-center py-2">
-                                                <span className="text-[#6B6B70] text-xs">Sentiment data will appear once social integrations are connected</span>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            <div style={{ borderTop: '1px solid var(--border)' }}>
-                                {/* Audience data is populated from real integrations */}
-                                {socialMetrics && socialMetrics.totalFollowers > 0 ? (
-                                    <div className="flex items-center gap-3 px-5 py-3">
-                                        <span className="text-lg">𝕏</span>
-                                        <div className="flex-1">
-                                            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>X (Twitter)</p>
-                                            <p className="text-[#6B6B70] text-xs">{(socialMetrics.totalFollowers / 1000).toFixed(1)}K followers · {socialMetrics.engagementRate.toFixed(1)}% engaged</p>
+                                            <div className="flex-1 space-y-1.5 min-w-0">
+                                                {socialSignals?.activeNarratives?.length > 0 ? (
+                                                    socialSignals.activeNarratives.slice(0, 3).map((narrative, i) => (
+                                                        <div key={i} className="flex items-center gap-2 text-xs">
+                                                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: i === 0 ? '#22C55E' : i === 1 ? '#3B82F6' : '#8B5CF6' }}></span>
+                                                            <span className="truncate" style={{ color: 'var(--text-secondary, var(--text-muted))' }}>{narrative}</span>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>No active narratives detected</span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <span className="text-xs font-medium" style={{ color: socialMetrics.comparison?.followersChange >= 0 ? '#22C55E' : '#EF4444' }}>
-                                            {socialMetrics.comparison?.followersChange >= 0 ? '↗' : '↘'} {socialMetrics.comparison?.followersChange >= 0 ? '+' : ''}{socialMetrics.comparison?.followersChange || 0}%
-                                        </span>
                                     </div>
-                                ) : (
-                                    <div className="px-5 py-6 text-center">
-                                        <p className="text-[#6B6B70] text-sm">Connect your social accounts in Settings to see audience data</p>
+
+                                    {/* Key Metrics Grid */}
+                                    <div className="grid grid-cols-2">
+                                        <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+                                            <p className="text-[10px] font-medium uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Followers</p>
+                                            <div className="flex items-baseline gap-1.5">
+                                                <span className="text-base font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
+                                                    {socialMetrics.totalFollowers >= 1000 ? `${(socialMetrics.totalFollowers / 1000).toFixed(1)}K` : socialMetrics.totalFollowers}
+                                                </span>
+                                                {socialMetrics.comparison?.followersChange != null && (
+                                                    <span className="text-[10px] font-semibold" style={{ color: socialMetrics.comparison.followersChange >= 0 ? '#22C55E' : '#EF4444' }}>
+                                                        {socialMetrics.comparison.followersChange >= 0 ? '↑' : '↓'}{Math.abs(socialMetrics.comparison.followersChange)}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                                            <p className="text-[10px] font-medium uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Engagement</p>
+                                            <div className="flex items-baseline gap-1.5">
+                                                <span className="text-base font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{socialMetrics.engagementRate.toFixed(1)}%</span>
+                                                <span className="text-[10px] font-medium" style={{ color: socialMetrics.engagementRate >= 3 ? '#22C55E' : socialMetrics.engagementRate >= 1.5 ? '#F59E0B' : '#EF4444' }}>
+                                                    {socialMetrics.engagementRate >= 3 ? 'Strong' : socialMetrics.engagementRate >= 1.5 ? 'Average' : 'Low'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="px-4 py-3" style={{ borderRight: '1px solid var(--border)' }}>
+                                            <p className="text-[10px] font-medium uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Posts/Week</p>
+                                            <span className="text-base font-bold font-mono" style={{ color: 'var(--text-primary)' }}>{(socialMetrics.recentPosts || []).length}</span>
+                                        </div>
+                                        <div className="px-4 py-3">
+                                            <p className="text-[10px] font-medium uppercase tracking-wider mb-0.5" style={{ color: 'var(--text-muted)' }}>Impressions</p>
+                                            <span className="text-base font-bold font-mono" style={{ color: 'var(--text-primary)' }}>
+                                                {socialMetrics.weeklyImpressions > 0 ? `${(socialMetrics.weeklyImpressions / 1000).toFixed(1)}K` : '--'}
+                                            </span>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                </>
+                            ) : (
+                                <div className="px-5 py-8 text-center">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                                        <span className="material-symbols-sharp text-xl" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 200" }}>monitoring</span>
+                                    </div>
+                                    <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Connect X (Twitter)</p>
+                                    <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Link your X account in Settings to unlock audience insights, engagement metrics, and sentiment analysis.</p>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onNavigate('settings'); }}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                                        style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                                    >
+                                        Go to Settings
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 

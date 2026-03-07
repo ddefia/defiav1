@@ -1023,6 +1023,47 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         })}
                                     </div>
                                 )}
+
+                                {/* References & Data Sources */}
+                                {(selectedRec.sourceLinks?.length > 0 || selectedRec.originalTweet || selectedRec.dataSource) && (
+                                    <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                                        <span className="text-[10px] font-bold tracking-widest uppercase block mb-2" style={{ color: 'var(--text-muted)' }}>References</span>
+                                        <div className="space-y-2">
+                                            {selectedRec.sourceLinks?.map((link: any, lIdx: number) => (
+                                                <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
+                                                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all group"
+                                                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                                    onMouseEnter={e => e.currentTarget.style.borderColor = '#8B5CF644'}
+                                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                                >
+                                                    <span className="material-symbols-sharp text-[16px] flex-shrink-0" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6', fontVariationSettings: "'wght' 300" }}>
+                                                        {link.type === 'tweet' ? 'chat_bubble' : 'article'}
+                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{link.label}</p>
+                                                        <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{link.url}</p>
+                                                    </div>
+                                                    <span className="material-symbols-sharp text-[12px] flex-shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                                </a>
+                                            ))}
+                                            {selectedRec.originalTweet?.tweetUrl && (
+                                                <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
+                                                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all group"
+                                                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                                                    onMouseEnter={e => e.currentTarget.style.borderColor = '#06B6D444'}
+                                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                                >
+                                                    <span className="material-symbols-sharp text-[16px] text-[#06B6D4] flex-shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>Source tweet by @{selectedRec.originalTweet.author}</p>
+                                                        <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{selectedRec.originalTweet.tweetUrl}</p>
+                                                    </div>
+                                                    <span className="material-symbols-sharp text-[12px] flex-shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* YOUR COMPETITIVE EDGE — from decisionSummary.strategicAngle */}
