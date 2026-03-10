@@ -238,19 +238,23 @@ export const fetchSocialMetrics = async (brandName: string, userApiKey?: string)
 
         const [tweetItems, _unused, mentionItems] = await Promise.all(promises);
 
-        // PROCESS PROFILE - Use cached followers or estimate from engagement
+        // PROCESS PROFILE - Extract real follower count from actor user data
         let realFollowers = cachedStats?.totalFollowers || 0;
         let foundProfile = !!cachedStats?.totalFollowers;
 
-        // The new actor doesn't return profile info directly in tweet items
-        // We'll use cached followers or estimate based on engagement
+        // The actor returns user info on each tweet when includeUserInfo=true
         if (!foundProfile && tweetItems && tweetItems.length > 0) {
-            // Estimate followers based on average engagement (rough heuristic)
-            const avgLikes = tweetItems.reduce((sum: number, t: any) => sum + (t.likes || 0), 0) / tweetItems.length;
-            if (avgLikes > 0) {
-                // Assuming ~2% engagement rate as baseline
-                realFollowers = Math.floor(avgLikes * 50);
+            const userInfo = tweetItems[0]?.user;
+            if (userInfo?.totalFollowers) {
+                realFollowers = userInfo.totalFollowers;
                 foundProfile = true;
+            } else {
+                // Fallback: estimate from engagement if user data missing
+                const avgLikes = tweetItems.reduce((sum: number, t: any) => sum + (t.likes || 0), 0) / tweetItems.length;
+                if (avgLikes > 0) {
+                    realFollowers = Math.floor(avgLikes * 50);
+                    foundProfile = true;
+                }
             }
         }
 

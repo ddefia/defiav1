@@ -351,9 +351,12 @@ export const updateAllBrands = async (apiKey, brands = []) => {
                 const items = await itemsRes.json();
 
                 if (items.length > 0) {
-                    // New actor format - estimate followers from engagement
+                    // Extract real follower count from actor user data (profilesDesired=1 returns user object)
+                    const userInfo = items[0]?.user;
+                    const realFollowers = userInfo?.totalFollowers || 0;
+                    // Fallback: estimate from engagement if user data missing
                     const avgLikes = items.reduce((sum, t) => sum + (t.likes || 0), 0) / items.length;
-                    const followers = Math.floor(avgLikes * 50); // Estimate based on ~2% engagement
+                    const followers = realFollowers || Math.floor(avgLikes * 50);
 
                     // Update Cache with new actor output format + pre-computed derived metrics
                     const totalEngagements = items.reduce((sum, t) => sum + (t.likes || 0) + (t.retweets || 0) + (t.replies || 0), 0);
