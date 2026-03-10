@@ -1731,8 +1731,17 @@ const App: React.FC = () => {
             const cached = localStorage.getItem(`defia_recs_${selectedBrand}`);
             const cachedTs = Number(localStorage.getItem(`defia_recs_ts_${selectedBrand}`)) || 0;
             const cachedCtx = localStorage.getItem(`defia_recs_ctx_${selectedBrand}`);
-            if (cached) setLlmRecommendations(JSON.parse(cached));
-            if (cachedTs) setRegenLastRun(cachedTs);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                // If recs are raw (no typeBg), clear so server cache enrichment takes over
+                if (parsed.length > 0 && !parsed[0].typeBg) {
+                    localStorage.removeItem(`defia_recs_${selectedBrand}`);
+                    localStorage.removeItem(`defia_recs_ts_${selectedBrand}`);
+                } else {
+                    setLlmRecommendations(parsed);
+                    if (cachedTs) setRegenLastRun(cachedTs);
+                }
+            }
             if (cachedCtx) setDecisionSummary(JSON.parse(cachedCtx));
         } catch {}
         // Check server-side cache — update llmRecommendations and regenLastRun if server is fresher
@@ -1742,11 +1751,47 @@ const App: React.FC = () => {
             const serverTs = serverCached.generatedAt ? new Date(serverCached.generatedAt).getTime() : 0;
             const localTs = Number(localStorage.getItem(`defia_recs_ts_${selectedBrand}`)) || 0;
             if (serverTs > localTs) {
-                setLlmRecommendations(serverCached.actions);
+                // Enrich raw brain actions with display fields (type label, colors, title, impactScore)
+                // Server cron stores raw actions; client needs enriched format for rendering
+                const enrichAction = (a: any) => {
+                    const n = (a.type || a.action || '').toUpperCase();
+                    const styleMap: Record<string, { type: string; typeBg: string; icon: string; actionLabel: string; borderColor: string }> = {
+                        'REPLY': { type: 'Engagement', typeBg: '#3B82F6', icon: 'forum', actionLabel: 'Draft Reply', borderColor: '#3B82F644' },
+                        'TREND_JACK': { type: 'Trend', typeBg: '#8B5CF6', icon: 'trending_up', actionLabel: 'Create Post', borderColor: '#8B5CF644' },
+                        'CAMPAIGN': { type: 'Campaign', typeBg: '#FF5C00', icon: 'campaign', actionLabel: 'Plan Campaign', borderColor: '#FF5C0044' },
+                        'CAMPAIGN_IDEA': { type: 'Campaign', typeBg: '#FF5C00', icon: 'campaign', actionLabel: 'Plan Campaign', borderColor: '#FF5C0044' },
+                        'GAP_FILL': { type: 'Content', typeBg: '#22C55E', icon: 'edit_note', actionLabel: 'Fill Gap', borderColor: '#22C55E44' },
+                        'COMMUNITY': { type: 'Community', typeBg: '#F59E0B', icon: 'groups', actionLabel: 'Engage', borderColor: '#F59E0B44' },
+                        'TWEET': { type: 'Tweet', typeBg: '#1DA1F2', icon: 'chat_bubble', actionLabel: 'Draft Tweet', borderColor: '#1DA1F244' },
+                        'THREAD': { type: 'Thread', typeBg: '#A855F7', icon: 'segment', actionLabel: 'Write Thread', borderColor: '#A855F744' },
+                        'QRT': { type: 'QRT', typeBg: '#06B6D4', icon: 'format_quote', actionLabel: 'Draft QRT', borderColor: '#06B6D444' },
+                    };
+                    const style = styleMap[n] || { type: 'Optimization', typeBg: '#F59E0B', icon: 'tune', actionLabel: 'Optimize', borderColor: '#F59E0B44' };
+                    const baseImpact = n === 'TREND_JACK' ? 92 : n === 'REPLY' ? 78 : n === 'CAMPAIGN' ? 88 : n === 'QRT' ? 85 : n === 'GAP_FILL' ? 75 : 80;
+                    return {
+                        ...style,
+                        title: a.hook || `${style.type}: ${a.topic || 'Strategic opportunity'}`,
+                        reasoning: a.reasoning || `Strategic opportunity based on ${a.goal || a.topic}`,
+                        contentIdeas: Array.isArray(a.contentIdeas) ? a.contentIdeas.slice(0, 3) : [],
+                        strategicAlignment: a.strategicAlignment || '',
+                        dataSignal: a.dataSource || '',
+                        impactScore: Math.min(99, baseImpact),
+                        fullDraft: a.instructions || a.reasoning || '',
+                        fullReason: a.reasoning || a.topic || '',
+                        targetId: a.targetId || null,
+                        topic: a.topic, goal: a.goal,
+                        originalTweet: a.originalTweet || null,
+                        sourceTags: a.sourceTags || ['AI Analysis'],
+                        sourceLinks: a.sourceLinks || [],
+                        generatedAt: serverTs,
+                    };
+                };
+                const enriched = serverCached.actions.map(enrichAction);
+                setLlmRecommendations(enriched);
                 setRegenLastRun(serverTs);
-                localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(serverCached.actions));
+                localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(enriched));
                 localStorage.setItem(`defia_recs_ts_${selectedBrand}`, String(serverTs));
-                console.log(`[Recs] Server cache fresher (${Math.round((Date.now() - serverTs) / 60000)}m old). Updated recommendations.`);
+                console.log(`[Recs] Server cache fresher (${Math.round((Date.now() - serverTs) / 60000)}m old). Enriched ${enriched.length} recommendations.`);
             }
         }).catch(() => {});
         regenFiredRef.current = false;
