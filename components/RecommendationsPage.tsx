@@ -362,6 +362,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     const [approvedRecs, setApprovedRecs] = useState<Set<string>>(new Set());
     const [snoozedRecs, setSnoozedRecs] = useState<Set<string>>(new Set());
     const [showMarketSnapshot, setShowMarketSnapshot] = useState(true);
+    const [copiedDraft, setCopiedDraft] = useState(false);
 
     // Derive combined recs: prefer LLM, fallback to agent decisions, supplement with data-driven recs
     const isFallbackMode = recommendations.length === 0;
@@ -519,6 +520,23 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
         if (!selectedRec) return;
         setSnoozedRecs(prev => new Set([...prev, getRecKey(selectedRec)]));
         handleDismissSelected();
+    };
+
+    const handleCopyDraft = () => {
+        if (!selectedRec) return;
+        const draft = selectedRec.fullDraft
+            ? selectedRec.fullDraft.replace(/#\w+/g, '').trim()
+            : selectedRec.contentIdeas?.[0] || cleanTitle(selectedRec.title);
+        navigator.clipboard.writeText(draft);
+        setCopiedDraft(true);
+        setTimeout(() => setCopiedDraft(false), 2000);
+    };
+
+    // Build draft text for display
+    const getDraftText = (rec: any): string => {
+        if (rec.fullDraft) return rec.fullDraft.replace(/#\w+/g, '').trim();
+        if (rec.contentIdeas?.[0]) return rec.contentIdeas[0];
+        return `${cleanTitle(rec.title)} — strategic move for ${brandName}`;
     };
 
     return (
@@ -780,38 +798,33 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 {rec.impactScore}% <span className="font-normal" style={{ color: 'var(--text-muted)' }}>conf</span>
                                             </span>
                                         </div>
-                                        <h4 className="text-sm font-semibold mb-1.5 leading-snug line-clamp-3" style={{ color: 'var(--text-primary)' }}><LinkifiedText text={cleanTitle(rec.title)} /></h4>
-                                        {/* Trending / QRT signal highlight */}
-                                        {rec.type === 'Trend' && (
+                                        <h4 className="text-[13px] font-semibold mb-1.5 leading-snug line-clamp-2" style={{ color: 'var(--text-primary)' }}><LinkifiedText text={cleanTitle(rec.title)} /></h4>
+                                        {/* Inline context: trending / QRT / signal */}
+                                        {rec.type === 'Trend' ? (
                                             <div className="flex items-center gap-1 mb-1.5">
                                                 <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-pulse flex-shrink-0"></span>
-                                                <span className="text-[#8B5CF6] text-[10px] font-bold tracking-wider uppercase">Trending Now</span>
+                                                <span className="text-[#8B5CF6] text-[9px] font-bold tracking-wider uppercase">Trending Now</span>
                                             </div>
-                                        )}
-                                        {rec.type === 'QRT' && rec.originalTweet && (
+                                        ) : rec.type === 'QRT' && rec.originalTweet ? (
                                             <div className="flex items-center gap-1 mb-1.5">
-                                                <span className="material-symbols-sharp text-[11px] text-[#06B6D4]">format_quote</span>
-                                                <span className="text-[#06B6D4] text-[10px] font-semibold">Source tweet available</span>
+                                                <span className="material-symbols-sharp text-[10px] text-[#06B6D4]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                                <span className="text-[10px] line-clamp-1" style={{ color: 'var(--text-muted)' }}>@{rec.originalTweet.author}: "{safeStr(rec.originalTweet.text).slice(0, 40)}…"</span>
                                             </div>
-                                        )}
-                                        {rec.dataSignal && (
-                                            <div className="flex items-center gap-1 mb-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                                                <span className="material-symbols-sharp text-[12px]">bolt</span>
-                                                <LinkifiedText text={safeStr(rec.dataSignal).length > 45 ? safeStr(rec.dataSignal).slice(0, 45) + '…' : safeStr(rec.dataSignal)} />
+                                        ) : rec.dataSignal ? (
+                                            <div className="flex items-center gap-1 mb-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                                                <span className="material-symbols-sharp text-[11px]" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
+                                                <span className="line-clamp-1">{safeStr(rec.dataSignal).slice(0, 50)}{safeStr(rec.dataSignal).length > 50 ? '…' : ''}</span>
                                             </div>
-                                        )}
+                                        ) : null}
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-1.5 flex-wrap flex-1 mr-2">
-                                                {(rec.sourceTags || []).slice(0, 3).map((tag: string, tIdx: number) => {
+                                            <div className="flex items-center gap-1.5 flex-1 mr-2">
+                                                {(rec.sourceTags || []).slice(0, 1).map((tag: string, tIdx: number) => {
                                                     const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
                                                     return (
                                                         <span key={tIdx}
-                                                            className={`flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded ${style.nav ? 'cursor-pointer hover:brightness-125 transition-all' : ''}`}
-                                                            style={{ backgroundColor: `${style.color}15`, color: style.color }}
-                                                            onClick={style.nav ? (e) => { e.stopPropagation(); onNavigate(style.nav!); } : undefined}
-                                                            title={style.nav ? `Go to ${tag}` : undefined}
-                                                        >
-                                                            <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
+                                                            className="flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded"
+                                                            style={{ backgroundColor: `${style.color}12`, color: style.color }}>
+                                                            <span className="material-symbols-sharp text-[9px]" style={{ fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
                                                             {tag}
                                                         </span>
                                                     );
@@ -859,7 +872,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         {selectedRec.type}
                                     </span>
                                     <span className="px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase" style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text-muted)' }}>
-                                        {selectedRec.impactScore}% Confidence
+                                        {selectedRec.impactScore}%
                                     </span>
                                     {approvedRecs.has(getRecKey(selectedRec)) && (
                                         <span className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider uppercase bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
@@ -900,265 +913,176 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 </div>
                             </div>
 
-                            {/* WHAT */}
-                            <div className="mb-6">
-                                <span className="text-[10px] font-bold tracking-widest text-[#FF5C00] uppercase mb-2 block">What</span>
-
+                            {/* Title + context */}
+                            <div className="mb-5">
                                 {/* Trending NOW banner */}
                                 {selectedRec.type === 'Trend' && (
-                                    <div className="flex items-center gap-2.5 mb-3 px-3 py-2 rounded-lg bg-[#8B5CF6]/10 border border-[#8B5CF6]/25">
-                                        <span className="w-2 h-2 rounded-full bg-[#8B5CF6] animate-pulse flex-shrink-0"></span>
-                                        <span className="text-[#8B5CF6] text-xs font-bold tracking-widest uppercase">Trending Now</span>
+                                    <div className="flex items-center gap-2 mb-3 px-3 py-1.5 rounded-lg bg-[#8B5CF6]/8 border border-[#8B5CF6]/20">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-pulse flex-shrink-0"></span>
+                                        <span className="text-[#8B5CF6] text-[10px] font-bold tracking-widest uppercase">Trending Now</span>
                                         {selectedRec.sourceLinks?.[0]?.url && (
                                             <a href={selectedRec.sourceLinks[0].url} target="_blank" rel="noopener noreferrer"
-                                                className="ml-auto text-[#8B5CF6] text-xs hover:underline flex items-center gap-1 font-medium">
+                                                className="ml-auto text-[#8B5CF6] text-[11px] hover:underline flex items-center gap-1 font-medium">
                                                 Read article
-                                                <span className="material-symbols-sharp text-[11px]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                                <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
                                             </a>
                                         )}
                                     </div>
                                 )}
 
-                                <h2 className="text-[22px] font-bold leading-snug mb-4" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--text-primary)' }}>
+                                <h2 className="text-[20px] font-bold leading-snug" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--text-primary)' }}>
                                     <LinkifiedText text={cleanTitle(selectedRec.title)} />
                                 </h2>
-
-                                {/* Source tweet for QRT/REPLY — shown whenever originalTweet is present */}
-                                {selectedRec.originalTweet && (
-                                    <div className="rounded-xl border border-[#06B6D4]/30 bg-[#06B6D4]/5 p-4 mb-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="material-symbols-sharp text-[14px] text-[#06B6D4]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
-                                            <span className="text-[#06B6D4] text-[11px] font-semibold uppercase tracking-wider">
-                                                {selectedRec.type === 'QRT' ? 'Tweet to Quote' : selectedRec.type === 'Engagement' ? 'Tweet to Reply to' : 'Source Tweet'}
-                                            </span>
-                                            {selectedRec.originalTweet.tweetUrl && (
-                                                <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
-                                                    className="ml-auto text-[#06B6D4] text-xs hover:underline flex items-center gap-1">
-                                                    <span className="material-symbols-sharp text-[11px]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>View on X
-                                                </a>
-                                            )}
-                                        </div>
-                                        <p className="text-sm leading-relaxed italic" style={{ color: 'var(--text-secondary)' }}>"{selectedRec.originalTweet.text}"</p>
-                                        {selectedRec.originalTweet.images?.length > 0 && (
-                                            <div className="flex gap-2 mt-2 overflow-x-auto">
-                                                {selectedRec.originalTweet.images.slice(0, 3).map((img: string, i: number) => (
-                                                    <img key={i} src={img} alt="" className="rounded-lg max-h-[120px] object-cover"
-                                                        style={{ border: '1px solid var(--border)' }}
-                                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                                ))}
-                                            </div>
-                                        )}
-                                        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>— {selectedRec.originalTweet.author}</p>
-                                    </div>
-                                )}
-
-                                {/* Content ideas / draft */}
-                                {(selectedRec.contentIdeas?.length > 0 || selectedRec.fullDraft) && (
-                                    <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                                        <span className="text-[11px] font-semibold uppercase tracking-wider mb-3 block" style={{ color: 'var(--text-muted)' }}>
-                                            {selectedRec.contentIdeas?.length > 1 ? 'Content ideas' : 'Suggested content'}
-                                        </span>
-                                        {selectedRec.contentIdeas?.length > 0 ? (
-                                            <div className="space-y-2">
-                                                {selectedRec.contentIdeas.map((idea: string, j: number) => (
-                                                    <div key={j} className="flex items-start gap-2.5">
-                                                        <span className="w-5 h-5 rounded-full bg-[#FF5C00]/15 text-[#FF5C00] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{j + 1}</span>
-                                                        <span className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{idea}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{selectedRec.fullDraft}</p>
-                                        )}
-                                    </div>
-                                )}
                             </div>
 
-                            {/* WHY */}
-                            <div className="mb-6">
-                                <span className="text-[10px] font-bold tracking-widest uppercase mb-2 block" style={{ color: 'var(--text-muted)' }}>Why</span>
-                                <p className="text-[15px] leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
+                            {/* Source tweet for QRT/REPLY */}
+                            {selectedRec.originalTweet && (
+                                <div className="rounded-xl border border-[#06B6D4]/25 bg-[#06B6D4]/5 p-4 mb-5">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="material-symbols-sharp text-[13px] text-[#06B6D4]" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
+                                        <span className="text-[#06B6D4] text-[10px] font-semibold uppercase tracking-wider">
+                                            {selectedRec.type === 'QRT' ? 'Tweet to Quote' : selectedRec.type === 'Engagement' ? 'Tweet to Reply to' : 'Source Tweet'}
+                                        </span>
+                                        {selectedRec.originalTweet.tweetUrl && (
+                                            <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
+                                                className="ml-auto text-[#06B6D4] text-[11px] hover:underline flex items-center gap-1">
+                                                View on X
+                                                <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                            </a>
+                                        )}
+                                    </div>
+                                    <p className="text-[13px] leading-relaxed italic" style={{ color: 'var(--text-secondary)' }}>"{selectedRec.originalTweet.text}"</p>
+                                    {selectedRec.originalTweet.images?.length > 0 && (
+                                        <div className="flex gap-2 mt-2 overflow-x-auto">
+                                            {selectedRec.originalTweet.images.slice(0, 3).map((img: string, i: number) => (
+                                                <img key={i} src={img} alt="" className="rounded-lg max-h-[100px] object-cover"
+                                                    style={{ border: '1px solid var(--border)' }}
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                            ))}
+                                        </div>
+                                    )}
+                                    <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>— {selectedRec.originalTweet.author}</p>
+                                </div>
+                            )}
+
+                            {/* YOUR DRAFT — the hero section */}
+                            <div className="rounded-xl p-5 mb-5" style={{ backgroundColor: 'var(--bg-secondary)', border: `1px solid ${selectedRec.typeBg || '#FF5C00'}30` }}>
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: selectedRec.typeBg || '#1DA1F2' }}></span>
+                                        <span className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                            {selectedRec.type === 'Thread' ? 'Draft Thread' : selectedRec.type === 'QRT' ? 'Your Quote Tweet' : 'Draft Tweet'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={handleCopyDraft}
+                                            className="px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors"
+                                            style={{ backgroundColor: 'var(--bg-primary)', color: copiedDraft ? '#22C55E' : 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                                            {copiedDraft ? '✓ Copied' : 'Copy'}
+                                        </button>
+                                        <button onClick={() => handleExecute(selectedRec)}
+                                            className="px-2.5 py-1 rounded-md bg-[#FF5C00] text-white text-[11px] font-medium hover:bg-[#FF6B1A] transition-colors">
+                                            Open in Studio
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="rounded-lg p-4" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                                    <div className="flex items-center gap-2.5 mb-3">
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF5C00] to-[#FF8A4C] flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                            {brandName.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{brandName}</span>
+                                            <span className="text-xs ml-1.5" style={{ color: 'var(--text-muted)' }}>@{brandName.toLowerCase().replace(/\s/g, '')}</span>
+                                        </div>
+                                    </div>
+                                    {selectedRec.type === 'Thread' ? (
+                                        <div className="space-y-3">
+                                            {getDraftText(selectedRec).split(/(?=\d+\/\s)/).filter(Boolean).map((segment: string, idx: number) => (
+                                                <div key={idx} className={idx > 0 ? 'pt-3' : ''} style={idx > 0 ? { borderTop: '1px solid var(--border)' } : {}}>
+                                                    <p className="text-[13px] leading-[1.65] whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>{segment.trim()}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[13px] leading-[1.65] whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>{getDraftText(selectedRec)}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Content Angles — only show if multiple ideas */}
+                            {selectedRec.contentIdeas?.length > 1 && (
+                                <div className="rounded-xl p-4 mb-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider mb-2.5 block" style={{ color: 'var(--text-muted)' }}>Alternative angles</span>
+                                    <div className="space-y-2">
+                                        {selectedRec.contentIdeas.map((idea: string, j: number) => (
+                                            <div key={j} className="flex items-start gap-2.5">
+                                                <span className="w-5 h-5 rounded-full bg-[#FF5C00]/12 text-[#FF5C00] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{j + 1}</span>
+                                                <span className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{idea}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* WHY — merged reasoning + signal + strategic fit */}
+                            <div className="mb-5 pt-5" style={{ borderTop: '1px solid var(--border)' }}>
+                                <span className="text-[10px] font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>Why this matters</span>
+                                <p className="text-[13px] leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
                                     <LinkifiedText text={safeStr(selectedRec.reasoning || selectedRec.fullReason || 'Based on analysis of your social metrics, trending topics, and brand knowledge base.')} />
                                 </p>
 
-                                {/* Data signal evidence — full text, not truncated */}
+                                {/* Data signal — compact inline */}
                                 {(selectedRec.dataSource || selectedRec.dataSignal) && (
-                                    <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg mb-3 ${selectedRec.type === 'Trend' ? 'bg-[#8B5CF6]/10 border border-[#8B5CF6]/20' : 'bg-[#FF5C00]/8 border border-[#FF5C00]/15'}`}>
-                                        <span className="material-symbols-sharp text-[14px] flex-shrink-0 mt-0.5"
+                                    <div className="flex items-start gap-2 px-3 py-2 rounded-lg mb-3" style={{ backgroundColor: `${selectedRec.type === 'Trend' ? '#8B5CF6' : '#FF5C00'}08`, border: `1px solid ${selectedRec.type === 'Trend' ? '#8B5CF6' : '#FF5C00'}15` }}>
+                                        <span className="material-symbols-sharp text-[13px] flex-shrink-0 mt-0.5"
                                             style={{ color: selectedRec.type === 'Trend' ? '#8B5CF6' : '#FF5C00', fontVariationSettings: "'wght' 300" }}>
                                             {selectedRec.type === 'Trend' ? 'trending_up' : 'bolt'}
                                         </span>
-                                        <div className="flex-1 min-w-0">
-                                            <span className={`text-[10px] font-bold tracking-wider uppercase block mb-1 ${selectedRec.type === 'Trend' ? 'text-[#8B5CF6]/70' : 'text-[#FF5C00]/70'}`}>
-                                                Signal
-                                            </span>
-                                            <LinkifiedText text={safeStr(selectedRec.dataSource || selectedRec.dataSignal)}
-                                                className={`text-[13px] font-medium leading-snug ${selectedRec.type === 'Trend' ? 'text-[#C4B5FD]' : 'text-[#FDBA74]'}`} />
-                                        </div>
+                                        <LinkifiedText text={safeStr(selectedRec.dataSource || selectedRec.dataSignal)}
+                                            className={`text-[12px] leading-snug ${selectedRec.type === 'Trend' ? 'text-[#C4B5FD]' : 'text-[#FDBA74]'}`} />
                                     </div>
                                 )}
 
-                                {/* Strategic alignment — WHY THIS FOR THIS BRAND */}
+                                {/* Strategic fit — one line */}
                                 {selectedRec.strategicAlignment && (
-                                    <div className="px-3 py-2.5 rounded-lg mb-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                                        <span className="text-[10px] font-bold tracking-wider uppercase block mb-1" style={{ color: 'var(--text-muted)' }}>Strategic Fit</span>
-                                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{selectedRec.strategicAlignment}</p>
-                                    </div>
+                                    <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{selectedRec.strategicAlignment}</p>
                                 )}
 
-                                {/* Source tags as inline pills */}
-                                {(selectedRec.sourceTags || []).length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-3">
-                                        {(selectedRec.sourceTags as string[]).map((tag: string, tIdx: number) => {
-                                            const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
-                                            return (
-                                                <span key={tIdx}
-                                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${style.nav ? 'cursor-pointer hover:opacity-80' : ''}`}
-                                                    style={{ backgroundColor: `${style.color}18`, color: style.color }}
-                                                    onClick={style.nav ? () => onNavigate(style.nav!) : undefined}>
-                                                    <span className="material-symbols-sharp text-[11px]" style={{ fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
-                                                    {tag}
-                                                </span>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                {/* References & Data Sources */}
-                                {(selectedRec.sourceLinks?.length > 0 || selectedRec.originalTweet || selectedRec.dataSource) && (
-                                    <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                                        <span className="text-[10px] font-bold tracking-widest uppercase block mb-2" style={{ color: 'var(--text-muted)' }}>References</span>
-                                        <div className="space-y-2">
-                                            {selectedRec.sourceLinks?.map((link: any, lIdx: number) => (
-                                                <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
-                                                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all group"
-                                                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                                                    onMouseEnter={e => e.currentTarget.style.borderColor = '#8B5CF644'}
-                                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                                                >
-                                                    <span className="material-symbols-sharp text-[16px] flex-shrink-0" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6', fontVariationSettings: "'wght' 300" }}>
-                                                        {link.type === 'tweet' ? 'chat_bubble' : 'article'}
-                                                    </span>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{link.label}</p>
-                                                        <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{link.url}</p>
-                                                    </div>
-                                                    <span className="material-symbols-sharp text-[12px] flex-shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300" }}>open_in_new</span>
-                                                </a>
-                                            ))}
-                                            {selectedRec.originalTweet?.tweetUrl && (
-                                                <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
-                                                    className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all group"
-                                                    style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-                                                    onMouseEnter={e => e.currentTarget.style.borderColor = '#06B6D444'}
-                                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                                                >
-                                                    <span className="material-symbols-sharp text-[16px] text-[#06B6D4] flex-shrink-0" style={{ fontVariationSettings: "'wght' 300" }}>format_quote</span>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>Source tweet by @{selectedRec.originalTweet.author}</p>
-                                                        <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{selectedRec.originalTweet.tweetUrl}</p>
-                                                    </div>
-                                                    <span className="material-symbols-sharp text-[12px] flex-shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300" }}>open_in_new</span>
-                                                </a>
-                                            )}
-                                        </div>
-                                    </div>
+                                {/* Goal — compact */}
+                                {selectedRec.goal && !selectedRec.strategicAlignment && (
+                                    <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{selectedRec.goal}</p>
                                 )}
                             </div>
 
-                            {/* YOUR COMPETITIVE EDGE — from decisionSummary.strategicAngle */}
-                            {(decisionSummary?.strategicAngle || selectedRec.goal) && (
-                                <div className="mb-6 rounded-xl border border-[#FF5C00]/15 bg-gradient-to-r from-[#FF5C00]/5 to-transparent p-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="material-symbols-sharp text-[14px] text-[#FF5C00]" style={{ fontVariationSettings: "'wght' 300" }}>target</span>
-                                        <span className="text-[10px] font-bold tracking-widest text-[#FF5C00] uppercase">Your Competitive Edge</span>
-                                    </div>
-                                    {decisionSummary?.strategicAngle && (
-                                        <p className="text-[14px] font-semibold leading-snug mb-1" style={{ color: 'var(--text-primary)' }}>{decisionSummary.strategicAngle}</p>
-                                    )}
-                                    {selectedRec.goal && (
-                                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{selectedRec.goal}</p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* THE BET — opportunities vs risks from decisionSummary */}
-                            {((decisionSummary?.opportunities?.length > 0) || (decisionSummary?.risks?.length > 0)) && (
-                                <div className="mb-6">
-                                    <span className="text-[10px] font-bold tracking-widest uppercase mb-3 block" style={{ color: 'var(--text-muted)' }}>The Bet</span>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {/* Opportunities */}
-                                        {decisionSummary?.opportunities?.length > 0 && (
-                                            <div className="rounded-xl bg-[#22C55E]/5 border border-[#22C55E]/15 p-4">
-                                                <div className="flex items-center gap-1.5 mb-2.5">
-                                                    <span className="material-symbols-sharp text-[13px] text-[#22C55E]">trending_up</span>
-                                                    <span className="text-[10px] font-bold tracking-wider uppercase text-[#22C55E]">Upside</span>
-                                                </div>
-                                                <ul className="space-y-2">
-                                                    {(decisionSummary.opportunities as string[]).slice(0, 4).map((opp: string, i: number) => (
-                                                        <li key={i} className="flex items-start gap-2">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] mt-1.5 flex-shrink-0"></span>
-                                                            <span className="text-[12px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{opp}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                        {/* Risks */}
-                                        {decisionSummary?.risks?.length > 0 && (
-                                            <div className="rounded-xl bg-[#EF4444]/5 border border-[#EF4444]/15 p-4">
-                                                <div className="flex items-center gap-1.5 mb-2.5">
-                                                    <span className="material-symbols-sharp text-[13px] text-[#EF4444]">warning</span>
-                                                    <span className="text-[10px] font-bold tracking-wider uppercase text-[#EF4444]">Watch Out</span>
-                                                </div>
-                                                <ul className="space-y-2">
-                                                    {(decisionSummary.risks as string[]).slice(0, 4).map((risk: string, i: number) => (
-                                                        <li key={i} className="flex items-start gap-2">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] mt-1.5 flex-shrink-0"></span>
-                                                            <span className="text-[12px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{risk}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* WHERE + WHEN */}
-                            <div>
-                                <span className="text-[10px] font-bold tracking-widest uppercase mb-2 block" style={{ color: 'var(--text-muted)' }}>Where &amp; When</span>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                    {/* Platform */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                                        <span className="material-symbols-sharp text-[14px] text-[#1DA1F2]" style={{ fontVariationSettings: "'wght' 300" }}>chat_bubble</span>
-                                        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>X / Twitter</span>
-                                    </div>
-                                    {/* Format */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                                        <span className="material-symbols-sharp text-[14px]" style={{ color: selectedRec.typeBg || '#FF5C00', fontVariationSettings: "'wght' 300" }}>{selectedRec.icon}</span>
-                                        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{selectedRec.type}</span>
-                                    </div>
-                                    {/* Timing */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                                        <span className="material-symbols-sharp text-[14px]" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300" }}>schedule</span>
-                                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                            {selectedRec.generatedAt ? `Generated ${timeAgo(selectedRec.generatedAt)}` : regenLastRun > 0 ? `Data from ${new Date(regenLastRun).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Now'}
+                            {/* Sources — compact footer */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {(selectedRec.sourceTags || []).map((tag: string, tIdx: number) => {
+                                    const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
+                                    return (
+                                        <span key={tIdx}
+                                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${style.nav ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                            style={{ backgroundColor: `${style.color}12`, color: style.color }}
+                                            onClick={style.nav ? () => onNavigate(style.nav!) : undefined}>
+                                            <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>{style.icon}</span>
+                                            {tag}
                                         </span>
-                                    </div>
-                                    {/* Source links */}
-                                    {selectedRec.sourceLinks?.map((link: any, lIdx: number) => (
-                                        <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors group"
-                                            style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                                            <span className="material-symbols-sharp text-[14px]" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6', fontVariationSettings: "'wght' 300" }}>
-                                                {link.type === 'tweet' ? 'chat_bubble' : 'article'}
-                                            </span>
-                                            <span className="text-xs font-medium line-clamp-1 max-w-[140px]" style={{ color: 'var(--text-secondary)' }}>{link.label}</span>
-                                            <span className="material-symbols-sharp text-[11px]" style={{ color: 'var(--text-muted)', fontVariationSettings: "'wght' 300" }}>open_in_new</span>
-                                        </a>
-                                    ))}
-                                </div>
+                                    );
+                                })}
+                                {selectedRec.sourceLinks?.map((link: any, lIdx: number) => (
+                                    <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors hover:opacity-80"
+                                        style={{ backgroundColor: `${link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6'}12`, color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6' }}>
+                                        <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>{link.type === 'tweet' ? 'chat_bubble' : 'article'}</span>
+                                        <span className="max-w-[120px] truncate">{link.label}</span>
+                                        <span className="material-symbols-sharp text-[9px]" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span>
+                                    </a>
+                                ))}
+                                {selectedRec.generatedAt && (
+                                    <span className="text-[10px] ml-auto" style={{ color: 'var(--text-muted)' }}>
+                                        {timeAgo(selectedRec.generatedAt)}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     ) : !regenLoading && (
