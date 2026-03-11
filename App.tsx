@@ -1770,14 +1770,14 @@ const App: React.FC = () => {
                     const baseImpact = n === 'TREND_JACK' ? 92 : n === 'REPLY' ? 78 : n === 'CAMPAIGN' ? 88 : n === 'QRT' ? 85 : n === 'GAP_FILL' ? 75 : 80;
                     return {
                         ...style,
-                        title: a.hook || `${style.type}: ${a.topic || 'Strategic opportunity'}`,
-                        reasoning: a.reasoning || `Strategic opportunity based on ${a.goal || a.topic}`,
+                        title: a.hook || a.topic || `${style.type} opportunity`,
+                        reasoning: a.reasoning || (a.goal ? `Strategic opportunity: ${a.goal}` : a.topic ? `Opportunity around ${a.topic}` : 'AI-identified strategic opportunity.'),
                         contentIdeas: Array.isArray(a.contentIdeas) ? a.contentIdeas.slice(0, 3) : [],
                         strategicAlignment: a.strategicAlignment || '',
                         dataSignal: a.dataSource || '',
                         impactScore: Math.min(99, baseImpact),
-                        fullDraft: a.instructions || a.reasoning || '',
-                        fullReason: a.reasoning || a.topic || '',
+                        fullDraft: a.instructions || a.reasoning || a.topic || '',
+                        fullReason: a.reasoning || a.topic || a.goal || '',
                         targetId: a.targetId || null,
                         topic: a.topic, goal: a.goal,
                         originalTweet: a.originalTweet || null,
@@ -1786,7 +1786,8 @@ const App: React.FC = () => {
                         generatedAt: serverTs,
                     };
                 };
-                const enriched = serverCached.actions.map(enrichAction);
+                const enriched = serverCached.actions.map(enrichAction).filter((r: any) => r.type !== 'Optimization');
+                if (enriched.length === 0) return; // all junk — let auto-trigger fire instead
                 setLlmRecommendations(enriched);
                 setRegenLastRun(serverTs);
                 localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(enriched));
@@ -1801,7 +1802,7 @@ const App: React.FC = () => {
         if (!selectedBrand || regenFiredRef.current || regenLoading) return;
         const hasRecs = llmRecommendations.length > 0;
         const hasFallback = agentDecisions && agentDecisions.length > 0;
-        const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 24 * 60 * 60 * 1000); // 24h — server cron handles hourly, client is last resort
+        const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 4 * 60 * 60 * 1000); // 4h — ensure fresh AI recs, not just supplemental templates
         if (!hasRecs && !hasFallback || isStale) {
             const hasTrends = !!(socialSignals.trendingTopics && socialSignals.trendingTopics.length > 0);
             const delay = hasTrends ? 3000 : 12000;
