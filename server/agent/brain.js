@@ -170,7 +170,7 @@ Return exactly 5 actions, each a DIFFERENT type.
         const parsed = JSON.parse(jsonStr);
 
         // Strip hashtags from all drafts/instructions (LLMs sometimes ignore prompt rules)
-        const stripHashtags = (txt) => (txt || '').replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
+        const stripHashtags = (txt) => (typeof txt === 'string' ? txt : String(txt || '')).replace(/#\w+/g, '').replace(/  +/g, ' ').trim();
 
         // Normalize actions — support both new rich format and legacy format
         if (parsed.actions && Array.isArray(parsed.actions)) {
