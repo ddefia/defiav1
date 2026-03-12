@@ -165,7 +165,9 @@ const generateText = async (opts) => {
             });
             return result;
         }
-        groqError = 'Groq returned null (key missing?)';
+        const groqKeyLen = process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.length : 0;
+        const groqEnvKeys = Object.keys(process.env).filter(k => k.toLowerCase().includes('groq'));
+        groqError = `Groq returned null. Key length: ${groqKeyLen}, env matches: [${groqEnvKeys.join(',')}]`;
     } catch (e) {
         groqError = e.message?.slice(0, 200) || 'Unknown Groq error';
         console.error('[LLM] Groq fallback also failed:', groqError);
