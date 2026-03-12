@@ -120,82 +120,68 @@ const callGroq = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode
 // ━━━ Main Export ━━━
 
 /**
- * Generate text with automatic Gemini → Groq fallback.
+ * Generate text with automatic provider fallback.
+ *
+ * Provider order:
+ *   - Default: Gemini → Groq (for Telegram bot, content generation)
+ *   - preferGroq: true: Groq → Gemini (for server crons — saves Gemini quota)
  *
  * @param {Object} opts
- * @param {string} opts.systemPrompt - System instruction (optional)
  * @param {string} opts.userMessage - User/input message (required)
- * @param {number} opts.temperature - 0.0-1.0 (default 0.5)
- * @param {boolean} opts.jsonMode - Request JSON output (default false)
- * @param {string} [opts._source] - Log source tag (e.g. 'agent-cron', 'telegram-bot')
- * @param {string} [opts._endpoint] - Log endpoint label (e.g. 'brain.analyzeState')
+ * @param {string} [opts.systemPrompt] - System instruction
+ * @param {number} [opts.temperature] - 0.0-1.0 (default 0.5)
+ * @param {boolean} [opts.jsonMode] - Request JSON output
+ * @param {boolean} [opts.preferGroq] - Try Groq first (saves Gemini quota)
+ * @param {string} [opts._source] - Log source tag
+ * @param {string} [opts._endpoint] - Log endpoint label
  * @param {string} [opts._brandId] - Brand UUID for attribution
  * @returns {Promise<string>} Generated text
  */
 const generateText = async (opts) => {
-    let geminiError;
     const start = Date.now();
     const modelName = opts.model || 'gemini-2.0-flash';
 
-    // Try Gemini first
-    try {
-        const result = await callGemini(opts);
-        if (result) {
-            // Log successful Gemini call
+    // Determine provider order
+    const providers = opts.preferGroq
+        ? [{ name: 'groq', fn: callGroq, model: 'llama-3.3-70b-versatile' }, { name: 'gemini', fn: callGemini, model: modelName }]
+        : [{ name: 'gemini', fn: callGemini, model: modelName }, { name: 'groq', fn: callGroq, model: 'llama-3.3-70b-versatile' }];
+
+    let lastError;
+    for (const provider of providers) {
+        try {
+            const result = await provider.fn(opts);
+            if (result) {
+                logApiUsage({
+                    provider: provider.name, model: provider.model,
+                    endpoint: opts._endpoint || 'generateText',
+                    source: opts._source || 'server-llm',
+                    brand_id: opts._brandId || null,
+                    status_code: 200, duration_ms: Date.now() - start,
+                    estimated_cost_usd: provider.name === 'gemini' ? estimateCost(modelName, 500, 300) : 0,
+                });
+                return result;
+            }
+        } catch (e) {
+            lastError = e;
+            const isRetryable = e.message?.includes('429')
+                || e.message?.includes('quota')
+                || e.message?.includes('RESOURCE_EXHAUSTED')
+                || e.message?.includes('timed out')
+                || e.message?.includes('503')
+                || e.message?.includes('overloaded');
+            if (!isRetryable) throw e; // Auth errors, bad prompts — don't try other provider
+            console.warn(`[LLM] ${provider.name} failed (${e.message?.slice(0, 80)}), trying next...`);
             logApiUsage({
-                provider: 'gemini', model: modelName,
+                provider: provider.name, model: provider.model,
                 endpoint: opts._endpoint || 'generateText',
                 source: opts._source || 'server-llm',
                 brand_id: opts._brandId || null,
-                status_code: 200, duration_ms: Date.now() - start,
-                estimated_cost_usd: estimateCost(modelName, 500, 300),
+                status_code: 429, duration_ms: Date.now() - start, estimated_cost_usd: 0,
             });
-            return result;
         }
-    } catch (e) {
-        geminiError = e;
-        const isRetryable = e.message?.includes('429')
-            || e.message?.includes('quota')
-            || e.message?.includes('RESOURCE_EXHAUSTED')
-            || e.message?.includes('timed out')
-            || e.message?.includes('503')
-            || e.message?.includes('overloaded');
-        if (!isRetryable) throw e; // Non-retryable errors (bad prompt, auth, etc.) — don't fallback
-        console.warn(`[LLM] Gemini failed (${e.message?.slice(0, 80)}), trying Groq fallback...`);
-        logApiUsage({
-            provider: 'gemini', model: modelName,
-            endpoint: opts._endpoint || 'generateText',
-            source: opts._source || 'server-llm',
-            brand_id: opts._brandId || null,
-            status_code: 429, duration_ms: Date.now() - start, estimated_cost_usd: 0,
-        });
     }
 
-    // Fallback to Groq
-    let groqError;
-    try {
-        console.log('[LLM] Attempting Groq fallback...');
-        const result = await callGroq(opts);
-        if (result) {
-            console.log('[LLM] Groq fallback succeeded');
-            logApiUsage({
-                provider: 'groq', model: 'llama-3.3-70b-versatile',
-                endpoint: opts._endpoint || 'generateText-fallback',
-                source: opts._source || 'server-llm',
-                brand_id: opts._brandId || null,
-                status_code: 200, duration_ms: Date.now() - start, estimated_cost_usd: 0,
-            });
-            return result;
-        }
-        groqError = 'Groq returned empty response';
-    } catch (e) {
-        groqError = e.message?.slice(0, 200) || 'Unknown Groq error';
-        console.error('[LLM] Groq fallback also failed:', groqError);
-    }
-
-    // Both failed — throw combined error for visibility
-    const msg = `Gemini: ${geminiError?.message?.slice(0, 100) || 'unknown'} | Groq fallback: ${groqError || 'not attempted'}`;
-    throw new Error(msg);
+    throw lastError || new Error('All LLM providers failed');
 };
 
 export { generateText, callGemini, callGroq, withTimeout, TIMEOUT_MS };

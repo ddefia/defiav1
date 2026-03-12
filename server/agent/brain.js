@@ -5,8 +5,9 @@ import { generateText } from '../telegram/llm.js';
  * BRAIN SERVICE (Server-Side)
  * "The Intelligence"
  *
- * Uses gemini-2.0-flash (1500 RPD free tier) to stay within quota.
- * gemini-2.5-flash only allows 20 RPD on free tier — too low for multi-brand cron.
+ * Uses Groq (Llama 3.3 70B) as primary, Gemini 2.0 Flash as fallback.
+ * Groq has 14,400 RPD free tier vs Gemini's 20-1500 RPD.
+ * Saves Gemini quota for client-side features.
  * One comprehensive call replaces 6 separate calls.
  */
 
@@ -158,7 +159,8 @@ Return exactly 5 actions, each a DIFFERENT type.
         const text = await generateText({
             userMessage: prompt,
             jsonMode: true,
-            model: 'gemini-2.0-flash',
+            preferGroq: true,  // Groq first — saves Gemini quota for client-side
+            model: 'gemini-2.0-flash',  // Gemini model if Groq fails
             temperature: 0.7,
             _source: 'agent-cron', _endpoint: 'brain.analyzeState',
             _brandId: brandProfile.brandId || null,
