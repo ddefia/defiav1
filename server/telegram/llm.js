@@ -52,7 +52,10 @@ const callGemini = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMo
 
 const callGroq = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode = false }) => {
     const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return null; // No Groq key — can't fallback
+    if (!apiKey) {
+        console.warn('[LLM/Groq] GROQ_API_KEY not found in env. Available keys with GROQ:', Object.keys(process.env).filter(k => k.includes('GROQ')).join(', ') || 'NONE');
+        return null;
+    }
 
     const messages = [];
     if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
