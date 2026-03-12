@@ -5,9 +5,9 @@ import { generateText } from '../telegram/llm.js';
  * BRAIN SERVICE (Server-Side)
  * "The Intelligence"
  *
- * Upgraded to use gemini-2.5-flash with thinking mode for high-quality
- * recommendations that match the client-side brain output format.
- * One comprehensive call with thinkingBudget:8192 replaces 6 separate calls.
+ * Uses gemini-2.0-flash (1500 RPD free tier) to stay within quota.
+ * gemini-2.5-flash only allows 20 RPD on free tier — too low for multi-brand cron.
+ * One comprehensive call replaces 6 separate calls.
  */
 
 export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends, brandProfile = {}, competitorTweets = []) => {
@@ -158,8 +158,7 @@ Return exactly 5 actions, each a DIFFERENT type.
         const text = await generateText({
             userMessage: prompt,
             jsonMode: true,
-            model: 'gemini-2.5-flash',
-            thinkingConfig: { thinkingBudget: 8192 },
+            model: 'gemini-2.0-flash',
             temperature: 0.7,
             _source: 'agent-cron', _endpoint: 'brain.analyzeState',
             _brandId: brandProfile.brandId || null,
