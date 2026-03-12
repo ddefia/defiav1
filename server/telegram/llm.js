@@ -50,12 +50,34 @@ const callGemini = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMo
 
 // ━━━ Groq (OpenAI-compatible) ━━━
 
-const callGroq = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode = false }) => {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-        console.warn('[LLM/Groq] GROQ_API_KEY not found in env. Available keys with GROQ:', Object.keys(process.env).filter(k => k.includes('GROQ')).join(', ') || 'NONE');
-        return null;
+// Cache: Groq key loaded from Supabase app_storage as fallback when env var missing
+let _groqKeyCache = null;
+
+const _getGroqKey = async () => {
+    if (process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY;
+    if (_groqKeyCache) return _groqKeyCache;
+    // Fallback: read from Supabase app_storage (key: 'llm_keys')
+    try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+        if (!url || !key) return null;
+        const sb = createClient(url, key);
+        const { data } = await sb.from('app_storage').select('value').eq('key', 'llm_keys').single();
+        if (data?.value?.groq) {
+            _groqKeyCache = data.value.groq;
+            console.log('[LLM] Loaded Groq key from Supabase fallback');
+            return _groqKeyCache;
+        }
+    } catch (e) {
+        console.warn('[LLM] Supabase Groq key lookup failed:', e.message?.slice(0, 80));
     }
+    return null;
+};
+
+const callGroq = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode = false }) => {
+    const apiKey = await _getGroqKey();
+    if (!apiKey) return null;
 
     const messages = [];
     if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
@@ -165,9 +187,7 @@ const generateText = async (opts) => {
             });
             return result;
         }
-        const groqKeyLen = process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.length : 0;
-        const groqEnvKeys = Object.keys(process.env).filter(k => k.toLowerCase().includes('groq'));
-        groqError = `Groq returned null. Key length: ${groqKeyLen}, env matches: [${groqEnvKeys.join(',')}]`;
+        groqError = 'Groq returned empty response';
     } catch (e) {
         groqError = e.message?.slice(0, 200) || 'Unknown Groq error';
         console.error('[LLM] Groq fallback also failed:', groqError);
