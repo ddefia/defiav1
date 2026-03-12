@@ -147,7 +147,9 @@ const generateText = async (opts) => {
     }
 
     // Fallback to Groq
+    let groqError;
     try {
+        console.log('[LLM] Attempting Groq fallback...');
         const result = await callGroq(opts);
         if (result) {
             console.log('[LLM] Groq fallback succeeded');
@@ -160,12 +162,15 @@ const generateText = async (opts) => {
             });
             return result;
         }
+        groqError = 'Groq returned null (key missing?)';
     } catch (e) {
-        console.error('[LLM] Groq fallback also failed:', e.message?.slice(0, 100));
+        groqError = e.message?.slice(0, 200) || 'Unknown Groq error';
+        console.error('[LLM] Groq fallback also failed:', groqError);
     }
 
-    // Both failed — throw original Gemini error
-    throw geminiError || new Error('All LLM providers failed');
+    // Both failed — throw combined error for visibility
+    const msg = `Gemini: ${geminiError?.message?.slice(0, 100) || 'unknown'} | Groq fallback: ${groqError || 'not attempted'}`;
+    throw new Error(msg);
 };
 
 export { generateText, callGemini, callGroq, withTimeout, TIMEOUT_MS };
