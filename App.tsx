@@ -401,7 +401,7 @@ const App: React.FC = () => {
     const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null);
     const [recommendationContext, setRecommendationContext] = useState<any>({});
     const [llmRecommendations, setLlmRecommendations] = useState<any[]>(() => {
-        try { const cached = localStorage.getItem(`defia_recs_${selectedBrand || ''}`); return cached ? JSON.parse(cached) : []; } catch { return []; }
+        try { const cached = localStorage.getItem(`defia_recs_${selectedBrand || ''}`); return cached ? JSON.parse(cached).filter((r: any) => r.type !== 'Optimization') : []; } catch { return []; }
     });
     const [regenLoading, setRegenLoading] = useState(false);
     const [regenLastRun, setRegenLastRun] = useState<number>(() => {
@@ -1738,8 +1738,19 @@ const App: React.FC = () => {
                     localStorage.removeItem(`defia_recs_${selectedBrand}`);
                     localStorage.removeItem(`defia_recs_ts_${selectedBrand}`);
                 } else {
-                    setLlmRecommendations(parsed);
-                    if (cachedTs) setRegenLastRun(cachedTs);
+                    // Filter out junk recs that slipped through before the fix
+                    const clean = parsed.filter((r: any) => r.type !== 'Optimization');
+                    if (clean.length > 0) {
+                        setLlmRecommendations(clean);
+                        if (cachedTs) setRegenLastRun(cachedTs);
+                        if (clean.length < parsed.length) {
+                            localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(clean));
+                        }
+                    } else {
+                        // All cached recs were junk — clear and let auto-trigger fire
+                        localStorage.removeItem(`defia_recs_${selectedBrand}`);
+                        localStorage.removeItem(`defia_recs_ts_${selectedBrand}`);
+                    }
                 }
             }
             if (cachedCtx) setDecisionSummary(JSON.parse(cachedCtx));
