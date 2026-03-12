@@ -1958,7 +1958,7 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     }
                 }
 
-                // Run brain with full context (now uses gemini-2.5-flash + thinking)
+                // Run brain with full context (gemini-2.0-flash, 1500 RPD free tier)
                 const decisionResult = await analyzeState(
                     null, [], mentions, trends,
                     { ...brandProfile, name: brand.name || brandId },
@@ -2008,6 +2008,9 @@ app.get('/api/agent/recommendations', async (req, res) => {
 
                 results.push({ brandId, cached: true, actionCount: actions.length });
                 console.log(`[Recs] Cached ${actions.length} recommendations for ${brandId}`);
+
+                // Rate limit: wait 15s between brands to avoid Gemini per-minute quota
+                await new Promise(r => setTimeout(r, 15000));
             } catch (brandErr) {
                 console.error(`[Recs] Failed for brand ${brand.id}:`, brandErr.message);
                 results.push({ brandId: brand.id, error: brandErr.message });
