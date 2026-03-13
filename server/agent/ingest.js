@@ -279,6 +279,123 @@ export const fetchCompetitorTweets = async (apiKey, brandName, competitorHandle)
     }
 };
 
+// ━━━ Trending KOL Tweet Feed ━━━
+// High-signal crypto Twitter accounts whose tweets drive narratives.
+// One batched Apify call fetches latest tweets from all handles — cost = 1 actor run.
+
+const KOL_TWEETS_CACHE_KEY = 'defia_kol_tweets_cache_v1';
+let kolMemCache = null;
+
+const CRYPTO_KOLS = [
+    'brian_armstrong', 'VitalikButerin', 'caboroigues', 'DefiIgnas',
+    'Route2FI', 'lookonchain', 'WuBlockchain', 'CryptoHayes',
+    'MustStopMurad', 'inversebrah', 'coaboroigues', 'Rewkang',
+    'zachxbt', 'dieterthemieter', 'punk6529', 'AutismCapital',
+    'ellaboroigues', 'blaboroigues', 'tier10k', 'AltcoinGordon',
+];
+
+const getKOLTweetsCache = async () => {
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', KOL_TWEETS_CACHE_KEY)
+                .maybeSingle();
+            if (data?.value) {
+                const age = Date.now() - new Date(data.value.fetchedAt).getTime();
+                if (age <= MENTIONS_TTL_MS) return data.value.data;
+            }
+        }
+    } catch { /* fall through */ }
+
+    if (kolMemCache) {
+        const age = Date.now() - new Date(kolMemCache.fetchedAt).getTime();
+        if (age <= MENTIONS_TTL_MS) return kolMemCache.data;
+    }
+    return null;
+};
+
+const setKOLTweetsCache = async (data) => {
+    const entry = { fetchedAt: new Date().toISOString(), data };
+    kolMemCache = entry;
+
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            await supabase.from('app_storage').upsert({
+                key: KOL_TWEETS_CACHE_KEY,
+                value: entry,
+                updated_at: new Date().toISOString()
+            });
+        }
+    } catch (e) {
+        console.warn("[Agent/Ingest] Failed to write KOL tweets cache:", e.message);
+    }
+};
+
+export const fetchTrendingKOLTweets = async (apiKey) => {
+    if (!apiKey) return [];
+
+    const cached = await getKOLTweetsCache();
+    if (cached) {
+        console.log(`[Agent/Ingest] Using cached KOL tweets (${cached.length} tweets, < 6h old)`);
+        return cached;
+    }
+
+    try {
+        const ACTOR_ID = 'VsTreSuczsXhhRIqa';
+        console.log(`[Agent/Ingest] Fetching trending KOL tweets from ${CRYPTO_KOLS.length} handles...`);
+
+        const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${apiKey}&waitForFinish=120`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                handles: CRYPTO_KOLS,
+                tweetsDesired: 2,
+                profilesDesired: 0,
+                withReplies: false,
+                includeUserInfo: false,
+                proxyConfig: { useApifyProxy: true, apifyProxyGroups: ['RESIDENTIAL'] }
+            })
+        });
+
+        const runData = await runRes.json();
+        if (!runData.data || runData.data.status !== 'SUCCEEDED') {
+            throw new Error(`Run Status: ${runData.data?.status}`);
+        }
+
+        const datasetId = runData.data.defaultDatasetId;
+        const itemsRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}`);
+        const items = await itemsRes.json();
+
+        const result = items.map(item => {
+            const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
+            const author = urlMatch?.[1] || 'unknown';
+            return {
+                author,
+                text: item.text || '',
+                likes: item.likes || 0,
+                retweets: item.retweets || 0,
+                tweetUrl: item.url || null,
+                timestamp: item.timestamp || new Date().toISOString(),
+                images: item.images || [],
+            };
+        });
+
+        // Sort by engagement (most viral first)
+        result.sort((a, b) => (b.likes + b.retweets) - (a.likes + a.retweets));
+
+        await setKOLTweetsCache(result);
+        console.log(`[Agent/Ingest] Cached ${result.length} KOL tweets (top: ${result[0]?.likes || 0} likes)`);
+        return result;
+    } catch (e) {
+        console.error("[Agent/Ingest] KOL tweets fetch error:", e.message);
+        return [];
+    }
+};
+
 export const TRACKED_BRANDS = {
     'enki': 'ENKIProtocol',
     'netswap': 'netswapofficial',

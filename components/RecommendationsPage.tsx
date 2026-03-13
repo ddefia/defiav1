@@ -658,7 +658,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             </span>
                                         </div>
                                         {/* Title */}
-                                        <h4 className="text-[13px] font-medium leading-snug line-clamp-2 mb-1" style={{ color: 'var(--text-primary)' }}>
+                                        <h4 className="text-sm font-medium leading-snug line-clamp-2 mb-1" style={{ color: 'var(--text-primary)' }}>
                                             {cleanTitle(rec.title)}
                                         </h4>
                                         {/* QRT preview in card */}
@@ -669,7 +669,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 <span className="line-clamp-1 flex-1">{safeStr(rec.originalTweet.text).slice(0, 50)}</span>
                                             </div>
                                         ) : rec.dataSignal ? (
-                                            <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                                            <div className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
                                                 <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>bolt</span>
                                                 <span className="line-clamp-1">{safeStr(rec.dataSignal).slice(0, 60)}</span>
                                             </div>
@@ -680,7 +680,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 const style = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
                                                 return (
                                                     <span key={tIdx}
-                                                        className="text-[9px] font-medium px-1 py-0.5 rounded"
+                                                        className="text-[10px] font-medium px-1.5 py-0.5 rounded"
                                                         style={{ backgroundColor: `${style.color}12`, color: style.color }}>
                                                         {tag}
                                                     </span>
@@ -835,6 +835,20 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             <span className="material-symbols-sharp text-[12px]">edit</span>
                                             Edit in Studio
                                         </button>
+                                        {(() => {
+                                            const isQRT = selectedRec.type === 'QRT' && selectedRec.originalTweet?.tweetUrl;
+                                            const intentUrl = isQRT
+                                                ? `https://twitter.com/intent/tweet?text=${encodeURIComponent(draftText)}&url=${encodeURIComponent(selectedRec.originalTweet.tweetUrl)}`
+                                                : `https://twitter.com/intent/tweet?text=${encodeURIComponent(draftText)}`;
+                                            return (
+                                                <a href={intentUrl} target="_blank" rel="noopener noreferrer"
+                                                    className="px-3 py-1 rounded-md text-[11px] font-semibold text-white transition-all hover:opacity-90 flex items-center gap-1"
+                                                    style={{ backgroundColor: '#1DA1F2' }}>
+                                                    <span className="material-symbols-sharp text-[12px]">open_in_new</span>
+                                                    {isQRT ? 'Quote on X' : 'Post to X'}
+                                                </a>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                                 <div className="p-4">
@@ -851,12 +865,12 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         <div className="space-y-0">
                                             {draftText.split(/(?=\d+\/\s)/).filter(Boolean).map((segment: string, idx: number) => (
                                                 <div key={idx} className={`py-3 ${idx > 0 ? 'ml-4' : ''}`} style={idx > 0 ? { borderLeft: '2px solid var(--border)', paddingLeft: '12px' } : {}}>
-                                                    <p className="text-[14px] leading-[1.7] whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{segment.trim()}</p>
+                                                    <p className="text-base leading-[1.7] whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{segment.trim()}</p>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-[14px] leading-[1.7] whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{draftText}</p>
+                                        <p className="text-base leading-[1.7] whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{draftText}</p>
                                     )}
                                 </div>
                             </div>
@@ -957,22 +971,16 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         </div>
                                     )}
 
-                                    {/* AI agents involved */}
-                                    {(() => {
-                                        const agents = getRelevantAgents(selectedRec.type);
-                                        return agents.length > 0 ? (
+                                    {/* Goal */}
+                                    {selectedRec.goal && (
+                                        <div className="rounded-lg p-3 flex items-start gap-2.5" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+                                            <span className="material-symbols-sharp text-[16px] text-[#22C55E] mt-0.5">flag</span>
                                             <div>
-                                                <span className="text-[10px] font-bold tracking-wider uppercase mb-1.5 block" style={{ color: 'var(--text-muted)' }}>AI Agents Used</span>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {agents.map((agent: string, aIdx: number) => (
-                                                        <span key={aIdx} className="text-[11px] font-medium px-2 py-1 rounded-md" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                                                            {agent}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                                <span className="text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color: '#22C55E' }}>Goal</span>
+                                                <p className="text-[13px]" style={{ color: 'var(--text-primary)' }}>{selectedRec.goal}</p>
                                             </div>
-                                        ) : null;
-                                    })()}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

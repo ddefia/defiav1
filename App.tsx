@@ -1478,15 +1478,21 @@ const App: React.FC = () => {
                 }
             };
 
-            // Fetch competitor tweets for brain context
+            // Fetch competitor tweets + trending KOL tweets for brain context
             const compHandles = (profiles[selectedBrand]?.competitors || [])
                 .map((c: any) => c.handle).filter(Boolean);
-            const compTweets = compHandles.length > 0
-                ? await fetchCompetitorTweets(compHandles).catch(() => [])
-                : [];
+            const [compTweets, trendingTweetsRes] = await Promise.all([
+                compHandles.length > 0
+                    ? fetchCompetitorTweets(compHandles).catch(() => [])
+                    : Promise.resolve([]),
+                fetch('/api/trending-tweets')
+                    .then(r => r.ok ? r.json() : { tweets: [] })
+                    .catch(() => ({ tweets: [] }))
+            ]);
+            const trendingTweets = trendingTweetsRes.tweets || [];
 
-            // Attach competitor tweets directly on context so formulateStrategy can build its prompt
-            const contextWithTweets = { ...enrichedContext, _competitorTweets: compTweets };
+            // Attach competitor tweets + trending tweets on context so formulateStrategy can build its prompt
+            const contextWithTweets = { ...enrichedContext, _competitorTweets: compTweets, _trendingTweets: trendingTweets };
             const { analysis, actions, agentInsights } = await orchestrateMarketingDecision(contextWithTweets, { calendarEvents, mentions, competitorTweets: compTweets });
             const now = Date.now();
 
@@ -1618,6 +1624,17 @@ const App: React.FC = () => {
                             });
                             if (matchedComp?.tweetUrl) {
                                 links.push({ label: `@${matchedComp.competitor}: ${(matchedComp.text || '').slice(0, 50)}…`, url: matchedComp.tweetUrl, type: 'tweet' });
+                            }
+                        }
+
+                        // Match trending KOL tweets
+                        if (trendingTweets.length > 0) {
+                            const matchedKOL = trendingTweets.find((t: any) => {
+                                const author = (t.author || '').toLowerCase();
+                                return actionText.includes(author) || actionText.includes(`@${author}`);
+                            });
+                            if (matchedKOL?.tweetUrl) {
+                                links.push({ label: `@${matchedKOL.author}: ${(matchedKOL.text || '').slice(0, 50)}…`, url: matchedKOL.tweetUrl, type: 'tweet' });
                             }
                         }
 

@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { fetchDuneMetrics, fetchMentions, fetchCompetitorTweets, updateAllBrands, TRACKED_BRANDS } from './ingest.js';
+import { fetchDuneMetrics, fetchMentions, fetchCompetitorTweets, fetchTrendingKOLTweets, updateAllBrands, TRACKED_BRANDS } from './ingest.js';
 import { analyzeState } from './brain.js';
 import { generateDailyBriefing } from './generator.js'; // Import Generator
 import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
@@ -190,6 +190,15 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
             console.warn("   - Web3 news fetch failed, brain will run without trends:", e.message);
         }
 
+        // Fetch trending KOL tweets (one batched call for all brands)
+        let trendingKOLTweets = [];
+        try {
+            trendingKOLTweets = await fetchTrendingKOLTweets(apifyKey);
+            console.log(`   - Loaded ${trendingKOLTweets.length} trending KOL tweets`);
+        } catch (e) {
+            console.warn("   - KOL tweets fetch failed, brain will run without trending tweets:", e.message);
+        }
+
         const activeBrands = supabase ? await fetchActiveBrands(supabase) : [];
         let registry = activeBrands.length > 0
             ? activeBrands
@@ -274,7 +283,7 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
             }
 
             // 2. Analyze (returns { analysis, actions: [...] })
-            const decisionResult = await analyzeState(dune, [], mentions, brandTrends, brandProfile, competitorTweets);
+            const decisionResult = await analyzeState(dune, [], mentions, brandTrends, brandProfile, competitorTweets, trendingKOLTweets);
             const decisions = decisionResult.actions || [decisionResult];
 
             // 3. Act & Save — process all actions

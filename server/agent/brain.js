@@ -11,7 +11,7 @@ import { generateText } from '../telegram/llm.js';
  * One comprehensive call replaces 6 separate calls.
  */
 
-export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends, brandProfile = {}, competitorTweets = []) => {
+export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTrends, brandProfile = {}, competitorTweets = [], trendingTweets = []) => {
     try {
         const brandName = brandProfile.name || brandProfile.brandName || "Web3 Protocol";
         const voice = brandProfile.voiceGuidelines || "Professional";
@@ -56,6 +56,10 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
             ? competitorTweets.slice(0, 10).map(t => `- @${t.competitor}${t.competitorName ? ` (${t.competitorName})` : ''}: "${t.text}" (${t.likes || 0} likes)`).join('\n')
             : '';
 
+        const trendingTweetsBlock = trendingTweets.length > 0
+            ? trendingTweets.slice(0, 15).map(t => `- @${t.author}: "${(t.text || '').slice(0, 250)}" [${t.likes || 0} likes, ${t.retweets || 0} RTs]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')
+            : '';
+
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
         const prompt = `
@@ -90,6 +94,8 @@ ${trendsBlock}
 
 ${competitorTweetsBlock ? `COMPETITOR TWEETS:\n${competitorTweetsBlock}` : ''}
 
+${trendingTweetsBlock ? `VIRAL CRYPTO TWITTER (trending tweets from top KOLs — QRT these, react to, or hijack):\n${trendingTweetsBlock}` : ''}
+
 ═══════════════════════════════════════════
 YOUR TASK
 ═══════════════════════════════════════════
@@ -107,7 +113,7 @@ Each action must be a DIFFERENT type from: TWEET, THREAD, CAMPAIGN, REPLY, TREND
 CRITICAL RULES:
 - TODAY IS ${today}. NEVER recommend posting about past events or milestones. Only forward-looking content.
 - TREND_JACK requires a REAL, SPECIFIC trend from the TRENDS list. Name the exact headline.
-- QRT requires a REAL tweet from the mentions or competitor tweets. Include originalTweet.
+- QRT requires a REAL tweet from VIRAL CRYPTO TWITTER, mentions, or competitor tweets. Include originalTweet with exact author and text. Prefer tweets with 100+ likes for maximum QRT visibility.
 - Every recommendation must be specific to ${brandName} — reference actual products, features, ecosystem.
 - No generic "web3 is growing" filler. Be specific or pick a different action type.
 - NEVER use hashtags. No #anything.

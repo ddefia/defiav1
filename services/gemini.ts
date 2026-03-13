@@ -2799,6 +2799,12 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
         ? `COMPETITOR TWEETS (happening now — hijack these narratives or counter them):\n${compTweets.slice(0, 10).map((t: any) => `- @${t.competitor}${t.competitorName ? ` (${t.competitorName})` : ''}: "${(t.text || '').slice(0, 200)}" [${t.likes || 0} likes]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')}`
         : '';
 
+    // Trending KOL tweets — viral tweets from top crypto accounts to QRT
+    const kolTweets = (context as any)._trendingTweets || [];
+    const kolTweetBlock = kolTweets.length > 0
+        ? `VIRAL CRYPTO TWITTER (trending tweets from top KOLs — QRT these, react to, or hijack):\n${kolTweets.slice(0, 15).map((t: any) => `- @${t.author}: "${(t.text || '').slice(0, 250)}" [${t.likes || 0} likes, ${t.retweets || 0} RTs]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')}`
+        : '';
+
     // Trending news with URLs
     const trendBlock = (context.marketState.trends || []).slice(0, 8).map((t: any) =>
         `- "${t.headline}"${t.url ? ` (${t.url})` : ''} [relevance: ${t.relevanceScore || 'N/A'}]`
@@ -2818,6 +2824,8 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     ${mentionBlock}
 
     ${compTweetBlock}
+
+    ${kolTweetBlock}
 
     ═══ PRIORITY 2: MARKET ANALYSIS ═══
 
@@ -2847,11 +2855,11 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     MANDATORY RULES:
     1. EXACTLY 5 actions. No more, no fewer.
     2. REACTIVE FIRST: At least 3 of 5 actions MUST be triggered by a SPECIFIC live signal — a trending headline, a competitor tweet, a mention, or a market event. The remaining 2 can be proactive brand content.
-    3. DIVERSITY: Include at least 1 QRT or REPLY (reacting to an actual tweet), 1 TREND_JACK (hijacking a trending topic), and 1 TWEET or THREAD. If no real tweets exist to quote, use TREND_JACK instead of QRT.
+    3. DIVERSITY: Include at least 1 QRT (quoting a viral tweet from the VIRAL CRYPTO TWITTER feed, mentions, or competitor tweets), 1 TREND_JACK (hijacking a trending news headline), and 1 TWEET or THREAD. Prefer QRTs on tweets with 100+ likes for maximum visibility.
     4. VIRALITY > BRAND: Write copy that people want to RT, not corporate announcements. Hot takes > press releases. Contrarian angles > "we're excited to announce". Think CT (crypto Twitter) native, not LinkedIn.
     5. SPECIFICITY: Every action references a NAMED signal — exact headline, @handle, metric. Never "market trends" or "community sentiment".
     6. COPY QUALITY (CRITICAL): The "instructions" field = the actual tweet/thread, ready to post. No descriptions of what to write. Under 280 chars for tweets. Threads = hook + numbered tweets written out. No hashtags.
-    7. QRT RULES: ONLY quote a tweet that EXISTS in the data above — cite the exact @handle and text. Never fabricate tweets. The quote must add genuine alpha or a hot take, not "great take!".
+    7. QRT RULES: ONLY quote a tweet that EXISTS in the data above (VIRAL CRYPTO TWITTER, mentions, or competitor tweets) — cite the exact @handle and text. Never fabricate tweets. The quote must add genuine alpha or a hot take, not "great take!". Include the tweetUrl from the source data in originalTweet if available.
     8. TONE: Crypto Twitter native. Confident, slightly provocative, data-backed. The kind of tweet that gets QRT'd by influencers.
     9. SOURCE ATTRIBUTION: dataSource MUST name the exact signal: "'Crypto Traders Rotate Into Select Altcoins' — CoinDesk headline" or "@rival_protocol: 'our TPS is unmatched'" — not generic descriptions.
     10. FRESHNESS: Never repeat past strategies.

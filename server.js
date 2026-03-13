@@ -2522,6 +2522,27 @@ app.get('/api/lunarcrush/posts/:screen_name', requireAuth, async (req, res) => {
     }
 });
 
+// --- Trending KOL Tweets Endpoint ---
+
+app.get('/api/trending-tweets', async (req, res) => {
+    const supabase = getSupabaseClient();
+    try {
+        const { data } = await supabase
+            .from('app_storage')
+            .select('value')
+            .eq('key', 'defia_kol_tweets_cache_v1')
+            .maybeSingle();
+
+        if (data?.value?.data) {
+            res.json({ tweets: data.value.data, cached: true, fetchedAt: data.value.fetchedAt });
+        } else {
+            res.json({ tweets: [], cached: false });
+        }
+    } catch (e) {
+        res.status(500).json({ error: e.message, tweets: [] });
+    }
+});
+
 // --- Web3 News Endpoints ---
 
 app.get('/api/web3-news', async (req, res) => {
