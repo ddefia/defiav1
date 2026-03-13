@@ -1485,7 +1485,9 @@ const App: React.FC = () => {
                 ? await fetchCompetitorTweets(compHandles).catch(() => [])
                 : [];
 
-            const { analysis, actions, agentInsights } = await orchestrateMarketingDecision(enrichedContext, { calendarEvents, mentions, competitorTweets: compTweets });
+            // Attach competitor tweets directly on context so formulateStrategy can build its prompt
+            const contextWithTweets = { ...enrichedContext, _competitorTweets: compTweets };
+            const { analysis, actions, agentInsights } = await orchestrateMarketingDecision(contextWithTweets, { calendarEvents, mentions, competitorTweets: compTweets });
             const now = Date.now();
 
             const getRecStyle = (action: string) => {

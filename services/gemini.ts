@@ -2704,14 +2704,21 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
 
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+    // Build live tweet signals for analysis
+    const mentionTweets = (context.marketState.mentions || []).slice(0, 8);
+    const mentionAnalysis = mentionTweets.length > 0
+        ? `LIVE MENTIONS OF ${brandName.toUpperCase()}:\n${mentionTweets.map((m: any) => `- @${m.author}: "${(m.text || '').slice(0, 150)}" [${m.likes || 0} likes]`).join('\n')}`
+        : '';
+
     const prompt = `
     ROLE: Chief Marketing Analyst for ${brandName}.
     TODAY'S DATE: ${today}
 
     INPUT DATA:
     - OBJECTIVE: "${context.userObjective}"
-    - TRENDS: ${context.marketState.trends.slice(0, 8).map(t => t.headline).join(', ')}
+    - TRENDING NEWS: ${context.marketState.trends.slice(0, 8).map((t: any) => `"${t.headline}"${t.url ? ` (${t.url})` : ''}`).join(' | ')}
     - SOCIAL PERFORMANCE: ${context.marketState.analytics ? `Top Post: ${context.marketState.analytics.topPost} | Engagement: ${context.marketState.analytics.engagementRate}%` : 'No social data.'}
+    ${mentionAnalysis}
     ${chainBlock}
 
     ${performanceBlock}
@@ -2723,7 +2730,7 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
 
     ${(context.brand as any).marketingDirectives ? `STRATEGIC DIRECTIVES (from the brand owner — prioritize these):\n    ${(context.brand as any).marketingDirectives}` : ''}
 
-    TASK: Perform a sharp, brand-specific market analysis for ${brandName} as of ${today}.
+    TASK: Perform a sharp, brand-specific market analysis for ${brandName} as of ${today}. Focus on LIVE SIGNALS — trending headlines, mention tweets, competitor moves — not just brand knowledge.
     IMPORTANT: Ignore any knowledge base entries about past events (e.g. launches, milestones) that have already occurred. Focus only on what is actionable NOW and FORWARD-LOOKING.
     1. Market Vibe: Bearish/Bullish/Hype/Quiet — cite specific data points.
     2. Narrative Insertion: Where is ${brandName}'s SPECIFIC expertise (from the knowledge base above) most relevant to current conversations? Be precise — name the exact brand capability that maps to the opportunity.
@@ -2780,77 +2787,96 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
         ? `ON-CHAIN SIGNALS:\nNew Wallets: ${cm.netNewWallets} | Active: ${cm.activeWallets} | Volume: $${cm.totalVolume.toLocaleString()} | Retention: ${(cm.retentionRate * 100).toFixed(1)}%${cm.campaignPerformance.length > 0 ? `\nCampaign Performance: ${cm.campaignPerformance.map(c => `${c.campaignId}: ${c.roi.toFixed(1)}x ROI, ${(c.retention * 100).toFixed(0)}% retention, ${c.whalesAcquired} whales, $${c.cpa.toFixed(2)} CPA`).join('; ')}` : ''}`
         : '';
 
+    // Build LIVE TWEET data — this is what the AI should react to
+    const mentionTweets = (context.marketState.mentions || []).slice(0, 10);
+    const mentionBlock = mentionTweets.length > 0
+        ? `LIVE TWEETS MENTIONING ${brandName.toUpperCase()} (react to these — QRT, reply, or leverage):\n${mentionTweets.map((m: any) => `- @${m.author}: "${(m.text || '').slice(0, 200)}" [${m.likes || 0} likes, ${m.retweets || 0} RTs]${m.tweetUrl ? ` (${m.tweetUrl})` : ''}`).join('\n')}`
+        : '';
+
+    // Competitor tweets — what competitors are saying RIGHT NOW
+    const compTweets = (context as any)._competitorTweets || [];
+    const compTweetBlock = compTweets.length > 0
+        ? `COMPETITOR TWEETS (happening now — hijack these narratives or counter them):\n${compTweets.slice(0, 10).map((t: any) => `- @${t.competitor}${t.competitorName ? ` (${t.competitorName})` : ''}: "${(t.text || '').slice(0, 200)}" [${t.likes || 0} likes]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')}`
+        : '';
+
+    // Trending news with URLs
+    const trendBlock = (context.marketState.trends || []).slice(0, 8).map((t: any) =>
+        `- "${t.headline}"${t.url ? ` (${t.url})` : ''} [relevance: ${t.relevanceScore || 'N/A'}]`
+    ).join('\n');
+
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     const prompt = `
-    ROLE: Chief Marketing Strategist for ${brandName}.
+    ROLE: Viral Web3 Social Media Strategist for ${brandName}.
     TODAY'S DATE: ${today}
 
-    MARKET ANALYSIS:
+    ═══ PRIORITY 1: LIVE SIGNAL DATA (react to these FIRST) ═══
+
+    TRENDING NEWS & MARKET NARRATIVES:
+    ${trendBlock || 'No trending data available.'}
+
+    ${mentionBlock}
+
+    ${compTweetBlock}
+
+    ═══ PRIORITY 2: MARKET ANALYSIS ═══
+
     ${analysis.summary}
     Key Themes: ${(analysis.keyThemes || []).join(', ')}
     Opportunities: ${(analysis.opportunities || []).join(' | ')}
-    Risks: ${(analysis.risks || []).join(' | ')}
 
     STRATEGIC ANGLE: ${analysis.strategicAngle}
     OBJECTIVE: ${context.userObjective}
 
-    ${(context.brand as any).marketingDirectives ? `STRATEGIC DIRECTIVES (from the brand owner — prioritize these in action selection):\n    ${(context.brand as any).marketingDirectives}` : ''}
+    ${(context.brand as any).marketingDirectives ? `STRATEGIC DIRECTIVES (from the brand owner):\n    ${(context.brand as any).marketingDirectives}` : ''}
 
-    BRAND INTELLIGENCE (use this to ground every recommendation):
+    ═══ PRIORITY 3: BRAND CONTEXT (use to add substance, not as primary driver) ═══
+
     ${context.memory.ragDocs.join('\n')}
-
     ${performanceBlock}
-
     ${competitorBlock}
-
     ${chainBlock}
 
-    PAST STRATEGIES (what we've already executed — avoid repeating):
-    ${context.memory.pastStrategies?.slice(0, 5).map(s => `- ${s.title || s.type}: ${s.description || s.reasoning || ''}`).join('\n') || 'No past strategies recorded.'}
+    PAST STRATEGIES (avoid repeating):
+    ${context.memory.pastStrategies?.slice(0, 5).map(s => `- ${s.title || s.type}: ${s.description || s.reasoning || ''}`).join('\n') || 'None.'}
 
-    TASK: Create a concrete Action Plan of EXACTLY 5 marketing actions.
+    ═══ TASK: Create EXACTLY 5 high-impact, REACTIVE marketing actions ═══
+
+    PHILOSOPHY: The best crypto Twitter accounts don't just talk about themselves — they REACT to what's happening. They jump on viral tweets, hijack trending narratives, quote competitors, and ride the wave. Brand knowledge is the WEAPON you bring to the conversation, not the conversation itself.
 
     MANDATORY RULES:
-    1. Generate EXACTLY 5 actions. Never fewer, never more.
-    2. DIVERSITY: Include at least 1 CAMPAIGN, 1 THREAD, 1 TWEET. The remaining 2 can be any type (REPLY, TREND_JACK, GAP_FILL, QRT). Actions must use DIFFERENT angles — never repeat the same topic/theme across actions.
-    3. SPECIFICITY (CRITICAL): Every action must be hyper-specific and immediately executable. BAD: "Post about our technology". GOOD: "Thread breaking down how our decentralized sequencer prevents MEV extraction — use the recent Flashbots controversy as the hook, cite our 0 MEV incidents in 6 months".
-    4. KNOWLEDGE: Every action MUST leverage specific brand knowledge base entries. Quote specific technical features, partnerships, or differentiators by name.
-    5. TIMELINESS: Each reasoning MUST explain WHY NOW (today is ${today}). Reference a specific trend, market event, competitor move, or calendar date. If no fresh trend data is available, reference evergreen market narratives the brand can own. NEVER recommend posting about past events (launches, milestones) that have already happened — only forward-looking.
-    6. FRESHNESS: Do NOT repeat past strategies. If past strategies are listed, propose completely different angles.
-    7. HOOKS: Each hook = a punchy internal code name with attitude (3-5 words): e.g. "The MEV Shield", "Sequencer Supremacy", "Operation Phantom Growth", "The Custody Speed Trap".
-    8. CONTENT IDEAS: 3 SPECIFIC creative variants — not restatements of the topic. Think contrarian angle, data-backed angle, narrative hijack.
-    9. AVOID GENERIC: Every action must pass: "Could this ONLY come from THIS brand, not any other?" If another brand could post it unchanged, rewrite. No "General brand update", "Community engagement", "Thought leadership" without concrete substance.
-    10. TONE: Write reasoning as a sharp CMO pitching to the CEO. Confident, data-driven, no buzzwords, no fluff.
-    11. SOURCE ATTRIBUTION (CRITICAL): For each action, cite the SPECIFIC signal that triggered it — exact trend headline, "@handle: tweet text", metric name + value, or KB entry excerpt. The user must immediately see WHERE this came from.
-    12. QRT OPPORTUNITIES: If mentions or competitor tweets contain a high-signal statement the brand can credibly quote and add to — do it. Must add genuine brand insight, not "great take!". Only output QRT if a real tweet exists in the data — NEVER fabricate.
-    13. COPY QUALITY (CRITICAL): The "instructions" field MUST contain the actual ready-to-post tweet text. TWEET/TREND_JACK/QRT/REPLY: complete tweet, under 280 chars, no hashtags, no placeholders. THREAD: opening hook tweet + tweets 1/ through 3/ written out. CAMPAIGN: campaign concept brief (2-3 sentences) + the opening tweet draft. The user will copy-paste this directly — write it as finished work, not a description of what to write.
+    1. EXACTLY 5 actions. No more, no fewer.
+    2. REACTIVE FIRST: At least 3 of 5 actions MUST be triggered by a SPECIFIC live signal — a trending headline, a competitor tweet, a mention, or a market event. The remaining 2 can be proactive brand content.
+    3. DIVERSITY: Include at least 1 QRT or REPLY (reacting to an actual tweet), 1 TREND_JACK (hijacking a trending topic), and 1 TWEET or THREAD. If no real tweets exist to quote, use TREND_JACK instead of QRT.
+    4. VIRALITY > BRAND: Write copy that people want to RT, not corporate announcements. Hot takes > press releases. Contrarian angles > "we're excited to announce". Think CT (crypto Twitter) native, not LinkedIn.
+    5. SPECIFICITY: Every action references a NAMED signal — exact headline, @handle, metric. Never "market trends" or "community sentiment".
+    6. COPY QUALITY (CRITICAL): The "instructions" field = the actual tweet/thread, ready to post. No descriptions of what to write. Under 280 chars for tweets. Threads = hook + numbered tweets written out. No hashtags.
+    7. QRT RULES: ONLY quote a tweet that EXISTS in the data above — cite the exact @handle and text. Never fabricate tweets. The quote must add genuine alpha or a hot take, not "great take!".
+    8. TONE: Crypto Twitter native. Confident, slightly provocative, data-backed. The kind of tweet that gets QRT'd by influencers.
+    9. SOURCE ATTRIBUTION: dataSource MUST name the exact signal: "'Crypto Traders Rotate Into Select Altcoins' — CoinDesk headline" or "@rival_protocol: 'our TPS is unmatched'" — not generic descriptions.
+    10. FRESHNESS: Never repeat past strategies.
+    11. HOOKS: Punchy 3-5 word code name with attitude (e.g. "The Liquidity Vampire", "Sequencer Speed Trap").
 
-    QUALITY GATE — before finalizing each action, verify:
-    ✓ instructions = actual written copy, not a description of what to write
-    ✓ dataSource = names a specific signal (not "market trends" — which headline? which tweet? which metric?)
-    ✓ reasoning = explains WHY THIS WEEK specifically
-
-    EXAMPLE — what great output looks like:
-    BAD instructions: "Post about our technology being fast and decentralized"
-    GOOD instructions (TWEET): "institutional custody isn't waiting for L2 maturity. we built native MPC key management into our sequencer so traders can self-custody at sequencer-level speed. first protocol to do this."
-    BAD dataSource: "market trends"
-    GOOD dataSource: "Trending headline: 'Flashbots launches SUAVE — MEV supply chain going fully transparent' — creates opening for us to position as the protocol that eliminated MEV at sequencer level"
+    QUALITY GATE — before finalizing:
+    ✓ instructions = actual written copy (not a brief)
+    ✓ dataSource = names a SPECIFIC signal with source
+    ✓ At least 3 actions are REACTIVE to live data
+    ✓ Copy sounds like a top crypto account, not a press release
 
     OUTPUT JSON:
     {
         "actions": [
             {
                 "type": "TWEET" | "THREAD" | "CAMPAIGN" | "REPLY" | "TREND_JACK" | "GAP_FILL" | "QRT",
-                "topic": "Specific topic grounded in named data — NOT a generic category",
-                "goal": "Measurable outcome (e.g. 'drive engagement from institutional DeFi researchers', 'own the MEV narrative this week')",
-                "instructions": "THE ACTUAL COPY, ready to post. TWEET/TREND_JACK/QRT/REPLY = full tweet under 280 chars. THREAD = hook + tweets 1/ 2/ 3/ written out. CAMPAIGN = brief + opening tweet. NO PLACEHOLDERS.",
-                "reasoning": "2-3 sentences citing the SPECIFIC signal by name: exact trend headline, @handle tweet, metric value, or KB entry excerpt that triggered this.",
-                "hook": "Bold internal code name — 3-5 words with attitude (e.g. 'Operation Phantom Growth', 'The Liquidity Vampire')",
-                "strategicAlignment": "References [specific KB entry or named brand feature] because [specific competitor gap or market assumption we're countering]",
-                "contentIdeas": ["Contrarian angle: [specific]", "Data angle: [specific metric]", "Narrative hijack: [specific trend]"],
-                "dataSource": "SPECIFIC: exact headline / '@handle: tweet text snippet' / 'metric: value' / 'KB: entry excerpt'",
-                "originalTweet": "(QRT only) { \"author\": \"@handle\", \"text\": \"the exact tweet being quoted\" } — omit for non-QRT actions"
+                "topic": "Specific topic grounded in a named live signal",
+                "goal": "Measurable outcome (e.g. 'own the altcoin rotation narrative', 'get QRT'd by DeFi influencers')",
+                "instructions": "THE ACTUAL COPY, ready to post. No placeholders.",
+                "reasoning": "2-3 sentences: what specific signal triggered this + why now + expected impact.",
+                "hook": "Bold 3-5 word code name",
+                "strategicAlignment": "How brand knowledge makes this uniquely credible",
+                "contentIdeas": ["Contrarian angle", "Data angle", "Narrative hijack"],
+                "dataSource": "EXACT: 'Headline: ...' / '@handle: tweet text' / 'Metric: value'",
+                "originalTweet": "(QRT/REPLY only) { \"author\": \"@handle\", \"text\": \"the exact tweet\" } — omit for other types"
             }
         ]
     }
