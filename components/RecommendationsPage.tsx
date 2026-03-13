@@ -67,11 +67,10 @@ const SOURCE_TAG_STYLES: Record<string, { color: string; icon: string; nav?: str
     'AI Analysis': { color: '#FF5C00', icon: 'psychology' },
 };
 
-// Linkify text: turn @handles into twitter links, quoted terms into X search links
+// Linkify text: turn @handles into twitter profile links, highlight quoted phrases as styled text
 const LinkifiedText: React.FC<{ text: string; className?: string }> = ({ text, className }) => {
-    // Match @handles and "double-quoted phrases" (safe, no ambiguity)
-    // For single quotes: only match 'phrases' that start with uppercase (avoids possessives like economy's)
-    const parts = text.split(/(@\w+|"[^"]{4,}?")/g);
+    // Match @handles and quoted phrases (single or double)
+    const parts = text.split(/(@\w+|"[^"]{4,}?"|'[A-Z][^']{3,}?')/g);
     const elements: React.ReactNode[] = [];
     parts.forEach((part, i) => {
         if (part.startsWith('@')) {
@@ -83,33 +82,13 @@ const LinkifiedText: React.FC<{ text: string; className?: string }> = ({ text, c
                     title={`View @${handle} on X`}
                 >{part}<span className="material-symbols-sharp text-[10px] opacity-60 align-middle ml-0.5" style={{ fontVariationSettings: "'wght' 300" }}>open_in_new</span></a>
             );
-        } else if (part.startsWith('"') && part.endsWith('"')) {
-            const term = part.slice(1, -1);
+        } else if ((part.startsWith('"') && part.endsWith('"')) || (part.startsWith("'") && part.endsWith("'") && part.length > 5)) {
+            // Render quoted phrases as highlighted text (not links) — these are headlines/signals, not tweets
             elements.push(
-                <a key={i} href={`https://x.com/search?q=${encodeURIComponent(term)}`} target="_blank" rel="noopener noreferrer"
-                    className="text-[#8B5CF6] hover:underline cursor-pointer font-medium"
-                    onClick={e => e.stopPropagation()}
-                    title={`Search "${term}" on X`}
-                >{part}<span className="material-symbols-sharp text-[10px] opacity-60 align-middle ml-0.5" style={{ fontVariationSettings: "'wght' 300" }}>search</span></a>
+                <span key={i} className="font-medium" style={{ color: 'var(--text-primary)' }}>{part}</span>
             );
         } else {
-            // Second pass: find 'single-quoted phrases' that start with uppercase letter
-            // This safely avoids possessives (economy's, Bitcoin's) since those have lowercase after '
-            const subParts = part.split(/('[A-Z][^']{3,}?')/g);
-            subParts.forEach((sub, j) => {
-                if (sub.startsWith("'") && sub.endsWith("'") && sub.length > 5) {
-                    const term = sub.slice(1, -1);
-                    elements.push(
-                        <a key={`${i}-${j}`} href={`https://x.com/search?q=${encodeURIComponent(term)}`} target="_blank" rel="noopener noreferrer"
-                            className="text-[#8B5CF6] hover:underline cursor-pointer font-medium"
-                            onClick={e => e.stopPropagation()}
-                            title={`Search "${term}" on X`}
-                        >{sub}<span className="material-symbols-sharp text-[10px] opacity-60 align-middle ml-0.5" style={{ fontVariationSettings: "'wght' 300" }}>search</span></a>
-                    );
-                } else {
-                    elements.push(<span key={`${i}-${j}`}>{sub}</span>);
-                }
-            });
+            elements.push(<span key={i}>{part}</span>);
         }
     });
     return <span className={className}>{elements}</span>;
@@ -684,7 +663,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         </h4>
                                         {/* QRT preview in card */}
                                         {rec.originalTweet ? (
-                                            <div className="flex items-center gap-1.5 mb-1 text-[10px] rounded px-1.5 py-1" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+                                            <div className="flex items-center gap-1.5 mb-1 text-[10px] rounded px-1.5 py-1" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
                                                 <span className="material-symbols-sharp text-[10px]" style={{ color: action.color }}>format_quote</span>
                                                 <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>@{rec.originalTweet.author}</span>
                                                 <span className="line-clamp-1 flex-1">{safeStr(rec.originalTweet.text).slice(0, 50)}</span>
@@ -899,7 +878,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                                     {/* Data signal */}
                                     {(selectedRec.dataSignal || selectedRec.dataSource) && (
-                                        <div className="rounded-lg p-3 flex items-start gap-2.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                                        <div className="rounded-lg p-3 flex items-start gap-2.5" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
                                             <span className="material-symbols-sharp text-[16px] text-[#FF5C00] mt-0.5">bolt</span>
                                             <div>
                                                 <span className="text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color: '#FF5C00' }}>Triggering Signal</span>
@@ -912,7 +891,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                                     {/* Strategic alignment */}
                                     {selectedRec.strategicAlignment && (
-                                        <div className="rounded-lg p-3 flex items-start gap-2.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                                        <div className="rounded-lg p-3 flex items-start gap-2.5" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
                                             <span className="material-symbols-sharp text-[16px] text-[#8B5CF6] mt-0.5">psychology</span>
                                             <div>
                                                 <span className="text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color: '#8B5CF6' }}>Strategic Alignment</span>
@@ -929,7 +908,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 {selectedRec.impactScore}% — {getPriorityLabel(selectedRec.impactScore)} Priority
                                             </span>
                                         </div>
-                                        <div className="w-full h-2 rounded-full" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                                        <div className="w-full h-2 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                                             <div className="h-full rounded-full transition-all" style={{ width: `${selectedRec.impactScore}%`, backgroundColor: getPriorityColor(selectedRec.impactScore) }}></div>
                                         </div>
                                     </div>
@@ -973,7 +952,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 <span className="text-[10px] font-bold tracking-wider uppercase mb-1.5 block" style={{ color: 'var(--text-muted)' }}>AI Agents Used</span>
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {agents.map((agent: string, aIdx: number) => (
-                                                        <span key={aIdx} className="text-[11px] font-medium px-2 py-1 rounded-md" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                                                        <span key={aIdx} className="text-[11px] font-medium px-2 py-1 rounded-md" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
                                                             {agent}
                                                         </span>
                                                     ))}
