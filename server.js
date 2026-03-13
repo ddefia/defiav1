@@ -1900,9 +1900,15 @@ app.get('/api/agent/recommendations', async (req, res) => {
         if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
 
         const apifyKey = process.env.APIFY_API_TOKEN;
-        const activeBrands = await fetchActiveBrands(supabase);
+        const brandFilter = req.query.brand ? req.query.brand.toLowerCase() : null;
+        let activeBrands = await fetchActiveBrands(supabase);
         if (!activeBrands || activeBrands.length === 0) {
             return res.json({ status: 'ok', message: 'No active brands', processed: 0 });
+        }
+        if (brandFilter) {
+            activeBrands = activeBrands.filter(b =>
+                (b.name || '').toLowerCase().includes(brandFilter) || (b.id || '').toLowerCase().includes(brandFilter)
+            );
         }
 
         const results = [];
