@@ -1924,10 +1924,13 @@ app.get('/api/agent/recommendations', async (req, res) => {
                 }
 
                 // Per-brand interval check (replaces hardcoded 20h)
-                const needsRun = await shouldRunForBrand(supabase, brandId);
-                if (!needsRun) {
-                    results.push({ brandId, skipped: true, reason: 'Interval not elapsed' });
-                    continue;
+                const force = req.query.force === 'true';
+                if (!force) {
+                    const needsRun = await shouldRunForBrand(supabase, brandId);
+                    if (!needsRun) {
+                        results.push({ brandId, skipped: true, reason: 'Interval not elapsed' });
+                        continue;
+                    }
                 }
 
                 // Check automation enabled
@@ -1972,11 +1975,23 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     }
                 }
 
-                // Run brain with full context (gemini-2.0-flash, 1500 RPD free tier)
+                // Load pre-warmed KOL tweets from cache (populated by /api/trending-tweets/refresh cron)
+                let trendingKOLTweets = [];
+                try {
+                    const { data: kolData } = await supabase
+                        .from('app_storage')
+                        .select('value')
+                        .eq('key', 'defia_kol_tweets_cache_v1')
+                        .maybeSingle();
+                    if (kolData?.value?.data) trendingKOLTweets = kolData.value.data;
+                } catch { /* non-critical */ }
+
+                // Run brain with full context including KOL tweets
                 const decisionResult = await analyzeState(
                     null, [], mentions, trends,
                     { ...brandProfile, name: brand.name || brandId },
-                    competitorTweets
+                    competitorTweets,
+                    trendingKOLTweets
                 );
 
                 // Validate: don't cache error responses
