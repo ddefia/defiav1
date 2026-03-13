@@ -166,7 +166,7 @@ Return exactly 5 actions, each a DIFFERENT type.
             userMessage: prompt,
             jsonMode: true,
             preferGroq: true,  // Groq first — saves Gemini quota for client-side
-            model: 'gemini-2.0-flash',  // Gemini model if Groq fails
+            model: 'gemini-2.5-flash',  // Gemini model if Groq fails
             temperature: 0.7,
             _source: 'agent-cron', _endpoint: 'brain.analyzeState',
             _brandId: brandProfile.brandId || null,

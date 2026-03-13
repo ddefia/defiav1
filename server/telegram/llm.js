@@ -28,7 +28,7 @@ const withTimeout = (promise, ms = TIMEOUT_MS) => {
 
 // ━━━ Gemini ━━━
 
-const callGemini = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode = false, model = 'gemini-2.0-flash', thinkingConfig = null }) => {
+const callGemini = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode = false, model = 'gemini-2.5-flash', thinkingConfig = null }) => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
@@ -139,7 +139,7 @@ const callGroq = async ({ systemPrompt, userMessage, temperature = 0.5, jsonMode
  */
 const generateText = async (opts) => {
     const start = Date.now();
-    const modelName = opts.model || 'gemini-2.0-flash';
+    const modelName = opts.model || 'gemini-2.5-flash';
 
     // Determine provider order
     const providers = opts.preferGroq
