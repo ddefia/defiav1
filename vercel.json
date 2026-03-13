@@ -42,7 +42,7 @@
         },
         {
             "path": "/api/trending-tweets/refresh",
-            "schedule": "45 */6 * * *"
+            "schedule": "30 * * * *"
         },
         {
             "path": "/api/agent/recommendations",

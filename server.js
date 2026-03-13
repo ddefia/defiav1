@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { startAgent, triggerAgentRun, runBrainCycle, runBriefingCycle, shouldRunForBrand, markBrandRun } from './server/agent/scheduler.js';
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
-import { updateAllBrands, fetchMentions, fetchCompetitorTweets, fetchTrendingKOLTweets } from './server/agent/ingest.js';
+import { updateAllBrands, fetchMentions, fetchCompetitorTweets, fetchTrendingKOLTweets, startKOLTweetRun, collectKOLTweetRun } from './server/agent/ingest.js';
 import { analyzeState } from './server/agent/brain.js';
 import { fetchBrandProfile, fetchAutomationSettings } from './server/agent/brandContext.js';
 import { fetchActiveBrands } from './server/agent/brandRegistry.js';
@@ -2546,14 +2546,29 @@ app.get('/api/trending-tweets', async (req, res) => {
 });
 
 // --- Trending KOL Tweets Refresh (Vercel Cron) ---
+// Two-phase: each cron invocation either collects a previous run's results or starts a new one.
+// Since the Apify actor takes ~90s+ for 12 handles (exceeds Vercel's 120s limit),
+// we fire-and-forget the run, then collect results on the next invocation.
 app.get('/api/trending-tweets/refresh', async (req, res) => {
     if (!verifyCronSecret(req, res)) return;
     try {
         const apifyKey = process.env.APIFY_API_TOKEN;
         if (!apifyKey) return res.status(500).json({ error: 'No Apify key' });
 
-        const tweets = await fetchTrendingKOLTweets(apifyKey);
-        return res.json({ success: true, count: tweets.length, fetchedAt: new Date().toISOString() });
+        // Phase 2: Try to collect results from a previously started run
+        const collected = await collectKOLTweetRun(apifyKey);
+        if (collected.length > 0) {
+            return res.json({ success: true, phase: 'collected', count: collected.length });
+        }
+
+        // Phase 1: Start a new run (fire-and-forget)
+        const runId = await startKOLTweetRun(apifyKey);
+        if (runId) {
+            return res.json({ success: true, phase: 'started', runId });
+        }
+
+        // Cache was already fresh (startKOLTweetRun returned null)
+        return res.json({ success: true, phase: 'cached' });
     } catch (e) {
         console.error('[TrendingTweets] Refresh failed:', e);
         return res.status(500).json({ error: e.message });

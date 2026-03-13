@@ -287,11 +287,9 @@ const KOL_TWEETS_CACHE_KEY = 'defia_kol_tweets_cache_v1';
 let kolMemCache = null;
 
 const CRYPTO_KOLS = [
-    'brian_armstrong', 'VitalikButerin', 'caboroigues', 'DefiIgnas',
-    'Route2FI', 'lookonchain', 'WuBlockchain', 'CryptoHayes',
-    'MustStopMurad', 'inversebrah', 'coaboroigues', 'Rewkang',
-    'zachxbt', 'dieterthemieter', 'punk6529', 'AutismCapital',
-    'ellaboroigues', 'blaboroigues', 'tier10k', 'AltcoinGordon',
+    'brian_armstrong', 'VitalikButerin', 'DefiIgnas', 'Route2FI',
+    'lookonchain', 'WuBlockchain', 'CryptoHayes', 'MustStopMurad',
+    'zachxbt', 'punk6529', 'AutismCapital', 'tier10k',
 ];
 
 const getKOLTweetsCache = async () => {
@@ -353,20 +351,48 @@ export const getCachedKOLTweets = async () => {
     return [];
 };
 
-export const fetchTrendingKOLTweets = async (apiKey) => {
-    if (!apiKey) return [];
+const KOL_RUN_KEY = 'defia_kol_run_id';
 
+// Parse Apify dataset items into our tweet format
+const parseKOLItems = (items) => {
+    const result = items.map(item => {
+        const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
+        const author = urlMatch?.[1] || 'unknown';
+        return {
+            author,
+            text: item.text || '',
+            likes: item.likes || 0,
+            retweets: item.retweets || 0,
+            tweetUrl: item.url || null,
+            timestamp: item.timestamp || new Date().toISOString(),
+            images: item.images || [],
+        };
+    });
+    result.sort((a, b) => (b.likes + b.retweets) - (a.likes + a.retweets));
+    return result;
+};
+
+// Two-phase KOL tweet fetching for Vercel's 120s limit:
+// Phase 1 (startKOLTweetRun): Fires off the Apify actor and stores the run ID — returns in <5s
+// Phase 2 (collectKOLTweetRun): Checks if the run completed, fetches results, caches them
+// The refresh cron calls both phases: start, wait briefly, then collect.
+
+export const startKOLTweetRun = async (apiKey) => {
+    if (!apiKey) return null;
+
+    // Don't start a new run if cache is fresh
     const cached = await getKOLTweetsCache();
     if (cached) {
-        console.log(`[Agent/Ingest] Using cached KOL tweets (${cached.length} tweets, < 6h old)`);
-        return cached;
+        console.log(`[Agent/Ingest] KOL cache fresh (${cached.length} tweets), skipping new run`);
+        return null;
     }
 
     try {
         const ACTOR_ID = 'VsTreSuczsXhhRIqa';
-        console.log(`[Agent/Ingest] Fetching trending KOL tweets from ${CRYPTO_KOLS.length} handles...`);
+        console.log(`[Agent/Ingest] Starting KOL tweet run for ${CRYPTO_KOLS.length} handles...`);
 
-        const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${apiKey}&waitForFinish=90`, {
+        // Fire-and-forget: don't wait for completion (waitForFinish=0)
+        const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -380,38 +406,95 @@ export const fetchTrendingKOLTweets = async (apiKey) => {
         });
 
         const runData = await runRes.json();
-        if (!runData.data || runData.data.status !== 'SUCCEEDED') {
-            throw new Error(`Run Status: ${runData.data?.status}`);
+        const runId = runData.data?.id;
+        if (!runId) throw new Error('No run ID returned');
+
+        // Store run ID in Supabase so we can check it later
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            await supabase.from('app_storage').upsert({
+                key: KOL_RUN_KEY,
+                value: { runId, startedAt: new Date().toISOString(), apiKey },
+                updated_at: new Date().toISOString()
+            });
         }
 
-        const datasetId = runData.data.defaultDatasetId;
-        const itemsRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}`);
-        const items = await itemsRes.json();
-
-        const result = items.map(item => {
-            const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
-            const author = urlMatch?.[1] || 'unknown';
-            return {
-                author,
-                text: item.text || '',
-                likes: item.likes || 0,
-                retweets: item.retweets || 0,
-                tweetUrl: item.url || null,
-                timestamp: item.timestamp || new Date().toISOString(),
-                images: item.images || [],
-            };
-        });
-
-        // Sort by engagement (most viral first)
-        result.sort((a, b) => (b.likes + b.retweets) - (a.likes + a.retweets));
-
-        await setKOLTweetsCache(result);
-        console.log(`[Agent/Ingest] Cached ${result.length} KOL tweets (top: ${result[0]?.likes || 0} likes)`);
-        return result;
+        console.log(`[Agent/Ingest] KOL run started: ${runId}`);
+        return runId;
     } catch (e) {
-        console.error("[Agent/Ingest] KOL tweets fetch error:", e.message);
+        console.error("[Agent/Ingest] Failed to start KOL run:", e.message);
+        return null;
+    }
+};
+
+export const collectKOLTweetRun = async (apiKey) => {
+    if (!apiKey) return [];
+
+    // Check if there's a pending run
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data: runData } = await supabase
+        .from('app_storage')
+        .select('value')
+        .eq('key', KOL_RUN_KEY)
+        .maybeSingle();
+
+    const runId = runData?.value?.runId;
+    if (!runId) {
+        console.log('[Agent/Ingest] No pending KOL run to collect');
         return [];
     }
+
+    try {
+        // Check run status
+        const statusRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${apiKey}`);
+        const statusData = await statusRes.json();
+        const status = statusData.data?.status;
+
+        if (status === 'SUCCEEDED') {
+            const datasetId = statusData.data.defaultDatasetId;
+            const itemsRes = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiKey}`);
+            const items = await itemsRes.json();
+            const result = parseKOLItems(items);
+
+            await setKOLTweetsCache(result);
+            // Clear the pending run
+            await supabase.from('app_storage').delete().eq('key', KOL_RUN_KEY);
+            console.log(`[Agent/Ingest] Collected ${result.length} KOL tweets (top: ${result[0]?.likes || 0} likes)`);
+            return result;
+        } else if (status === 'RUNNING' || status === 'READY') {
+            console.log(`[Agent/Ingest] KOL run ${runId} still ${status}, will collect next time`);
+            return [];
+        } else {
+            // Failed/aborted — clear it
+            console.warn(`[Agent/Ingest] KOL run ${runId} ended with status: ${status}`);
+            await supabase.from('app_storage').delete().eq('key', KOL_RUN_KEY);
+            return [];
+        }
+    } catch (e) {
+        console.error("[Agent/Ingest] Failed to collect KOL run:", e.message);
+        return [];
+    }
+};
+
+// Convenience wrapper: returns cached tweets, or starts a new run if needed
+export const fetchTrendingKOLTweets = async (apiKey) => {
+    if (!apiKey) return [];
+
+    const cached = await getKOLTweetsCache();
+    if (cached) {
+        console.log(`[Agent/Ingest] Using cached KOL tweets (${cached.length} tweets, < 6h old)`);
+        return cached;
+    }
+
+    // Try to collect a previously started run
+    const collected = await collectKOLTweetRun(apiKey);
+    if (collected.length > 0) return collected;
+
+    // Start a new run for next collection
+    await startKOLTweetRun(apiKey);
+    return [];
 };
 
 export const TRACKED_BRANDS = {
