@@ -1834,8 +1834,19 @@ app.post('/api/agent/trigger', requireAuth, async (req, res) => {
     }
 });
 
+// --- Cron Auth Helper ---
+function verifyCronSecret(req, res) {
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && req.headers['authorization'] !== `Bearer ${cronSecret}`) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return false;
+    }
+    return true;
+}
+
 // --- Agent Run (Always-On Cron Entry) ---
 app.get('/api/agent/run', async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
     try {
         const brandId = req.query.brandId;
         const label = req.query.label || 'API Decision Scan';
@@ -1881,6 +1892,7 @@ app.post('/api/recommendations/notify', requireAuth, async (req, res) => {
 
 // --- Recommendations Cron (Cache brain analysis for all brands) ---
 app.get('/api/agent/recommendations', async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
     try {
         const supabase = getSupabaseAdminClient();
         if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
@@ -2026,6 +2038,7 @@ app.get('/api/agent/recommendations', async (req, res) => {
 
 // --- Briefing Generation (Daily Briefing + Telegram Push) ---
 app.get('/api/agent/briefing', async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
     try {
         const label = req.query.label || 'Scheduled Briefing';
         const runPromise = runBriefingCycle({ label });
@@ -2053,6 +2066,7 @@ app.get('/api/agent/briefing', async (req, res) => {
 
 // --- Social Sync (Vercel Cron) ---
 app.get('/api/social-sync', async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
     try {
         const apifyKey = process.env.APIFY_API_TOKEN;
         if (!apifyKey) return res.status(500).json({ error: 'No Apify key' });
@@ -2444,7 +2458,7 @@ app.post('/api/generate-image-flux', async (req, res) => {
 
 const getLunarKey = () => process.env.VITE_LUNARCRUSH_API_KEY || process.env.LUNARCRUSH_API_KEY;
 
-app.get('/api/lunarcrush/creator/:screen_name', async (req, res) => {
+app.get('/api/lunarcrush/creator/:screen_name', requireAuth, async (req, res) => {
     const { screen_name } = req.params;
     const apiKey = getLunarKey();
     const start = Date.now();
@@ -2473,7 +2487,7 @@ app.get('/api/lunarcrush/creator/:screen_name', async (req, res) => {
     }
 });
 
-app.get('/api/lunarcrush/time-series/:screen_name', async (req, res) => {
+app.get('/api/lunarcrush/time-series/:screen_name', requireAuth, async (req, res) => {
     const { screen_name } = req.params;
     const { interval = '1d' } = req.query;
     const apiKey = getLunarKey();
@@ -2492,7 +2506,7 @@ app.get('/api/lunarcrush/time-series/:screen_name', async (req, res) => {
     }
 });
 
-app.get('/api/lunarcrush/posts/:screen_name', async (req, res) => {
+app.get('/api/lunarcrush/posts/:screen_name', requireAuth, async (req, res) => {
     const { screen_name } = req.params;
     const apiKey = getLunarKey();
     if (!apiKey) return res.status(500).json({ error: "Server missing LunarCrush API Key" });
@@ -2533,6 +2547,7 @@ app.get('/api/web3-news', async (req, res) => {
 });
 
 app.get('/api/web3-news/refresh', async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
     const supabase = getSupabaseClient();
     try {
         let brandList = [];
@@ -2551,7 +2566,7 @@ app.get('/api/web3-news/refresh', async (req, res) => {
     }
 });
 
-app.post('/api/web3-news/refresh', async (req, res) => {
+app.post('/api/web3-news/refresh', requireAuth, async (req, res) => {
     const { brands } = req.body;
     const supabase = getSupabaseClient();
 

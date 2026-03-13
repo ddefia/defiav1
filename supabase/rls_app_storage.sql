@@ -29,7 +29,7 @@ CREATE POLICY "team_members_access" ON app_storage
   USING (
     substring(key, 1, 8) IN (
       SELECT substring(owner_id::text, 1, 8)
-      FROM team_memberships
+      FROM team_members
       WHERE user_id = auth.uid()
         AND status = 'active'
     )
@@ -40,7 +40,7 @@ CREATE POLICY "team_editors_write" ON app_storage
   FOR INSERT WITH CHECK (
     substring(key, 1, 8) IN (
       SELECT substring(owner_id::text, 1, 8)
-      FROM team_memberships
+      FROM team_members
       WHERE user_id = auth.uid()
         AND status = 'active'
         AND role = 'editor'
@@ -51,7 +51,7 @@ CREATE POLICY "team_editors_update" ON app_storage
   FOR UPDATE USING (
     substring(key, 1, 8) IN (
       SELECT substring(owner_id::text, 1, 8)
-      FROM team_memberships
+      FROM team_members
       WHERE user_id = auth.uid()
         AND status = 'active'
         AND role = 'editor'
@@ -70,5 +70,5 @@ CREATE POLICY "anon_migration_read" ON app_storage
 -- ============================================================
 -- ALSO: Add user_id index for team membership lookups
 -- ============================================================
-CREATE INDEX IF NOT EXISTS team_memberships_user_idx ON team_memberships (user_id);
-CREATE INDEX IF NOT EXISTS team_memberships_owner_idx ON team_memberships (owner_id);
+CREATE INDEX IF NOT EXISTS team_members_user_idx ON team_members (user_id);
+CREATE INDEX IF NOT EXISTS team_members_owner_idx ON team_members (owner_id);
