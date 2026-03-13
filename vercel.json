@@ -41,6 +41,10 @@
             "schedule": "30 */12 * * *"
         },
         {
+            "path": "/api/trending-tweets/refresh",
+            "schedule": "45 */6 * * *"
+        },
+        {
             "path": "/api/agent/recommendations",
             "schedule": "0 */3 * * *"
         }

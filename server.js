@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { startAgent, triggerAgentRun, runBrainCycle, runBriefingCycle, shouldRunForBrand, markBrandRun } from './server/agent/scheduler.js';
 import { runPublishingCycle, startPublishing } from './server/publishing/scheduler.js';
-import { updateAllBrands, fetchMentions, fetchCompetitorTweets } from './server/agent/ingest.js';
+import { updateAllBrands, fetchMentions, fetchCompetitorTweets, fetchTrendingKOLTweets } from './server/agent/ingest.js';
 import { analyzeState } from './server/agent/brain.js';
 import { fetchBrandProfile, fetchAutomationSettings } from './server/agent/brandContext.js';
 import { fetchActiveBrands } from './server/agent/brandRegistry.js';
@@ -382,6 +382,7 @@ const PUBLIC_API_PATHS = new Set([
     '/api/agent/recommendations',
     '/api/web3-news/refresh',
     '/api/social-sync',
+    '/api/trending-tweets/refresh',
 ]);
 
 // Prefixes for dynamic routes that should be public
@@ -2540,6 +2541,21 @@ app.get('/api/trending-tweets', async (req, res) => {
         }
     } catch (e) {
         res.status(500).json({ error: e.message, tweets: [] });
+    }
+});
+
+// --- Trending KOL Tweets Refresh (Vercel Cron) ---
+app.get('/api/trending-tweets/refresh', async (req, res) => {
+    if (!verifyCronSecret(req, res)) return;
+    try {
+        const apifyKey = process.env.APIFY_API_TOKEN;
+        if (!apifyKey) return res.status(500).json({ error: 'No Apify key' });
+
+        const tweets = await fetchTrendingKOLTweets(apifyKey);
+        return res.json({ success: true, count: tweets.length, fetchedAt: new Date().toISOString() });
+    } catch (e) {
+        console.error('[TrendingTweets] Refresh failed:', e);
+        return res.status(500).json({ error: e.message });
     }
 });
 

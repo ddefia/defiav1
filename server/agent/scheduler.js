@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { fetchDuneMetrics, fetchMentions, fetchCompetitorTweets, fetchTrendingKOLTweets, updateAllBrands, TRACKED_BRANDS } from './ingest.js';
+import { fetchDuneMetrics, fetchMentions, fetchCompetitorTweets, fetchTrendingKOLTweets, getCachedKOLTweets, updateAllBrands, TRACKED_BRANDS } from './ingest.js';
 import { analyzeState } from './brain.js';
 import { generateDailyBriefing } from './generator.js'; // Import Generator
 import { fetchAutomationSettings, fetchBrandProfile, getSupabaseClient } from './brandContext.js';
@@ -190,10 +190,15 @@ export const runBrainCycle = async ({ label = 'Manual Decision Scan', brandIdent
             console.warn("   - Web3 news fetch failed, brain will run without trends:", e.message);
         }
 
-        // Fetch trending KOL tweets (one batched call for all brands)
+        // Read pre-warmed KOL tweets from cache (populated by /api/trending-tweets/refresh cron)
+        // Only falls back to live Apify fetch if cache is completely empty
         let trendingKOLTweets = [];
         try {
-            trendingKOLTweets = await fetchTrendingKOLTweets(apifyKey);
+            trendingKOLTweets = await getCachedKOLTweets();
+            if (trendingKOLTweets.length === 0 && apifyKey) {
+                console.log("   - KOL cache empty, attempting live fetch...");
+                trendingKOLTweets = await fetchTrendingKOLTweets(apifyKey);
+            }
             console.log(`   - Loaded ${trendingKOLTweets.length} trending KOL tweets`);
         } catch (e) {
             console.warn("   - KOL tweets fetch failed, brain will run without trending tweets:", e.message);

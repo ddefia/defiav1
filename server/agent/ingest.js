@@ -335,6 +335,24 @@ const setKOLTweetsCache = async (data) => {
     }
 };
 
+// Cache-only read — returns whatever is cached (even slightly stale) without calling Apify.
+// Used by the recommendations cron to avoid Apify timeout issues.
+export const getCachedKOLTweets = async () => {
+    try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+            const { data } = await supabase
+                .from('app_storage')
+                .select('value')
+                .eq('key', KOL_TWEETS_CACHE_KEY)
+                .maybeSingle();
+            if (data?.value?.data) return data.value.data;
+        }
+    } catch { /* fall through */ }
+    if (kolMemCache?.data) return kolMemCache.data;
+    return [];
+};
+
 export const fetchTrendingKOLTweets = async (apiKey) => {
     if (!apiKey) return [];
 
@@ -348,7 +366,7 @@ export const fetchTrendingKOLTweets = async (apiKey) => {
         const ACTOR_ID = 'VsTreSuczsXhhRIqa';
         console.log(`[Agent/Ingest] Fetching trending KOL tweets from ${CRYPTO_KOLS.length} handles...`);
 
-        const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${apiKey}&waitForFinish=120`, {
+        const runRes = await fetch(`https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${apiKey}&waitForFinish=90`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
