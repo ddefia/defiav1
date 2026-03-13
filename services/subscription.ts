@@ -58,7 +58,7 @@ export const PLAN_PRICES: Record<PlanTier, { monthly: number | null; annual: num
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
-export const createDefaultSubscription = (plan: PlanTier): BrandSubscription => ({
+export const createDefaultSubscription = (plan: PlanTier = 'enterprise'): BrandSubscription => ({
     plan,
     limits: { ...PLAN_LIMITS[plan] },
     usage: {
@@ -66,7 +66,7 @@ export const createDefaultSubscription = (plan: PlanTier): BrandSubscription => 
         imagesThisMonth: 0,
         lastResetAt: Date.now(),
     },
-    trialEndsAt: Date.now() + 24 * 60 * 60 * 1000,  // 24-hour free trial
+    stripeSubscriptionId: 'manual_grant',  // Bypass trial gate — all brands get full access
     billingPeriod: 'monthly',
 });
 
@@ -93,12 +93,12 @@ export const getResetUsage = (usage: PlanUsage): PlanUsage => {
 /**
  * Returns true if the user's free trial has expired and they have NOT upgraded
  * via Stripe. Paid subscribers (with a stripeSubscriptionId) are never expired.
+ *
+ * NOTE: Currently disabled — all brands have full access during platform development.
+ * Re-enable trial gating when Stripe billing is live.
  */
-export const isTrialExpired = (subscription?: BrandSubscription): boolean => {
-    if (!subscription) return false;              // No sub = legacy/dev mode, allow
-    if (!subscription.trialEndsAt) return false;  // No trial set (e.g. imported data)
-    if (subscription.stripeSubscriptionId) return false; // Paid user — never expired
-    return Date.now() > subscription.trialEndsAt;
+export const isTrialExpired = (_subscription?: BrandSubscription): boolean => {
+    return false; // Trial gating disabled — all brands get full access
 };
 
 // ─── Limit Checking ──────────────────────────────────────────────────────────
