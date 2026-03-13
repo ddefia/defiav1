@@ -868,10 +868,34 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Why This Works</span>
                                 </div>
                                 <div className="p-4 space-y-4">
+                                    {/* Source links — prominent at top */}
+                                    {selectedRec.sourceLinks?.length > 0 && (
+                                        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+                                            <span className="text-[10px] font-bold tracking-wider uppercase mb-2 flex items-center gap-1.5" style={{ color: '#3B82F6' }}>
+                                                <span className="material-symbols-sharp text-[12px]">link</span>
+                                                Sources
+                                            </span>
+                                            <div className="space-y-1.5">
+                                                {selectedRec.sourceLinks.map((link: any, lIdx: number) => (
+                                                    <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-[12px] font-medium hover:underline group"
+                                                        style={{ color: '#3B82F6' }}
+                                                        onClick={e => e.stopPropagation()}>
+                                                        <span className="material-symbols-sharp text-[14px]">
+                                                            {link.type === 'tweet' ? 'chat_bubble' : link.type === 'article' ? 'article' : 'open_in_new'}
+                                                        </span>
+                                                        <span className="truncate">{link.label || link.url}</span>
+                                                        <span className="material-symbols-sharp text-[10px] opacity-0 group-hover:opacity-100 transition-opacity ml-auto flex-shrink-0">open_in_new</span>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Strategic reasoning */}
                                     <div>
                                         <span className="text-[10px] font-bold tracking-wider uppercase mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Strategic Reasoning</span>
-                                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                                             <LinkifiedText text={safeStr(selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of social metrics, trending topics, and brand knowledge base.')} />
                                         </p>
                                     </div>
@@ -895,7 +919,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             <span className="material-symbols-sharp text-[16px] text-[#8B5CF6] mt-0.5">psychology</span>
                                             <div>
                                                 <span className="text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color: '#8B5CF6' }}>Strategic Alignment</span>
-                                                <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>{selectedRec.strategicAlignment}</p>
+                                                <p className="text-[13px]" style={{ color: 'var(--text-primary)' }}>{selectedRec.strategicAlignment}</p>
                                             </div>
                                         </div>
                                     )}
@@ -914,7 +938,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     </div>
 
                                     {/* Source tags */}
-                                    {(selectedRec.sourceTags?.length > 0 || selectedRec.sourceLinks?.length > 0) && (
+                                    {selectedRec.sourceTags?.length > 0 && (
                                         <div>
                                             <span className="text-[10px] font-bold tracking-wider uppercase mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Data Sources</span>
                                             <div className="flex flex-wrap gap-1.5">
@@ -930,17 +954,6 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                     );
                                                 })}
                                             </div>
-                                            {selectedRec.sourceLinks?.length > 0 && (
-                                                <div className="mt-2 space-y-1">
-                                                    {selectedRec.sourceLinks.map((link: any, lIdx: number) => (
-                                                        <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
-                                                            className="flex items-center gap-1.5 text-[12px] hover:underline" style={{ color: '#3B82F6' }}>
-                                                            <span className="material-symbols-sharp text-[12px]">link</span>
-                                                            {link.label || link.url}
-                                                        </a>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
                                     )}
 
@@ -977,7 +990,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
                                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--bg-primary)'}>
                                                 <span className="text-[11px] font-bold text-[#FF5C00] mt-0.5">{j + 1}</span>
-                                                <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{idea}</p>
+                                                <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>{idea}</p>
                                             </div>
                                         ))}
                                     </div>

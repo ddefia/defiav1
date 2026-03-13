@@ -1585,24 +1585,23 @@ const App: React.FC = () => {
                         for (const trend of trends) {
                             if (!trend.url) continue;
                             const headline = (trend.headline || '').toLowerCase();
-                            // Check if this trend's headline appears in the action's text or if it's a TREND_JACK rec
                             if ((headline.length > 10 && actionText.includes(headline.slice(0, 30).toLowerCase()))
                                 || (aType === 'TREND_JACK' && actionText.includes(headline.split(' ').slice(0, 3).join(' ')))) {
                                 links.push({ label: trend.headline.slice(0, 60), url: trend.url, type: 'article' });
-                                break; // One matching article is enough
+                                break;
                             }
                         }
-                        // If TREND_JACK but no specific match, attach the top trend article
-                        if (aType === 'TREND_JACK' && links.length === 0 && trends[0]?.url) {
+                        // Fallback: attach top trend for TREND_JACK or any rec with no links yet
+                        if (links.length === 0 && trends[0]?.url) {
                             links.push({ label: trends[0].headline?.slice(0, 60) || 'Top Trending Article', url: trends[0].url, type: 'article' });
                         }
 
-                        // Match mentions by author
-                        if (mentions.length > 0 && (aType === 'REPLY' || aType === 'QRT' || aType === 'COMMUNITY')) {
+                        // Match mentions by author (for all types, not just REPLY/QRT)
+                        if (mentions.length > 0) {
                             const targetMention = mentions.find((m: any) => {
                                 const author = (m.author || '').toLowerCase();
                                 return actionText.includes(author) || actionText.includes(`@${author}`);
-                            }) || mentions[0];
+                            }) || ((aType === 'REPLY' || aType === 'QRT' || aType === 'COMMUNITY') ? mentions[0] : null);
                             if (targetMention?.tweetUrl) {
                                 links.push({ label: `@${targetMention.author}: ${(targetMention.text || '').slice(0, 50)}…`, url: targetMention.tweetUrl, type: 'tweet' });
                             }
@@ -1617,6 +1616,15 @@ const App: React.FC = () => {
                             });
                             if (matchedComp?.tweetUrl) {
                                 links.push({ label: `@${matchedComp.competitor}: ${(matchedComp.text || '').slice(0, 50)}…`, url: matchedComp.tweetUrl, type: 'tweet' });
+                            }
+                        }
+
+                        // Fallback: attach top performing tweets as context sources
+                        if (links.filter(l => l.type === 'tweet').length === 0) {
+                            const topTweets = (mentions.length > 0 ? mentions : ct).filter((t: any) => t.tweetUrl);
+                            for (const t of topTweets.slice(0, 2)) {
+                                const author = t.author || t.competitor || 'unknown';
+                                links.push({ label: `@${author}: ${(t.text || '').slice(0, 50)}…`, url: t.tweetUrl, type: 'tweet' });
                             }
                         }
 
