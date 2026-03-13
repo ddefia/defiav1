@@ -153,7 +153,7 @@ OUTPUT FORMAT (strict JSON)
             "strategicAlignment": "References [specific KB entry or brand feature] because [specific market gap or competitive weakness]",
             "contentIdeas": ["Contrarian angle", "Data-backed variant", "Narrative tie-in to trending topic"],
             "dataSource": "SPECIFIC signal: exact trend headline / '@handle tweet text' / metric name + value / KB entry snippet",
-            "originalTweet": { "author": "@handle", "text": "quoted text — exact tweet being QRT'd" }
+            "originalTweet": { "author": "handle_without_at_symbol", "text": "quoted text — exact tweet being QRT'd" }
         }
     ]
 }
@@ -182,8 +182,13 @@ Return exactly 5 actions, each a DIFFERENT type.
         // Normalize actions — support both new rich format and legacy format
         if (parsed.actions && Array.isArray(parsed.actions)) {
             parsed.actions.forEach(a => {
+                // Ensure text fields are strings (LLM sometimes returns objects)
+                if (a.instructions && typeof a.instructions !== 'string') a.instructions = JSON.stringify(a.instructions);
+                if (a.draft && typeof a.draft !== 'string') a.draft = JSON.stringify(a.draft);
                 if (a.instructions) a.instructions = stripHashtags(a.instructions);
                 if (a.draft) a.draft = stripHashtags(a.draft);
+                // Strip leading @ from originalTweet.author (UI adds it)
+                if (a.originalTweet?.author) a.originalTweet.author = a.originalTweet.author.replace(/^@/, '');
                 // Ensure backward compat: map 'type' to 'action' for legacy consumers
                 if (a.type && !a.action) a.action = a.type;
             });
