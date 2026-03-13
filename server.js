@@ -383,6 +383,7 @@ const PUBLIC_API_PATHS = new Set([
     '/api/web3-news/refresh',
     '/api/social-sync',
     '/api/trending-tweets/refresh',
+    '/api/trending-tweets',
 ]);
 
 // Prefixes for dynamic routes that should be public
