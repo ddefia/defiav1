@@ -397,7 +397,7 @@ export const startKOLTweetRun = async (apiKey) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 handles: CRYPTO_KOLS,
-                tweetsDesired: 2,
+                tweetsDesired: 3,
                 profilesDesired: 0,
                 withReplies: false,
                 includeUserInfo: false,

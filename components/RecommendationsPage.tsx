@@ -436,11 +436,18 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
         }
 
         // Runtime enrichment: enrich originalTweet + sourceLinks from KOL data at render time
+        // Match by author + tweet text overlap to get the CORRECT tweet URL
         const enriched = primary.filter(r => r.type && r.title && r.impactScore).map(rec => {
             if (!rec.originalTweet) return rec;
             const ot = rec.originalTweet;
             const authorClean = (ot.author || '').replace('@', '').toLowerCase();
-            const kolMatch = trendingKOLTweets.find((t: any) => (t.author || '').toLowerCase() === authorClean);
+            const otTextLower = (ot.text || '').toLowerCase();
+            // Find by author first, then narrow by text similarity
+            const byAuthor = trendingKOLTweets.filter((t: any) => (t.author || '').toLowerCase() === authorClean);
+            const kolMatch = byAuthor.find((t: any) => {
+                const cText = (t.text || '').toLowerCase();
+                return cText.includes(otTextLower.slice(0, 50)) || otTextLower.includes(cText.slice(0, 50));
+            }) || (byAuthor.length === 1 ? byAuthor[0] : null); // Only fallback to author match if exactly 1 tweet
             if (!kolMatch) return rec;
             return {
                 ...rec,

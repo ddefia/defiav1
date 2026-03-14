@@ -1575,10 +1575,20 @@ const App: React.FC = () => {
                         const ot = action.originalTweet;
                         if (!ot) return null;
                         // Enrich with images/url/engagement from actual source data
+                        // Match by author + tweet text overlap to avoid wrong-tweet matching
                         const authorClean = (ot.author || '').replace('@', '').toLowerCase();
-                        const sourceMention = mentions.find((m: any) => (m.author || '').toLowerCase() === authorClean);
-                        const sourceCompTweet = (compTweets || []).find((t: any) => (t.competitor || '').toLowerCase() === authorClean);
-                        const sourceKOL = trendingTweets.find((t: any) => (t.author || '').toLowerCase() === authorClean);
+                        const otTextLower = (ot.text || '').toLowerCase();
+                        const textMatch = (candidate: any) => {
+                            const cText = (candidate.text || '').toLowerCase();
+                            return cText.includes(otTextLower.slice(0, 50)) || otTextLower.includes(cText.slice(0, 50));
+                        };
+                        const authorMatch = (arr: any[], authorField: string) => {
+                            const byAuthor = arr.filter((t: any) => (t[authorField] || '').toLowerCase() === authorClean);
+                            return byAuthor.find(textMatch) || byAuthor[0] || null;
+                        };
+                        const sourceKOL = authorMatch(trendingTweets, 'author');
+                        const sourceMention = authorMatch(mentions, 'author');
+                        const sourceCompTweet = authorMatch(compTweets || [], 'competitor');
                         const source: any = sourceKOL || sourceMention || sourceCompTweet;
                         return {
                             ...ot,
@@ -1639,12 +1649,19 @@ const App: React.FC = () => {
                             }
                         }
 
-                        // Match trending KOL tweets
+                        // Match trending KOL tweets — prefer text overlap match, then author-only
                         if (trendingTweets.length > 0) {
-                            const matchedKOL = trendingTweets.find((t: any) => {
+                            const otText = (action.originalTweet?.text || '').toLowerCase();
+                            const authorMatches = trendingTweets.filter((t: any) => {
                                 const author = (t.author || '').toLowerCase();
                                 return actionText.includes(author) || actionText.includes(`@${author}`);
                             });
+                            // Prefer the tweet whose text overlaps with originalTweet or action reasoning
+                            const matchedKOL = authorMatches.find((t: any) => {
+                                const tText = (t.text || '').toLowerCase();
+                                return (otText && (tText.includes(otText.slice(0, 50)) || otText.includes(tText.slice(0, 50))))
+                                    || actionText.includes(tText.slice(0, 40));
+                            }) || authorMatches[0];
                             if (matchedKOL?.tweetUrl) {
                                 links.push({ label: `@${matchedKOL.author}: ${(matchedKOL.text || '').slice(0, 50)}…`, url: matchedKOL.tweetUrl, type: 'tweet' });
                             }
@@ -1838,7 +1855,13 @@ const App: React.FC = () => {
                             const ot = a.originalTweet;
                             if (!ot) return null;
                             const authorClean = (ot.author || '').replace('@', '').toLowerCase();
-                            const sourceKOL: any = trendingTweets.find((t: any) => (t.author || '').toLowerCase() === authorClean);
+                            const otTextLower = (ot.text || '').toLowerCase();
+                            // Match by author + tweet text to get the RIGHT tweet URL
+                            const byAuthor = trendingTweets.filter((t: any) => (t.author || '').toLowerCase() === authorClean);
+                            const sourceKOL: any = byAuthor.find((t: any) => {
+                                const cText = (t.text || '').toLowerCase();
+                                return cText.includes(otTextLower.slice(0, 50)) || otTextLower.includes(cText.slice(0, 50));
+                            }) || byAuthor[0] || null;
                             return {
                                 ...ot,
                                 tweetUrl: ot.tweetUrl || sourceKOL?.tweetUrl || null,
