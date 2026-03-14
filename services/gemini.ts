@@ -2884,7 +2884,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
                 "strategicAlignment": "How brand knowledge makes this uniquely credible",
                 "contentIdeas": ["Contrarian angle", "Data angle", "Narrative hijack"],
                 "dataSource": "EXACT: 'Headline: ...' / '@handle: tweet text' / 'Metric: value'",
-                "originalTweet": "(QRT/REPLY only) { \"author\": \"@handle\", \"text\": \"the exact tweet\" } — omit for other types"
+                "originalTweet": "(QRT/REPLY only) { \"author\": \"@handle\", \"text\": \"the exact tweet\", \"tweetUrl\": \"url if available from source data\" } — omit for other types"
             }
         ]
     }

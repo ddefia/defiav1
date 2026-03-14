@@ -1788,8 +1788,12 @@ const App: React.FC = () => {
         } catch {}
         // Check server-side cache — update llmRecommendations and regenLastRun if server is fresher
         // This fixes "Last sync 3 days ago" when the cron ran but the user's tab was closed
-        fetchCachedRecommendations(selectedBrand).then(serverCached => {
+        Promise.all([
+            fetchCachedRecommendations(selectedBrand),
+            fetch('/api/trending-tweets').then(r => r.ok ? r.json() : { tweets: [] }).catch(() => ({ tweets: [] })),
+        ]).then(([serverCached, trendingRes]) => {
             if (!serverCached?.actions?.length) return;
+            const trendingTweets = trendingRes.tweets || [];
             const serverTs = serverCached.generatedAt ? new Date(serverCached.generatedAt).getTime() : 0;
             const localTs = Number(localStorage.getItem(`defia_recs_ts_${selectedBrand}`)) || 0;
             if (serverTs > localTs) {
@@ -1822,9 +1826,35 @@ const App: React.FC = () => {
                         fullReason: a.reasoning || a.topic || a.goal || '',
                         targetId: a.targetId || null,
                         topic: a.topic, goal: a.goal,
-                        originalTweet: a.originalTweet || null,
+                        originalTweet: (() => {
+                            const ot = a.originalTweet;
+                            if (!ot) return null;
+                            const authorClean = (ot.author || '').replace('@', '').toLowerCase();
+                            const sourceKOL: any = trendingTweets.find((t: any) => (t.author || '').toLowerCase() === authorClean);
+                            return {
+                                ...ot,
+                                tweetUrl: ot.tweetUrl || sourceKOL?.tweetUrl || null,
+                                likes: ot.likes || sourceKOL?.likes || 0,
+                                retweets: ot.retweets || sourceKOL?.retweets || 0,
+                                timestamp: ot.timestamp || sourceKOL?.timestamp || sourceKOL?.createdAt || null,
+                                images: ot.images || sourceKOL?.images || [],
+                            };
+                        })(),
                         sourceTags: a.sourceTags || ['AI Analysis'],
-                        sourceLinks: a.sourceLinks || [],
+                        sourceLinks: (() => {
+                            if (a.sourceLinks?.length) return a.sourceLinks;
+                            // Build source links from trending tweets for server-cached recs
+                            const links: any[] = [];
+                            const actionText = `${a.topic || ''} ${a.reasoning || ''} ${a.dataSource || ''} ${a.hook || ''}`.toLowerCase();
+                            for (const t of trendingTweets.slice(0, 20)) {
+                                const author = (t.author || '').toLowerCase();
+                                if (t.tweetUrl && (actionText.includes(author) || actionText.includes(`@${author}`))) {
+                                    links.push({ label: `@${t.author}: ${(t.text || '').slice(0, 50)}…`, url: t.tweetUrl, type: 'tweet' });
+                                    break;
+                                }
+                            }
+                            return links;
+                        })(),
                         generatedAt: serverTs,
                     };
                 };

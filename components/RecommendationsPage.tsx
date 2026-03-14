@@ -808,12 +808,12 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         <span className="text-[11px] font-bold tracking-wider uppercase" style={{ color: action.color }}>
                                             {selectedRec.type === 'QRT' ? 'Quote this tweet' : 'Reply to this tweet'}
                                         </span>
-                                        {selectedRec.originalTweet.tweetUrl && (
-                                            <a href={selectedRec.originalTweet.tweetUrl} target="_blank" rel="noopener noreferrer"
-                                                className="ml-auto text-[11px] font-medium hover:underline flex items-center gap-1" style={{ color: action.color }}>
-                                                Open on X <span className="material-symbols-sharp text-[10px]">open_in_new</span>
-                                            </a>
-                                        )}
+                                        <a href={selectedRec.originalTweet.tweetUrl || `https://x.com/${selectedRec.originalTweet.author}`}
+                                            target="_blank" rel="noopener noreferrer"
+                                            className="ml-auto text-[11px] font-medium hover:underline flex items-center gap-1" style={{ color: action.color }}>
+                                            {selectedRec.originalTweet.tweetUrl ? 'Open on X' : `View @${selectedRec.originalTweet.author}`}
+                                            <span className="material-symbols-sharp text-[10px]">open_in_new</span>
+                                        </a>
                                     </div>
                                     <div className="p-4">
                                         <div className="flex items-center gap-2.5 mb-3">

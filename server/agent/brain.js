@@ -153,7 +153,7 @@ OUTPUT FORMAT (strict JSON)
             "strategicAlignment": "References [specific KB entry or brand feature] because [specific market gap or competitive weakness]",
             "contentIdeas": ["Contrarian angle", "Data-backed variant", "Narrative tie-in to trending topic"],
             "dataSource": "SPECIFIC signal: exact trend headline / '@handle tweet text' / metric name + value / KB entry snippet",
-            "originalTweet": { "author": "handle_without_at_symbol", "text": "quoted text — exact tweet being QRT'd" }
+            "originalTweet": { "author": "handle_without_at_symbol", "text": "quoted text — exact tweet being QRT'd", "tweetUrl": "url from source data if available" }
         }
     ]
 }
