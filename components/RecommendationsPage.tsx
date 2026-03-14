@@ -577,7 +577,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             {/* Main content */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Left: Priority Queue */}
-                <div className="w-[380px] min-w-[380px] flex flex-col" style={{ borderRight: '1px solid var(--border)', backgroundColor: 'var(--bg-primary)' }}>
+                <div className="w-[380px] min-w-[380px] flex flex-col" style={{ borderRight: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
                     <div className="px-4 pt-4 pb-2">
                         {/* Focus input */}
                         <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
@@ -611,7 +611,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-1">
+                    <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-1.5">
                         {regenLoading && filteredRecs.length === 0 ? (
                             <div className="p-4">
                                 <div className="flex items-center gap-3 mb-4">
@@ -636,11 +636,12 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                     <button key={i} onClick={() => setSelectedIdx(i)}
                                         className="w-full text-left rounded-lg p-3 transition-all"
                                         style={{
-                                            backgroundColor: isSelected ? 'var(--bg-secondary)' : 'transparent',
-                                            borderLeft: isSelected ? `3px solid ${rec.typeBg || '#FF5C00'}` : '3px solid transparent',
+                                            backgroundColor: isSelected ? 'var(--bg-primary)' : 'var(--bg-primary)',
+                                            border: isSelected ? `1.5px solid ${rec.typeBg || '#FF5C00'}` : '1.5px solid var(--border)',
+                                            boxShadow: isSelected ? `0 0 0 1px ${rec.typeBg || '#FF5C00'}22` : 'none',
                                         }}
-                                        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
-                                        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'var(--text-muted)'; } }}
+                                        onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = 'var(--border)'; } }}
                                     >
                                         {/* Top row: action type + confidence */}
                                         <div className="flex items-center justify-between mb-1.5">
@@ -708,7 +709,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                 </div>
 
                 {/* Right: Detail Panel */}
-                <div className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--bg-primary)' }}>
+                <div className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--bg-tertiary, var(--bg-primary))' }}>
                     {selectedRec ? (() => {
                         const action = getTweetAction(selectedRec);
                         const draftText = getDraftText(selectedRec);
@@ -718,7 +719,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                         <div className="p-6 max-w-[800px]">
 
                             {/* ─── HEADER ─── */}
-                            <div className="flex items-start justify-between gap-4 mb-5">
+                            <div className="flex items-start justify-between gap-4 mb-6">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2.5 mb-2.5">
                                         <span className="px-2 py-1 rounded-md text-[11px] font-bold tracking-wider text-white flex items-center gap-1" style={{ backgroundColor: action.color }}>
@@ -758,8 +759,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                             {/* ─── ORIGINAL TWEET (for QRT / Reply) ─── */}
                             {selectedRec.originalTweet && (
-                                <div className="mb-5">
-                                    <div className="flex items-center gap-2 mb-2">
+                                <div className="mb-6 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                                    <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
                                         <span className="material-symbols-sharp text-[14px]" style={{ color: action.color }}>{action.icon}</span>
                                         <span className="text-[11px] font-bold tracking-wider uppercase" style={{ color: action.color }}>
                                             {selectedRec.type === 'QRT' ? 'Quote this tweet' : 'Reply to this tweet'}
@@ -771,7 +772,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             </a>
                                         )}
                                     </div>
-                                    <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                                    <div className="p-4">
                                         <div className="flex items-center gap-2.5 mb-3">
                                             <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: '#1DA1F2' }}>
                                                 {(selectedRec.originalTweet.author || 'U').charAt(0).toUpperCase()}
@@ -811,7 +812,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                             )}
 
                             {/* ─── DRAFT TWEET ─── */}
-                            <div className="rounded-xl mb-5 overflow-hidden" style={{ border: `1px solid ${action.color}33` }}>
+                            <div className="rounded-xl mb-6 overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', border: `1px solid ${action.color}33` }}>
                                 <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: `${action.color}08`, borderBottom: `1px solid ${action.color}22` }}>
                                     <div className="flex items-center gap-2">
                                         <span className="material-symbols-sharp text-[14px]" style={{ color: action.color }}>{action.icon}</span>
@@ -875,110 +876,63 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 </div>
                             </div>
 
-                            {/* ─── WHY THIS WORKS — Data & Proof ─── */}
-                            <div className="rounded-xl mb-5 overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                                <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                            {/* ─── WHY THIS WORKS ─── */}
+                            <div className="rounded-xl mb-5 overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                                <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
                                     <span className="material-symbols-sharp text-[14px] text-[#22C55E]">analytics</span>
                                     <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Why This Works</span>
                                 </div>
-                                <div className="p-4 space-y-4">
-                                    {/* Source links — prominent at top */}
-                                    {selectedRec.sourceLinks?.length > 0 && (
-                                        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                                            <span className="text-[10px] font-bold tracking-wider uppercase mb-2 flex items-center gap-1.5" style={{ color: '#3B82F6' }}>
-                                                <span className="material-symbols-sharp text-[12px]">link</span>
-                                                Sources
-                                            </span>
-                                            <div className="space-y-1.5">
-                                                {selectedRec.sourceLinks.map((link: any, lIdx: number) => (
-                                                    <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
-                                                        className="flex items-center gap-2 text-[12px] font-medium hover:underline group"
-                                                        style={{ color: '#3B82F6' }}
-                                                        onClick={e => e.stopPropagation()}>
-                                                        <span className="material-symbols-sharp text-[14px]">
-                                                            {link.type === 'tweet' ? 'chat_bubble' : link.type === 'article' ? 'article' : 'open_in_new'}
-                                                        </span>
-                                                        <span className="truncate">{link.label || link.url}</span>
-                                                        <span className="material-symbols-sharp text-[10px] opacity-0 group-hover:opacity-100 transition-opacity ml-auto flex-shrink-0">open_in_new</span>
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                <div className="p-4 space-y-3">
+                                    {/* Strategic reasoning — the main content */}
+                                    <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                        <LinkifiedText text={safeStr(selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of social metrics, trending topics, and brand knowledge base.')} />
+                                    </p>
 
-                                    {/* Strategic reasoning */}
-                                    <div>
-                                        <span className="text-[10px] font-bold tracking-wider uppercase mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Strategic Reasoning</span>
-                                        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                                            <LinkifiedText text={safeStr(selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of social metrics, trending topics, and brand knowledge base.')} />
-                                        </p>
-                                    </div>
-
-                                    {/* Data signal */}
+                                    {/* Data signal — compact inline */}
                                     {(selectedRec.dataSignal || selectedRec.dataSource) && (
-                                        <div className="rounded-lg p-3 flex items-start gap-2.5" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                                            <span className="material-symbols-sharp text-[16px] text-[#FF5C00] mt-0.5">bolt</span>
-                                            <div>
-                                                <span className="text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color: '#FF5C00' }}>Triggering Signal</span>
-                                                <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
-                                                    <LinkifiedText text={safeStr(selectedRec.dataSignal || selectedRec.dataSource)} />
-                                                </p>
-                                            </div>
+                                        <div className="flex items-start gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                                            <span className="material-symbols-sharp text-[14px] text-[#FF5C00] mt-0.5 flex-shrink-0">bolt</span>
+                                            <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                                                <LinkifiedText text={safeStr(selectedRec.dataSignal || selectedRec.dataSource)} />
+                                            </p>
                                         </div>
                                     )}
 
-                                    {/* Strategic alignment */}
-                                    {selectedRec.strategicAlignment && (
-                                        <div className="rounded-lg p-3 flex items-start gap-2.5" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                                            <span className="material-symbols-sharp text-[16px] text-[#8B5CF6] mt-0.5">psychology</span>
-                                            <div>
-                                                <span className="text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color: '#8B5CF6' }}>Strategic Alignment</span>
-                                                <p className="text-[13px]" style={{ color: 'var(--text-primary)' }}>{selectedRec.strategicAlignment}</p>
-                                            </div>
+                                    {/* Source links */}
+                                    {selectedRec.sourceLinks?.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                                            {selectedRec.sourceLinks.map((link: any, lIdx: number) => (
+                                                <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
+                                                    className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                                                    style={{ backgroundColor: '#3B82F60D', color: '#3B82F6', border: '1px solid #3B82F620' }}
+                                                    onClick={e => e.stopPropagation()}>
+                                                    <span className="material-symbols-sharp text-[12px]">
+                                                        {link.type === 'tweet' ? 'chat_bubble' : link.type === 'article' ? 'article' : 'link'}
+                                                    </span>
+                                                    <span className="truncate max-w-[200px]">{link.label || 'Source'}</span>
+                                                    <span className="material-symbols-sharp text-[9px]">open_in_new</span>
+                                                </a>
+                                            ))}
                                         </div>
                                     )}
 
-                                    {/* Confidence bar */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <span className="text-[10px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-muted)' }}>Impact Confidence</span>
-                                            <span className="text-[12px] font-bold" style={{ color: getPriorityColor(selectedRec.impactScore) }}>
-                                                {selectedRec.impactScore}% — {getPriorityLabel(selectedRec.impactScore)} Priority
-                                            </span>
-                                        </div>
-                                        <div className="w-full h-2 rounded-full" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                                            <div className="h-full rounded-full transition-all" style={{ width: `${selectedRec.impactScore}%`, backgroundColor: getPriorityColor(selectedRec.impactScore) }}></div>
-                                        </div>
-                                    </div>
-
-                                    {/* Source tags */}
+                                    {/* Source tags — compact row */}
                                     {selectedRec.sourceTags?.length > 0 && (
-                                        <div>
-                                            <span className="text-[10px] font-bold tracking-wider uppercase mb-1.5 block" style={{ color: 'var(--text-muted)' }}>Data Sources</span>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {(selectedRec.sourceTags || []).map((tag: string, tIdx: number) => {
-                                                    const ts = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
-                                                    return (
-                                                        <span key={tIdx}
-                                                            className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md"
-                                                            style={{ backgroundColor: `${ts.color}12`, color: ts.color, border: `1px solid ${ts.color}22` }}>
-                                                            <span className="material-symbols-sharp text-[11px]" style={{ fontVariationSettings: "'wght' 300" }}>{ts.icon}</span>
-                                                            {tag}
-                                                        </span>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Goal */}
-                                    {selectedRec.goal && (
-                                        <div className="rounded-lg p-3 flex items-start gap-2.5" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-                                            <span className="material-symbols-sharp text-[16px] text-[#22C55E] mt-0.5">flag</span>
-                                            <div>
-                                                <span className="text-[10px] font-bold tracking-wider uppercase block mb-0.5" style={{ color: '#22C55E' }}>Goal</span>
-                                                <p className="text-[13px]" style={{ color: 'var(--text-primary)' }}>{selectedRec.goal}</p>
-                                            </div>
+                                        <div className="flex items-center gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                                            {(selectedRec.sourceTags || []).map((tag: string, tIdx: number) => {
+                                                const ts = SOURCE_TAG_STYLES[tag] || SOURCE_TAG_STYLES['AI Analysis'];
+                                                return (
+                                                    <span key={tIdx}
+                                                        className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded"
+                                                        style={{ backgroundColor: `${ts.color}10`, color: ts.color }}>
+                                                        <span className="material-symbols-sharp text-[10px]" style={{ fontVariationSettings: "'wght' 300" }}>{ts.icon}</span>
+                                                        {tag}
+                                                    </span>
+                                                );
+                                            })}
+                                            <span className="ml-auto text-[11px] font-semibold" style={{ color: getPriorityColor(selectedRec.impactScore) }}>
+                                                {getPriorityLabel(selectedRec.impactScore)} Priority
+                                            </span>
                                         </div>
                                     )}
                                 </div>
@@ -986,8 +940,8 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                             {/* ─── ALTERNATIVE ANGLES ─── */}
                             {selectedRec.contentIdeas?.length > 1 && (
-                                <div className="rounded-xl mb-5 overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                                    <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                                <div className="rounded-xl mb-5 overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                                    <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
                                         <span className="material-symbols-sharp text-[14px] text-[#F59E0B]">lightbulb</span>
                                         <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>Alternative Angles</span>
                                     </div>
