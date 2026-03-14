@@ -453,6 +453,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                 ...rec,
                 originalTweet: {
                     ...ot,
+                    text: (kolMatch.text && kolMatch.text.length > (ot.text || '').length) ? kolMatch.text : ot.text,
                     tweetUrl: ot.tweetUrl || kolMatch.tweetUrl || null,
                     likes: ot.likes || kolMatch.likes || 0,
                     retweets: ot.retweets || kolMatch.retweets || 0,
@@ -494,8 +495,6 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
         const isCampaign = recType === 'CAMPAIGN' || recType === 'CAMPAIGN_IDEA';
 
         if (isCampaign) {
-            // For campaigns, send the first specific content idea as the tweet draft
-            // and the full brief as background context — not the raw instructions blob
             const campaignTweet = rec.contentIdeas?.[0] || rec.hook || cleanTitle(rec.title);
             const brief = [rec.goal, rec.description, rec.fullReason]
                 .filter(Boolean).join(' — ').slice(0, 300);
@@ -508,7 +507,13 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             const draft = rec.fullDraft
                 ? rec.fullDraft.replace(/#\w+/g, '').trim()
                 : rec.contentIdeas?.[0] || `${cleanTitle(rec.fullReason || rec.title)} — strategic move for ${brandName}`;
-            onNavigate('studio', { draft, visualPrompt: rec.title });
+            // Pass the topic/title as context so Studio shows it as the topic description
+            // and the full draft goes into the preview editor (not the generation prompt)
+            onNavigate('studio', {
+                draft,
+                visualPrompt: rec.title,
+                context: cleanTitle(rec.title || rec.topic || rec.hook || ''),
+            });
         }
     };
 

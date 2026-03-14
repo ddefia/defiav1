@@ -188,8 +188,12 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
         } else if (initialDraft || initialVisualPrompt) {
             // Draft takes priority over visual prompt for view selection
             if (initialDraft) {
-                setTweetTopic(initialDraft);
+                // If draft is a finished tweet (from recommendations), show it in preview
+                // ready to edit — don't put it in the generation prompt
                 setGeneratedTweetPreview(initialDraft);
+                // Put a short description in the topic for context (not the full draft)
+                const shortTopic = initialContext || (initialDraft.length > 80 ? initialDraft.slice(0, 80) + '…' : initialDraft);
+                setTweetTopic(shortTopic);
                 setCurrentView('create-tweet');
             }
             if (initialContext) {

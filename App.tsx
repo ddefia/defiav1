@@ -1592,6 +1592,8 @@ const App: React.FC = () => {
                         const source: any = sourceKOL || sourceMention || sourceCompTweet;
                         return {
                             ...ot,
+                            // Use source's FULL text if LLM truncated it (LLM gets slice(0,250))
+                            text: (source?.text && source.text.length > (ot.text || '').length) ? source.text : ot.text,
                             images: ot.images || source?.images || [],
                             tweetUrl: ot.tweetUrl || source?.tweetUrl || null,
                             likes: ot.likes || source?.likes || 0,
@@ -1864,6 +1866,7 @@ const App: React.FC = () => {
                             }) || byAuthor[0] || null;
                             return {
                                 ...ot,
+                                text: (sourceKOL?.text && sourceKOL.text.length > (ot.text || '').length) ? sourceKOL.text : ot.text,
                                 tweetUrl: ot.tweetUrl || sourceKOL?.tweetUrl || null,
                                 likes: ot.likes || sourceKOL?.likes || 0,
                                 retweets: ot.retweets || sourceKOL?.retweets || 0,
