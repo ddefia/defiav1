@@ -664,10 +664,31 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         </h4>
                                         {/* QRT preview in card */}
                                         {rec.originalTweet ? (
-                                            <div className="flex items-center gap-1.5 mb-1 text-[10px] rounded px-1.5 py-1" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                                                <span className="material-symbols-sharp text-[10px]" style={{ color: action.color }}>format_quote</span>
-                                                <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>@{rec.originalTweet.author}</span>
-                                                <span className="line-clamp-1 flex-1">{safeStr(rec.originalTweet.text).slice(0, 50)}</span>
+                                            <div className="mb-1 text-[10px] rounded px-1.5 py-1" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="material-symbols-sharp text-[10px]" style={{ color: action.color }}>format_quote</span>
+                                                    <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>@{rec.originalTweet.author}</span>
+                                                    <span className="line-clamp-1 flex-1">{safeStr(rec.originalTweet.text).slice(0, 50)}</span>
+                                                </div>
+                                                {(rec.originalTweet.likes > 0 || rec.originalTweet.timestamp) && (
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {rec.originalTweet.likes > 0 && (
+                                                            <span className="flex items-center gap-0.5">
+                                                                <span className="material-symbols-sharp text-[9px]" style={{ color: '#EF4444' }}>favorite</span>
+                                                                {rec.originalTweet.likes >= 1000 ? `${(rec.originalTweet.likes / 1000).toFixed(1)}K` : rec.originalTweet.likes}
+                                                            </span>
+                                                        )}
+                                                        {rec.originalTweet.retweets > 0 && (
+                                                            <span className="flex items-center gap-0.5">
+                                                                <span className="material-symbols-sharp text-[9px]" style={{ color: '#22C55E' }}>repeat</span>
+                                                                {rec.originalTweet.retweets >= 1000 ? `${(rec.originalTweet.retweets / 1000).toFixed(1)}K` : rec.originalTweet.retweets}
+                                                            </span>
+                                                        )}
+                                                        {rec.originalTweet.timestamp && (
+                                                            <span className="ml-auto">{timeAgo(rec.originalTweet.timestamp)}</span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : rec.dataSignal ? (
                                             <div className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
@@ -757,6 +778,28 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                 </div>
                             </div>
 
+                            {/* ─── DATA CONTEXT — what triggered this ─── */}
+                            {(selectedRec.dataSignal || selectedRec.dataSource) && !selectedRec.originalTweet && (
+                                <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-xl" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
+                                    <span className="material-symbols-sharp text-[18px] text-[#FF5C00] mt-0.5 flex-shrink-0">bolt</span>
+                                    <div className="flex-1 min-w-0">
+                                        <span className="text-[10px] font-bold tracking-wider uppercase block mb-1" style={{ color: '#FF5C00' }}>Triggering Signal</span>
+                                        <p className="text-[13px] leading-relaxed font-medium" style={{ color: 'var(--text-primary)' }}>
+                                            <LinkifiedText text={safeStr(selectedRec.dataSignal || selectedRec.dataSource)} />
+                                        </p>
+                                    </div>
+                                    {/* Link to source if available */}
+                                    {selectedRec.sourceLinks?.[0]?.url && (
+                                        <a href={selectedRec.sourceLinks[0].url} target="_blank" rel="noopener noreferrer"
+                                            className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1.5 rounded-lg hover:opacity-80 transition-opacity flex-shrink-0"
+                                            style={{ backgroundColor: '#3B82F60D', color: '#3B82F6', border: '1px solid #3B82F620' }}>
+                                            <span className="material-symbols-sharp text-[12px]">open_in_new</span>
+                                            Source
+                                        </a>
+                                    )}
+                                </div>
+                            )}
+
                             {/* ─── ORIGINAL TWEET (for QRT / Reply) ─── */}
                             {selectedRec.originalTweet && (
                                 <div className="mb-6 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border)' }}>
@@ -777,10 +820,16 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                             <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: '#1DA1F2' }}>
                                                 {(selectedRec.originalTweet.author || 'U').charAt(0).toUpperCase()}
                                             </div>
-                                            <div>
-                                                <p className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                                    @{selectedRec.originalTweet.author}
-                                                </p>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <a href={`https://x.com/${selectedRec.originalTweet.author}`} target="_blank" rel="noopener noreferrer"
+                                                        className="text-[13px] font-semibold hover:underline" style={{ color: 'var(--text-primary)' }}>
+                                                        @{selectedRec.originalTweet.author}
+                                                    </a>
+                                                    {selectedRec.originalTweet.timestamp && (
+                                                        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{timeAgo(selectedRec.originalTweet.timestamp)}</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <p className="text-[14px] leading-[1.65] whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>
@@ -793,6 +842,29 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                                         style={{ border: '1px solid var(--border)' }}
                                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                                 ))}
+                                            </div>
+                                        )}
+                                        {/* Engagement stats */}
+                                        {(selectedRec.originalTweet.likes > 0 || selectedRec.originalTweet.retweets > 0) && (
+                                            <div className="flex items-center gap-4 mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                                                {selectedRec.originalTweet.likes > 0 && (
+                                                    <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                                                        <span className="material-symbols-sharp text-[14px]" style={{ color: '#EF4444' }}>favorite</span>
+                                                        <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                                            {selectedRec.originalTweet.likes >= 1000 ? `${(selectedRec.originalTweet.likes / 1000).toFixed(1)}K` : selectedRec.originalTweet.likes}
+                                                        </span>
+                                                        likes
+                                                    </div>
+                                                )}
+                                                {selectedRec.originalTweet.retweets > 0 && (
+                                                    <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
+                                                        <span className="material-symbols-sharp text-[14px]" style={{ color: '#22C55E' }}>repeat</span>
+                                                        <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                                            {selectedRec.originalTweet.retweets >= 1000 ? `${(selectedRec.originalTweet.retweets / 1000).toFixed(1)}K` : selectedRec.originalTweet.retweets}
+                                                        </span>
+                                                        retweets
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -900,17 +972,20 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
 
                                     {/* Source links */}
                                     {selectedRec.sourceLinks?.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                                        <div className="pt-2 space-y-1.5" style={{ borderTop: '1px solid var(--border)' }}>
+                                            <span className="text-[10px] font-bold tracking-wider uppercase block" style={{ color: 'var(--text-muted)' }}>Sources</span>
                                             {selectedRec.sourceLinks.map((link: any, lIdx: number) => (
                                                 <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer"
-                                                    className="flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1.5 rounded-lg hover:opacity-80 transition-opacity"
-                                                    style={{ backgroundColor: '#3B82F60D', color: '#3B82F6', border: '1px solid #3B82F620' }}
+                                                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:opacity-80 transition-opacity group"
+                                                    style={{ backgroundColor: link.type === 'tweet' ? '#1DA1F208' : '#8B5CF608', border: `1px solid ${link.type === 'tweet' ? '#1DA1F220' : '#8B5CF620'}` }}
                                                     onClick={e => e.stopPropagation()}>
-                                                    <span className="material-symbols-sharp text-[12px]">
+                                                    <span className="material-symbols-sharp text-[14px] flex-shrink-0" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6' }}>
                                                         {link.type === 'tweet' ? 'chat_bubble' : link.type === 'article' ? 'article' : 'link'}
                                                     </span>
-                                                    <span className="truncate max-w-[200px]">{link.label || 'Source'}</span>
-                                                    <span className="material-symbols-sharp text-[9px]">open_in_new</span>
+                                                    <span className="text-[12px] font-medium truncate flex-1" style={{ color: link.type === 'tweet' ? '#1DA1F2' : '#8B5CF6' }}>
+                                                        {link.label || 'Source'}
+                                                    </span>
+                                                    <span className="material-symbols-sharp text-[10px] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" style={{ color: 'var(--text-muted)' }}>open_in_new</span>
                                                 </a>
                                             ))}
                                         </div>

@@ -1566,15 +1566,19 @@ const App: React.FC = () => {
                     originalTweet: (() => {
                         const ot = action.originalTweet;
                         if (!ot) return null;
-                        // Enrich with images/url from actual source data (mentions or competitor tweets)
+                        // Enrich with images/url/engagement from actual source data
                         const authorClean = (ot.author || '').replace('@', '').toLowerCase();
                         const sourceMention = mentions.find((m: any) => (m.author || '').toLowerCase() === authorClean);
                         const sourceCompTweet = (compTweets || []).find((t: any) => (t.competitor || '').toLowerCase() === authorClean);
-                        const source = sourceMention || sourceCompTweet;
+                        const sourceKOL = trendingTweets.find((t: any) => (t.author || '').toLowerCase() === authorClean);
+                        const source: any = sourceKOL || sourceMention || sourceCompTweet;
                         return {
                             ...ot,
-                            images: ot.images || (source as any)?.images || [],
-                            tweetUrl: ot.tweetUrl || (source as any)?.tweetUrl || null,
+                            images: ot.images || source?.images || [],
+                            tweetUrl: ot.tweetUrl || source?.tweetUrl || null,
+                            likes: ot.likes || source?.likes || 0,
+                            retweets: ot.retweets || source?.retweets || 0,
+                            timestamp: ot.timestamp || source?.timestamp || source?.createdAt || null,
                         };
                     })(),
                     // Attach source tweet images for mention-based recs (REPLY, QRT)
