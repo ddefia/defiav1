@@ -20,7 +20,7 @@ import { generateAndCreateQueries, CHAIN_SCHEMAS } from './server/services/dune.
 import Stripe from 'stripe';
 import { handleTelegramWebhook } from './server/telegram/webhookHandler.js';
 import { generateLinkCode, getLinkedChats } from './server/telegram/linkManager.js';
-import { notifyLinkedChats } from './server/telegram/notifier.js';
+import { notifyLinkedChats, loadPersistedHashes } from './server/telegram/notifier.js';
 import { sendMessage as sendTelegramMessage, setWebhook as setTelegramWebhook, deleteWebhook as deleteTelegramWebhook, getMe as getTelegramMe, isConfigured as isTelegramConfigured } from './server/telegram/telegramClient.js';
 import { logApiUsage, estimateCost } from './server/services/usageLogger.js';
 
@@ -1898,6 +1898,9 @@ app.get('/api/agent/recommendations', async (req, res) => {
     try {
         const supabase = getSupabaseAdminClient();
         if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+
+        // Load persisted dedup hashes for Telegram notifications (survives cold starts)
+        await loadPersistedHashes(supabase);
 
         const apifyKey = process.env.APIFY_API_TOKEN;
         const brandFilter = req.query.brand ? req.query.brand.toLowerCase() : null;

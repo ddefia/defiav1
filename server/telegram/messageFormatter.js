@@ -230,34 +230,42 @@ const formatRecommendationsBatch = (actions, brandName, siteUrl) => {
     if (valid.length === 0) return '';
 
     const lines = [];
-    lines.push(`\u{1F9E0} ${bold(`Strategy Update — ${brandName || 'Your Brand'}`)}`);
+    lines.push(`\u{1F9E0} ${bold(`New Recommendations — ${brandName || 'Your Brand'}`)}`);
     lines.push('');
 
-    for (let i = 0; i < Math.min(valid.length, 5); i++) {
-        const a = valid[i];
+    // Show top 3 — quality over quantity
+    const top = valid.slice(0, 3);
+
+    for (let i = 0; i < top.length; i++) {
+        const a = top[i];
         const actionType = a.type || a.action;
         const icon = ACTION_ICONS[actionType] || '\u{1F4CC}';
-        const headline = (a.hook || a.topic || a.reason || '').replace(/\n/g, ' ').slice(0, 100);
+        const headline = (a.hook || a.topic || '').replace(/\n/g, ' ').slice(0, 80);
 
-        lines.push(`${icon} ${bold(String(headline || actionType).slice(0, 80))}`);
+        lines.push(`${icon} ${bold(String(headline || actionType))}`);
 
-        // Show reasoning
-        const reasoning = a.reasoning || a.reason || '';
-        if (reasoning) {
-            lines.push(italic(reasoning.replace(/\n/g, ' ').slice(0, 150)));
+        // Show the actual draft — the actionable part
+        const draft = (a.instructions || a.draft || '').replace(/#\w+/g, '').replace(/\n/g, ' ').trim();
+        if (draft) {
+            lines.push(italic(draft.slice(0, 250)));
         }
 
-        // Show data source if available
-        if (a.dataSource) {
-            lines.push(escapeMarkdownV2(`Signal: ${a.dataSource.replace(/\n/g, ' ').slice(0, 100)}`));
+        // QRT: show who you're quoting
+        if (a.originalTweet?.author) {
+            lines.push(escapeMarkdownV2(`↳ QRT @${a.originalTweet.author}`));
         }
 
-        if (i < Math.min(valid.length, 5) - 1) lines.push('');
+        if (i < top.length - 1) lines.push('');
+    }
+
+    if (valid.length > 3) {
+        lines.push('');
+        lines.push(escapeMarkdownV2(`+ ${valid.length - 3} more in the app`));
     }
 
     if (siteUrl) {
         lines.push('');
-        lines.push(`\u27A1\uFE0F ${escapeMarkdownV2('Full details:')} ${escapeMarkdownV2(siteUrl)}`);
+        lines.push(`\u27A1\uFE0F ${escapeMarkdownV2('Review & post:')} ${escapeMarkdownV2(siteUrl)}`);
     }
 
     return lines.join('\n');

@@ -2,11 +2,27 @@
  * TELEGRAM NOTIFIER
  * Push notifications to linked Telegram groups.
  * Called from the agent scheduler after briefings and decisions.
+ *
+ * Deduplication: stores a hash of sent recommendations per brand/chat.
+ * Won't re-send if the content hasn't meaningfully changed.
  */
 
 import { sendMessage, isConfigured } from './telegramClient.js';
 import { getLinkedChats } from './linkManager.js';
 import { formatDailyBriefing, formatAgentDecision, formatRecommendationsBatch } from './messageFormatter.js';
+
+// In-memory dedup cache: brandId:chatId -> hash of last sent recommendations
+const sentHashes = new Map();
+
+// Simple content hash — just concatenate key fields and hash
+const hashActions = (actions) => {
+    const str = actions.map(a => `${a.type || a.action}|${(a.hook || a.topic || '').slice(0, 50)}`).join(';;');
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+    }
+    return h;
+};
 
 // ━━━ Main Notify Function ━━━
 
@@ -50,7 +66,6 @@ const notifyLinkedChats = async (supabase, brandId, type, payload = null) => {
             }
 
             // Don't re-send stale briefings — only notify if updated within last 4 hours
-            // This prevents sending the same old briefing when generation fails
             if (data.updated_at) {
                 const age = Date.now() - new Date(data.updated_at).getTime();
                 if (age > 4 * 60 * 60 * 1000) {
@@ -72,13 +87,33 @@ const notifyLinkedChats = async (supabase, brandId, type, payload = null) => {
         }
 
         case 'recommendations': {
-            // Batch notification — payload is array of actions (supports both old and rich format)
+            // Batch notification — payload is array of actions
             if (!payload || !Array.isArray(payload) || payload.length === 0) return;
             const validActions = payload.filter(a => {
                 const actionType = a.type || a.action;
                 return actionType && actionType !== 'NO_ACTION' && actionType !== 'ERROR';
             });
             if (validActions.length === 0) return;
+
+            // Deduplication: check if these recommendations are meaningfully different from last send
+            const hash = hashActions(validActions);
+            const dedupKey = `${brandId}`;
+            const lastHash = sentHashes.get(dedupKey);
+            if (lastHash === hash) {
+                console.log(`[Telegram Notifier] Skipping duplicate recommendations for ${brandId} (same content as last send)`);
+                return;
+            }
+            sentHashes.set(dedupKey, hash);
+
+            // Also persist the hash to Supabase so it survives cold starts
+            try {
+                await supabase.from('app_storage').upsert({
+                    key: `telegram_last_recs_hash_${brandId}`,
+                    value: { hash, sentAt: new Date().toISOString() },
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'key' });
+            } catch { /* non-critical */ }
+
             const siteUrl = process.env.FRONTEND_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
             message = formatRecommendationsBatch(validActions, brandName, siteUrl);
             break;
@@ -122,4 +157,22 @@ const notifyLinkedChats = async (supabase, brandId, type, payload = null) => {
     }
 };
 
-export { notifyLinkedChats };
+// Load persisted hashes on module init (for cold starts)
+const loadPersistedHashes = async (supabase) => {
+    if (!supabase) return;
+    try {
+        const { data } = await supabase
+            .from('app_storage')
+            .select('key, value')
+            .like('key', 'telegram_last_recs_hash_%');
+        if (data) {
+            for (const row of data) {
+                const brandId = row.key.replace('telegram_last_recs_hash_', '');
+                if (row.value?.hash) sentHashes.set(brandId, row.value.hash);
+            }
+            console.log(`[Telegram Notifier] Loaded ${data.length} persisted dedup hashes`);
+        }
+    } catch { /* ignore */ }
+};
+
+export { notifyLinkedChats, loadPersistedHashes };
