@@ -20,10 +20,14 @@ if (!DEFAULT_APIFY_TOKEN) {
 const ACTOR_TWITTER = 'VsTreSuczsXhhRIqa'; // New unified actor for tweets + profiles
 
 
-export const getHandle = (brandName: string) => {
-    const config = getIntegrationConfig(brandName);
+export const getHandle = (brandName: string): string | null => {
     const localKeys = loadIntegrationKeys(brandName);
-    return localKeys.apify || config?.apify?.twitterHandle || 'MetisL2';
+    if (localKeys.apify) return localKeys.apify;
+    const config = getIntegrationConfig(brandName);
+    if (config?.apify?.twitterHandle) return config.apify.twitterHandle;
+    // No hardcoded fallback — return brand name as best guess, or null
+    // This ensures new brands like "Chainlink" don't silently fetch another brand's data
+    return brandName.replace(/\s+/g, '') || null;
 };
 
 /**

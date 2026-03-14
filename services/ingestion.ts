@@ -125,13 +125,13 @@ export const ingestTwitterHistory = async (handles: string[]) => {
                             engagementRate: parseFloat(engagementRate.toFixed(2))
                         };
 
-                        // Map handle to Brand ID
+                        // Map handle to Brand ID — static map for known brands, dynamic fallback for any new brand
                         const brandMap: Record<string, string> = {
                             'EnkiProtocol': 'ENKI Protocol',
                             'NetswapOfficial': 'Netswap',
                             'MetisL2': 'Metis',
                             'LazAINetwork': 'LazAI',
-                            'LazaNetwork': 'LazAI'
+                            'LazaNetwork': 'LazAI',
                         };
                         const brandId = brandMap[handle] || handle;
 

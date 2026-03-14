@@ -511,11 +511,8 @@ export const syncBrandAssetsFromStorage = async (brandName: string): Promise<{
     error?: string;
 }> => {
     try {
-        const folderName = BRAND_FOLDER_MAP[brandName];
-        if (!folderName) {
-            console.warn(`No folder mapping for brand: ${brandName}`);
-            return { success: false, imagesAdded: 0, error: `No storage folder for ${brandName}` };
-        }
+        // Dynamic folder name: check map first, then derive from brand name
+        const folderName = BRAND_FOLDER_MAP[brandName] || brandName.toLowerCase().replace(/\s+/g, '_');
 
         console.log(`🔄 Syncing brand assets for ${brandName} from folder: ${folderName}`);
 
