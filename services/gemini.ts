@@ -2707,7 +2707,7 @@ export const analyzeMarketContext = async (context: BrainContext): Promise<Analy
     // Build live tweet signals for analysis
     const mentionTweets = (context.marketState.mentions || []).slice(0, 8);
     const mentionAnalysis = mentionTweets.length > 0
-        ? `LIVE MENTIONS OF ${brandName.toUpperCase()}:\n${mentionTweets.map((m: any) => `- @${m.author}: "${(m.text || '').slice(0, 150)}" [${m.likes || 0} likes]`).join('\n')}`
+        ? `LIVE MENTIONS OF ${brandName.toUpperCase()}:\n${mentionTweets.map((m: any) => `- @${m.author}: "${(m.text || '').slice(0, 500)}" [${m.likes || 0} likes]`).join('\n')}`
         : '';
 
     const prompt = `
@@ -2790,19 +2790,19 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     // Build LIVE TWEET data — this is what the AI should react to
     const mentionTweets = (context.marketState.mentions || []).slice(0, 10);
     const mentionBlock = mentionTweets.length > 0
-        ? `LIVE TWEETS MENTIONING ${brandName.toUpperCase()} (react to these — QRT, reply, or leverage):\n${mentionTweets.map((m: any) => `- @${m.author}: "${(m.text || '').slice(0, 200)}" [${m.likes || 0} likes, ${m.retweets || 0} RTs]${m.tweetUrl ? ` (${m.tweetUrl})` : ''}`).join('\n')}`
+        ? `LIVE TWEETS MENTIONING ${brandName.toUpperCase()} (react to these — QRT, reply, or leverage):\n${mentionTweets.map((m: any) => `- @${m.author}: "${(m.text || '').slice(0, 500)}" [${m.likes || 0} likes, ${m.retweets || 0} RTs]${m.tweetUrl ? ` (${m.tweetUrl})` : ''}`).join('\n')}`
         : '';
 
     // Competitor tweets — what competitors are saying RIGHT NOW
     const compTweets = (context as any)._competitorTweets || [];
     const compTweetBlock = compTweets.length > 0
-        ? `COMPETITOR TWEETS (happening now — hijack these narratives or counter them):\n${compTweets.slice(0, 10).map((t: any) => `- @${t.competitor}${t.competitorName ? ` (${t.competitorName})` : ''}: "${(t.text || '').slice(0, 200)}" [${t.likes || 0} likes]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')}`
+        ? `COMPETITOR TWEETS (happening now — hijack these narratives or counter them):\n${compTweets.slice(0, 10).map((t: any) => `- @${t.competitor}${t.competitorName ? ` (${t.competitorName})` : ''}: "${(t.text || '').slice(0, 500)}" [${t.likes || 0} likes]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')}`
         : '';
 
     // Trending KOL tweets — viral tweets from top crypto accounts to QRT
     const kolTweets = (context as any)._trendingTweets || [];
     const kolTweetBlock = kolTweets.length > 0
-        ? `VIRAL CRYPTO TWITTER (trending tweets from top KOLs — QRT these, react to, or hijack):\n${kolTweets.slice(0, 15).map((t: any) => `- @${t.author}: "${(t.text || '').slice(0, 250)}" [${t.likes || 0} likes, ${t.retweets || 0} RTs]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')}`
+        ? `VIRAL CRYPTO TWITTER (trending tweets from top KOLs — QRT these, react to, or hijack):\n${kolTweets.slice(0, 15).map((t: any) => `- @${t.author}: "${(t.text || '').slice(0, 600)}" [${t.likes || 0} likes, ${t.retweets || 0} RTs]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')}`
         : '';
 
     // Trending news with URLs
@@ -2860,10 +2860,11 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     5. SPECIFICITY: Every action references a NAMED signal — exact headline, @handle, metric. Never "market trends" or "community sentiment".
     6. COPY QUALITY (CRITICAL): The "instructions" field = the actual tweet/thread, ready to post. No descriptions of what to write. Under 280 chars for tweets. Threads = hook + numbered tweets written out. No hashtags.
     7. QRT RULES: ONLY quote a tweet that EXISTS in the data above (VIRAL CRYPTO TWITTER, mentions, or competitor tweets) — cite the exact @handle and text. Never fabricate tweets. The quote must add genuine alpha or a hot take, not "great take!". Include the tweetUrl from the source data in originalTweet if available.
-    8. TONE: Crypto Twitter native. Confident, slightly provocative, data-backed. The kind of tweet that gets QRT'd by influencers.
-    9. SOURCE ATTRIBUTION: dataSource MUST name the exact signal: "'Crypto Traders Rotate Into Select Altcoins' — CoinDesk headline" or "@rival_protocol: 'our TPS is unmatched'" — not generic descriptions.
-    10. FRESHNESS: Never repeat past strategies.
-    11. HOOKS: Punchy 3-5 word code name with attitude (e.g. "The Liquidity Vampire", "Sequencer Speed Trap").
+    8. READ THE FULL TWEET before QRTing — many tweets start with a reasonable take but end with a token/memecoin shill (e.g. "AI will change finance... BUY $TOKEN"). If the tweet promotes a specific token, memecoin, or is shilling a project unrelated to the brand, DO NOT QRT it. Only QRT tweets where the ENTIRE message aligns with the brand narrative.
+    9. TONE: Crypto Twitter native. Confident, slightly provocative, data-backed. The kind of tweet that gets QRT'd by influencers.
+    10. SOURCE ATTRIBUTION: dataSource MUST name the exact signal: "'Crypto Traders Rotate Into Select Altcoins' — CoinDesk headline" or "@rival_protocol: 'our TPS is unmatched'" — not generic descriptions.
+    11. FRESHNESS: Never repeat past strategies.
+    12. HOOKS: Punchy 3-5 word code name with attitude (e.g. "The Liquidity Vampire", "Sequencer Speed Trap").
 
     QUALITY GATE — before finalizing:
     ✓ instructions = actual written copy (not a brief)

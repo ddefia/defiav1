@@ -57,7 +57,7 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
             : '';
 
         const trendingTweetsBlock = trendingTweets.length > 0
-            ? trendingTweets.slice(0, 15).map(t => `- @${t.author}: "${(t.text || '').slice(0, 250)}" [${t.likes || 0} likes, ${t.retweets || 0} RTs]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')
+            ? trendingTweets.slice(0, 15).map(t => `- @${t.author}: "${(t.text || '').slice(0, 600)}" [${t.likes || 0} likes, ${t.retweets || 0} RTs]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')
             : '';
 
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -114,6 +114,7 @@ CRITICAL RULES:
 - TODAY IS ${today}. NEVER recommend posting about past events or milestones. Only forward-looking content.
 - TREND_JACK requires a REAL, SPECIFIC trend from the TRENDS list. Name the exact headline.
 - QRT requires a REAL tweet from VIRAL CRYPTO TWITTER, mentions, or competitor tweets. Include originalTweet with exact author and text. Prefer tweets with 100+ likes for maximum QRT visibility.
+- READ THE FULL TWEET before QRTing. Many tweets start with a smart take but end shilling a specific token or memecoin (e.g. "AI will change trading... $SPX6900 is the LEADER"). If the tweet promotes a token/memecoin unrelated to ${brandName}, DO NOT QRT it — it makes the brand look like it endorses that token. Only QRT tweets where the ENTIRE message aligns with ${brandName}'s narrative.
 - Every recommendation must be specific to ${brandName} — reference actual products, features, ecosystem.
 - No generic "web3 is growing" filler. Be specific or pick a different action type.
 - NEVER use hashtags. No #anything.
