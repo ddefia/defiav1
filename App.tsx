@@ -390,6 +390,14 @@ const App: React.FC = () => {
     const [studioContext, setStudioContext] = useState<string>('');
     const [studioQrt, setStudioQrt] = useState<{ text: string; author: string; tweetUrl?: string } | null>(null);
 
+    // Trending KOL tweets — fetched once, used for render-time enrichment of recommendations
+    const [trendingKOLTweets, setTrendingKOLTweets] = useState<any[]>([]);
+    useEffect(() => {
+        fetch('/api/trending-tweets').then(r => r.ok ? r.json() : { tweets: [] })
+            .then(d => { if (d.tweets?.length) setTrendingKOLTweets(d.tweets); })
+            .catch(() => {});
+    }, []);
+
     // Recommendation State (Lifted — single source of truth for Dashboard + RecommendationsPage)
     const [recommendationFocus, setRecommendationFocus] = useState<string>(() => {
         try { return localStorage.getItem('defia_rec_focus') || ''; } catch { return ''; }
@@ -1846,10 +1854,21 @@ const App: React.FC = () => {
                             // Build source links from trending tweets for server-cached recs
                             const links: any[] = [];
                             const actionText = `${a.topic || ''} ${a.reasoning || ''} ${a.dataSource || ''} ${a.hook || ''}`.toLowerCase();
+                            // Match KOL tweets by author
                             for (const t of trendingTweets.slice(0, 20)) {
                                 const author = (t.author || '').toLowerCase();
                                 if (t.tweetUrl && (actionText.includes(author) || actionText.includes(`@${author}`))) {
                                     links.push({ label: `@${t.author}: ${(t.text || '').slice(0, 50)}…`, url: t.tweetUrl, type: 'tweet' });
+                                    break;
+                                }
+                            }
+                            // Match trend headlines from web3 news
+                            const trends = socialSignals?.trendingTopics || [];
+                            for (const trend of trends) {
+                                if (!trend.url) continue;
+                                const headline = (trend.headline || '').toLowerCase();
+                                if (headline.length > 10 && actionText.includes(headline.slice(0, 30).toLowerCase())) {
+                                    links.push({ label: trend.headline.slice(0, 60), url: trend.url, type: 'article' });
                                     break;
                                 }
                             }
@@ -2650,6 +2669,7 @@ const App: React.FC = () => {
                         qrtFeed={qrtFeed}
                         recommendationFocus={recommendationFocus}
                         onFocusChange={handleFocusChange}
+                        trendingKOLTweets={trendingKOLTweets}
                     />
                 )}
 

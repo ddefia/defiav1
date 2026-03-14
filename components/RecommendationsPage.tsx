@@ -21,6 +21,7 @@ interface RecommendationsPageProps {
     qrtFeed?: any[];
     recommendationFocus?: string;
     onFocusChange?: (focus: string) => void;
+    trendingKOLTweets?: any[];
 }
 
 // --- Helpers ---
@@ -335,6 +336,7 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     onRegenerate, onDismiss, onNavigate, onSchedule,
     chainMetrics, campaignLogs, qrtFeed,
     recommendationFocus = '', onFocusChange,
+    trendingKOLTweets = [],
 }) => {
     const [selectedIdx, setSelectedIdx] = useState<number>(0);
     const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -433,8 +435,30 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             return [...primary, ...filtered].filter(r => r.type && r.title && r.impactScore).slice(0, 8);
         }
 
-        return primary.filter(r => r.type && r.title && r.impactScore);
-    }, [recommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig, chainMetrics, campaignLogs]);
+        // Runtime enrichment: enrich originalTweet + sourceLinks from KOL data at render time
+        const enriched = primary.filter(r => r.type && r.title && r.impactScore).map(rec => {
+            if (!rec.originalTweet) return rec;
+            const ot = rec.originalTweet;
+            const authorClean = (ot.author || '').replace('@', '').toLowerCase();
+            const kolMatch = trendingKOLTweets.find((t: any) => (t.author || '').toLowerCase() === authorClean);
+            if (!kolMatch) return rec;
+            return {
+                ...rec,
+                originalTweet: {
+                    ...ot,
+                    tweetUrl: ot.tweetUrl || kolMatch.tweetUrl || null,
+                    likes: ot.likes || kolMatch.likes || 0,
+                    retweets: ot.retweets || kolMatch.retweets || 0,
+                    timestamp: ot.timestamp || kolMatch.timestamp || kolMatch.createdAt || null,
+                    images: ot.images?.length ? ot.images : kolMatch.images || [],
+                },
+                sourceLinks: (rec.sourceLinks?.length > 0) ? rec.sourceLinks : (kolMatch.tweetUrl ? [
+                    { label: `@${kolMatch.author}: ${(kolMatch.text || '').slice(0, 50)}…`, url: kolMatch.tweetUrl, type: 'tweet' }
+                ] : []),
+            };
+        });
+        return enriched;
+    }, [recommendations, agentDecisions, brandName, socialSignals, socialMetrics, brandConfig, chainMetrics, campaignLogs, trendingKOLTweets]);
 
     // Filter by priority
     const filteredRecs = useMemo(() => {
@@ -808,12 +832,20 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         <span className="text-[11px] font-bold tracking-wider uppercase" style={{ color: action.color }}>
                                             {selectedRec.type === 'QRT' ? 'Quote this tweet' : 'Reply to this tweet'}
                                         </span>
-                                        <a href={selectedRec.originalTweet.tweetUrl || `https://x.com/${selectedRec.originalTweet.author}`}
-                                            target="_blank" rel="noopener noreferrer"
-                                            className="ml-auto text-[11px] font-medium hover:underline flex items-center gap-1" style={{ color: action.color }}>
-                                            {selectedRec.originalTweet.tweetUrl ? 'Open on X' : `View @${selectedRec.originalTweet.author}`}
-                                            <span className="material-symbols-sharp text-[10px]">open_in_new</span>
-                                        </a>
+                                        {(() => {
+                                            const tUrl = selectedRec.originalTweet.tweetUrl;
+                                            const author = selectedRec.originalTweet.author || '';
+                                            const tweetText = (selectedRec.originalTweet.text || '').slice(0, 40);
+                                            // Direct tweet link > search on X > author profile
+                                            const href = tUrl || `https://x.com/search?q=from%3A${author}+${encodeURIComponent(tweetText)}&f=live`;
+                                            const label = tUrl ? 'View tweet on X' : `Find tweet by @${author}`;
+                                            return (
+                                                <a href={href} target="_blank" rel="noopener noreferrer"
+                                                    className="ml-auto text-[11px] font-medium hover:underline flex items-center gap-1" style={{ color: action.color }}>
+                                                    {label} <span className="material-symbols-sharp text-[10px]">open_in_new</span>
+                                                </a>
+                                            );
+                                        })()}
                                     </div>
                                     <div className="p-4">
                                         <div className="flex items-center gap-2.5 mb-3">
@@ -960,15 +992,37 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
                                         <LinkifiedText text={safeStr(selectedRec.fullReason || selectedRec.reasoning || 'Based on analysis of social metrics, trending topics, and brand knowledge base.')} />
                                     </p>
 
-                                    {/* Data signal — compact inline */}
-                                    {(selectedRec.dataSignal || selectedRec.dataSource) && (
-                                        <div className="flex items-start gap-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-                                            <span className="material-symbols-sharp text-[14px] text-[#FF5C00] mt-0.5 flex-shrink-0">bolt</span>
-                                            <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                                                <LinkifiedText text={safeStr(selectedRec.dataSignal || selectedRec.dataSource)} />
-                                            </p>
-                                        </div>
-                                    )}
+                                    {/* Data signal — triggering signal with proof link */}
+                                    {(selectedRec.dataSignal || selectedRec.dataSource) && (() => {
+                                        const signal = safeStr(selectedRec.dataSignal || selectedRec.dataSource);
+                                        // Extract quoted headline for search link
+                                        const headlineMatch = signal.match(/'([A-Z][^']{10,})'/);
+                                        const searchQuery = headlineMatch?.[1] || signal.replace(/^(WEB3 MARKET TRENDS|MENTIONS|COMPETITOR TWEETS|VIRAL CRYPTO TWITTER):?\s*/i, '').slice(0, 80);
+                                        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+                                        // Check for matching source link
+                                        const directUrl = selectedRec.sourceLinks?.find((l: any) => l.type === 'article')?.url;
+                                        return (
+                                            <div className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                                                <div className="flex items-start gap-2 mb-2">
+                                                    <span className="material-symbols-sharp text-[14px] text-[#FF5C00] mt-0.5 flex-shrink-0">bolt</span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-[10px] font-bold tracking-wider uppercase block mb-1" style={{ color: '#FF5C00' }}>Triggering Signal</span>
+                                                        <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                                            <LinkifiedText text={signal} />
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <a href={directUrl || searchUrl} target="_blank" rel="noopener noreferrer"
+                                                    className="flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity ml-5"
+                                                    style={{ backgroundColor: '#FF5C000A', color: '#FF5C00', border: '1px solid #FF5C0020' }}
+                                                    onClick={e => e.stopPropagation()}>
+                                                    <span className="material-symbols-sharp text-[12px]">{directUrl ? 'article' : 'search'}</span>
+                                                    {directUrl ? 'Read source article' : 'Verify signal'}
+                                                    <span className="material-symbols-sharp text-[10px]">open_in_new</span>
+                                                </a>
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* Source links */}
                                     {selectedRec.sourceLinks?.length > 0 && (
