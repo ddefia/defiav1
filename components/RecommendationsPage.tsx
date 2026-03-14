@@ -493,8 +493,20 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
     const handleExecute = (rec: any) => {
         const recType = (rec.type || rec.action || '').toUpperCase();
         const isCampaign = recType === 'CAMPAIGN' || recType === 'CAMPAIGN_IDEA';
+        const isQRT = recType === 'QRT' && rec.originalTweet;
 
-        if (isCampaign) {
+        if (isQRT) {
+            // QRT: use the quote-tweet flow with the original tweet + draft
+            onNavigate('studio', {
+                draft: rec.fullDraft?.replace(/#\w+/g, '').trim() || '',
+                qrt: {
+                    text: rec.originalTweet.text || '',
+                    author: rec.originalTweet.author || '',
+                    tweetUrl: rec.originalTweet.tweetUrl || '',
+                },
+                context: cleanTitle(rec.title || rec.topic || ''),
+            });
+        } else if (isCampaign) {
             const campaignTweet = rec.contentIdeas?.[0] || rec.hook || cleanTitle(rec.title);
             const brief = [rec.goal, rec.description, rec.fullReason]
                 .filter(Boolean).join(' — ').slice(0, 300);
@@ -507,8 +519,6 @@ export const RecommendationsPage: React.FC<RecommendationsPageProps> = ({
             const draft = rec.fullDraft
                 ? rec.fullDraft.replace(/#\w+/g, '').trim()
                 : rec.contentIdeas?.[0] || `${cleanTitle(rec.fullReason || rec.title)} — strategic move for ${brandName}`;
-            // Pass the topic/title as context so Studio shows it as the topic description
-            // and the full draft goes into the preview editor (not the generation prompt)
             onNavigate('studio', {
                 draft,
                 visualPrompt: rec.title,

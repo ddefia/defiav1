@@ -176,7 +176,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     // --- PERSISTENCE & DEEP LINKS ---
     useEffect(() => {
         if (initialQrt) {
-            // QRT deep link from analytics — pre-fill quote tweet view
+            // QRT deep link — pre-fill quote tweet view with original tweet + draft
             setFetchedTweetData({
                 text: initialQrt.text,
                 authorName: initialQrt.author,
@@ -184,16 +184,29 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                 url: initialQrt.tweetUrl || '',
             });
             if (initialQrt.tweetUrl) setQuoteTweetUrl(initialQrt.tweetUrl);
+            // Pre-fill the generated quote tweet with the draft from recommendations
+            if (initialDraft) setGeneratedQuoteTweet(initialDraft);
             setCurrentView('quote-tweet');
         } else if (initialDraft || initialVisualPrompt) {
             // Draft takes priority over visual prompt for view selection
             if (initialDraft) {
-                // If draft is a finished tweet (from recommendations), show it in preview
-                // ready to edit — don't put it in the generation prompt
-                setGeneratedTweetPreview(initialDraft);
-                // Put a short description in the topic for context (not the full draft)
-                const shortTopic = initialContext || (initialDraft.length > 80 ? initialDraft.slice(0, 80) + '…' : initialDraft);
-                setTweetTopic(shortTopic);
+                // Detect if this is a thread (contains numbered tweets like "1/ ..." or "2/ ...")
+                const isThread = /\d+\/\s/.test(initialDraft);
+                if (isThread) {
+                    // Split thread into individual tweets and set up thread preview
+                    const tweets = initialDraft.split(/(?=\d+\/\s)/).map(s => s.trim()).filter(Boolean);
+                    setGeneratedThreadPreview(tweets);
+                    setCurrentThreadIndex(0);
+                    setSelectedContentType('thread');
+                    setTweetTopic(initialContext || 'Thread from recommendations');
+                } else {
+                    // Single tweet — put in preview, ready to edit
+                    setGeneratedTweetPreview(initialDraft);
+                    setTweetTopic(initialContext || (initialDraft.length > 80 ? initialDraft.slice(0, 80) + '…' : initialDraft));
+                }
+                // Switch to manual mode so user can edit the text directly
+                setTweetMode('manual');
+                setManualTweetText(initialDraft);
                 setCurrentView('create-tweet');
             }
             if (initialContext) {
