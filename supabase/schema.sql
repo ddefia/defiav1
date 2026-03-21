@@ -328,3 +328,18 @@ create table if not exists team_members (
 create index if not exists team_members_email_idx on team_members (lower(email));
 create index if not exists team_members_brand_idx on team_members (brand_id);
 create unique index if not exists team_members_unique on team_members (brand_id, lower(email));
+
+-- Waitlist for early access signups
+create table if not exists waitlist (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  name text not null,
+  project_name text,
+  project_url text,
+  position integer not null,
+  status text default 'pending',  -- 'pending', 'invited', 'converted'
+  created_at timestamptz default now()
+);
+
+create unique index if not exists waitlist_email_unique on waitlist (lower(email));
+create index if not exists waitlist_position_idx on waitlist (position);

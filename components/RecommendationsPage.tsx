@@ -308,7 +308,37 @@ export const generateSupplementalRecs = (
         });
     }
 
-    // 7. Thread content — evergreen recommendation
+    // 7. Campaign recommendation — always include if no campaign recs exist yet
+    if (!recs.some(r => r.type === 'Campaign') && recs.length < 6) {
+        const activeCampaignCount = (campaignLogs || []).length;
+        const topTrend = topics[0];
+        const campaignTheme = topTrend ? topTrend.headline : (keywords[0] || `${brandName} Growth`);
+        recs.push({
+            ...getRecStyle('CAMPAIGN'),
+            title: activeCampaignCount === 0
+                ? `Launch your first campaign — ${campaignTheme}`
+                : `New campaign opportunity: ${campaignTheme}`,
+            reasoning: activeCampaignCount === 0
+                ? `${brandName} has no active campaigns. A structured campaign around "${campaignTheme}" would create consistent multi-day content and build momentum.`
+                : `With ${activeCampaignCount} campaign(s) in history, a new campaign around "${campaignTheme}" could diversify ${brandName}'s content strategy and capture current market attention.`,
+            fullReason: activeCampaignCount === 0
+                ? `${brandName} currently has no active campaigns. Campaigns create structured, multi-day content pushes that generate compounding engagement. A campaign around "${campaignTheme}" would establish a content rhythm, build audience anticipation, and create measurable growth milestones.`
+                : `${brandName} has run ${activeCampaignCount} campaign(s). A new campaign around "${campaignTheme}" would expand reach by targeting a trending narrative with coordinated content — thread + tweets + graphics over multiple days.`,
+            fullDraft: `📢 Campaign: ${campaignTheme}\n\nDay 1: Introduction — why this matters now\nDay 2: Deep dive — ${brandName}'s unique angle\nDay 3: Community engagement — polls, questions, AMA\nDay 4: Recap + forward-looking thread\n\nEach day builds on the last. Consistent visibility > one-off posts.`,
+            contentIdeas: [`3-5 day campaign on ${campaignTheme}`, `Daily thread series with branded graphics`, `Community poll on Day 3 for engagement spike`],
+            strategicAlignment: 'Structured campaigns outperform one-off posts by 3-5x in cumulative engagement.',
+            dataSignal: activeCampaignCount === 0
+                ? `No active campaigns · ${topics.length} trending topics available`
+                : `${activeCampaignCount} past campaigns · Trending: "${campaignTheme}"`,
+            impactScore: 86,
+            source: 'supplemental',
+            sourceTags: ['Content Calendar', 'AI Analysis', ...(topTrend ? ['Web3 News'] : [])],
+            sourceLinks: topTrend?.url ? [{ label: topTrend.headline.slice(0, 60), url: topTrend.url, type: 'article' }] : [],
+            generatedAt: Date.now(),
+        });
+    }
+
+    // 8. Thread content — evergreen recommendation
     if (recs.length < 5) {
         const topic = keywords[0] || (knowledgeBase.length > 0 ? 'core mission' : 'Web3 journey');
         recs.push({

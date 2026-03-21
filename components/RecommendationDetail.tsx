@@ -198,8 +198,14 @@ export const RecommendationDetail: React.FC<RecommendationDetailProps> = ({
         setVisualLoading(true);
         try {
             const prompt = `${rec.topic || rec.title} — ${brandName} Web3 marketing visual. Dark theme, modern, crypto aesthetic.`;
-            const result = await generateWeb3Graphic(prompt, brandName, brandConfig, { aspectRatio: '16:9' });
-            if (result?.imageUrl) setVisualUrl(result.imageUrl);
+            const result = await generateWeb3Graphic({
+                prompt,
+                brandName,
+                brandConfig,
+                size: '1K',
+                aspectRatio: '16:9',
+            });
+            if (result) setVisualUrl(result);
         } catch (e) {
             console.error('Visual generation failed:', e);
         } finally {

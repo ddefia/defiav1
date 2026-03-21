@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { signIn, signUp, sendPasswordReset, loadUserProfile } from '../services/auth';
+import { signIn, sendPasswordReset, loadUserProfile } from '../services/auth';
 import { getCurrentUserBrand } from '../services/storage';
 
 interface AuthPageProps {
@@ -18,12 +18,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     const [mode, setMode] = useState<AuthMode>(initialMode);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
     const [fullName, setFullName] = useState('');
+    const [projectName, setProjectName] = useState('');
+    const [projectUrl, setProjectUrl] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+    const [waitlistPosition, setWaitlistPosition] = useState(0);
+    const [confettiActive, setConfettiActive] = useState(false);
 
     // Sync mode with prop changes
     useEffect(() => {
@@ -36,7 +40,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setMode(newMode);
         setError('');
         setSuccess('');
-        // If we have an external switch handler and switching between login/signup
         if (onSwitchMode && (newMode === 'login' || newMode === 'signup')) {
             onSwitchMode();
         }
@@ -52,8 +55,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             if (authError) {
                 setError(authError);
             } else if (user) {
-                // Check if user already has a brand linked
-                // First try localStorage profiles, then fall back to Supabase user metadata
                 const existingBrand = getCurrentUserBrand();
                 const userProfile = loadUserProfile();
                 const hasBrandInMetadata = !!(userProfile?.brandId || userProfile?.brandName);
@@ -64,29 +65,34 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         }
     };
 
-    const handleSignup = async (e: React.FormEvent) => {
+    const handleWaitlistSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-
-        if (password !== confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
-            return;
-        }
-
         setIsLoading(true);
 
         try {
-            const { user, error: authError } = await signUp(email, password, { fullName });
-            if (authError) {
-                setError(authError);
-            } else if (user) {
-                onSuccess();
+            const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || '';
+            const res = await fetch(`${baseUrl}/api/waitlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    name: fullName,
+                    project_name: projectName || undefined,
+                    project_url: projectUrl || undefined,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.error || 'Something went wrong. Please try again.');
+            } else {
+                setWaitlistPosition(data.position || 0);
+                setWaitlistSubmitted(true);
+                setConfettiActive(true);
+                setTimeout(() => setConfettiActive(false), 3000);
             }
+        } catch {
+            setError('Network error. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -112,6 +118,94 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     return (
         <div className="min-h-full bg-[#0A0A0B] flex">
+            {/* Confetti animation styles */}
+            <style>{`
+                @keyframes wl-confetti-fall {
+                    0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+                    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+                }
+                @keyframes wl-pulse-ring {
+                    0% { transform: scale(0.8); opacity: 0.6; }
+                    50% { transform: scale(1.1); opacity: 0.3; }
+                    100% { transform: scale(0.8); opacity: 0.6; }
+                }
+                @keyframes wl-check-draw {
+                    0% { stroke-dashoffset: 50; }
+                    100% { stroke-dashoffset: 0; }
+                }
+                @keyframes wl-fade-up {
+                    0% { opacity: 0; transform: translateY(20px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes wl-shimmer {
+                    0% { background-position: -200% center; }
+                    100% { background-position: 200% center; }
+                }
+                @keyframes wl-float {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-8px); }
+                }
+                .wl-confetti-piece {
+                    position: fixed;
+                    width: 8px;
+                    height: 8px;
+                    z-index: 100;
+                    pointer-events: none;
+                    animation: wl-confetti-fall 2.5s ease-in forwards;
+                }
+                .wl-input-group {
+                    position: relative;
+                }
+                .wl-input-group input, .wl-input-group select {
+                    transition: border-color 0.3s, box-shadow 0.3s;
+                }
+                .wl-input-group input:focus, .wl-input-group select:focus {
+                    border-color: #FF5C00 !important;
+                    box-shadow: 0 0 0 3px rgba(255, 92, 0, 0.1);
+                }
+                .wl-submit-btn {
+                    position: relative;
+                    overflow: hidden;
+                }
+                .wl-submit-btn::after {
+                    content: '';
+                    position: absolute;
+                    inset: 0;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+                    background-size: 200% 100%;
+                    animation: wl-shimmer 2s ease-in-out infinite;
+                }
+                .wl-feature-item {
+                    animation: wl-fade-up 0.5s ease-out backwards;
+                }
+            `}</style>
+
+            {/* Confetti overlay */}
+            {confettiActive && (
+                <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 100 }}>
+                    {Array.from({ length: 40 }).map((_, i) => {
+                        const colors = ['#FF5C00', '#FF8A4C', '#FFB347', '#4CAF50', '#2196F3', '#9C27B0', '#E91E63'];
+                        const shapes = ['circle', 'square'];
+                        return (
+                            <div
+                                key={i}
+                                className="wl-confetti-piece"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    top: '-10px',
+                                    width: `${6 + Math.random() * 8}px`,
+                                    height: `${6 + Math.random() * 8}px`,
+                                    background: colors[Math.floor(Math.random() * colors.length)],
+                                    borderRadius: shapes[Math.floor(Math.random() * shapes.length)] === 'circle' ? '50%' : '2px',
+                                    animationDelay: `${Math.random() * 1.5}s`,
+                                    animationDuration: `${2 + Math.random() * 2}s`,
+                                }}
+                            />
+                        );
+                    })}
+                </div>
+            )}
+
             {/* Left Panel - Branding */}
             <div
                 className="hidden lg:flex w-[480px] min-h-full flex-col justify-between p-12"
@@ -131,23 +225,38 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     {/* Hero Text */}
                     <div className="space-y-4">
                         <h1 className="text-white text-4xl font-semibold leading-tight">
-                            Your AI-Powered<br />Marketing Command Center
+                            {mode === 'signup' ? (
+                                <>AI Marketing<br />Is Almost Here</>
+                            ) : (
+                                <>Your AI-Powered<br />Marketing Command Center</>
+                            )}
                         </h1>
                         <p className="text-[#8E8E93] text-base leading-relaxed max-w-[380px]">
-                            Automate your Web3 marketing with AI that understands your brand,
-                            creates compelling content, and executes strategies 24/7.
+                            {mode === 'signup'
+                                ? 'Be among the first Web3 teams to automate marketing with AI that truly understands your brand.'
+                                : 'Automate your Web3 marketing with AI that understands your brand, creates compelling content, and executes strategies 24/7.'
+                            }
                         </p>
                     </div>
 
                     {/* Features */}
                     <div className="space-y-4">
-                        {[
+                        {(mode === 'signup' ? [
+                            { icon: 'rocket_launch', text: 'Early access to all features' },
+                            { icon: 'groups', text: 'Join 200+ Web3 teams on the list' },
+                            { icon: 'star', text: 'Founding member pricing locked in' },
+                            { icon: 'bolt', text: 'Priority onboarding when we launch' },
+                        ] : [
                             { icon: 'auto_awesome', text: 'AI CMO that learns your brand voice' },
                             { icon: 'campaign', text: 'Automated campaign generation' },
                             { icon: 'analytics', text: 'Real-time social analytics' },
                             { icon: 'calendar_month', text: 'Smart content scheduling' },
-                        ].map((feature, i) => (
-                            <div key={i} className="flex items-center gap-3">
+                        ]).map((feature, i) => (
+                            <div
+                                key={i}
+                                className="flex items-center gap-3 wl-feature-item"
+                                style={{ animationDelay: `${i * 0.1}s` }}
+                            >
                                 <div className="w-8 h-8 rounded-lg bg-[#FF5C00]/10 flex items-center justify-center">
                                     <span className="material-symbols-sharp text-[#FF5C00] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>
                                         {feature.icon}
@@ -168,7 +277,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
             </div>
 
-            {/* Right Panel - Auth Form */}
+            {/* Right Panel */}
             <div className="flex-1 flex items-center justify-center p-8">
                 <div className="w-full max-w-[420px] space-y-8">
                     {/* Mobile Logo */}
@@ -185,12 +294,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     <div className="text-center space-y-2">
                         <h2 className="text-white text-2xl font-semibold">
                             {mode === 'login' && 'Welcome back'}
-                            {mode === 'signup' && 'Create your account'}
+                            {mode === 'signup' && !waitlistSubmitted && 'Join the Waitlist'}
+                            {mode === 'signup' && waitlistSubmitted && "You're on the list!"}
                             {mode === 'forgot' && 'Reset your password'}
                         </h2>
                         <p className="text-[#8E8E93] text-sm">
                             {mode === 'login' && 'Sign in to access your AI CMO dashboard'}
-                            {mode === 'signup' && 'Start your 24-hour free trial'}
+                            {mode === 'signup' && !waitlistSubmitted && 'Get early access when we launch'}
+                            {mode === 'signup' && waitlistSubmitted && 'We\'ll notify you as soon as your spot is ready'}
                             {mode === 'forgot' && "Enter your email and we'll send you a reset link"}
                         </p>
                     </div>
@@ -281,16 +392,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                                     onClick={() => handleModeSwitch('signup')}
                                     className="text-[#FF5C00] font-medium hover:underline"
                                 >
-                                    Sign up
+                                    Join the waitlist
                                 </button>
                             </p>
                         </form>
                     )}
 
-                    {/* Signup Form */}
-                    {mode === 'signup' && (
-                        <form onSubmit={handleSignup} className="space-y-5">
-                            <div className="space-y-2">
+                    {/* Waitlist Form (replaces signup) */}
+                    {mode === 'signup' && !waitlistSubmitted && (
+                        <form onSubmit={handleWaitlistSubmit} className="space-y-5" style={{ animation: 'wl-fade-up 0.4s ease-out' }}>
+                            <div className="wl-input-group space-y-2">
                                 <label className="text-white text-sm font-medium">Full Name</label>
                                 <input
                                     type="text"
@@ -298,74 +409,69 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                                     onChange={(e) => setFullName(e.target.value)}
                                     placeholder="John Doe"
                                     required
-                                    className="w-full h-12 rounded-xl bg-[#111113] border border-[#2A2A2E] px-4 text-white placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                                    className="w-full h-12 rounded-xl bg-[#111113] border border-[#2A2A2E] px-4 text-white placeholder-[#6B6B70] focus:outline-none transition-all"
                                 />
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="wl-input-group space-y-2">
                                 <label className="text-white text-sm font-medium">Email</label>
                                 <input
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="you@company.com"
+                                    placeholder="you@project.com"
                                     required
-                                    className="w-full h-12 rounded-xl bg-[#111113] border border-[#2A2A2E] px-4 text-white placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                                    className="w-full h-12 rounded-xl bg-[#111113] border border-[#2A2A2E] px-4 text-white placeholder-[#6B6B70] focus:outline-none transition-all"
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-white text-sm font-medium">Password</label>
-                                <div className="relative">
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="Create a password (min 6 characters)"
-                                        required
-                                        minLength={6}
-                                        className="w-full h-12 rounded-xl bg-[#111113] border border-[#2A2A2E] px-4 pr-12 text-white placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B6B70] hover:text-white"
-                                    >
-                                        <span className="material-symbols-sharp text-xl" style={{ fontVariationSettings: "'wght' 300" }}>
-                                            {showPassword ? 'visibility_off' : 'visibility'}
-                                        </span>
-                                    </button>
-                                </div>
+                            <div className="wl-input-group space-y-2">
+                                <label className="text-white text-sm font-medium">
+                                    Project Name <span className="text-[#6B6B70] font-normal">(optional)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={projectName}
+                                    onChange={(e) => setProjectName(e.target.value)}
+                                    placeholder="e.g. Uniswap, Aave, your project"
+                                    className="w-full h-12 rounded-xl bg-[#111113] border border-[#2A2A2E] px-4 text-white placeholder-[#6B6B70] focus:outline-none transition-all"
+                                />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-white text-sm font-medium">Confirm Password</label>
+                            <div className="wl-input-group space-y-2">
+                                <label className="text-white text-sm font-medium">
+                                    Website or Twitter <span className="text-[#6B6B70] font-normal">(optional)</span>
+                                </label>
                                 <input
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Confirm your password"
-                                    required
-                                    className="w-full h-12 rounded-xl bg-[#111113] border border-[#2A2A2E] px-4 text-white placeholder-[#6B6B70] focus:border-[#FF5C00] focus:outline-none transition-colors"
+                                    type="text"
+                                    value={projectUrl}
+                                    onChange={(e) => setProjectUrl(e.target.value)}
+                                    placeholder="https://... or @handle"
+                                    className="w-full h-12 rounded-xl bg-[#111113] border border-[#2A2A2E] px-4 text-white placeholder-[#6B6B70] focus:outline-none transition-all"
                                 />
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-12 rounded-xl bg-[#FF5C00] hover:bg-[#FF6B1A] disabled:opacity-50 text-white font-semibold flex items-center justify-center gap-2 transition-colors"
+                                className="wl-submit-btn w-full h-12 rounded-xl bg-gradient-to-r from-[#FF5C00] to-[#FF8A4C] hover:from-[#FF6B1A] hover:to-[#FF9A5C] disabled:opacity-50 text-white font-semibold flex items-center justify-center gap-2 transition-all"
                             >
                                 {isLoading ? (
-                                    <span className="material-symbols-sharp text-xl animate-spin" style={{ fontVariationSettings: "'wght' 300" }}>
+                                    <span className="material-symbols-sharp text-xl animate-spin" style={{ fontVariationSettings: "'wght' 300", position: 'relative', zIndex: 1 }}>
                                         progress_activity
                                     </span>
                                 ) : (
-                                    'Create Account'
+                                    <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span className="material-symbols-sharp text-lg" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>
+                                            rocket_launch
+                                        </span>
+                                        Join the Waitlist
+                                    </span>
                                 )}
                             </button>
 
                             <p className="text-center text-[#8E8E93] text-sm">
-                                Already have an account?{' '}
+                                Already have access?{' '}
                                 <button
                                     type="button"
                                     onClick={() => handleModeSwitch('login')}
@@ -375,6 +481,150 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                                 </button>
                             </p>
                         </form>
+                    )}
+
+                    {/* Waitlist Success State */}
+                    {mode === 'signup' && waitlistSubmitted && (
+                        <div className="space-y-6" style={{ animation: 'wl-fade-up 0.5s ease-out' }}>
+                            {/* Animated checkmark */}
+                            <div className="flex justify-center">
+                                <div
+                                    className="relative"
+                                    style={{
+                                        width: '80px',
+                                        height: '80px',
+                                    }}
+                                >
+                                    {/* Pulse rings */}
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            inset: '-12px',
+                                            borderRadius: '50%',
+                                            border: '2px solid rgba(255, 92, 0, 0.2)',
+                                            animation: 'wl-pulse-ring 2s ease-in-out infinite',
+                                        }}
+                                    />
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            inset: '-24px',
+                                            borderRadius: '50%',
+                                            border: '1px solid rgba(255, 92, 0, 0.1)',
+                                            animation: 'wl-pulse-ring 2s ease-in-out 0.5s infinite',
+                                        }}
+                                    />
+                                    {/* Circle + check */}
+                                    <div
+                                        className="flex items-center justify-center"
+                                        style={{
+                                            width: '80px',
+                                            height: '80px',
+                                            borderRadius: '50%',
+                                            background: 'linear-gradient(135deg, rgba(255,92,0,0.15), rgba(255,138,76,0.1))',
+                                            border: '2px solid rgba(255, 92, 0, 0.3)',
+                                            animation: 'wl-float 3s ease-in-out infinite',
+                                        }}
+                                    >
+                                        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                                            <path
+                                                d="M10 18L16 24L26 12"
+                                                stroke="#FF5C00"
+                                                strokeWidth="3"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeDasharray="50"
+                                                style={{ animation: 'wl-check-draw 0.6s ease-out 0.3s forwards', strokeDashoffset: 50 }}
+                                            />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Position badge */}
+                            {waitlistPosition > 0 && (
+                                <div
+                                    className="flex justify-center"
+                                    style={{ animation: 'wl-fade-up 0.5s ease-out 0.2s backwards' }}
+                                >
+                                    <div
+                                        style={{
+                                            padding: '10px 24px',
+                                            borderRadius: '100px',
+                                            background: 'linear-gradient(135deg, rgba(255,92,0,0.1), rgba(255,138,76,0.05))',
+                                            border: '1px solid rgba(255, 92, 0, 0.2)',
+                                        }}
+                                    >
+                                        <span style={{ fontFamily: 'monospace', fontSize: '14px', color: '#FF8A4C', fontWeight: 600 }}>
+                                            #{waitlistPosition}
+                                        </span>
+                                        <span className="text-[#8E8E93] text-sm ml-2">on the waitlist</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Info */}
+                            <div
+                                className="text-center space-y-3"
+                                style={{ animation: 'wl-fade-up 0.5s ease-out 0.4s backwards' }}
+                            >
+                                <p className="text-[#D1D5DB] text-sm leading-relaxed">
+                                    We're onboarding teams in batches. You'll receive an email
+                                    at <span className="text-[#FF5C00] font-medium">{email}</span> with
+                                    your login credentials when your spot opens up.
+                                </p>
+                            </div>
+
+                            {/* What to expect */}
+                            <div
+                                className="bg-[#111113] border border-[#2A2A2E] rounded-xl p-5 space-y-3"
+                                style={{ animation: 'wl-fade-up 0.5s ease-out 0.6s backwards' }}
+                            >
+                                <p className="text-[#8E8E93] text-xs font-semibold uppercase tracking-wider">What happens next</p>
+                                {[
+                                    { icon: 'mail', text: 'Confirmation email sent to your inbox' },
+                                    { icon: 'hourglass_top', text: 'We review and prioritize your spot' },
+                                    { icon: 'key', text: 'You get access with founding member perks' },
+                                ].map((step, i) => (
+                                    <div key={i} className="flex items-center gap-3">
+                                        <div className="w-7 h-7 rounded-lg bg-[#FF5C00]/10 flex items-center justify-center flex-shrink-0">
+                                            <span className="material-symbols-sharp text-[#FF5C00] text-sm" style={{ fontVariationSettings: "'wght' 300" }}>
+                                                {step.icon}
+                                            </span>
+                                        </div>
+                                        <span className="text-[#D1D5DB] text-sm">{step.text}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Follow CTA */}
+                            <div
+                                className="text-center"
+                                style={{ animation: 'wl-fade-up 0.5s ease-out 0.8s backwards' }}
+                            >
+                                <p className="text-[#6B6B70] text-xs mb-3">Follow us for updates</p>
+                                <a
+                                    href="https://x.com/defiaio"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1A1A1E] border border-[#2A2A2E] text-white text-sm font-medium hover:bg-[#222226] transition-colors"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                    @defiaio
+                                </a>
+                            </div>
+
+                            <p className="text-center text-[#8E8E93] text-sm">
+                                Already have access?{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => { setWaitlistSubmitted(false); handleModeSwitch('login'); }}
+                                    className="text-[#FF5C00] font-medium hover:underline"
+                                >
+                                    Sign in
+                                </button>
+                            </p>
+                        </div>
                     )}
 
                     {/* Forgot Password Form */}
@@ -416,16 +666,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                                 </button>
                             </p>
                         </form>
-                    )}
-
-                    {/* Terms */}
-                    {mode === 'signup' && (
-                        <p className="text-center text-[#6B6B70] text-xs">
-                            By creating an account, you agree to our{' '}
-                            <a href="/terms" className="text-[#FF5C00] hover:underline">Terms of Service</a>
-                            {' '}and{' '}
-                            <a href="/privacy" className="text-[#FF5C00] hover:underline">Privacy Policy</a>
-                        </p>
                     )}
 
                     {/* Demo Accounts Info — only in dev mode */}

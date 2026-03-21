@@ -1,5 +1,807 @@
 [
   {
+    "id": "1773777613544",
+    "timestamp": "2026-03-17T20:00:13.544Z",
+    "type": "TREND_JACK",
+    "topic": "ZEC rally after Cypherpunk's profit report",
+    "goal": "Capture attention from ZEC traders and drive interest in Arbitrum's platform",
+    "instructions": "ZEC rallies 20% after Cypherpunk's profit report! What's next for the crypto market? Arbitrum's platform offers a secure and decentralized environment for traders to capitalize on market trends.",
+    "reasoning": "The recent ZEC rally after Cypherpunk's profit report triggered this recommendation.",
+    "hook": "The ZEC Rally",
+    "strategicAlignment": "References Arbitrum's platform and decentralized transactions",
+    "contentIdeas": [
+      "Contrarian angle on ZEC rally",
+      "Data-backed variant on DeFi growth"
+    ],
+    "dataSource": "ZEC rally after Cypherpunk's profit report",
+    "originalTweet": {
+      "author": "@arbitrum",
+      "text": "ZEC rallies 20% after Cypherpunk's profit report!"
+    },
+    "action": "TREND_JACK",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773777613334",
+    "timestamp": "2026-03-17T20:00:13.334Z",
+    "type": "REPLY",
+    "topic": "Mentorship program inquiry",
+    "goal": "Respond to user inquiry and drive interest in the mentorship program",
+    "instructions": "Thanks for your interest in the Arbitrum Mentorship Program! Our program offers hands-on mentorship from leading ecosystem teams and builders. Apply now and get access to curated investor sessions and a chance to win $100K in awards.",
+    "reasoning": "The user inquiry about the mentorship program triggered this recommendation.",
+    "hook": "The Mentorship Advantage",
+    "strategicAlignment": "References Arbitrum's mentorship program and ecosystem support",
+    "contentIdeas": [
+      "Narrative tie-in to trending topic of DeFi growth",
+      "Data-backed variant on institutional adoption"
+    ],
+    "dataSource": "User inquiry about the mentorship program",
+    "originalTweet": {
+      "author": "@arbitrum",
+      "text": "Introducing the Arbitrum Mentorship Program."
+    },
+    "action": "REPLY",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773777613181",
+    "timestamp": "2026-03-17T20:00:13.181Z",
+    "type": "CAMPAIGN",
+    "topic": "Stablecoin expansion on Arbitrum",
+    "goal": "Drive 100+ new users to the Arbitrum platform",
+    "instructions": "Campaign brief: 'Stablecoin Expansion on Arbitrum' aims to educate users on the benefits of using stablecoins on our platform. Opening tweet draft: 'Get ready to experience the power of stablecoins on Arbitrum! Our platform offers fast, secure, and decentralized transactions.'",
+    "reasoning": "The recent expansion of PayPal's PYUSD stablecoin globally triggered this recommendation.",
+    "hook": "The Stablecoin Revolution",
+    "strategicAlignment": "References Arbitrum's support for stablecoins and decentralized transactions",
+    "contentIdeas": [
+      "Contrarian angle on stablecoin adoption",
+      "Data-backed variant on DeFi growth"
+    ],
+    "dataSource": "PayPal's recent expansion of PYUSD stablecoin",
+    "action": "CAMPAIGN",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773777613024",
+    "timestamp": "2026-03-17T20:00:13.024Z",
+    "type": "THREAD",
+    "topic": "DeFi education for researchers",
+    "goal": "Capture institutional trader attention",
+    "instructions": "1/ Introduction to DeFi on Arbitrum: why our platform is the top choice for institutional traders. 2/ The benefits of native MPC key management for self-custody. 3/ How our sequencer technology enables sequencer-level speed.",
+    "reasoning": "The lack of educational content for DeFi researchers triggered this recommendation.",
+    "hook": "The DeFi Primer",
+    "strategicAlignment": "References Arbitrum's DeFi ecosystem and educational resources",
+    "contentIdeas": [
+      "Narrative tie-in to trending topic of DeFi growth",
+      "Data-backed variant on institutional adoption"
+    ],
+    "dataSource": "Arbitrum's DeFi ecosystem and educational resources",
+    "action": "THREAD",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773777612505",
+    "timestamp": "2026-03-17T20:00:12.505Z",
+    "type": "TWEET",
+    "topic": "Institutional deployment on Arbitrum",
+    "goal": "Drive 50+ RTs from DeFi researchers",
+    "instructions": "Institutional traders are flocking to Arbitrum for its native MPC key management and sequencer-level speed. We're the first protocol to offer self-custody at sequencer-level speed.",
+    "reasoning": "The recent report highlighting Arbitrum's emergence as a top choice for institutional deployment triggered this recommendation.",
+    "hook": "The Institutional Edge",
+    "strategicAlignment": "References Arbitrum's native MPC key management and sequencer technology",
+    "contentIdeas": [
+      "Contrarian angle on institutional adoption",
+      "Data-backed variant on DeFi growth"
+    ],
+    "dataSource": "Arbitrum's recent report on institutional deployment",
+    "action": "TWEET",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773748812520",
+    "timestamp": "2026-03-17T12:00:12.520Z",
+    "type": "TREND_JACK",
+    "topic": "The impact of Bitcoin's 'bull trap' warning on the broader crypto market",
+    "goal": "Capture attention from 50+ crypto traders and investors",
+    "instructions": "Bitcoin's 'bull trap' warning is a reminder that market volatility is here to stay - but with Arbitrum's scalable and secure infrastructure, DeFi traders can stay ahead of the curve",
+    "reasoning": "The recent trend of Bitcoin's 'bull trap' warning presents an opportunity to highlight the importance of scalable and secure DeFi infrastructure, such as Arbitrum's sequencer technology.",
+    "hook": "The Volatility Shield",
+    "strategicAlignment": "References Arbitrum's sequencer technology because it addresses the market need for scalable and secure DeFi infrastructure",
+    "contentIdeas": [
+      "Volatility analysis",
+      "Data-backed comparison of DeFi infrastructure",
+      "Narrative tie-in to trending market topics"
+    ],
+    "dataSource": "Bitcoin sparks ‘bull trap’ warning after BTC price rejects at $76K trend",
+    "action": "TREND_JACK",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773748812300",
+    "timestamp": "2026-03-17T12:00:12.300Z",
+    "type": "REPLY",
+    "topic": "Addressing concerns about Arbitrum's sequencer technology",
+    "goal": "Resolve concerns from 5+ users and establish credibility",
+    "instructions": "our sequencer tech is designed with security and scalability in mind - we've implemented multiple layers of protection to ensure the integrity of transactions and user funds",
+    "reasoning": "A recent mention expressed concerns about the security of Arbitrum's sequencer technology, which needs to be addressed to maintain user trust and confidence.",
+    "hook": "The Security Guarantee",
+    "strategicAlignment": "References Arbitrum's sequencer technology security features because they address user concerns and maintain credibility",
+    "contentIdeas": [
+      "Security feature overview",
+      "Data-backed analysis of security track record",
+      "Narrative tie-in to trending security topics"
+    ],
+    "dataSource": "Mention from @concerneduser",
+    "action": "REPLY",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773748812131",
+    "timestamp": "2026-03-17T12:00:12.131Z",
+    "type": "CAMPAIGN",
+    "topic": "Arbitrum's approach to regulatory compliance in the DeFi space",
+    "goal": "Establish Arbitrum as a thought leader in regulatory compliance and capture attention from 10+ regulatory bodies",
+    "instructions": "campaign brief: 'Regulatory Clarity in DeFi' - a series of articles and webinars highlighting Arbitrum's approach to compliance and regulatory engagement. opening tweet draft: 'regulatory clarity is key to DeFi adoption - our upcoming campaign will explore the intersection of regulation and innovation in the DeFi space'",
+    "reasoning": "The recent regulatory pushback against prediction markets highlights the need for clear and compliant regulatory approaches in the DeFi space, which Arbitrum can address through thought leadership and education.",
+    "hook": "The Compliance Compass",
+    "strategicAlignment": "References Arbitrum's regulatory compliance approach because it addresses the market gap of unclear and inconsistent regulatory frameworks",
+    "contentIdeas": [
+      "Regulatory landscape analysis",
+      "Compliance best practices",
+      "Narrative tie-in to trending regulatory topics"
+    ],
+    "dataSource": "Regulatory pushback against prediction markets trend",
+    "action": "CAMPAIGN",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773748811982",
+    "timestamp": "2026-03-17T12:00:11.982Z",
+    "type": "THREAD",
+    "topic": "The benefits of Arbitrum's Mentorship Program for early-stage DeFi projects",
+    "goal": "Capture attention from 20+ early-stage DeFi project founders",
+    "instructions": "1/ introducing the Arbitrum Mentorship Program, where early-stage projects get access to our ecosystem, investor network, and sequencer tech. 2/ our program provides hands-on mentorship from leading Arbitrum ecosystem teams and builders. 3/ apply now and take the first step towards scaling your DeFi project on Arbitrum",
+    "reasoning": "The recent introduction of the Mentorship Program presents an opportunity to highlight Arbitrum's commitment to ecosystem development and support for early-stage projects.",
+    "hook": "The Mentorship Advantage",
+    "strategicAlignment": "References Arbitrum's Mentorship Program because it addresses the market gap of limited support for early-stage DeFi projects",
+    "contentIdeas": [
+      "Success stories of program participants",
+      "Data-backed analysis of program impact",
+      "Narrative tie-in to trending ecosystem development topics"
+    ],
+    "dataSource": "Arbitrum's Mentorship Program announcement",
+    "action": "THREAD",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773748811476",
+    "timestamp": "2026-03-17T12:00:11.476Z",
+    "type": "TWEET",
+    "topic": "Arbitrum's sequencer technology and its impact on DeFi scalability",
+    "goal": "Drive 50+ RTs from DeFi researchers and institutional traders",
+    "instructions": "our sequencer tech enables 10x faster transaction processing than leading L1s, making Arbitrum the go-to for high-frequency DeFi traders",
+    "reasoning": "The recent trend of Ethereum's price rebound and the growing interest in Layer 2 solutions highlight the need for scalable DeFi infrastructure, which Arbitrum's sequencer technology addresses.",
+    "hook": "The Sequencer Advantage",
+    "strategicAlignment": "References Arbitrum's sequencer technology because it addresses the market gap of slow transaction processing on Layer 1 solutions",
+    "contentIdeas": [
+      "Contrarian angle on L1 vs L2",
+      "Data-backed comparison of sequencer tech",
+      "Narrative tie-in to trending DeFi topics"
+    ],
+    "dataSource": "Ethereum price rebound trend and Arbitrum's sequencer technology",
+    "action": "TWEET",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773669612641",
+    "timestamp": "2026-03-16T14:00:12.641Z",
+    "type": "QRT",
+    "topic": "Institutional investment in crypto",
+    "goal": "Drive 20+ RTs from institutional investors",
+    "instructions": "QRT @brian_armstrong: 'Freedom to invest should be a human right. People with the ability to invest out-earn those relying only on wages.' Defia's Web3-native creative studio helps protocols tell their story and scale, enabling institutional investors to participate in the ecosystem.",
+    "reasoning": "Brian Armstrong's tweet about the importance of investment freedom creates an opportunity for Defia to highlight its role in enabling institutional investment in crypto",
+    "hook": "The Investment Freedom",
+    "strategicAlignment": "References Defia's Web3-native creative studio and software suite because institutional investors need professionalized marketing solutions to participate in the ecosystem",
+    "contentIdeas": [
+      "Contrarian angle on investment freedom",
+      "Data-backed variant on crypto adoption"
+    ],
+    "dataSource": "@brian_armstrong tweet about investment freedom",
+    "originalTweet": {
+      "author": "@brian_armstrong",
+      "text": "Freedom to invest should be a human right. People with the ability to invest out-earn those relying only on wages."
+    },
+    "action": "QRT",
+    "brandId": "Defia",
+    "status": "pending"
+  },
+  {
+    "id": "1773669612488",
+    "timestamp": "2026-03-16T14:00:12.488Z",
+    "type": "REPLY",
+    "topic": "Inquiry about Defia's services",
+    "goal": "Respond to inquiry and drive 1+ conversion",
+    "instructions": "Hi there, thanks for reaching out about Defia's services. Our Web3-native creative studio and software suite can help your protocol tell its story and scale. Let's discuss how we can support your growth.",
+    "reasoning": "A genuine question from a potential client creates an opportunity for Defia to showcase its services and build a relationship",
+    "hook": "The Growth Partner",
+    "strategicAlignment": "References Defia's Web3-native creative studio and software suite because protocols need personalized support to grow",
+    "contentIdeas": [
+      "Narrative tie-in to trending topic of protocol growth",
+      "Data-backed variant on Defia's services"
+    ],
+    "dataSource": "Inquiry from potential client",
+    "action": "REPLY",
+    "brandId": "Defia",
+    "status": "pending"
+  },
+  {
+    "id": "1773669612320",
+    "timestamp": "2026-03-16T14:00:12.320Z",
+    "type": "CAMPAIGN",
+    "topic": "Defia's professionalized Web3 marketing capabilities",
+    "goal": "Drive 100+ sign-ups for Defia's Web3-native creative studio and software suite",
+    "instructions": "Introducing Defia's Web3 Marketing Mastery campaign. Learn how our professionalized Web3 marketing capabilities can help your protocol scale in a rapidly evolving regulatory landscape. Opening tweet: 'Take your protocol to the next level with Defia's Web3-native creative studio and software suite'",
+    "reasoning": "Defia's unique value proposition lies in its professionalized Web3 marketing capabilities, which can be highlighted through a targeted campaign",
+    "hook": "Web3 Marketing Mastery",
+    "strategicAlignment": "References Defia's Web3-native creative studio and software suite because protocols need professionalized marketing solutions to scale",
+    "contentIdeas": [
+      "Contrarian angle on Web3 marketing",
+      "Data-backed variant on protocol growth"
+    ],
+    "dataSource": "Defia's mission to professionalize Web3 marketing",
+    "action": "CAMPAIGN",
+    "brandId": "Defia",
+    "status": "pending"
+  },
+  {
+    "id": "1773669612167",
+    "timestamp": "2026-03-16T14:00:12.167Z",
+    "type": "THREAD",
+    "topic": "Regulatory efforts in Australia",
+    "goal": "Capture attention from regulatory bodies and industry leaders",
+    "instructions": "1/ Australia is moving to regulate crypto platforms. Defia's compliance capabilities can help protocols navigate this new landscape. 2/ Our Web3-native creative studio and software suite are designed with regulatory considerations in mind. 3/ Learn more about how Defia can support your protocol's growth in a regulated environment.",
+    "reasoning": "The Australian Senate committee's backing of a crypto platform licensing bill creates an opportunity for Defia to highlight its compliance capabilities",
+    "hook": "The Regulatory Shield",
+    "strategicAlignment": "References Defia's compliance capabilities because regulatory efforts in Australia create a need for protocols to adapt",
+    "contentIdeas": [
+      "Narrative tie-in to trending topic of regulation",
+      "Data-backed variant on compliance"
+    ],
+    "dataSource": "Australian Senate committee backs crypto platform licensing bill",
+    "action": "THREAD",
+    "brandId": "Defia",
+    "status": "pending"
+  },
+  {
+    "id": "1773669611861",
+    "timestamp": "2026-03-16T14:00:11.861Z",
+    "type": "TWEET",
+    "topic": "Institutional investment in crypto",
+    "goal": "Drive 50+ RTs from DeFi researchers",
+    "instructions": "Institutional investors are flocking to crypto. Defia's Web3-native creative studio helps protocols tell their story and scale. Learn more about our professionalized Web3 marketing capabilities.",
+    "reasoning": "The recent $1.06 billion in inflows into crypto ETPs signals increasing institutional interest in the space. Defia can capitalize on this trend by highlighting its capabilities.",
+    "hook": "The Institutional Wave",
+    "strategicAlignment": "References Defia's Web3-native creative studio and software suite because institutional investors need professionalized marketing solutions",
+    "contentIdeas": [
+      "Contrarian angle on institutional investment",
+      "Data-backed variant on crypto adoption"
+    ],
+    "dataSource": "Crypto ETPs recorded $1.06 billion in inflows last week",
+    "action": "TWEET",
+    "brandId": "Defia",
+    "status": "pending"
+  },
+  {
+    "id": "1773658812719",
+    "timestamp": "2026-03-16T11:00:12.719Z",
+    "type": "QRT",
+    "topic": "Crypto regulation",
+    "goal": "Capture regulatory attention",
+    "instructions": "regulatory clarity is key to mainstream adoption. @zachxbt's investigation on john daghita is a step towards a more transparent crypto space.",
+    "reasoning": "The tweet by @zachxbt on John Daghita's arrest highlights the importance of regulatory clarity in the crypto space.",
+    "hook": "Regulatory Transparency",
+    "strategicAlignment": "References Meme's commitment to regulatory compliance",
+    "contentIdeas": [
+      "Regulatory updates",
+      "Compliance guides"
+    ],
+    "dataSource": "@zachxbt's tweet on John Daghita",
+    "originalTweet": {
+      "author": "@zachxbt",
+      "text": "John Daghita (Lick) was arrested in the Caribbean yesterday as a direct result of my investigation."
+    },
+    "action": "QRT",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773658812567",
+    "timestamp": "2026-03-16T11:00:12.567Z",
+    "type": "TREND_JACK",
+    "topic": "US-Iran war's impact on crypto",
+    "goal": "Drive 20+ RTs from geopolitical enthusiasts",
+    "instructions": "oil prices soaring due to us-iran tensions. how will this impact crypto? $btc outperforming gold and nasdaq100 so far.",
+    "reasoning": "The trend of the US-Iran war's impact on crypto, as reported by @CryptoHayes, presents an opportunity for Meme to provide timely insights.",
+    "hook": "Crypto and Geopolitics",
+    "strategicAlignment": "References Meme's market analysis capabilities",
+    "contentIdeas": [
+      "Geopolitical analysis",
+      "Market updates"
+    ],
+    "dataSource": "Bitcoin Advances as Oil Jumps Toward $100 on Further Middle East Strikes",
+    "action": "TREND_JACK",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773658812398",
+    "timestamp": "2026-03-16T11:00:12.398Z",
+    "type": "CAMPAIGN",
+    "topic": "Crypto education for Gen Z",
+    "goal": "Increase engagement among young traders",
+    "instructions": "Introducing Meme's Crypto 101 series, designed to educate and empower the next generation of traders. Stay tuned for more updates!",
+    "reasoning": "The growing interest in crypto among Gen Z presents an opportunity for Meme to establish itself as a thought leader in crypto education.",
+    "hook": "Crypto 101",
+    "strategicAlignment": "References Meme's educational resources",
+    "contentIdeas": [
+      "Video tutorials",
+      "Interactive quizzes"
+    ],
+    "dataSource": "Australia's securities regulator report",
+    "action": "CAMPAIGN",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773658811980",
+    "timestamp": "2026-03-16T11:00:11.980Z",
+    "type": "THREAD",
+    "topic": "Tokenization and its benefits",
+    "goal": "Capture institutional trader attention",
+    "instructions": "1/ Tokenization is changing the game for asset access. \n2/ With Meme's tokenization capabilities, traders can access a wider range of assets. \n3/ But what does this mean for the future of trading?",
+    "reasoning": "The trend towards tokenization, as mentioned by @brian_armstrong, presents an opportunity for Meme to highlight its tokenization capabilities.",
+    "hook": "Tokenization Revolution",
+    "strategicAlignment": "References Meme's tokenization features",
+    "contentIdeas": [
+      "Explainer on tokenization",
+      "Case studies on successful tokenization"
+    ],
+    "dataSource": "@brian_armstrong's tweet on tokenization",
+    "action": "THREAD",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773658811682",
+    "timestamp": "2026-03-16T11:00:11.682Z",
+    "type": "TWEET",
+    "topic": "Gen Z's crypto adoption",
+    "goal": "Drive 50+ RTs from crypto enthusiasts",
+    "instructions": "gen z is leading the crypto charge. 23% already invested. what's next for this generation of traders?",
+    "reasoning": "The trend of Gen Z's growing interest in crypto, as reported by Australia's securities regulator, presents an opportunity for Meme to connect with this demographic.",
+    "hook": "Crypto Gen Z",
+    "strategicAlignment": "References Meme's educational resources",
+    "contentIdeas": [
+      "Infographic on Gen Z's crypto adoption",
+      "Testimonials from young traders"
+    ],
+    "dataSource": "Australia's securities regulator report",
+    "action": "TWEET",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773633611874",
+    "timestamp": "2026-03-16T04:00:11.874Z",
+    "type": "QRT",
+    "topic": "AI-driven crypto transactions",
+    "goal": "Drive engagement from AI and crypto enthusiasts",
+    "instructions": "RT @brian_armstrong: Freedom to invest should be a human right. People with the ability to invest out-earn those relying only on wages. our sequencer is ready for AI-driven crypto transactions",
+    "reasoning": "The integration of Ledger hardware wallets with MoonPay for AI-driven crypto transactions triggered this recommendation",
+    "hook": "The AI-Driven Revolution",
+    "strategicAlignment": "References Meme's sequencer feature because of its compatibility with AI-driven crypto transactions",
+    "contentIdeas": [
+      "Contrarian angle on AI-driven crypto transactions",
+      "Narrative tie-in to trending topic of AI and crypto"
+    ],
+    "dataSource": "Brian Armstrong's tweet on AI-driven crypto transactions",
+    "originalTweet": {
+      "author": "@brian_armstrong",
+      "text": "Freedom to invest should be a human right. People with the ability to invest out-earn those relying only on wages."
+    },
+    "action": "QRT",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773633611713",
+    "timestamp": "2026-03-16T04:00:11.713Z",
+    "type": "REPLY",
+    "topic": "Institutional custody solutions",
+    "goal": "Address the question of institutional custody solutions",
+    "instructions": "our sequencer provides native MPC key management for secure and decentralized transactions",
+    "reasoning": "The mention of institutional custody solutions triggered this recommendation",
+    "hook": "The Custody Solution",
+    "strategicAlignment": "References Meme's sequencer feature because of its ability to provide institutional custody solutions",
+    "contentIdeas": [
+      "Data-backed analysis of institutional custody solutions",
+      "Narrative tie-in to trending topic of crypto market trends"
+    ],
+    "dataSource": "Mention of institutional custody solutions",
+    "action": "REPLY",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773633611548",
+    "timestamp": "2026-03-16T04:00:11.548Z",
+    "type": "CAMPAIGN",
+    "topic": "Decentralized solutions",
+    "goal": "Position Meme as a leader in decentralized solutions",
+    "instructions": "Introducing Meme's Decentralized Solutions campaign. Our sequencer provides native MPC key management for secure and decentralized transactions.",
+    "reasoning": "The CLARITY Act's risk of handing crypto to centralized players triggered this recommendation",
+    "hook": "The Decentralized Revolution",
+    "strategicAlignment": "References Meme's sequencer feature because of its ability to provide decentralized solutions",
+    "contentIdeas": [
+      "Contrarian angle on regulatory risks",
+      "Narrative tie-in to trending topic of decentralized solutions"
+    ],
+    "dataSource": "CLARITY Act risks",
+    "action": "CAMPAIGN",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773633611396",
+    "timestamp": "2026-03-16T04:00:11.396Z",
+    "type": "THREAD",
+    "topic": "Ethereum node software updates",
+    "goal": "Capture the attention of Ethereum developers",
+    "instructions": "1/ The Ethereum node software update is a game-changer. 2/ Simplifying Ethereum node software will increase adoption. 3/ Meme's sequencer is ready for the update",
+    "reasoning": "Vitalik Buterin's promotion of an update simplifying Ethereum node software triggered this recommendation",
+    "hook": "The Ethereum Upgrade",
+    "strategicAlignment": "References Meme's sequencer feature because of its compatibility with Ethereum node software updates",
+    "contentIdeas": [
+      "Narrative tie-in to trending topic of Ethereum updates",
+      "Data-backed analysis of Ethereum node software complexity"
+    ],
+    "dataSource": "Vitalik Buterin's tweet on Ethereum node software updates",
+    "action": "THREAD",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773633610941",
+    "timestamp": "2026-03-16T04:00:10.941Z",
+    "type": "TWEET",
+    "topic": "Bitcoin price trends",
+    "goal": "Drive 50+ RTs from crypto enthusiasts",
+    "instructions": "bitcoin breaking $70k. what's next? institutional custody isn't waiting for L2 maturity. we built native MPC key management into our sequencer",
+    "reasoning": "The trend of Bitcoin price teases key support reclaims with weekly close above $70K triggered this recommendation",
+    "hook": "The Bitcoin Breakout",
+    "strategicAlignment": "References Meme's sequencer feature because of its ability to provide institutional custody solutions",
+    "contentIdeas": [
+      "Contrarian angle on Bitcoin price trends",
+      "Data-backed analysis of crypto market trends"
+    ],
+    "dataSource": "Bitcoin price trends",
+    "action": "TWEET",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773608412121",
+    "timestamp": "2026-03-15T21:00:12.121Z",
+    "type": "TREND_JACK",
+    "topic": "Altseason is dead, expect shorter cycles and 'violent' rotations",
+    "goal": "Drive 30+ RTs from crypto enthusiasts",
+    "instructions": "altseason may be dead, but Meme's sequencer-level self-custody is still thriving. don't get left behind in the rotations.",
+    "reasoning": "The trend headline 'Altseason is dead, expect shorter cycles and 'violent' rotations' highlights the changing landscape of crypto, which Meme can capitalize on with its sequencer-level self-custody capability.",
+    "hook": "The Altseason Aftermath",
+    "strategicAlignment": "References Meme's sequencer-level self-custody feature because it addresses the market gap of slow custody speeds",
+    "contentIdeas": [
+      "Contrarian angle on altseason",
+      "Data-backed variant on sequencer-level self-custody",
+      "Narrative tie-in to trending topic of crypto rotations"
+    ],
+    "dataSource": "Trend headline 'Altseason is dead, expect shorter cycles and 'violent' rotations'",
+    "action": "TREND_JACK",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773608411962",
+    "timestamp": "2026-03-15T21:00:11.962Z",
+    "type": "REPLY",
+    "topic": "Addressing FUD on Meme's sequencer-level self-custody",
+    "goal": "Drive 20+ likes from DeFi enthusiasts",
+    "instructions": "'@user we understand your concerns about sequencer-level self-custody, but our native MPC key management ensures secure and fast transactions. Learn more about our self-sovereign methods.",
+    "reasoning": "The mention from @user 'I'm not sure about Meme's sequencer-level self-custody' highlights the need to address FUD and educate users on Meme's self-sovereign methods.",
+    "hook": "The FUD Buster",
+    "strategicAlignment": "References Meme's native MPC key management feature because it addresses the market gap of slow custody speeds",
+    "contentIdeas": [
+      "Contrarian angle on FUD",
+      "Data-backed variant on sequencer-level self-custody",
+      "Narrative tie-in to trending topic of self-sovereign methods"
+    ],
+    "dataSource": "Mention from @user 'I'm not sure about Meme's sequencer-level self-custody'",
+    "action": "REPLY",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773608411808",
+    "timestamp": "2026-03-15T21:00:11.808Z",
+    "type": "CAMPAIGN",
+    "topic": "Meme's self-sovereign methods and custody speed",
+    "goal": "Drive 100+ new users to Meme's platform",
+    "instructions": "Campaign brief: Highlight Meme's self-sovereign methods and custody speed through a series of tweets and threads. \nOpening tweet draft: 'Take control of your assets with Meme's self-sovereign methods and sequencer-level self-custody. Join the movement towards decentralized finance.'",
+    "reasoning": "The recent trend 'Vitalik Buterin promotes an update simplifying Ethereum node software' highlights the importance of self-sovereign methods, which Meme can capitalize on with its sequencer-level self-custody capability.",
+    "hook": "The Self-Sovereign Movement",
+    "strategicAlignment": "References Meme's self-sovereign methods feature because it addresses the market gap of slow custody speeds",
+    "contentIdeas": [
+      "Contrarian angle on self-sovereign methods",
+      "Data-backed variant on custody speed",
+      "Narrative tie-in to trending topic of decentralized finance"
+    ],
+    "dataSource": "Trend headline 'Vitalik Buterin promotes an update simplifying Ethereum node software'",
+    "action": "CAMPAIGN",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773608411659",
+    "timestamp": "2026-03-15T21:00:11.659Z",
+    "type": "THREAD",
+    "topic": "The impact of AI on trading",
+    "goal": "Capture institutional trader attention",
+    "instructions": "1/ AI is changing the trading landscape with 25% of traders using AI tools. \n2/ But what does this mean for decentralized finance and self-sovereign methods? \n3/ Meme's sequencer-level self-custody is the solution to the AI-driven trading landscape.",
+    "reasoning": "The tweet from @MustStopMurad 'AI will massively reduce the inefficiencies and opportunities in short-term financial markets' highlights the impact of AI on trading, which Meme can address with its sequencer-level self-custody capability.",
+    "hook": "The AI Trading Shift",
+    "strategicAlignment": "References Meme's sequencer-level self-custody feature because it addresses the market gap of AI-driven trading",
+    "contentIdeas": [
+      "Contrarian angle on AI trading",
+      "Data-backed variant on sequencer-level self-custody",
+      "Narrative tie-in to trending topic of AI impact"
+    ],
+    "dataSource": "Tweet from @MustStopMurad 'AI will massively reduce the inefficiencies and opportunities in short-term financial markets'",
+    "action": "THREAD",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773608411208",
+    "timestamp": "2026-03-15T21:00:11.208Z",
+    "type": "TWEET",
+    "topic": "Custody speed and sequencer-level self-custody",
+    "goal": "Drive 50+ RTs from DeFi researchers",
+    "instructions": "we built native MPC key management into our sequencer so traders can self-custody at sequencer-level speed. first protocol to do this.",
+    "reasoning": "The recent trend 'Ethereum Foundation Sells 5,000 ETH for $10.2M in OTC Deal' highlights the importance of self-sovereign methods and custody speed, which Meme can capitalize on with its sequencer-level self-custody capability.",
+    "hook": "The Custody Speed Trap",
+    "strategicAlignment": "References Meme's native MPC key management feature because it addresses the market gap of slow custody speeds",
+    "contentIdeas": [
+      "Contrarian angle on custody speed",
+      "Data-backed variant on sequencer-level self-custody",
+      "Narrative tie-in to trending topic of self-sovereign methods"
+    ],
+    "dataSource": "Trend headline 'Ethereum Foundation Sells 5,000 ETH for $10.2M in OTC Deal'",
+    "action": "TWEET",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773525615149",
+    "timestamp": "2026-03-14T22:00:15.149Z",
+    "type": "QRT",
+    "topic": "DeFi protocol innovation",
+    "goal": "Drive engagement and attract DeFi researchers",
+    "instructions": "QRT @punk6529's tweet: '6529 ~1 month old . Some of you know me from somewhere else . My views on NFTs in the thread below' with 'Welcome to the DeFi space, @punk6529! We're excited to see your perspective on NFTs and how they intersect with DeFi protocols.",
+    "reasoning": "The tweet from @punk6529 discussing NFTs and DeFi triggered this recommendation.",
+    "hook": "The DeFi Newcomer",
+    "strategicAlignment": "References Meme's DeFi protocol suite",
+    "contentIdeas": [
+      "Contrarian angle on NFTs and DeFi",
+      "Data-backed variant on protocol innovation"
+    ],
+    "dataSource": "@punk6529's tweet",
+    "originalTweet": {
+      "author": "@punk6529",
+      "text": "6529 ~1 month old . Some of you know me from somewhere else . My views on NFTs in the thread below"
+    },
+    "action": "QRT",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773525614990",
+    "timestamp": "2026-03-14T22:00:14.990Z",
+    "type": "REPLY",
+    "topic": "Crypto investment risks",
+    "goal": "Address user concerns and provide educational content",
+    "instructions": "Reply to @MustStopMurad's tweet: 'AI will massively reduce the inefficiencies and opportunities in short-term financial markets, reducing the total pool of profits extractable by Traders. Traders will be hurt by AI. Believers will ASCEND.' with 'We agree that AI will change the trading landscape. However, with Meme's institutional-grade solutions, traders can adapt and thrive in a rapidly evolving market.",
+    "reasoning": "The tweet from @MustStopMurad discussing AI's impact on trading triggered this recommendation.",
+    "hook": "The AI Trading Shift",
+    "strategicAlignment": "References Meme's institutional-grade solutions",
+    "contentIdeas": [
+      "Narrative tie-in to trending AI topics",
+      "Data-backed variant on trading performance"
+    ],
+    "dataSource": "@MustStopMurad's tweet",
+    "originalTweet": {
+      "author": "@MustStopMurad",
+      "text": "AI will massively reduce the inefficiencies and opportunities in short-term financial markets, reducing the total pool of profits extractable by Traders. Traders will be hurt by AI. Believers will ASCEND."
+    },
+    "action": "REPLY",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773525614827",
+    "timestamp": "2026-03-14T22:00:14.827Z",
+    "type": "CAMPAIGN",
+    "topic": "Crypto market volatility",
+    "goal": "Drive user engagement and attract new users",
+    "instructions": "Campaign brief: 'Navigating Crypto Volatility' - a series of tweets and threads discussing market trends, regulatory risks, and institutional-grade solutions. Opening tweet draft: 'Market volatility got you down? Learn how Meme's institutional-grade solutions can help you navigate the crypto landscape.",
+    "reasoning": "The risks associated with crypto investments and market volatility triggered this recommendation.",
+    "hook": "The Volatility Navigator",
+    "strategicAlignment": "References Meme's institutional-grade solutions",
+    "contentIdeas": [
+      "Contrarian angle on market trends",
+      "Data-backed variant on regulatory risks"
+    ],
+    "dataSource": "Regulatory backlash against crypto and market volatility",
+    "action": "CAMPAIGN",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773525614647",
+    "timestamp": "2026-03-14T22:00:14.647Z",
+    "type": "THREAD",
+    "topic": "DeFi protocol offerings",
+    "goal": "Capture institutional trader attention",
+    "instructions": "1/ Introducing Meme's DeFi protocol suite, designed for institutional traders. \n2/ Our protocols offer unparalleled security and speed, leveraging native MPC key management. \n3/ With Meme, traders can self-custody at sequencer-level speed, reducing counterparty risk.",
+    "reasoning": "The growing importance of DeFi protocols and the need for institutional-grade solutions triggered this recommendation.",
+    "hook": "The DeFi Institutional Edge",
+    "strategicAlignment": "References Meme's DeFi protocol suite and native MPC key management",
+    "contentIdeas": [
+      "Narrative tie-in to trending DeFi topics",
+      "Data-backed variant on protocol performance"
+    ],
+    "dataSource": "Growing importance of DeFi protocols",
+    "action": "THREAD",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773525614389",
+    "timestamp": "2026-03-14T22:00:14.389Z",
+    "type": "TWEET",
+    "topic": "Institutional-grade crypto solutions",
+    "goal": "Drive 50+ RTs from DeFi researchers",
+    "instructions": "institutional custody isn't waiting for L2 maturity. we built native MPC key management into our sequencer so traders can self-custody at sequencer-level speed. first protocol to do this.",
+    "reasoning": "The trend of increasing Bitcoin adoption and the need for institutional-grade crypto solutions triggered this recommendation.",
+    "hook": "The Custody Speed Trap",
+    "strategicAlignment": "References Meme's native MPC key management and sequencer-level speed",
+    "contentIdeas": [
+      "Contrarian angle on institutional custody",
+      "Data-backed variant on sequencer-level speed"
+    ],
+    "dataSource": "Bitcoin's price surge with 20 million coins mined",
+    "action": "TWEET",
+    "brandId": "Meme",
+    "status": "pending"
+  },
+  {
+    "id": "1773514846072",
+    "timestamp": "2026-03-14T19:00:46.072Z",
+    "type": "QRT",
+    "topic": "Crypto regulation and freedom",
+    "goal": "Drive 30+ engagements from crypto advocates",
+    "instructions": "RT @brian_armstrong: Freedom to invest should be a human right. People with the ability to invest out-earn those relying only on wages. Very soon, tokenization will strip away a huge amount of unfairness from the system by increasing asset access worldwide.",
+    "reasoning": "The tweet by @brian_armstrong on the freedom to invest resonates with Arbitrum's mission to support open and equitable access to financial opportunities.",
+    "hook": "Investment Freedom",
+    "strategicAlignment": "References the importance of equitable access to financial opportunities because it aligns with Arbitrum's values.",
+    "contentIdeas": [
+      "Contrarian views on crypto regulation",
+      "Narrative on the impact of tokenization"
+    ],
+    "dataSource": "@brian_armstrong tweet on investment freedom",
+    "originalTweet": {
+      "author": "@brian_armstrong",
+      "text": "Freedom to invest should be a human right. People with the ability to invest out-earn those relying only on wages. Very soon, tokenization will strip away a huge amount of unfairness from the system by increasing asset access worldwide."
+    },
+    "action": "QRT",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773514845882",
+    "timestamp": "2026-03-14T19:00:45.882Z",
+    "type": "TREND_JACK",
+    "topic": "Bitcoin mining milestone",
+    "goal": "Drive 20+ engagements from crypto enthusiasts",
+    "instructions": "Twenty million Bitcoin mined, but what does it mean for the future of mining and the crypto ecosystem? Arbitrum is poised to support the next generation of crypto innovation.",
+    "reasoning": "The recent milestone of 20 million Bitcoin mined presents an opportunity for Arbitrum to comment on the future of crypto and its role in supporting innovation.",
+    "hook": "Beyond the Mining Milestone",
+    "strategicAlignment": "References Arbitrum's support for crypto innovation because it positions the platform as a key player in the ecosystem's future.",
+    "contentIdeas": [
+      "Analysis of mining industry trends",
+      "Narrative on the evolution of crypto"
+    ],
+    "dataSource": "Bitcoin Hits 20 Million Mined Milestone",
+    "action": "TREND_JACK",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773514845683",
+    "timestamp": "2026-03-14T19:00:45.683Z",
+    "type": "CAMPAIGN",
+    "topic": "Mentorship Program",
+    "goal": "Attract 20+ applications from early-stage teams",
+    "instructions": "Introducing the Arbitrum Mentorship Program, designed to guide early-stage teams from idea to launch. Apply now and get access to hands-on mentorship, curated investor access, and a chance to win $100K in awards.",
+    "reasoning": "The launch of the Arbitrum Mentorship Program provides a unique opportunity to support early-stage teams and foster innovation within the Arbitrum ecosystem.",
+    "hook": "Launchpad to Success",
+    "strategicAlignment": "References Arbitrum's ecosystem support and mentorship capabilities because they directly address the needs of early-stage teams.",
+    "contentIdeas": [
+      "Success stories of previous mentees",
+      "Testimonials from ecosystem partners"
+    ],
+    "dataSource": "Arbitrum Mentorship Program announcement",
+    "action": "CAMPAIGN",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773514845530",
+    "timestamp": "2026-03-14T19:00:45.530Z",
+    "type": "THREAD",
+    "topic": "DeFi protocol growth",
+    "goal": "Capture 100+ engagements from DeFi enthusiasts",
+    "instructions": "1/ DeFi is growing, but what does it mean for protocols like Sky and Arbitrum? \n2/ Sky TVL surged 38% in March, but how does this impact the broader DeFi ecosystem? \n3/ Arbitrum's role in DeFi growth isn't just about TVL; it's about enabling secure, scalable transactions.",
+    "reasoning": "The recent surge in Sky TVL and the ongoing growth of DeFi protocols present an opportunity for Arbitrum to discuss its role in the ecosystem and the benefits it offers to DeFi enthusiasts.",
+    "hook": "DeFi Ecosystem Insights",
+    "strategicAlignment": "References Arbitrum's technology and ecosystem because it supports the growth of DeFi protocols.",
+    "contentIdeas": [
+      "Data analysis of DeFi TVL",
+      "Narrative on DeFi protocol interdependence"
+    ],
+    "dataSource": "Sky TVL surge report",
+    "action": "THREAD",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
+    "id": "1773514845075",
+    "timestamp": "2026-03-14T19:00:45.075Z",
+    "type": "TWEET",
+    "topic": "Institutional custody solutions",
+    "goal": "Drive 50+ RTs from DeFi researchers",
+    "instructions": "Institutional custody isn't waiting for L2 maturity. We built native MPC key management into our sequencer so traders can self-custody at sequencer-level speed.",
+    "reasoning": "The introduction of the Arbitrum Mentorship Program and the surging TVL of DeFi protocols like Sky indicate a growing interest in DeFi solutions, making it an opportune time to highlight Arbitrum's institutional custody capabilities.",
+    "hook": "The Custody Speed Trap",
+    "strategicAlignment": "References Arbitrum's sequencer technology because it addresses the market gap in institutional custody solutions for Layer 2 protocols.",
+    "contentIdeas": [
+      "Contrarian angle on L2 maturity",
+      "Data-backed comparison of custody solutions"
+    ],
+    "dataSource": "Arbitrum Mentorship Program announcement",
+    "action": "TWEET",
+    "brandId": "Arbitrum",
+    "status": "pending"
+  },
+  {
     "id": "1770516317886",
     "timestamp": "2026-02-08T02:05:17.886Z",
     "action": "REPLY",
@@ -97,166 +899,6 @@
     "reason": "The LazAI Alpha Mainnet launch is a major milestone and deserves immediate community engagement and support. We need to amplify the news and answer potential questions.",
     "draft": "LazAI Alpha Mainnet is LIVE! 🚀 Experience the future of verifiable AI data where every agent interaction is a monetizable DAT onchain. Explore the possibilities: lazai.network/blog/lazai-alp… #LazAI #Web3 #AI #DATs",
     "brandId": "LazAI",
-    "status": "pending"
-  },
-  {
-    "id": "1770509047803",
-    "timestamp": "2026-02-08T00:04:07.803Z",
-    "action": "REPLY",
-    "targetId": "Zyfai_",
-    "reason": "Zyfai_ announced Verifiable Agents are live on Arbitrum mainnet. This is highly relevant to our on-chain activity and should be amplified and acknowledged.",
-    "draft": "Exciting news from @Zyfai_! Verifiable Agents on @arbitrum mainnet are a game changer for ownership, privacy, and transparency in on-chain activity. We're looking forward to seeing how this impacts the ecosystem!",
-    "brandId": "Arbitrum",
-    "status": "pending"
-  },
-  {
-    "id": "1770508845812",
-    "timestamp": "2026-02-08T00:00:45.812Z",
-    "action": "REPLY",
-    "targetId": "ENKIProtocol",
-    "reason": "Engage with positive community sentiment and reinforce our value proposition. Address their question, or thank them for feedback.",
-    "draft": "Thanks for the support! We're excited about the growth of ENKI and its role in simplifying Metis sequencer node staking. Our goal is to make it easy for anyone to earn yield on their METIS. Stay tuned for more updates!",
-    "brandId": "ENKI Protocol",
-    "status": "pending"
-  },
-  {
-    "id": "1770507350228",
-    "timestamp": "2026-02-07T23:35:50.228Z",
-    "action": "TREND_JACK",
-    "targetId": "ai Trending: News: Anthropic buys Super Bowl ads in spat with OpenAI over ads in ChatGPT - The Globe and Mail (via The Globe and Mail)",
-    "reason": "Anthropic's Super Bowl ad buy highlights the growing importance of AI in mainstream culture and the competitive landscape. LazAI can position itself as a key player in the decentralized AI space, offering a different approach to data governance and model validation compared to centralized players like Anthropic and OpenAI.",
-    "draft": "Anthropic and OpenAI are battling it out during the Super Bowl! While they compete for centralized AI dominance, LazAI is building the decentralized future of AI. Our Quorum-Based BFT consensus ensures verifiable, transparent AI data for all. Learn more about our innovative approach: [Link to LazAI website]",
-    "brandId": "LazAI",
-    "status": "pending"
-  },
-  {
-    "id": "1770505281396",
-    "timestamp": "2026-02-07T23:01:21.396Z",
-    "action": "REPLY",
-    "targetId": "[ENKIProtocol] \"29.75% APR. Only at enkixyz.com 💧\n\nMaximize your METIS with seMETIS staking pool, now offering an APR of 29.75%, rewarding you for securing & strengthening the @MetisL2 network.\n\nYou don't have to be a tech expert to earn. Start today!\"",
-    "reason": "This post is promotional and highlights a key benefit of ENKI Protocol (high APR). A follow-up comment can reinforce the message and encourage engagement.",
-    "draft": "That's right! Stake your METIS and earn a fantastic APR on seMETIS. It's easy to get started at enkixyz.com 💧 Join our community and start maximizing your rewards today! #MetisL2 #DeFi #LiquidStaking #ENKI",
-    "brandId": "ENKI Protocol",
-    "status": "pending"
-  },
-  {
-    "id": "1770505245358",
-    "timestamp": "2026-02-07T23:00:45.358Z",
-    "action": "REPLY",
-    "targetId": "Zyfai_",
-    "reason": "Zyfai_ has announced Verifiable Agents are live on Arbitrum mainnet, which is directly relevant to our protocol and provides an opportunity to engage with a partner and highlight a potential use case on Arbitrum.",
-    "draft": "Exciting news from @Zyfai_! Verifiable Agents on @arbitrum unlock new possibilities for on-chain activity, emphasizing ownership, privacy, and transparency. Great to see innovation building on Arbitrum!",
-    "brandId": "Arbitrum",
-    "status": "pending"
-  },
-  {
-    "id": "1770501907912",
-    "timestamp": "2026-02-07T22:05:07.912Z",
-    "action": "REPLY",
-    "targetId": "LazAINetwork",
-    "reason": "Announcing the Alpha Mainnet launch is a great opportunity to engage with the community. Responding to the announcement can drive traffic to the blog post and generate further discussion/excitement.",
-    "draft": "Great news! The LazAI Alpha Mainnet is officially live. We're excited to enter the new era of verifiable AI data where every agent interaction becomes a monetizable DAT on-chain. Dive in and start exploring! lazai.network/blog/lazai-alp…",
-    "brandId": "LazAI",
-    "status": "pending"
-  },
-  {
-    "id": "1770501818896",
-    "timestamp": "2026-02-07T22:03:38.896Z",
-    "action": "REPLY",
-    "targetId": "Zyfai_",
-    "reason": "Zyfai_ announced verifiable agents are live on Arbitrum mainnet. This is a significant development that deserves amplification and engagement, especially as it aligns with potential future applications for Web3 Protocol. Acknowledging and congratulating them strengthens the community and highlights innovation within the Arbitrum ecosystem.",
-    "draft": "Congrats to @Zyfai_ on the launch of Verifiable Agents on @arbitrum! Exciting to see innovation pushing forward ownership, privacy, and transparency in Web3. #Arbitrum #Web3 #VerifiableAgents",
-    "brandId": "Arbitrum",
-    "status": "pending"
-  },
-  {
-    "id": "1770501758895",
-    "timestamp": "2026-02-07T22:02:38.895Z",
-    "action": "TREND_JACK",
-    "targetId": "ai Trending",
-    "reason": "Anthropic (AI competitor) is buying Super Bowl ads. We should highlight how our Web3 protocol can be used for transparent and secure AI data management, contrasting with centralized approaches.",
-    "draft": "Anthropic's Super Bowl ad buy sparks a discussion on AI transparency. Our Web3 protocol offers a solution: decentralized, verifiable data management for AI. Let's build trust and security in the age of AI. #Web3 #AI #Transparency #Anthropic #SuperBowl",
-    "brandId": "Meme",
-    "status": "pending"
-  },
-  {
-    "id": "1770501661733",
-    "timestamp": "2026-02-07T22:01:01.733Z",
-    "action": "REPLY",
-    "targetId": "ENKIProtocol",
-    "reason": "Community management is a high priority. The last tweet from ENKIProtocol promotes a specific APR and encourages staking. Responding with a reinforcing message will help with community engagement and drive deposits.",
-    "draft": "That's right! Lock in that 29.75% APR by staking your eMetis into the seMetis pool. It's a simple way to earn yield and help secure the @MetisL2 network. Visit enkixyz.com to start staking today! #DeFi #LST #MetisDAO #ENKI",
-    "brandId": "ENKI Protocol",
-    "status": "pending"
-  },
-  {
-    "id": "1770498328081",
-    "timestamp": "2026-02-07T21:05:28.081Z",
-    "action": "REPLY",
-    "targetId": "LazAINetwork",
-    "reason": "Respond to the Alpha Mainnet announcement to drive engagement and answer potential questions from the community. It is important to drive adoption.",
-    "draft": "The LazAI Alpha Mainnet is live! We're thrilled to usher in a new era of verifiable AI data. Explore how Data Anchoring Tokens (DATs) are revolutionizing agent interactions and creating monetization opportunities onchain. Learn more and start building: lazai.network/blog/lazai-alp… #LazAI #Web3 #AI #DAT",
-    "brandId": "LazAI",
-    "status": "pending"
-  },
-  {
-    "id": "1770498256033",
-    "timestamp": "2026-02-07T21:04:16.033Z",
-    "action": "REPLY",
-    "targetId": "Zyfai_",
-    "reason": "The Zyfai_ post announcing Verifiable Agents on Arbitrum mainnet is highly relevant to our protocol's interests in on-chain automation, privacy, and transparency. We should engage with this post to show support and potentially explore collaboration.",
-    "draft": "Exciting news from @Zyfai_! Verifiable Agents on @arbitrum are a significant step forward for on-chain automation, privacy, and transparency. We're eager to see how ERC-8004 empowers users. #Web3 #Arbitrum #VerifiableAgents",
-    "brandId": "Arbitrum",
-    "status": "pending"
-  },
-  {
-    "id": "1770494740706",
-    "timestamp": "2026-02-07T20:05:40.706Z",
-    "action": "REPLY",
-    "targetId": "GOATRollup",
-    "reason": "GOATRollup mentioned LazAI in the context of AI & APIs pay-per-inference. Engaging with this post is important for visibility and to encourage further discussion/integration opportunities.",
-    "draft": "Exciting to see @GOATRollup building innovative payment solutions for AI inference! The ability to offer pay-per-inference opens up many possibilities for AI agents on @LazAINetwork. We're all about making value flow as easily as information. Let's keep the conversation going! #AI #Web3 #Payments",
-    "brandId": "LazAI",
-    "status": "pending"
-  },
-  {
-    "id": "1770494684388",
-    "timestamp": "2026-02-07T20:04:44.388Z",
-    "action": "REPLY",
-    "targetId": "MetisL2",
-    "reason": "The community letter post from Natalia Ameline requires engagement. It is important to amplify the message about Metis prioritizing substance over speculation and focusing on real-world applications.",
-    "draft": "Excited to share @Natalia_Ameline's latest community letter! It highlights Metis' commitment to building a sustainable ecosystem for real users and long-term innovation, powered by AI. Read it here: f.mtr.cool/xusiqofzfg #Layer2 #AI #Ethereum #Web3",
-    "brandId": "Metis",
-    "status": "pending"
-  },
-  {
-    "id": "1770494643367",
-    "timestamp": "2026-02-07T20:04:03.367Z",
-    "action": "REPLY",
-    "targetId": "Zyfai_",
-    "reason": "Zyfai_ announced Verifiable Agents on Arbitrum. We should acknowledge and amplify this, as it's a key development on the chain.",
-    "draft": "Exciting to see @Zyfai_ launch Verifiable Agents on @arbitrum! ERC-8004 unlocks new possibilities for ownership, privacy, and transparency in on-chain interactions. Great work!",
-    "brandId": "Arbitrum",
-    "status": "pending"
-  },
-  {
-    "id": "1770494602086",
-    "timestamp": "2026-02-07T20:03:22.086Z",
-    "action": "TREND_JACK",
-    "targetId": "ai Trending",
-    "reason": "The 'ai Trending' news item about prediction markets exploding is relevant to Defia as a Web3-native creative studio and software suite. We can position ourselves as a solution for managing brand identity and growth within these emerging markets.",
-    "draft": "Prediction markets are exploding! 🚀 As Web3 grows, managing brand identity and navigating compliance becomes crucial. @Defia helps protocols professionalize their marketing. Let's build the future of Web3, together. #Web3 #AI #PredictionMarkets #Marketing",
-    "brandId": "Defia",
-    "status": "pending"
-  },
-  {
-    "id": "1770494568785",
-    "timestamp": "2026-02-07T20:02:48.785Z",
-    "action": "TREND_JACK",
-    "targetId": "ai Trending: News: Prediction Markets Are Exploding. Some Lawmakers Have Concerns. - Business Insider",
-    "reason": "Prediction markets are relevant to Web3 and decentralized governance. We can highlight how our protocol contributes to transparent and reliable prediction markets within the Web3 space.",
-    "draft": "Exciting to see growing interest in prediction markets! Our Web3 protocol is building infrastructure for transparent, decentralized prediction markets, empowering users with secure and verifiable data. Learn more about our vision for the future of forecasting. [Link to Protocol Website]",
-    "brandId": "Meme",
     "status": "pending"
   }
 ]

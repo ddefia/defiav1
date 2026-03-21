@@ -66,6 +66,11 @@ export interface BrandConfig {
     strengths?: string;    // What they do well
     weaknesses?: string;   // Where we can beat them
   }[];
+  audiences?: {
+    name: string;
+    description?: string;
+    priority?: 'primary' | 'secondary' | 'tertiary';
+  }[];
   subscription?: BrandSubscription;
 }
 
@@ -602,6 +607,7 @@ export interface DailyBrief {
   };
   topActions?: string[];
   metricsSnapshot?: { label: string; value: string; trend: 'up' | 'down' | 'flat' }[];
+  dataSources?: string[];
   timestamp: number;
 }
 

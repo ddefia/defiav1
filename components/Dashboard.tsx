@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SocialMetrics, StrategyTask, CalendarEvent, ComputedMetrics, GrowthReport, BrandConfig, SocialSignals, DashboardCampaign, KPIItem, DailyBrief } from '../types';
 import { fetchCampaignPerformance } from '../services/analytics';
 import { generateDailyBrief as generateBriefService } from '../services/gemini';
@@ -33,20 +33,29 @@ interface DashboardProps {
 }
 
 const computeSocialScore = (metrics: SocialMetrics): number => {
-    let score = 0;
-    // Followers tier (0-25)
+    const b = computeSocialScoreBreakdown(metrics);
+    return Math.min(100, b.followers.points + b.engagement.points + b.velocity.points + b.impressions.points);
+};
+
+const computeSocialScoreBreakdown = (metrics: SocialMetrics) => {
     const f = metrics.totalFollowers || 0;
-    score += f >= 50000 ? 25 : f >= 10000 ? 22 : f >= 5000 ? 18 : f >= 1000 ? 14 : f > 0 ? 8 : 0;
-    // Engagement rate (0-25)
+    const fPoints = f >= 50000 ? 25 : f >= 10000 ? 22 : f >= 5000 ? 18 : f >= 1000 ? 14 : f > 0 ? 8 : 0;
+
     const r = metrics.engagementRate || 0;
-    score += r >= 5 ? 25 : r >= 3 ? 22 : r >= 2 ? 18 : r >= 1 ? 14 : r > 0 ? 8 : 0;
-    // Content velocity (0-25)
+    const rPoints = r >= 5 ? 25 : r >= 3 ? 22 : r >= 2 ? 18 : r >= 1 ? 14 : r > 0 ? 8 : 0;
+
     const posts = (metrics.recentPosts || []).length;
-    score += posts >= 10 ? 25 : posts >= 5 ? 20 : posts >= 3 ? 15 : posts > 0 ? 10 : 0;
-    // Impressions (0-25)
+    const pPoints = posts >= 10 ? 25 : posts >= 5 ? 20 : posts >= 3 ? 15 : posts > 0 ? 10 : 0;
+
     const imp = metrics.weeklyImpressions || 0;
-    score += imp >= 50000 ? 25 : imp >= 10000 ? 22 : imp >= 5000 ? 18 : imp >= 1000 ? 14 : imp > 0 ? 8 : 0;
-    return Math.min(100, score);
+    const iPoints = imp >= 50000 ? 25 : imp >= 10000 ? 22 : imp >= 5000 ? 18 : imp >= 1000 ? 14 : imp > 0 ? 8 : 0;
+
+    return {
+        followers: { value: f, points: fPoints, max: 25, label: 'Followers' },
+        engagement: { value: r, points: rPoints, max: 25, label: 'Engagement Rate' },
+        velocity: { value: posts, points: pPoints, max: 25, label: 'Content Velocity' },
+        impressions: { value: imp, points: iPoints, max: 25, label: 'Impressions' },
+    };
 };
 
 const transformMetricsToKPIs = (
@@ -196,6 +205,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [setupBannerDismissed, setSetupBannerDismissed] = useState(false);
     const [xConnected, setXConnected] = useState<boolean | null>(null);
     const [telegramLinked, setTelegramLinked] = useState(false);
+    const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
     const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
     const [trialTimeLeft, setTrialTimeLeft] = useState('');
     const [gettingStartedDismissed, setGettingStartedDismissed] = useState(() => {
@@ -376,14 +386,73 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }, [brandName]);
 
     // Pre-load daily brief: show cached instantly, then refresh in background
+    // Use a ref to pass latest data to the brief generator without re-triggering
+    const briefDataRef = useRef({ socialMetrics, socialSignals, tasks, calendarEvents, sharedRecommendations, newsItems, growthReport });
+    useEffect(() => {
+        briefDataRef.current = { socialMetrics, socialSignals, tasks, calendarEvents, sharedRecommendations, newsItems, growthReport };
+    }, [socialMetrics, socialSignals, tasks, calendarEvents, sharedRecommendations, newsItems, growthReport]);
+
     useEffect(() => {
         const initBrief = async () => {
-            // Only show loading spinner if there's no cached data to display
             if (!briefData) setBriefLoading(true);
+            // Wait a moment for metrics to load
+            await new Promise(r => setTimeout(r, 2000));
             try {
-                const brief = await generateBriefService(brandName, kpis, campaigns, [], chainMetrics);
+                const ctx = briefDataRef.current;
+                // Build rich signals from available data
+                const signals: any[] = [];
+                if (ctx.socialSignals) {
+                    if (ctx.socialSignals.sentimentScore > 0) signals.push({ platform: 'Twitter', signal: `Sentiment: ${ctx.socialSignals.sentimentScore}/100 (${ctx.socialSignals.sentimentTrend})`, trend: ctx.socialSignals.sentimentTrend });
+                    (ctx.socialSignals.activeNarratives || []).forEach((n: string) => signals.push({ platform: 'Twitter', signal: `Active narrative: ${n}`, trend: 'up' }));
+                    (ctx.socialSignals.topKols || []).forEach((k: string) => signals.push({ platform: 'Twitter', signal: `Top KOL engaging: @${k}`, trend: 'up' }));
+                }
+                if (ctx.socialMetrics?.recentMentions?.length) {
+                    const mentionCount = ctx.socialMetrics.recentMentions.length;
+                    const topMention = ctx.socialMetrics.recentMentions[0];
+                    signals.push({ platform: 'Twitter', signal: `${mentionCount} recent mentions. Top: @${topMention?.author || 'unknown'} — "${(topMention?.text || '').slice(0, 80)}"`, trend: 'up' });
+                }
+                // Add recommendation context
+                if (ctx.sharedRecommendations?.length) {
+                    const recTypes = ctx.sharedRecommendations.slice(0, 3).map((r: any) => r.type || r.action || 'ACTION').join(', ');
+                    signals.push({ platform: 'AI Agent', signal: `${ctx.sharedRecommendations.length} pending recommendations: ${recTypes}`, trend: 'flat' });
+                }
+                // Add calendar context
+                const today = new Date().toISOString().split('T')[0];
+                const upcoming = (ctx.calendarEvents || []).filter((e: any) => e.date >= today).slice(0, 3);
+                if (upcoming.length > 0) {
+                    signals.push({ platform: 'Calendar', signal: `${upcoming.length} upcoming posts scheduled. Next: "${(upcoming[0]?.content || '').slice(0, 60)}" on ${upcoming[0]?.date}`, trend: 'flat' });
+                }
+                // Add top posts performance
+                if (ctx.socialMetrics?.recentPosts?.length) {
+                    const topPost = [...ctx.socialMetrics.recentPosts].sort((a: any, b: any) => ((b.likes || 0) + (b.retweets || 0)) - ((a.likes || 0) + (a.retweets || 0)))[0];
+                    if (topPost) {
+                        signals.push({ platform: 'Twitter', signal: `Top performing post: "${(topPost.text || '').slice(0, 80)}" — ${topPost.likes || 0} likes, ${topPost.retweets || 0} RTs`, trend: 'up' });
+                    }
+                }
+                // Add news context
+                if (ctx.newsItems?.length) {
+                    signals.push({ platform: 'Web3 News', signal: `Trending: ${ctx.newsItems.slice(0, 2).map((n: any) => n.title).join(' | ')}`, trend: 'flat' });
+                }
+                // Add growth report context
+                if (ctx.growthReport?.executiveSummary) {
+                    signals.push({ platform: 'Growth Report', signal: ctx.growthReport.executiveSummary.slice(0, 150), trend: 'flat' });
+                }
+
+                const brief = await generateBriefService(brandName, kpis, campaigns, signals, chainMetrics);
+                // Track what data sources fed the brief
+                const sources: string[] = [];
+                if (ctx.socialMetrics?.isLive) sources.push('Live X Data');
+                if (ctx.socialSignals?.sentimentScore) sources.push('Sentiment Analysis');
+                if (ctx.socialMetrics?.recentMentions?.length) sources.push('Mentions');
+                if (ctx.socialMetrics?.recentPosts?.length) sources.push('Post Analytics');
+                if (ctx.sharedRecommendations?.length) sources.push('AI Recommendations');
+                if (ctx.calendarEvents?.length) sources.push('Content Calendar');
+                if (ctx.newsItems?.length) sources.push('Web3 News');
+                if (ctx.growthReport) sources.push('Growth Report');
+                if (chainMetrics) sources.push('On-Chain Data');
+                if (sources.length === 0) sources.push('Base Analysis');
+                brief.dataSources = sources;
                 setBriefData(brief);
-                // Cache to localStorage for instant display on next visit
                 try { localStorage.setItem(`defia_daily_brief_${brandName}`, JSON.stringify(brief)); } catch {}
             } catch (e) {
                 console.error("Background Brief Gen Failed", e);
@@ -824,8 +893,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     {/* Metrics Row */}
                     <div className="grid grid-cols-4 gap-4 mb-7">
-                        {kpis.map((kpi, i) => (
-                            <div key={i} className="rounded-xl p-5" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}>
+                        {kpis.map((kpi, i) => {
+                            const isSocialScore = kpi.label === 'SOCIAL SCORE';
+                            const scoreBreakdown = isSocialScore && socialMetrics ? computeSocialScoreBreakdown(socialMetrics) : null;
+                            return (
+                            <div
+                                key={i}
+                                className={`rounded-xl p-5 ${isSocialScore && kpi.value !== '--' ? 'cursor-pointer hover:border-[#FF5C00]/30' : ''} transition-colors`}
+                                style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)' }}
+                                onClick={isSocialScore && kpi.value !== '--' ? () => setShowScoreBreakdown(v => !v) : undefined}
+                            >
                                 <div className="flex items-center justify-between mb-3">
                                     <span className="text-[#6B6B70] text-xs font-medium tracking-wider">{kpi.label}</span>
                                     {i === 0 && kpi.value !== '--' && (
@@ -833,6 +910,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
                                             Live
                                         </span>
+                                    )}
+                                    {isSocialScore && kpi.value !== '--' && (
+                                        <button className="text-[#6B6B70] hover:text-white transition-colors">
+                                            <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>
+                                                {showScoreBreakdown ? 'expand_less' : 'info'}
+                                            </span>
+                                        </button>
                                     )}
                                 </div>
                                 {kpi.value === '--' ? (
@@ -843,28 +927,68 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 ) : (
                                     <>
                                         <div className="text-[32px] font-medium font-mono tracking-tight mb-3" style={{ color: 'var(--text-primary)' }}>
-                                            {kpi.value}{kpi.label === 'SOCIAL SCORE' && <span className="text-sm font-normal" style={{ color: 'var(--text-muted)' }}>/100</span>}
+                                            {kpi.value}{isSocialScore && <span className="text-sm font-normal" style={{ color: 'var(--text-muted)' }}>/100</span>}
                                         </div>
-                                        {kpi.delta !== 0 && (
-                                            <div className="flex items-center gap-1">
-                                                {kpi.trend === 'up' ? (
-                                                    <svg className="w-3.5 h-3.5 text-[#22C55E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                                    </svg>
-                                                ) : (
-                                                    <svg className="w-3.5 h-3.5 text-[#EF4444]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                                                    </svg>
-                                                )}
-                                                <span className={`text-xs font-medium ${kpi.trend === 'up' ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
-                                                    {kpi.delta > 0 ? '+' : ''}{kpi.delta}% this month
-                                                </span>
+                                        {/* Social Score Breakdown */}
+                                        {isSocialScore && showScoreBreakdown && scoreBreakdown ? (
+                                            <div className="space-y-2.5 mt-1">
+                                                {Object.values(scoreBreakdown).map((item) => {
+                                                    const pct = (item.points / item.max) * 100;
+                                                    const fmtValue = item.label === 'Engagement Rate'
+                                                        ? `${item.value.toFixed(1)}%`
+                                                        : item.label === 'Content Velocity'
+                                                            ? `${item.value} posts`
+                                                            : item.value >= 1000
+                                                                ? `${(item.value / 1000).toFixed(1)}K`
+                                                                : `${item.value}`;
+                                                    return (
+                                                        <div key={item.label}>
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <span className="text-[11px] text-[#9CA3AF]">{item.label}</span>
+                                                                <span className="text-[11px] font-mono text-white">{item.points}/{item.max} <span className="text-[#6B6B70]">({fmtValue})</span></span>
+                                                            </div>
+                                                            <div className="h-1 rounded-full bg-[#1F1F23] overflow-hidden">
+                                                                <div
+                                                                    className="h-full rounded-full transition-all"
+                                                                    style={{
+                                                                        width: `${pct}%`,
+                                                                        backgroundColor: pct >= 80 ? '#22C55E' : pct >= 50 ? '#F59E0B' : '#EF4444'
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                                <p className="text-[10px] text-[#4A4A4E] pt-1">Based on live X data. Click to collapse.</p>
                                             </div>
+                                        ) : (
+                                            <>
+                                                {kpi.delta !== 0 && (
+                                                    <div className="flex items-center gap-1">
+                                                        {kpi.trend === 'up' ? (
+                                                            <svg className="w-3.5 h-3.5 text-[#22C55E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                                            </svg>
+                                                        ) : (
+                                                            <svg className="w-3.5 h-3.5 text-[#EF4444]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                                                            </svg>
+                                                        )}
+                                                        <span className={`text-xs font-medium ${kpi.trend === 'up' ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
+                                                            {kpi.delta > 0 ? '+' : ''}{kpi.delta}% this month
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {isSocialScore && !showScoreBreakdown && (
+                                                    <p className="text-[10px] text-[#4A4A4E] mt-1">Click for breakdown</p>
+                                                )}
+                                            </>
                                         )}
                                     </>
                                 )}
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Plan Usage Bar */}
@@ -1123,6 +1247,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                 <p className="text-[12px] text-[#8B8B8F] leading-relaxed">{renderRichText(briefData.confidence.explanation)}</p>
                                             </div>
                                         </div>
+
+                                        {/* Data Sources */}
+                                        {briefData.dataSources && briefData.dataSources.length > 0 && (
+                                            <div className="col-span-2 pt-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-[10px] text-[#4A4A4E] font-medium">Powered by:</span>
+                                                    {briefData.dataSources.map((src, i) => (
+                                                        <span key={i} className="px-2 py-0.5 rounded-full bg-[#1F1F23] text-[10px] text-[#8B8B8F] font-medium">{src}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

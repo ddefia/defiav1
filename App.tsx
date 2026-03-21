@@ -408,8 +408,16 @@ const App: React.FC = () => {
     };
     const [selectedRecommendation, setSelectedRecommendation] = useState<any>(null);
     const [recommendationContext, setRecommendationContext] = useState<any>({});
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
     const [llmRecommendations, setLlmRecommendations] = useState<any[]>(() => {
-        try { const cached = localStorage.getItem(`defia_recs_${selectedBrand || ''}`); return cached ? JSON.parse(cached).filter((r: any) => r.type !== 'Optimization') : []; } catch { return []; }
+        try {
+            const cached = localStorage.getItem(`defia_recs_${selectedBrand || ''}`);
+            if (!cached) return [];
+            const recs = JSON.parse(cached).filter((r: any) => r.type !== 'Optimization');
+            // Expire recommendations older than 3 days
+            const cutoff = Date.now() - THREE_DAYS_MS;
+            return recs.filter((r: any) => !r.generatedAt || r.generatedAt > cutoff);
+        } catch { return []; }
     });
     const [regenLoading, setRegenLoading] = useState(false);
     const [regenLastRun, setRegenLastRun] = useState<number>(() => {
@@ -430,6 +438,7 @@ const App: React.FC = () => {
     // Image Editor Deep Link State
     const [editorInitialImage, setEditorInitialImage] = useState<string | null>(null);
     const [editorInitialPrompt, setEditorInitialPrompt] = useState<string | null>(null);
+    const [studioImage, setStudioImage] = useState<string | undefined>(undefined);
     const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab | undefined>(undefined);
 
     useEffect(() => {
@@ -975,9 +984,9 @@ const App: React.FC = () => {
                 const topTrend = highVelocityTrends[0] || trends[0];
                 const topMention = mentions[0];
                 const defaultContextSource = topTrend
-                    ? { type: 'TREND', source: topTrend.source || 'Market Pulse', headline: topTrend.headline }
+                    ? { type: 'TREND' as const, source: topTrend.source || 'Market Pulse', headline: topTrend.headline }
                     : topMention
-                        ? { type: 'MENTION', source: `@${topMention.author}`, headline: topMention.text }
+                        ? { type: 'MENTION' as const, source: `@${topMention.author}`, headline: topMention.text }
                         : undefined;
 
                 const newTasks: StrategyTask[] = rankedActions.slice(0, 5).map(({ action, score }) => ({
@@ -1903,8 +1912,11 @@ const App: React.FC = () => {
                         generatedAt: serverTs,
                     };
                 };
-                const enriched = serverCached.actions.map(enrichAction).filter((r: any) => r.type !== 'Optimization');
-                if (enriched.length === 0) return; // all junk — let auto-trigger fire instead
+                const cutoff = Date.now() - THREE_DAYS_MS;
+                const enriched = serverCached.actions.map(enrichAction)
+                    .filter((r: any) => r.type !== 'Optimization')
+                    .filter((r: any) => !r.generatedAt || r.generatedAt > cutoff);
+                if (enriched.length === 0) return; // all expired or junk — let auto-trigger fire instead
                 setLlmRecommendations(enriched);
                 setRegenLastRun(serverTs);
                 localStorage.setItem(`defia_recs_${selectedBrand}`, JSON.stringify(enriched));
@@ -1915,18 +1927,25 @@ const App: React.FC = () => {
         regenFiredRef.current = false;
     }, [selectedBrand]);
 
+    // Auto-refresh recommendations: on first load if none exist, or if stale (>4h)
     useEffect(() => {
-        if (!selectedBrand || regenFiredRef.current || regenLoading) return;
+        if (!selectedBrand || regenLoading) return;
         const hasRecs = llmRecommendations.length > 0;
         const hasFallback = agentDecisions && agentDecisions.length > 0;
-        const isStale = regenLastRun > 0 && (Date.now() - regenLastRun > 4 * 60 * 60 * 1000); // 4h — ensure fresh AI recs, not just supplemental templates
-        if (!hasRecs && !hasFallback || isStale) {
-            const hasTrends = !!(socialSignals.trendingTopics && socialSignals.trendingTopics.length > 0);
-            const delay = hasTrends ? 3000 : 12000;
-            regenFiredRef.current = true;
-            const timer = setTimeout(() => handleRecommendationRegenerate(), delay);
-            return () => clearTimeout(timer);
-        }
+        const age = regenLastRun > 0 ? Date.now() - regenLastRun : Infinity;
+        const isStale = age > 4 * 60 * 60 * 1000; // 4h
+        const needsRegen = (!hasRecs && !hasFallback) || isStale;
+        if (!needsRegen || regenFiredRef.current) return;
+        const hasTrends = !!(socialSignals.trendingTopics && socialSignals.trendingTopics.length > 0);
+        const delay = hasTrends ? 3000 : 12000;
+        regenFiredRef.current = true;
+        const timer = setTimeout(() => {
+            handleRecommendationRegenerate().finally(() => {
+                // Allow re-triggering after completion so staleness checks work next time
+                regenFiredRef.current = false;
+            });
+        }, delay);
+        return () => clearTimeout(timer);
     }, [selectedBrand, agentDecisions?.length, llmRecommendations.length, regenLoading, socialSignals.trendingTopics?.length]);
 
     // Independent QRT feed fetch — runs when QRT is empty and competitors exist
@@ -2214,7 +2233,7 @@ const App: React.FC = () => {
                 const hasBrand = !!(currentUser.brandId || currentUser.brandName || getCurrentUserBrand());
                 navigate(hasBrand ? '/dashboard' : '/onboarding');
             } else {
-                navigate('/login');
+                navigate('/signup');
             }
         }} />;
     }
@@ -2627,6 +2646,7 @@ const App: React.FC = () => {
                         initialVisualPrompt={studioVisualPrompt}
                         initialContext={studioContext}
                         initialQrt={studioQrt}
+                        initialImage={studioImage}
                     />
                 )}
 
@@ -2639,14 +2659,10 @@ const App: React.FC = () => {
                         initialPrompt={editorInitialPrompt ?? undefined}
                         onBack={() => handleNavigate('studio')}
                         onSaveAndUse={(imageUrl) => {
-                            setStudioDraft(prev => prev || '');
                             setEditorInitialImage(null);
                             setEditorInitialPrompt(null);
-                            handleNavigate('studio', { draft: '', visualPrompt: '' });
-                            // Small delay so studio mounts first, then set the image
-                            setTimeout(() => {
-                                setEditorInitialImage(imageUrl);
-                            }, 100);
+                            setStudioImage(imageUrl);
+                            handleNavigate('studio');
                         }}
                     />
                 )}
@@ -2871,28 +2887,54 @@ const App: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Auto-post notice */}
-                            <div className="mx-6 mt-1 mb-0 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[#3B82F608] border border-[#3B82F620]">
-                                <svg viewBox="0 0 24 24" className="w-4 h-4 flex-shrink-0 text-[#3B82F6]" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                                <span className="text-xs text-[#8B8B90]">This post will <span className="text-[#3B82F6] font-medium">auto-post to X</span> at the scheduled time</span>
-                            </div>
-
                             {/* Footer */}
-                            <div className="px-6 py-4 border-t border-[#1F1F23] flex gap-3">
-                                <button
-                                    onClick={() => setShowScheduleModal(false)}
-                                    className="flex-1 px-4 py-3 rounded-xl bg-[#1F1F23] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors border border-[#2E2E2E]"
-                                >
-                                    Cancel
-                                </button>
+                            <div className="px-6 py-4 border-t border-[#1F1F23] space-y-3">
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowScheduleModal(false)}
+                                        className="flex-1 px-4 py-3 rounded-xl bg-[#1F1F23] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors border border-[#2E2E2E]"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (!itemToSchedule || !scheduleDate) return;
+                                            const content = itemToSchedule.content || 'Draft Post';
+                                            const normalizedTime = scheduleTime && scheduleTime.length >= 4 ? scheduleTime : '09:00';
+                                            const newEvent: CalendarEvent = {
+                                                id: `evt-${Date.now()}`,
+                                                date: scheduleDate,
+                                                time: normalizedTime,
+                                                content,
+                                                image: itemToSchedule.image,
+                                                platform: 'Twitter',
+                                                status: 'scheduled',
+                                                campaignName: itemToSchedule.campaignName
+                                            };
+                                            // Save without scheduledAt — won't auto-post
+                                            const updatedEvents = [...calendarEvents, newEvent];
+                                            setCalendarEvents(updatedEvents);
+                                            saveCalendarEvents(selectedBrand, updatedEvents);
+                                            setShowScheduleModal(false);
+                                            setItemToSchedule(null);
+                                            setScheduleConfirmation(`Saved to calendar — ${new Date(scheduleDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
+                                            setTimeout(() => setScheduleConfirmation(null), 4000);
+                                        }}
+                                        disabled={!scheduleDate}
+                                        className="flex-1 px-4 py-3 rounded-xl bg-[#1F1F23] text-white text-sm font-medium hover:bg-[#2A2A2E] transition-colors border border-[#2E2E2E] disabled:opacity-40 flex items-center justify-center gap-2"
+                                    >
+                                        <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>edit_calendar</span>
+                                        Add to Calendar
+                                    </button>
+                                </div>
                                 <button
                                     onClick={handleConfirmSchedule}
                                     disabled={!scheduleDate}
-                                    className="flex-1 px-4 py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                                    className="w-full px-4 py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                                     style={{ background: scheduleDate ? 'linear-gradient(135deg, #FF5C00, #FF8A4C)' : '#1F1F23' }}
                                 >
-                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>schedule_send</span>
-                                    Schedule Post to X
+                                    <svg viewBox="0 0 24 24" className="w-4 h-4 flex-shrink-0" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                                    Schedule &amp; Auto-Post to X
                                 </button>
                             </div>
                         </div>

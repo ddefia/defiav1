@@ -105,6 +105,7 @@ export const ingestTwitterHistory = async (handles: string[]) => {
                     const retweets = item.retweets || 0;
                     const replies = item.replies || 0;
                     const quotes = item.quotes || 0;
+                    const views = item.views || item.impressions || 0;
                     // Estimate engagement rate based on likes (assuming ~2% baseline)
                     const estimatedFollowers = likes > 0 ? likes * 50 : 1000;
                     const engagementRate = ((likes + retweets + replies) / estimatedFollowers) * 100;

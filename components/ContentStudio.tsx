@@ -18,6 +18,7 @@ interface ContentStudioProps {
     initialVisualPrompt?: string;
     initialQrt?: { text: string; author: string; tweetUrl?: string } | null;
     initialContext?: string;
+    initialImage?: string;
 }
 
 type ContentType = 'all' | 'twitter' | 'discord' | 'email' | 'graphics';
@@ -69,6 +70,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
     initialVisualPrompt,
     initialQrt,
     initialContext,
+    initialImage,
 }) => {
     // View State
     const [currentView, setCurrentView] = useState<'library' | 'create-tweet' | 'create-graphic' | 'add-tweet-image' | 'quote-tweet'>('library');
@@ -95,6 +97,7 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
 
     // Create Graphic State
     const [graphicTweetContent, setGraphicTweetContent] = useState('');
+    const [graphicPromptInstructions, setGraphicPromptInstructions] = useState('');
     const [visualStyle, setVisualStyle] = useState('Modern');
     const [selectedRefImages, setSelectedRefImages] = useState<number[]>([]);
     const [graphicVariations, setGraphicVariations] = useState<string[]>([]);
@@ -232,11 +235,19 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             }
         }
 
+        // Handle image from ImageEditor "Save & Use"
+        if (initialImage) {
+            setPreviewImage(initialImage);
+            if (!initialDraft) {
+                setCurrentView('create-tweet');
+            }
+        }
+
         // Load content library items (always, regardless of deep links)
         migrateKickoffToContentItems(brandName);
         const savedItems = loadContentItems(brandName);
         if (savedItems.length > 0) setContentItems(savedItems);
-    }, [brandName, initialDraft, initialVisualPrompt]);
+    }, [brandName, initialDraft, initialVisualPrompt, initialImage]);
 
     useEffect(() => {
         const state = {
@@ -575,9 +586,12 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
             const realImageIds = getSelectedReferenceImageIds(selectedRefImages);
 
             const count = 3;
+            const fullPrompt = graphicPromptInstructions.trim()
+                ? `${graphicTweetContent}\n\nAdditional instructions: ${graphicPromptInstructions.trim()}`
+                : graphicTweetContent;
             const promises = Array(count).fill(0).map(() =>
                 generateWeb3Graphic({
-                    prompt: graphicTweetContent,
+                    prompt: fullPrompt,
                     artPrompt: visualStyle,
                     negativePrompt: 'text, words, letters, watermark, blurry',
                     size: '1K',
@@ -1353,7 +1367,22 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             />
                         </div>
 
-                        {/* Section 2: Visual Style */}
+                        {/* Section 2: Prompt Instructions */}
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-sharp text-[#64748B] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>tune</span>
+                                <label className="text-sm font-semibold text-white">Prompt Instructions</label>
+                                <span className="text-xs text-[#4A4A4E]">Optional</span>
+                            </div>
+                            <textarea
+                                value={graphicPromptInstructions}
+                                onChange={e => setGraphicPromptInstructions(e.target.value)}
+                                placeholder="e.g. Use dark blue tones, include the logo in top-right, make it look futuristic..."
+                                className="w-full h-[80px] bg-[#0A0A0B] border border-[#2E2E2E] rounded-[10px] p-3.5 text-sm text-white placeholder-[#64748B] focus:border-[#FF5C00] focus:outline-none resize-none transition-colors"
+                            />
+                        </div>
+
+                        {/* Section 3: Visual Style */}
                         <div className="space-y-3">
                             <div className="flex items-center gap-2">
                                 <span className="material-symbols-sharp text-[#64748B] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>palette</span>
@@ -2313,8 +2342,19 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                             <div
                                 key={item.id}
                                 onClick={() => handleContentCardClick(item)}
-                                className="flex-shrink-0 w-[320px] max-h-[400px] overflow-y-auto bg-[#111113] border border-[#1F1F23] rounded-xl p-4 cursor-pointer hover:border-blue-500/30 transition-colors group"
+                                className="flex-shrink-0 w-[320px] max-h-[400px] overflow-y-auto bg-[#111113] border border-[#1F1F23] rounded-xl p-4 cursor-pointer hover:border-blue-500/30 transition-colors group relative"
                             >
+                                {/* Delete button */}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setContentItems(prev => prev.filter(i => i.id !== item.id));
+                                    }}
+                                    className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-[#1F1F23] flex items-center justify-center text-[#6B6B70] hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors opacity-0 group-hover:opacity-100"
+                                    title="Delete"
+                                >
+                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>close</span>
+                                </button>
                                 <p className="text-[15px] text-[#ADADB0] leading-relaxed whitespace-pre-wrap mb-3">{item.description || item.title}</p>
                                 {item.image && (
                                     <div className="rounded-xl overflow-hidden mb-3">
@@ -2323,12 +2363,20 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                 )}
                                 <div className="flex items-center justify-between">
                                     <span className="text-[11px] text-[#4A4A4E]">{item.date}</span>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); setTweetTopic(item.description || item.title); setCurrentView('create-tweet'); }}
-                                        className="px-2 py-0.5 rounded text-[10px] font-medium text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors opacity-0 group-hover:opacity-100"
-                                    >
-                                        Generate
-                                    </button>
+                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleContentCardClick(item); }}
+                                            className="px-2 py-0.5 rounded text-[10px] font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setTweetTopic(item.description || item.title); setCurrentView('create-tweet'); }}
+                                            className="px-2 py-0.5 rounded text-[10px] font-medium text-[#FF5C00] bg-[#FF5C00]/10 hover:bg-[#FF5C00]/20 transition-colors"
+                                        >
+                                            Generate
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -2535,7 +2583,17 @@ export const ContentStudio: React.FC<ContentStudioProps> = ({
                                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1F1F23] text-[#8B8B8F] text-xs font-medium hover:text-white transition-colors"
                                                 >
                                                     <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>schedule_send</span>
-                                                    Schedule to X
+                                                    Schedule
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setContentItems(prev => prev.filter(i => i.id !== item.id));
+                                                    }}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1F1F23] text-[#EF4444] text-xs font-medium hover:bg-[#EF4444]/10 transition-colors"
+                                                >
+                                                    <span className="material-symbols-sharp text-sm" style={{ fontVariationSettings: "'wght' 300" }}>delete</span>
+                                                    Delete
                                                 </button>
                                             </div>
                                         </div>

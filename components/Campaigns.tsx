@@ -91,13 +91,20 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
     const [campaignMenuOpen, setCampaignMenuOpen] = useState<string | null>(null);
     const [activeUploadId, setActiveUploadId] = useState<string | null>(null);
+    const [confirmDeleteCampaign, setConfirmDeleteCampaign] = useState<string | null>(null);
 
     // Close campaign action menu on outside click
+    const campaignMenuRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         if (!campaignMenuOpen) return;
-        const handler = () => setCampaignMenuOpen(null);
-        document.addEventListener('click', handler);
-        return () => document.removeEventListener('click', handler);
+        const handler = (e: MouseEvent) => {
+            // Don't close if clicking inside the menu itself
+            if (campaignMenuRef.current && campaignMenuRef.current.contains(e.target as Node)) return;
+            setCampaignMenuOpen(null);
+        };
+        // Use setTimeout so the handler isn't registered during the same click that opened the menu
+        const timer = setTimeout(() => document.addEventListener('click', handler), 0);
+        return () => { clearTimeout(timer); document.removeEventListener('click', handler); };
     }, [campaignMenuOpen]);
     const [viewingImage, setViewingImage] = useState<string | null>(null);
     const campaignFileInputRef = useRef<HTMLInputElement>(null);
@@ -527,13 +534,23 @@ export const Campaigns: React.FC<CampaignsProps> = ({
     };
 
     const handleDeleteCampaign = (campName: string) => {
+        // Close menu first, then show confirmation
+        setCampaignMenuOpen(null);
+        setConfirmDeleteCampaign(campName);
+    };
+
+    const confirmDelete = () => {
+        if (!confirmDeleteCampaign) return;
+        const campName = confirmDeleteCampaign;
         // Remove from campaign logs
         const logs = loadCampaignLogs(brandName);
         saveCampaignLogs(brandName, logs.filter(l => l.name !== campName));
         // Remove all calendar events belonging to this campaign
         const filtered = events.filter(e => e.campaignName !== campName);
         onUpdateEvents(filtered);
-        setCampaignMenuOpen(null);
+        saveCalendarEvents(brandName, filtered);
+        setConfirmDeleteCampaign(null);
+        setViewingCampaignDetails(null);
         showToast(`Campaign "${campName}" deleted`, 'success');
     };
 
@@ -1010,23 +1027,23 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                             ? <p className="text-xs text-[#3B82F6] mt-2">Running now</p>
                             : <p className="text-xs text-[#6B6B70] mt-2">None active</p>}
                     </div>
-                    {/* Total Reach */}
+                    {/* Completed Campaigns */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-xl p-5">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm text-[#6B6B70]">Total Reach</span>
-                            <span className="material-symbols-sharp text-[#6B6B70] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>visibility</span>
+                            <span className="text-sm text-[#6B6B70]">Completed</span>
+                            <span className="material-symbols-sharp text-[#6B6B70] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>check_circle</span>
                         </div>
-                        <p className="text-[32px] font-semibold text-[#2E2E2E] font-mono">—</p>
-                        <p className="text-xs text-[#6B6B70] mt-2">No data yet</p>
+                        <p className="text-[32px] font-semibold text-white font-mono">{activeCampaigns.filter(c => c.status === 'Completed').length}</p>
+                        <p className="text-xs text-[#6B6B70] mt-2">{totalCampaigns > 0 ? `${Math.round((activeCampaigns.filter(c => c.status === 'Completed').length / totalCampaigns) * 100)}% completion rate` : 'None yet'}</p>
                     </div>
-                    {/* Average ROI */}
+                    {/* Total Posts */}
                     <div className="bg-[#111113] border border-[#1F1F23] rounded-xl p-5">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm text-[#6B6B70]">Average ROI</span>
-                            <span className="material-symbols-sharp text-[#6B6B70] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>trending_up</span>
+                            <span className="text-sm text-[#6B6B70]">Total Posts</span>
+                            <span className="material-symbols-sharp text-[#6B6B70] text-lg" style={{ fontVariationSettings: "'wght' 300" }}>edit_note</span>
                         </div>
-                        <p className="text-[32px] font-semibold text-[#2E2E2E] font-mono">—</p>
-                        <p className="text-xs text-[#6B6B70] mt-2">No data yet</p>
+                        <p className="text-[32px] font-semibold text-white font-mono">{events.filter(e => e.campaignName).length}</p>
+                        <p className="text-xs text-[#6B6B70] mt-2">Across all campaigns</p>
                     </div>
                 </div>
 
@@ -1066,10 +1083,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                 <div className="w-[280px]">Campaign</div>
                                 <div className="w-[120px]">Type</div>
                                 <div className="w-[100px]">Status</div>
-                                {/* Budget column removed */}
-                                <div className="w-[100px]">Reach</div>
-                                <div className="w-[110px]">Conversion</div>
-                                <div className="w-[80px]">ROI</div>
+                                <div className="w-[100px]">Posts</div>
                                 <div className="flex-1"></div>
                             </div>
 
@@ -1099,18 +1113,9 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                         <div className="w-[100px]">
                                             {getStatusBadge(camp.status)}
                                         </div>
-                                        {/* Budget removed */}
-                                        {/* Reach */}
+                                        {/* Posts Count */}
                                         <div className="w-[100px]">
-                                            <span className="text-[13px] text-[#6B6B70] font-mono">{camp.reach || '—'}</span>
-                                        </div>
-                                        {/* Conversion */}
-                                        <div className="w-[110px]">
-                                            <span className="text-[13px] text-[#6B6B70] font-mono">{camp.conversion || '—'}</span>
-                                        </div>
-                                        {/* ROI */}
-                                        <div className="w-[80px]">
-                                            <span className="text-[13px] font-medium text-[#6B6B70] font-mono">{camp.roi || '—'}</span>
+                                            <span className="text-[13px] text-[#6B6B70] font-mono">{camp.count || 0}</span>
                                         </div>
                                         {/* Actions */}
                                         <div className="flex-1 flex justify-end relative">
@@ -1122,6 +1127,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                             </button>
                                             {campaignMenuOpen === camp.name && (
                                                 <div
+                                                    ref={campaignMenuRef}
                                                     className="absolute right-0 top-9 z-50 w-40 bg-[#1A1A1D] border border-[#2E2E2E] rounded-xl shadow-xl overflow-hidden"
                                                     onClick={e => e.stopPropagation()}
                                                 >
@@ -1152,7 +1158,7 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     </div>
                                     <h3 className="text-base font-semibold text-white mb-1">No Campaigns Yet</h3>
                                     <p className="text-sm text-[#6B6B70] max-w-sm mb-5">
-                                        Create your first campaign to start tracking performance and ROI.
+                                        Create your first campaign to organize and schedule your marketing content.
                                     </p>
                                     <button
                                         onClick={() => { if (tryStartCampaign()) { setViewMode('wizard'); setCampaignStep(1); } }}
@@ -2426,18 +2432,58 @@ export const Campaigns: React.FC<CampaignsProps> = ({
                                     <div className="text-center py-12 text-[#6B6B70]">No posts found for this campaign.</div>
                                 )}
                             </div>
-                            <div className="p-5 border-t border-[#1F1F23] flex gap-3">
+                            <div className="p-5 border-t border-[#1F1F23] flex items-center justify-between">
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => handleExportCSV(viewingCampaignDetails!)}
+                                        className="px-4 py-2.5 rounded-lg bg-[#1F1F23] text-white text-sm font-medium hover:bg-[#2A2A2D] transition-colors"
+                                    >
+                                        Export CSV
+                                    </button>
+                                    <button
+                                        onClick={() => handleExportPDF(viewingCampaignDetails!)}
+                                        className="px-4 py-2.5 rounded-lg bg-[#1F1F23] text-white text-sm font-medium hover:bg-[#2A2A2D] transition-colors"
+                                    >
+                                        Export PDF
+                                    </button>
+                                </div>
                                 <button
-                                    onClick={() => handleExportCSV(viewingCampaignDetails)}
+                                    onClick={() => handleDeleteCampaign(viewingCampaignDetails!)}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[#EF4444] text-sm font-medium hover:bg-[#EF4444]/10 transition-colors"
+                                >
+                                    <span className="material-symbols-sharp text-base" style={{ fontVariationSettings: "'wght' 300" }}>delete</span>
+                                    Delete Campaign
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {confirmDeleteCampaign && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                        <div className="bg-[#111113] border border-[#1F1F23] rounded-xl w-full max-w-sm p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-lg bg-[#EF4444]/10 flex items-center justify-center">
+                                    <span className="material-symbols-sharp text-[#EF4444] text-xl" style={{ fontVariationSettings: "'wght' 300" }}>delete</span>
+                                </div>
+                                <h3 className="text-base font-semibold text-white">Delete Campaign</h3>
+                            </div>
+                            <p className="text-sm text-[#9CA3AF] mb-6">
+                                Are you sure you want to delete <span className="text-white font-medium">"{confirmDeleteCampaign}"</span>? This will remove the campaign and all its scheduled posts. This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setConfirmDeleteCampaign(null)}
                                     className="px-4 py-2.5 rounded-lg bg-[#1F1F23] text-white text-sm font-medium hover:bg-[#2A2A2D] transition-colors"
                                 >
-                                    Export CSV
+                                    Cancel
                                 </button>
                                 <button
-                                    onClick={() => handleExportPDF(viewingCampaignDetails)}
-                                    className="px-4 py-2.5 rounded-lg bg-[#1F1F23] text-white text-sm font-medium hover:bg-[#2A2A2D] transition-colors"
+                                    onClick={confirmDelete}
+                                    className="px-4 py-2.5 rounded-lg bg-[#EF4444] text-white text-sm font-medium hover:bg-[#DC2626] transition-colors"
                                 >
-                                    Export PDF
+                                    Delete
                                 </button>
                             </div>
                         </div>

@@ -13,6 +13,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
   const [heroWordIndex, setHeroWordIndex] = useState(0);
   const [showDemo, setShowDemo] = useState(true);
   const demoRef = useRef<HTMLVideoElement>(null);
+  const [wlName, setWlName] = useState('');
+  const [wlEmail, setWlEmail] = useState('');
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState(false);
+  const [waitlistPos, setWaitlistPos] = useState(0);
+  const [waitlistError, setWaitlistError] = useState('');
   const [statsAnimated, setStatsAnimated] = useState(false);
   const [statValues, setStatValues] = useState({ projects: 0, tweets: 0, engagement: 0 });
   const heroWords = ['Never Sleeps', 'Thinks Ahead', 'Drives Growth', 'Creates Content'];
@@ -631,7 +637,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
             onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
-            <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Get Started</span>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Join Waitlist</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </div>
@@ -692,7 +698,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
             onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
             <div className="lp-btn-shimmer" style={{ position: 'absolute', inset: 0 }} />
-            <span style={{ fontSize: '16px', fontWeight: 600, color: '#FFFFFF', position: 'relative' }}>Start Free Trial</span>
+            <span style={{ fontSize: '16px', fontWeight: 600, color: '#FFFFFF', position: 'relative' }}>Join the Waitlist</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'relative' }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
           <button
@@ -738,6 +744,170 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
             preload="metadata"
             style={{ width: '100%', display: 'block', borderRadius: '20px' }}
           />
+        </div>
+
+        {/* Inline Waitlist Form */}
+        <div
+          className="lp-slide-up-d3"
+          style={{
+            maxWidth: '560px',
+            width: '100%',
+            padding: '36px 40px',
+            borderRadius: '20px',
+            background: 'linear-gradient(135deg, rgba(255,92,0,0.06) 0%, rgba(255,138,76,0.03) 100%)',
+            border: '1px solid rgba(255,92,0,0.15)',
+            backdropFilter: 'blur(20px)',
+            marginTop: '16px',
+          }}
+        >
+          {!waitlistDone ? (
+            <>
+              <div className="flex flex-col items-center" style={{ gap: '8px', marginBottom: '24px' }}>
+                <div style={{ padding: '5px 14px', borderRadius: '100px', backgroundColor: 'rgba(255,92,0,0.1)', border: '1px solid rgba(255,92,0,0.2)', marginBottom: '4px' }}>
+                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', fontWeight: 500, color: '#FF8A4C', letterSpacing: '1px' }}>EARLY ACCESS</span>
+                </div>
+                <h3 style={{ fontSize: '22px', fontWeight: 600, color: '#FFFFFF', textAlign: 'center', margin: 0 }}>
+                  Join the Waitlist
+                </h3>
+                <p style={{ fontSize: '14px', color: '#6B6B70', textAlign: 'center', margin: 0 }}>
+                  Be first in line when we launch. No spam, ever.
+                </p>
+              </div>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (waitlistLoading) return;
+                  setWaitlistLoading(true);
+                  setWaitlistError('');
+                  try {
+                    const res = await fetch('/api/waitlist', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: wlEmail, name: wlName }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) {
+                      setWaitlistError(data.error || 'Something went wrong.');
+                    } else {
+                      setWaitlistPos(data.position || 0);
+                      setWaitlistDone(true);
+                    }
+                  } catch {
+                    setWaitlistError('Network error. Please try again.');
+                  } finally {
+                    setWaitlistLoading(false);
+                  }
+                }}
+                className="flex flex-col"
+                style={{ gap: '10px' }}
+              >
+                <input
+                  type="text"
+                  value={wlName}
+                  onChange={(e) => setWlName(e.target.value)}
+                  placeholder="Your name"
+                  required
+                  style={{
+                    width: '100%',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    padding: '0 16px',
+                    color: '#FFFFFF',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5C00'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(255,92,0,0.1)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.boxShadow = 'none'; }}
+                />
+                <input
+                  type="email"
+                  value={wlEmail}
+                  onChange={(e) => setWlEmail(e.target.value)}
+                  placeholder="you@project.com"
+                  required
+                  style={{
+                    width: '100%',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    padding: '0 16px',
+                    color: '#FFFFFF',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5C00'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(255,92,0,0.1)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.boxShadow = 'none'; }}
+                />
+                {waitlistError && (
+                  <p style={{ color: '#EF4444', fontSize: '13px', margin: 0, textAlign: 'center' }}>{waitlistError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={waitlistLoading}
+                  className="lp-btn-glow"
+                  style={{
+                    width: '100%',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #FF5C00 0%, #FF8A4C 100%)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    transition: 'transform 0.2s, opacity 0.2s',
+                    opacity: waitlistLoading ? 0.6 : 1,
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <div className="lp-btn-shimmer" style={{ position: 'absolute', inset: 0 }} />
+                  <span style={{ position: 'relative' }}>{waitlistLoading ? 'Joining...' : 'Join the Waitlist'}</span>
+                  {!waitlistLoading && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'relative' }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>}
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="flex flex-col items-center" style={{ gap: '16px' }}>
+              <div
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, rgba(255,92,0,0.15), rgba(255,138,76,0.1))',
+                  border: '2px solid rgba(255,92,0,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
+                  <path d="M10 18L16 24L26 12" stroke="#FF5C00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>You're on the list!</h3>
+              {waitlistPos > 0 && (
+                <div style={{ padding: '6px 16px', borderRadius: '100px', background: 'rgba(255,92,0,0.1)', border: '1px solid rgba(255,92,0,0.2)' }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '14px', color: '#FF8A4C', fontWeight: 600 }}>#{waitlistPos}</span>
+                  <span style={{ fontSize: '13px', color: '#8E8E93', marginLeft: '6px' }}>in line</span>
+                </div>
+              )}
+              <p style={{ fontSize: '14px', color: '#6B6B70', textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
+                We'll email you when your spot opens up.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Trust Logos */}
@@ -1185,39 +1355,123 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           <p style={{ fontSize: '18px', color: '#6B6B70', textAlign: 'center', lineHeight: 1.7, maxWidth: '560px', margin: 0 }}>
             Join the Web3 teams already using Defia to automate their marketing and grow their communities.
           </p>
-          <div className="lp-cta-buttons flex items-center" style={{ gap: '16px', marginTop: '12px' }}>
-            <button
-              onClick={handleGetStarted}
-              className="flex items-center lp-btn-glow"
-              style={{
-                gap: '10px',
-                padding: '20px 40px',
-                borderRadius: '14px',
-                background: 'linear-gradient(135deg, #FF5C00 0%, #FF8A4C 100%)',
-                border: 'none',
-                cursor: 'pointer',
-                position: 'relative',
-                overflow: 'hidden',
-                transition: 'transform 0.2s',
+          {!waitlistDone ? (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (waitlistLoading) return;
+                setWaitlistLoading(true);
+                setWaitlistError('');
+                try {
+                  const res = await fetch('/api/waitlist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: wlEmail, name: wlName }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) {
+                    setWaitlistError(data.error || 'Something went wrong.');
+                  } else {
+                    setWaitlistPos(data.position || 0);
+                    setWaitlistDone(true);
+                  }
+                } catch {
+                  setWaitlistError('Network error. Please try again.');
+                } finally {
+                  setWaitlistLoading(false);
+                }
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-            >
-              <div className="lp-btn-shimmer" style={{ position: 'absolute', inset: 0 }} />
-              <span style={{ fontSize: '17px', fontWeight: 600, color: '#FFFFFF', position: 'relative' }}>Start Free Trial</span>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'relative' }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </button>
-            <button
               className="flex items-center"
-              style={{ padding: '20px 40px', borderRadius: '14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'all 0.3s ease' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#FF5C00'; e.currentTarget.style.backgroundColor = 'rgba(255,92,0,0.05)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
+              style={{ gap: '10px', marginTop: '12px', maxWidth: '520px', width: '100%', flexWrap: 'wrap', justifyContent: 'center' }}
             >
-              <span style={{ fontSize: '17px', fontWeight: 500, color: '#FFFFFF' }}>Schedule Demo</span>
-            </button>
-          </div>
+              <input
+                type="text"
+                value={wlName}
+                onChange={(e) => setWlName(e.target.value)}
+                placeholder="Your name"
+                required
+                style={{
+                  flex: '1 1 140px',
+                  height: '52px',
+                  borderRadius: '14px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  padding: '0 16px',
+                  color: '#FFFFFF',
+                  fontSize: '15px',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5C00'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+              />
+              <input
+                type="email"
+                value={wlEmail}
+                onChange={(e) => setWlEmail(e.target.value)}
+                placeholder="you@project.com"
+                required
+                style={{
+                  flex: '1 1 180px',
+                  height: '52px',
+                  borderRadius: '14px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  padding: '0 16px',
+                  color: '#FFFFFF',
+                  fontSize: '15px',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5C00'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+              />
+              <button
+                type="submit"
+                disabled={waitlistLoading}
+                className="lp-btn-glow"
+                style={{
+                  height: '52px',
+                  padding: '0 32px',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, #FF5C00 0%, #FF8A4C 100%)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  color: '#FFFFFF',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  transition: 'transform 0.2s',
+                  opacity: waitlistLoading ? 0.6 : 1,
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >
+                <div className="lp-btn-shimmer" style={{ position: 'absolute', inset: 0 }} />
+                <span style={{ position: 'relative' }}>{waitlistLoading ? 'Joining...' : 'Join Waitlist'}</span>
+              </button>
+              {waitlistError && (
+                <p style={{ width: '100%', color: '#EF4444', fontSize: '13px', margin: 0, textAlign: 'center' }}>{waitlistError}</p>
+              )}
+            </form>
+          ) : (
+            <div className="flex flex-col items-center" style={{ gap: '12px', marginTop: '12px' }}>
+              <div className="flex items-center" style={{ gap: '10px' }}>
+                <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
+                  <path d="M10 18L16 24L26 12" stroke="#FF5C00" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span style={{ fontSize: '18px', fontWeight: 600, color: '#FFFFFF' }}>You're on the list!</span>
+                {waitlistPos > 0 && (
+                  <span style={{ fontFamily: 'monospace', fontSize: '14px', color: '#FF8A4C', fontWeight: 600, marginLeft: '4px' }}>#{waitlistPos}</span>
+                )}
+              </div>
+              <p style={{ fontSize: '14px', color: '#6B6B70', margin: 0 }}>We'll email you when your spot opens up.</p>
+            </div>
+          )}
           <p style={{ fontSize: '13px', color: '#4A4A4E', margin: '4px 0 0' }}>
-            No credit card required · Free 24-hour trial · Cancel anytime
+            No spam, ever · We'll notify you when it's your turn
           </p>
         </div>
       </section>

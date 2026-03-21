@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief, StrategicPosture, Mention, AgentInsight } from "../types";
+import { GenerateImageParams, BrandConfig, ComputedMetrics, GrowthReport, CampaignLog, SocialMetrics, TrendItem, CalendarEvent, StrategyTask, ReferenceImage, CampaignStrategy, SocialSignals, BrainLog, TaskContextSource, BrainContext, ActionPlan, MarketingAction, AnalysisReport, ChatIntentResponse, CopilotIntentType, DashboardCampaign, KPIItem, CommunitySignal, DailyBrief, StrategicPosture, Mention, AgentInsight, SocialPost } from "../types";
 import { saveBrainLog } from "./storage";
 import { supabase, searchBrainMemory } from "./supabase"; // Add Supabase
 import { getAuthToken } from "./auth";
@@ -2855,7 +2855,7 @@ export const formulateStrategy = async (context: BrainContext, analysis: Analysi
     MANDATORY RULES:
     1. EXACTLY 5 actions. No more, no fewer.
     2. REACTIVE FIRST: At least 3 of 5 actions MUST be triggered by a SPECIFIC live signal — a trending headline, a competitor tweet, a mention, or a market event. The remaining 2 can be proactive brand content.
-    3. DIVERSITY: Include at least 1 QRT (quoting a viral tweet from the VIRAL CRYPTO TWITTER feed, mentions, or competitor tweets), 1 TREND_JACK (hijacking a trending news headline), and 1 TWEET or THREAD. Prefer QRTs on tweets with 100+ likes for maximum visibility.
+    3. DIVERSITY: Include at least 1 QRT (quoting a viral tweet from the VIRAL CRYPTO TWITTER feed, mentions, or competitor tweets), 1 TREND_JACK (hijacking a trending news headline), 1 CAMPAIGN (a multi-day content campaign idea tied to a trend or brand initiative), and 1 TWEET or THREAD. Prefer QRTs on tweets with 100+ likes for maximum visibility.
     4. VIRALITY > BRAND: Write copy that people want to RT, not corporate announcements. Hot takes > press releases. Contrarian angles > "we're excited to announce". Think CT (crypto Twitter) native, not LinkedIn.
     5. SPECIFICITY: Every action references a NAMED signal — exact headline, @handle, metric. Never "market trends" or "community sentiment".
     6. COPY QUALITY (CRITICAL): The "instructions" field = the actual tweet/thread, ready to post. No descriptions of what to write. Under 280 chars for tweets. Threads = hook + numbered tweets written out. No hashtags.
@@ -2922,9 +2922,9 @@ const buildPerformanceAnalysis = (recentPosts: SocialPost[]): string => {
     const top3 = sorted.slice(0, 3);
     const bottom3 = sorted.length > 3 ? sorted.slice(-3) : [];
     const avgEngagement = recentPosts.reduce((s, p) => s + (p.engagementRate || 0), 0) / recentPosts.length;
-    const topBlock = top3.map((p, i) => `${i + 1}. "${(p.text || '').slice(0, 100)}${(p.text || '').length > 100 ? '...' : ''}" — ${(p.engagementRate || 0).toFixed(2)}% engagement, ${p.likes || 0} likes, ${p.retweets || 0} RTs`).join('\n');
-    const bottomBlock = bottom3.length > 0 ? bottom3.map((p, i) => `${i + 1}. "${(p.text || '').slice(0, 100)}${(p.text || '').length > 100 ? '...' : ''}" — ${(p.engagementRate || 0).toFixed(2)}% engagement, ${p.likes || 0} likes`).join('\n') : 'N/A';
-    const avgLen = recentPosts.reduce((s, p) => s + (p.text?.length || 0), 0) / recentPosts.length;
+    const topBlock = top3.map((p, i) => `${i + 1}. "${(p.content || '').slice(0, 100)}${(p.content || '').length > 100 ? '...' : ''}" — ${(p.engagementRate || 0).toFixed(2)}% engagement, ${p.likes || 0} likes, ${p.retweets || 0} RTs`).join('\n');
+    const bottomBlock = bottom3.length > 0 ? bottom3.map((p, i) => `${i + 1}. "${(p.content || '').slice(0, 100)}${(p.content || '').length > 100 ? '...' : ''}" — ${(p.engagementRate || 0).toFixed(2)}% engagement, ${p.likes || 0} likes`).join('\n') : 'N/A';
+    const avgLen = recentPosts.reduce((s, p) => s + (p.content?.length || 0), 0) / recentPosts.length;
     const formatSignal = avgLen > 200 ? 'Long-form content dominates this brand' : 'Short punchy posts perform best';
     return `PAST CONTENT PERFORMANCE (${recentPosts.length} recent posts):\nAverage Engagement: ${avgEngagement.toFixed(2)}%\n\nTOP PERFORMERS:\n${topBlock}\n\nUNDERPERFORMERS:\n${bottomBlock}\n\nPattern: ${formatSignal}`;
 };
@@ -3358,17 +3358,24 @@ export const generateDailyBrief = async (
 
     const systemInstruction = `
     You are Defia's AI Marketing Analyst for the brand "${brandName}".
-    Generate a detailed, premium-quality daily marketing brief based on the data provided.
-    This brief is the centerpiece of the user's dashboard — make it feel like a professional morning intelligence report.
+    Generate a detailed, premium-quality daily marketing brief based on ALL data provided.
+    This brief is the centerpiece of the user's dashboard — it should feel like a senior CMO's morning intelligence report with real data points.
 
-    Input Data:
-    KPIs:\n${kpiSummary || 'No KPI data available yet.'}${chainSummary}
+    ═══ INPUT DATA ═══
 
-    Campaigns:\n${campaignSummary || 'No active campaigns yet.'}
+    KPIs:
+    ${kpiSummary || 'No KPI data available yet.'}
+    ${chainSummary}
 
-    Community Signals:\n${signalSummary || 'No community signals detected yet.'}
+    Campaigns:
+    ${campaignSummary || 'No active campaigns yet.'}
 
-    Output a JSON object with this exact structure:
+    Intelligence Signals:
+    ${signalSummary || 'No signals detected yet.'}
+
+    ═══ OUTPUT FORMAT ═══
+
+    Return a JSON object:
     {
         "keyDrivers": ["sentence 1", "sentence 2", "sentence 3"],
         "decisionsReinforced": ["sentence 1", "sentence 2"],
@@ -3381,25 +3388,45 @@ export const generateDailyBrief = async (
         ],
         "confidence": {
             "level": "High" | "Medium" | "Low",
-            "explanation": "A detailed 3-5 sentence daily summary (see rules below)."
+            "explanation": "A detailed 4-6 sentence daily summary (see rules below)."
         }
     }
 
-    Rules:
-    - The "explanation" field is the MOST important — it's the daily brief headline shown on the dashboard.
-    - Write the explanation as 3-5 flowing sentences, like a premium morning briefing from a Chief Marketing Officer. Be specific, data-driven, and actionable.
-    - Use **bold** markup (double asterisks) around key metrics, brand names, percentages, and important phrases (3-5 bold segments per brief).
-    - Example: "**Engagement surged 12%** this week, powered by strong performance on **Twitter threads** and community discussions. The **AI-driven content strategy** is clearly resonating with DeFi-native audiences, with **reply rates doubling** since last week. However, **Discord engagement dipped 8%** — consider launching a community AMA or giveaway to re-activate that channel. Overall, ${brandName} is building solid momentum heading into the weekend."
-    - keyDrivers: Write 2-3 detailed items. Each should be a full sentence explaining WHAT is happening and WHY it matters. If data is limited, provide strategic analysis of the brand's market positioning and what channels to prioritize.
-    - decisionsReinforced: Write 2 items about what strategies/approaches are proving effective or should continue.
-    - risksAndUnknowns: Write 2 items about concrete risks, blind spots, or areas needing attention.
-    - topActions: Write 2-3 specific, actionable next steps the marketing team should take TODAY (e.g., "Post a Twitter thread on the trending DeFi narrative", "Schedule community AMA for this week", "Analyze competitor campaigns for inspiration").
-    - metricsSnapshot: Extract 3-4 key metrics from the KPI data. Use the actual values. For trend, use "up", "down", or "flat". If no data, still provide placeholder metrics like {"label": "Content Published", "value": "0", "trend": "flat"}.
-    - Use precise, professional language. Be specific with numbers when available.
-    - If on-chain analytics data is provided, reference wallet growth, volume trends, retention rates, and campaign ROI in your analysis. Include on-chain metrics in the metricsSnapshot (e.g., "New Wallets", "On-Chain Volume", "Wallet Retention").
-    - If input data is sparse, still generate a thorough brief with strategic recommendations, market context, and actionable steps. The brief should NEVER feel empty.
-    - IMPORTANT: When data is limited or the brand is new, adopt an optimistic "getting started" tone. Frame it as an exciting launch phase, NOT as a problem. Never use phrases like "data scarcity", "static operational landscape", "insufficient data", or "lack of metrics". Instead, focus on opportunities, recommended first moves, and market context that's relevant to their brand.
-    - Never say "AI summary failure" or "Generation Error".
+    ═══ RULES ═══
+
+    EXPLANATION (most important field — shown as the brief headline):
+    - Write 4-6 flowing sentences, like a premium morning briefing.
+    - MUST reference specific numbers, metrics, and data points from the input. Never be generic.
+    - Use **bold** markup around key metrics, brand names, percentages (4-6 bold segments).
+    - If sentiment data exists, mention the score and trend. If mentions exist, reference them.
+    - If top-performing posts exist, call them out. If news/trends exist, connect them to the brand.
+    - If upcoming calendar posts exist, mention what's scheduled.
+    - Example: "**${brandName}'s engagement rate hit 3.2%** this week, up from 2.1% — driven by strong performance on the thread about DeFi scaling. **Sentiment sits at 72/100** with a positive trend. Your top post earned **847 likes and 123 retweets**. The AI agent flagged 3 trend-jacking opportunities around **'Bitcoin ETF inflows'** — consider acting on these today. You have **2 posts scheduled** this week; consider adding 1-2 more to maintain momentum."
+
+    KEY DRIVERS (2-3 items):
+    - Each must be a SPECIFIC, data-backed statement. Reference actual numbers from KPIs and signals.
+    - If social signals include sentiment, mention the score. If KOLs are engaging, name them.
+    - If news trends are relevant, explain the opportunity for the brand.
+
+    DECISIONS REINFORCED (2 items):
+    - What strategies are working based on the data? Reference actual metrics.
+
+    RISKS & UNKNOWNS (2 items):
+    - Concrete risks with data evidence. E.g., "Engagement dropped 15% since last week" or "No upcoming scheduled content for the next 3 days."
+
+    TOP ACTIONS (3 items):
+    - Ultra-specific. Not "post content" but "Post a thread about [specific trending topic from signals]" or "QRT @[specific KOL] who just mentioned [topic]."
+    - Reference actual signal data when available.
+
+    METRICS SNAPSHOT (4-5 metrics):
+    - Pull REAL values from KPI data. Include: Followers, Engagement Rate, Impressions, Posts, Sentiment (if available).
+    - Use actual numbers, not placeholders. If a value is 0, show 0.
+
+    TONE:
+    - Professional, confident, data-driven. Never vague or generic.
+    - When data is limited, focus on actionable first moves, not on explaining the lack of data.
+    - Never say "data scarcity", "insufficient data", "static landscape", or "AI summary failure".
+    - If the brand is new, be optimistic about the launch phase and give specific first-move recommendations.
     `;
 
     try {

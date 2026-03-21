@@ -62,7 +62,7 @@ export const ContentCalendar: React.FC<ContentCalendarProps> = ({ brandName, eve
 
     const handleMarkPublished = () => {
         if (!selectedEvent) return;
-        const updated = { ...selectedEvent, status: 'published', approvalStatus: 'published', publishedAt: new Date().toISOString() };
+        const updated = { ...selectedEvent, status: 'published' as const, approvalStatus: 'published' as const, publishedAt: new Date().toISOString() };
         setSelectedEvent(updated);
         onUpdateEvent(selectedEvent.id, { status: 'published', approvalStatus: 'published', publishedAt: updated.publishedAt });
     };

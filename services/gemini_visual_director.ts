@@ -1,3 +1,17 @@
+import { BrandConfig } from '../types';
+import { GoogleGenAI } from '@google/genai';
+
+const getApiKey = (): string => {
+    if (typeof window === 'undefined') {
+        try {
+            // @ts-ignore
+            if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
+            // @ts-ignore
+            if (process.env.VITE_GEMINI_API_KEY) return process.env.VITE_GEMINI_API_KEY;
+        } catch (e) { }
+    }
+    return '';
+};
 
 // --- 3. HELPER: VISUAL DIRECTOR (HIGH IQ) ---
 const assignVisualStrategy = async (drafts: any[], brandConfig: BrandConfig): Promise<any[]> => {

@@ -759,6 +759,61 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), agent: 'active' });
 });
 
+// ━━━ Waitlist ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+app.post('/api/waitlist', async (req, res) => {
+    try {
+        const { email, name, project_name, project_url } = req.body;
+        if (!email || !name) {
+            return res.status(400).json({ error: 'Name and email are required.' });
+        }
+
+        const supabase = getSupabaseAdminClient();
+        if (!supabase) {
+            return res.status(500).json({ error: 'Database not configured.' });
+        }
+
+        // Check for duplicate
+        const { data: existing } = await supabase
+            .from('waitlist')
+            .select('id, position')
+            .eq('email', email.toLowerCase().trim())
+            .maybeSingle();
+
+        if (existing) {
+            return res.json({ success: true, position: existing.position, message: 'You\'re already on the waitlist!' });
+        }
+
+        // Get current count for position
+        const { count } = await supabase
+            .from('waitlist')
+            .select('*', { count: 'exact', head: true });
+
+        const position = (count || 0) + 1;
+
+        const { error: insertError } = await supabase
+            .from('waitlist')
+            .insert({
+                email: email.toLowerCase().trim(),
+                name: name.trim(),
+                project_name: project_name?.trim() || null,
+                project_url: project_url?.trim() || null,
+                position,
+                status: 'pending',
+                created_at: new Date().toISOString(),
+            });
+
+        if (insertError) {
+            console.error('Waitlist insert error:', insertError);
+            return res.status(500).json({ error: 'Failed to join waitlist. Please try again.' });
+        }
+
+        res.json({ success: true, position });
+    } catch (err) {
+        console.error('Waitlist error:', err);
+        res.status(500).json({ error: 'Something went wrong. Please try again.' });
+    }
+});
+
 // --- Debug: Apify Status ---
 app.get('/api/debug/apify-status', async (req, res) => {
     const token = process.env.APIFY_API_TOKEN || process.env.VITE_APIFY_API_TOKEN || '';

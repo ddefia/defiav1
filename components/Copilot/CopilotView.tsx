@@ -568,7 +568,7 @@ export const CopilotView: React.FC<CopilotViewProps> = ({
                             )}
                         </div>
                         <button
-                            onClick={handleSend}
+                            onClick={() => handleSend()}
                             disabled={!input.trim() || isThinking}
                             className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
                                 input.trim() && !isThinking
