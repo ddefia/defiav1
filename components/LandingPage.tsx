@@ -905,7 +905,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
                 </div>
               )}
               <p style={{ fontSize: '14px', color: '#6B6B70', textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
-                We'll email you when your spot opens up. See what Defia can do:
+                We'll send you an email when ready — expect within the next 7 days. See what Defia can do:
               </p>
               {/* Auto-show video after signup */}
               <div style={{ width: '100%', marginTop: '8px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,92,0,0.2)' }}>
@@ -1478,7 +1478,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
                   <span style={{ fontFamily: 'monospace', fontSize: '14px', color: '#FF8A4C', fontWeight: 600, marginLeft: '4px' }}>#{waitlistPos}</span>
                 )}
               </div>
-              <p style={{ fontSize: '14px', color: '#6B6B70', margin: 0 }}>We'll email you when your spot opens up.</p>
+              <p style={{ fontSize: '14px', color: '#6B6B70', margin: 0 }}>We'll send you an email when ready — expect within the next 7 days.</p>
             </div>
           )}
           <p style={{ fontSize: '13px', color: '#4A4A4E', margin: '4px 0 0' }}>
