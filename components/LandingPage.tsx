@@ -644,7 +644,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
       </header>
 
       {/* Hero Section */}
-      <section className="lp-hero flex flex-col items-center relative z-10" style={{ padding: '120px 80px 80px', gap: '48px' }}>
+      <section className="lp-hero flex flex-col items-center relative z-10" style={{ padding: 'clamp(80px, 10vw, 120px) clamp(16px, 5vw, 80px) clamp(40px, 6vw, 80px)', gap: '48px' }}>
         {/* Badge */}
         <div className="flex items-center lp-slide-up" style={{ gap: '10px', padding: '8px 20px', borderRadius: '100px', backgroundColor: '#FF5C0010', border: '1px solid #FF5C0030', backdropFilter: 'blur(10px)' }}>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22C55E', boxShadow: '0 0 8px #22C55E', position: 'relative' }}>
@@ -655,7 +655,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
 
         {/* Hero Content */}
         <div className="flex flex-col items-center" style={{ gap: '28px', maxWidth: '900px' }}>
-          <h1 className="lp-slide-up-d1" style={{ fontFamily: 'Instrument Serif, serif', fontSize: '76px', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', letterSpacing: '-2.5px', lineHeight: 1.05, margin: 0 }}>
+          <h1 className="lp-slide-up-d1" style={{ fontFamily: 'Instrument Serif, serif', fontSize: 'clamp(36px, 8vw, 76px)', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', letterSpacing: '-2.5px', lineHeight: 1.05, margin: 0 }}>
             Your Web3 CMO That{' '}
             <span className="lp-word-carousel">
               <span
@@ -752,12 +752,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           style={{
             maxWidth: '560px',
             width: '100%',
-            padding: '36px 40px',
+            padding: 'clamp(20px, 4vw, 36px) clamp(16px, 4vw, 40px)',
             borderRadius: '20px',
             background: 'linear-gradient(135deg, rgba(255,92,0,0.06) 0%, rgba(255,138,76,0.03) 100%)',
             border: '1px solid rgba(255,92,0,0.15)',
             backdropFilter: 'blur(20px)',
             marginTop: '16px',
+            boxSizing: 'border-box' as const,
           }}
         >
           {!waitlistDone ? (
@@ -904,8 +905,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
                 </div>
               )}
               <p style={{ fontSize: '14px', color: '#6B6B70', textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
-                We'll email you when your spot opens up.
+                We'll email you when your spot opens up. See what Defia can do:
               </p>
+              {/* Auto-show video after signup */}
+              <div style={{ width: '100%', marginTop: '8px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,92,0,0.2)' }}>
+                <video
+                  autoPlay
+                  playsInline
+                  controls
+                  src="/demo.mp4"
+                  style={{ width: '100%', display: 'block' }}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -1344,7 +1355,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenDashboard }) => 
           <div style={{ padding: '8px 20px', borderRadius: '100px', backgroundColor: 'rgba(255, 92, 0, 0.08)', border: '1px solid rgba(255, 92, 0, 0.2)' }}>
             <span style={{ fontFamily: 'DM Mono', fontSize: '12px', fontWeight: 500, color: '#FF8A4C', letterSpacing: '1px' }}>Limited Early Access</span>
           </div>
-          <h2 style={{ fontFamily: 'Instrument Serif, serif', fontSize: '60px', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', margin: 0, letterSpacing: '-2px' }}>
+          <h2 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 'clamp(32px, 6vw, 60px)', fontWeight: 'normal', color: '#FFFFFF', textAlign: 'center', margin: 0, letterSpacing: '-2px' }}>
             Ready to 10x Your{' '}
             <span style={{
               background: 'linear-gradient(90deg, #FF5C00, #FF8A4C)',

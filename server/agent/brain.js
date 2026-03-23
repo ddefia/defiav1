@@ -56,8 +56,20 @@ export const analyzeState = async (duneMetrics, lunarTrends, mentions, pulseTren
             ? competitorTweets.slice(0, 10).map(t => `- @${t.competitor}${t.competitorName ? ` (${t.competitorName})` : ''}: "${t.text}" (${t.likes || 0} likes)`).join('\n')
             : '';
 
-        const trendingTweetsBlock = trendingTweets.length > 0
-            ? trendingTweets.slice(0, 15).map(t => `- @${t.author}: "${(t.text || '').slice(0, 600)}" [${t.likes || 0} likes, ${t.retweets || 0} RTs]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`).join('\n')
+        // Filter tweets to only include those from the last 3 days and show their age
+        const maxTweetAgeMs = 3 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        const freshTweets = trendingTweets.filter(t => {
+            if (!t.timestamp) return true; // include if no timestamp (assume fresh)
+            const age = now - new Date(t.timestamp).getTime();
+            return age < maxTweetAgeMs;
+        });
+        const trendingTweetsBlock = freshTweets.length > 0
+            ? freshTweets.slice(0, 15).map(t => {
+                const age = t.timestamp ? Math.round((now - new Date(t.timestamp).getTime()) / (60 * 60 * 1000)) : 0;
+                const ageStr = age < 24 ? `${age}h ago` : `${Math.round(age / 24)}d ago`;
+                return `- @${t.author}: "${(t.text || '').slice(0, 600)}" [${t.likes || 0} likes, ${t.retweets || 0} RTs, ${ageStr}]${t.tweetUrl ? ` (${t.tweetUrl})` : ''}`;
+            }).join('\n')
             : '';
 
         const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -110,10 +122,13 @@ Then produce EXACTLY 5 diverse, actionable marketing recommendations.
 
 Each action must be a DIFFERENT type from: TWEET, THREAD, CAMPAIGN, REPLY, TREND_JACK, GAP_FILL, QRT
 
+IMPORTANT: At least ONE recommendation should be type CAMPAIGN — a multi-day content initiative around a specific theme, narrative, or opportunity. Campaign recommendations should include a campaign brief (theme, goal, 3-5 post ideas) and an opening tweet draft.
+
 CRITICAL RULES:
 - TODAY IS ${today}. NEVER recommend posting about past events or milestones. Only forward-looking content.
 - TREND_JACK requires a REAL, SPECIFIC trend from the TRENDS list. Name the exact headline.
 - QRT requires a REAL tweet from VIRAL CRYPTO TWITTER, mentions, or competitor tweets. Include originalTweet with exact author and text. Prefer tweets with 100+ likes for maximum QRT visibility.
+- TWEET FRESHNESS IS CRITICAL: Only QRT/REPLY to tweets from the last 48 hours. Each tweet shows its age (e.g. "12h ago", "1d ago"). NEVER recommend QRTing a tweet that is older than 2 days — it looks out of touch. Prefer the freshest tweets with good engagement.
 - READ THE FULL TWEET before QRTing. Many tweets start with a smart take but end shilling a specific token or memecoin (e.g. "AI will change trading... $SPX6900 is the LEADER"). If the tweet promotes a token/memecoin unrelated to ${brandName}, DO NOT QRT it — it makes the brand look like it endorses that token. Only QRT tweets where the ENTIRE message aligns with ${brandName}'s narrative.
 - Every recommendation must be specific to ${brandName} — reference actual products, features, ecosystem.
 - No generic "web3 is growing" filler. Be specific or pick a different action type.

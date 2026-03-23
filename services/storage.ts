@@ -1553,11 +1553,11 @@ export const fetchCachedRecommendations = async (brandName: string): Promise<{ a
         const result = await fetchFromCloud(key);
         if (!result?.value) return null;
 
-        // Check freshness (< 25h — covers all subscription tiers: 24h/6h/1h)
+        // Check freshness (< 8h — recommendations should refresh frequently)
         // Prefer generatedAt from the value (set by server cron) over updated_at (DB field)
         const genTs = result.value?.generatedAt ? new Date(result.value.generatedAt).getTime() : new Date(result.updated_at).getTime();
         const age = Date.now() - genTs;
-        if (age > 25 * 60 * 60 * 1000) return null;
+        if (age > 8 * 60 * 60 * 1000) return null;
 
         return result.value;
     } catch (e) {

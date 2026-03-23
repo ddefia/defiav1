@@ -354,21 +354,37 @@ export const getCachedKOLTweets = async () => {
 const KOL_RUN_KEY = 'defia_kol_run_id';
 
 // Parse Apify dataset items into our tweet format
+// Filters out tweets older than 3 days to prevent stale recommendations
+const MAX_TWEET_AGE_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+
 const parseKOLItems = (items) => {
-    const result = items.map(item => {
-        const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
-        const author = urlMatch?.[1] || 'unknown';
-        return {
-            author,
-            text: item.text || '',
-            likes: item.likes || 0,
-            retweets: item.retweets || 0,
-            tweetUrl: item.url || null,
-            timestamp: item.timestamp || new Date().toISOString(),
-            images: item.images || [],
-        };
+    const now = Date.now();
+    const result = items
+        .map(item => {
+            const urlMatch = item.url?.match(/x\.com\/([^\/]+)\//);
+            const author = urlMatch?.[1] || 'unknown';
+            const timestamp = item.timestamp || item.createdAt || new Date().toISOString();
+            return {
+                author,
+                text: item.text || '',
+                likes: item.likes || 0,
+                retweets: item.retweets || 0,
+                tweetUrl: item.url || null,
+                timestamp,
+                images: item.images || [],
+            };
+        })
+        .filter(t => {
+            // Filter out tweets older than 3 days
+            const tweetAge = now - new Date(t.timestamp).getTime();
+            return tweetAge < MAX_TWEET_AGE_MS;
+        });
+    // Sort by recency first (newest first), then by engagement as tiebreaker
+    result.sort((a, b) => {
+        const ageDiff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        if (Math.abs(ageDiff) > 6 * 60 * 60 * 1000) return ageDiff; // If >6h apart, prefer newer
+        return (b.likes + b.retweets) - (a.likes + a.retweets); // Within same window, prefer engagement
     });
-    result.sort((a, b) => (b.likes + b.retweets) - (a.likes + a.retweets));
     return result;
 };
 

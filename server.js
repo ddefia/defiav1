@@ -384,6 +384,8 @@ const PUBLIC_API_PATHS = new Set([
     '/api/social-sync',
     '/api/trending-tweets/refresh',
     '/api/trending-tweets',
+    // Waitlist — public signup form on landing page
+    '/api/waitlist',
 ]);
 
 // Prefixes for dynamic routes that should be public
@@ -2050,6 +2052,35 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     if (kolData?.value?.data) trendingKOLTweets = kolData.value.data;
                 } catch { /* non-critical */ }
 
+                // Filter out tweets older than 3 days
+                const maxTweetAgeMs = 3 * 24 * 60 * 60 * 1000;
+                const now = Date.now();
+                trendingKOLTweets = trendingKOLTweets.filter(t => {
+                    if (!t.timestamp) return true;
+                    return (now - new Date(t.timestamp).getTime()) < maxTweetAgeMs;
+                });
+
+                // Per-tweet dedup: load previously recommended tweets and filter them out
+                const dedupKey = `defia_recommended_tweets_${brandId}`;
+                let previouslyRecommended = [];
+                try {
+                    const { data: dedupData } = await supabase
+                        .from('app_storage')
+                        .select('value')
+                        .eq('key', dedupKey)
+                        .maybeSingle();
+                    if (dedupData?.value?.tweets) previouslyRecommended = dedupData.value.tweets;
+                    // Clean out entries older than 7 days
+                    previouslyRecommended = previouslyRecommended.filter(t => (now - t.ts) < 7 * 24 * 60 * 60 * 1000);
+                } catch { /* non-critical */ }
+
+                // Remove tweets that were already recommended from the KOL list
+                const prevSet = new Set(previouslyRecommended.map(t => `${t.author}|${(t.text || '').slice(0, 60).toLowerCase()}`));
+                trendingKOLTweets = trendingKOLTweets.filter(t => {
+                    const key = `${(t.author || '').toLowerCase()}|${(t.text || '').slice(0, 60).toLowerCase()}`;
+                    return !prevSet.has(key);
+                });
+
                 // Run brain with full context including KOL tweets
                 const decisionResult = await analyzeState(
                     null, [], mentions, trends,
@@ -2073,6 +2104,21 @@ app.get('/api/agent/recommendations', async (req, res) => {
                     value: { actions, analysis: decisionResult.analysis || null, generatedAt: new Date().toISOString() },
                     updated_at: new Date().toISOString(),
                 });
+
+                // Save newly recommended tweets for dedup in next cycle
+                const newRecommendedTweets = actions
+                    .filter(a => a.originalTweet?.author)
+                    .map(a => ({ author: a.originalTweet.author.toLowerCase(), text: (a.originalTweet.text || '').slice(0, 60).toLowerCase(), ts: now }));
+                if (newRecommendedTweets.length > 0) {
+                    const allRecommended = [...previouslyRecommended, ...newRecommendedTweets].slice(-50); // Keep last 50
+                    try {
+                        await supabase.from('app_storage').upsert({
+                            key: dedupKey,
+                            value: { tweets: allRecommended },
+                            updated_at: new Date().toISOString(),
+                        });
+                    } catch { /* non-critical */ }
+                }
 
                 // Also save to agent_decisions so Telegram /recommendations picks them up
                 for (const action of actions) {
